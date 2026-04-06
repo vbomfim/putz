@@ -78,6 +78,16 @@ jobs:
           sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev
       - run: cd src-tauri && cargo test
 
+  audit-backend:
+    name: Security Audit (Rust)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Install cargo-audit
+        run: cargo install cargo-audit
+      - run: cd src-tauri && cargo audit
+
   build:
     name: Build (${{ matrix.platform }})
     needs: [test-frontend, test-backend]

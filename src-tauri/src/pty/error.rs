@@ -18,6 +18,14 @@ pub enum PtyError {
     AlreadyClosed(String),
     /// Invalid session ID format (must be UUID v4).
     InvalidSessionId(String),
+    /// Shell path is not in the allowlist.
+    InvalidShell(String),
+    /// Environment variable name is not allowed.
+    InvalidEnvironment(String),
+    /// Working directory is invalid or does not exist.
+    InvalidWorkingDirectory(String),
+    /// Maximum number of concurrent sessions reached.
+    SessionLimitReached,
 }
 
 impl fmt::Display for PtyError {
@@ -28,6 +36,16 @@ impl fmt::Display for PtyError {
             Self::NotFound(id) => write!(f, "Session not found: {id}"),
             Self::AlreadyClosed(id) => write!(f, "Session already closed: {id}"),
             Self::InvalidSessionId(id) => write!(f, "Invalid session ID: {id}"),
+            Self::InvalidShell(path) => write!(f, "Shell not allowed: {path}"),
+            Self::InvalidEnvironment(var) => {
+                write!(f, "Environment variable not allowed: {var}")
+            }
+            Self::InvalidWorkingDirectory(path) => {
+                write!(f, "Invalid working directory: {path}")
+            }
+            Self::SessionLimitReached => {
+                write!(f, "Maximum number of sessions reached (64)")
+            }
         }
     }
 }
@@ -66,6 +84,39 @@ mod tests {
     fn display_invalid_session_id() {
         let err = PtyError::InvalidSessionId("not-a-uuid".into());
         assert_eq!(err.to_string(), "Invalid session ID: not-a-uuid");
+    }
+
+    #[test]
+    fn display_invalid_shell() {
+        let err = PtyError::InvalidShell("/usr/bin/evil".into());
+        assert_eq!(err.to_string(), "Shell not allowed: /usr/bin/evil");
+    }
+
+    #[test]
+    fn display_invalid_environment() {
+        let err = PtyError::InvalidEnvironment("LD_PRELOAD".into());
+        assert_eq!(
+            err.to_string(),
+            "Environment variable not allowed: LD_PRELOAD"
+        );
+    }
+
+    #[test]
+    fn display_invalid_working_directory() {
+        let err = PtyError::InvalidWorkingDirectory("/nonexistent".into());
+        assert_eq!(
+            err.to_string(),
+            "Invalid working directory: /nonexistent"
+        );
+    }
+
+    #[test]
+    fn display_session_limit_reached() {
+        let err = PtyError::SessionLimitReached;
+        assert_eq!(
+            err.to_string(),
+            "Maximum number of sessions reached (64)"
+        );
     }
 
     #[test]

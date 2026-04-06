@@ -123,8 +123,8 @@ export function useTerminal({
     const dataDisposable = terminal.onData((data: string) => {
       if (disposed) return;
       const bytes = Array.from(new TextEncoder().encode(data));
-      invoke("pty_write", { sessionId, data: bytes }).catch((err: unknown) => {
-        console.error("pty_write failed:", err);
+      invoke("pty_write", { sessionId, data: bytes }).catch(() => {
+        // pty_write failure — input dropped silently
       });
     });
 
@@ -132,8 +132,8 @@ export function useTerminal({
     const binaryDisposable = terminal.onBinary((data: string) => {
       if (disposed) return;
       const bytes = Array.from(data, (char) => char.charCodeAt(0));
-      invoke("pty_write", { sessionId, data: bytes }).catch((err: unknown) => {
-        console.error("pty_write binary failed:", err);
+      invoke("pty_write", { sessionId, data: bytes }).catch(() => {
+        // pty_write binary failure — input dropped silently
       });
     });
 
@@ -141,11 +141,9 @@ export function useTerminal({
     const resizeDisposable = terminal.onResize(
       ({ cols, rows }: { cols: number; rows: number }) => {
         if (disposed) return;
-        invoke("pty_resize", { sessionId, cols, rows }).catch(
-          (err: unknown) => {
-            console.error("pty_resize failed:", err);
-          },
-        );
+        invoke("pty_resize", { sessionId, cols, rows }).catch(() => {
+            // pty_resize failure — terminal may be out of sync
+          });
       },
     );
 
@@ -156,12 +154,13 @@ export function useTerminal({
 
     // Set up Tauri event listeners (async)
     const setupEvents = async () => {
-      // PTY output → terminal write
-      const unlistenOutput = await listen<number[]>(
+      // PTY output → terminal write (base64-encoded from Rust backend)
+      const unlistenOutput = await listen<string>(
         `pty-output-${sessionId}`,
         (event) => {
           if (disposed) return;
-          const bytes = new Uint8Array(event.payload);
+          const binary = atob(event.payload);
+          const bytes = Uint8Array.from(binary, (ch) => ch.charCodeAt(0));
           terminal.write(bytes);
         },
       );
@@ -194,14 +193,21 @@ export function useTerminal({
       }
     });
 
-    // Window resize → re-fit terminal
+    // Window resize → re-fit terminal (debounced at 100ms)
+    let resizeDebounceTimer: ReturnType<typeof setTimeout> | null = null;
     const handleWindowResize = () => {
       if (disposed) return;
-      try {
-        fitAddon.fit();
-      } catch {
-        // Ignore fit errors during resize
+      if (resizeDebounceTimer !== null) {
+        clearTimeout(resizeDebounceTimer);
       }
+      resizeDebounceTimer = setTimeout(() => {
+        if (disposed) return;
+        try {
+          fitAddon.fit();
+        } catch {
+          // Ignore fit errors during resize
+        }
+      }, 100);
     };
     window.addEventListener("resize", handleWindowResize);
 
@@ -223,6 +229,9 @@ export function useTerminal({
     return () => {
       disposed = true;
       clearTimeout(initialSizeTimeout);
+      if (resizeDebounceTimer !== null) {
+        clearTimeout(resizeDebounceTimer);
+      }
       window.removeEventListener("resize", handleWindowResize);
 
       dataDisposable.dispose();
