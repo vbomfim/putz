@@ -1,27 +1,39 @@
 /**
  * Accessibility tests for the App component.
  *
- * Verifies semantic HTML structure, ARIA attributes, and keyboard
- * accessibility. The PO ticket (Issue #2) requires WCAG 2.2 Level AA
- * for all non-terminal UI elements.
+ * Verifies semantic HTML structure and ARIA attributes.
+ * Updated for Issue #3: App now renders a terminal instead of the greet form.
  *
  * Tags: [COVERAGE], [AC-2]
  */
-import { describe, it, expect, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { describe, it, expect, vi, beforeEach } from "vitest";
+import { render, screen, waitFor } from "@testing-library/react";
 import App from "../App";
 
-// Mock the Tauri invoke API
+// Mock Tauri APIs
+const mockInvoke = vi.fn().mockResolvedValue(undefined);
 vi.mock("@tauri-apps/api/core", () => ({
-  invoke: vi.fn(),
+  invoke: (...args: unknown[]) => mockInvoke(...args),
+}));
+
+const mockListen = vi.fn().mockResolvedValue(vi.fn());
+vi.mock("@tauri-apps/api/event", () => ({
+  listen: (...args: unknown[]) => mockListen(...args),
 }));
 
 describe("App — Accessibility", () => {
+  beforeEach(() => {
+    mockInvoke.mockReset().mockResolvedValue(undefined);
+    mockListen.mockReset().mockResolvedValue(vi.fn());
+  });
+
   /**
    * [COVERAGE] The main container uses semantic <main> element,
    * which is critical for screen readers to identify the primary content.
    */
   it("uses semantic <main> element as app container", () => {
+    mockInvoke.mockReturnValue(new Promise(() => {}));
+
     render(<App />);
 
     const main = screen.getByRole("main");
@@ -29,81 +41,56 @@ describe("App — Accessibility", () => {
   });
 
   /**
-   * [COVERAGE] Page has exactly one <h1> heading — required for
-   * proper document outline and screen reader navigation.
+   * [COVERAGE] Loading state is visible and descriptive for screen readers.
    */
-  it("has exactly one h1 heading", () => {
+  it("loading state has descriptive text", () => {
+    mockInvoke.mockReturnValue(new Promise(() => {}));
+
     render(<App />);
 
-    const headings = screen.getAllByRole("heading", { level: 1 });
-    expect(headings).toHaveLength(1);
-    expect(headings[0]).toHaveTextContent("Welcome to Putz");
+    const loading = screen.getByTestId("app-loading");
+    expect(loading).toHaveTextContent("Starting terminal");
   });
 
   /**
-   * [COVERAGE] The name input has an aria-label for screen readers,
-   * since it doesn't have a visible <label> element associated with it.
+   * [COVERAGE] Error state has a heading for screen reader navigation.
    */
-  it("name input has aria-label for screen readers", () => {
+  it("error state has heading and descriptive text", async () => {
+    mockInvoke.mockRejectedValueOnce(new Error("test error"));
+
     render(<App />);
 
-    const input = screen.getByLabelText("Name input");
-    expect(input).toBeInTheDocument();
+    await waitFor(() => {
+      const heading = screen.getByRole("heading", { level: 2 });
+      expect(heading).toHaveTextContent("Failed to Start Terminal");
+    });
   });
 
   /**
-   * [COVERAGE] The submit button has accessible text via its content.
+   * [COVERAGE] Retry button has type="button" (not submit) and accessible name.
    */
-  it("submit button has accessible name", () => {
+  it("retry button is accessible", async () => {
+    mockInvoke.mockRejectedValueOnce(new Error("test error"));
+
     render(<App />);
 
-    const button = screen.getByRole("button", { name: "Greet" });
-    expect(button).toBeInTheDocument();
+    await waitFor(() => {
+      const button = screen.getByRole("button", { name: "Retry" });
+      expect(button).toHaveAttribute("type", "button");
+    });
   });
 
   /**
-   * [COVERAGE] The greet form is a proper <form> element with
-   * submit behavior, not a div with onClick handlers.
+   * [COVERAGE] Terminal wrapper is rendered with test ID for automation.
    */
-  it("uses a proper form element for the greet input", () => {
+  it("terminal container is present after successful spawn", async () => {
+    mockInvoke.mockResolvedValueOnce("session-123");
+
     render(<App />);
 
-    const form = document.querySelector("form.greet-form");
-    expect(form).not.toBeNull();
-  });
-
-  /**
-   * [COVERAGE] The submit button has type="submit" so it works
-   * with native form submission and keyboard Enter.
-   */
-  it("submit button has type=submit for keyboard accessibility", () => {
-    render(<App />);
-
-    const button = screen.getByRole("button", { name: "Greet" });
-    expect(button).toHaveAttribute("type", "submit");
-  });
-
-  /**
-   * [COVERAGE] The input has a placeholder text to guide users.
-   */
-  it("input has descriptive placeholder text", () => {
-    render(<App />);
-
-    const input = screen.getByPlaceholderText("Enter a name...");
-    expect(input).toBeInTheDocument();
-  });
-
-  /**
-   * [COVERAGE] The greet message area has a test ID for automation
-   * AND is present in the DOM even when empty (not conditionally rendered),
-   * so screen readers can track the live region.
-   */
-  it("greet message area is always present in DOM", () => {
-    render(<App />);
-
-    const message = screen.getByTestId("greet-message");
-    expect(message).toBeInTheDocument();
-    // Should be a <p> element for semantic meaning
-    expect(message.tagName).toBe("P");
+    await waitFor(() => {
+      const wrapper = screen.getByTestId("terminal-wrapper");
+      expect(wrapper).toBeInTheDocument();
+    });
   });
 });
