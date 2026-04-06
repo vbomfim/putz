@@ -9,8 +9,12 @@ function App() {
 
   async function handleGreet(e: FormEvent) {
     e.preventDefault();
-    const message = await invoke<string>("greet", { name });
-    setGreetMsg(message);
+    try {
+      const message = await invoke<string>("greet", { name });
+      setGreetMsg(message);
+    } catch {
+      setGreetMsg("Failed to greet — please try again");
+    }
   }
 
   return (
@@ -19,7 +23,6 @@ function App() {
       <p className="subtitle">
         A cross-platform terminal emulator built with Tauri
       </p>
-      <span className="version-badge">v0.1.0</span>
 
       <form className="greet-form" onSubmit={handleGreet}>
         <input

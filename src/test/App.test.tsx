@@ -24,13 +24,6 @@ describe("App", () => {
     expect(subtitle).toBeInTheDocument();
   });
 
-  it("renders the version badge", () => {
-    render(<App />);
-
-    const badge = screen.getByText("v0.1.0");
-    expect(badge).toBeInTheDocument();
-  });
-
   it("renders the greet form with input and button", () => {
     render(<App />);
 

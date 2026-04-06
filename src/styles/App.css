@@ -20,16 +20,6 @@
   margin-bottom: 2rem;
 }
 
-.version-badge {
-  display: inline-block;
-  padding: 0.25rem 0.75rem;
-  border-radius: 1rem;
-  background-color: var(--accent);
-  color: var(--text-primary);
-  font-size: 0.85rem;
-  margin-bottom: 2rem;
-}
-
 .greet-form {
   display: flex;
   gap: 0.5rem;

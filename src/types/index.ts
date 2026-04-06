@@ -3,9 +3,3 @@
  *
  * Add shared types, interfaces, and enums here as the application grows.
  */
-
-/** Application metadata. */
-export interface AppInfo {
-  name: string;
-  version: string;
-}

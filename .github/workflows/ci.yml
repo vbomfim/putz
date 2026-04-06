@@ -20,7 +20,7 @@ jobs:
           node-version: 20
           cache: npm
       - run: npm ci
-      - run: npx eslint src/ --ext .ts,.tsx
+      - run: npx eslint src/
       - run: npx prettier --check "src/**/*.{ts,tsx,css,json}"
 
   lint-backend:
