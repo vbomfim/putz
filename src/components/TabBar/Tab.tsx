@@ -31,12 +31,8 @@ interface TabProps {
   onActivate: (id: string) => void;
   /** Called when the close button is clicked. */
   onClose: (id: string) => void;
-  /** Called when drag starts. */
-  onDragStart: (index: number) => void;
-  /** Called when another tab is dragged over this one. */
-  onDragOver: (index: number) => void;
-  /** Called when drag ends (to finalize reorder). */
-  onDragEnd: () => void;
+  /** Called on mouse down (for drag reordering). */
+  onMouseDown: (index: number, e: React.MouseEvent) => void;
   /** Called on right-click (context menu). */
   onContextMenu: (e: React.MouseEvent, tabId: string) => void;
   /** Called to rename tab. */
@@ -58,9 +54,7 @@ export function Tab({
   index,
   onActivate,
   onClose,
-  onDragStart,
-  onDragOver,
-  onDragEnd,
+  onMouseDown,
   onContextMenu,
   onRename,
 }: TabProps) {
@@ -125,22 +119,11 @@ export function Tab({
     [handleRenameSubmit, tab.title],
   );
 
-  const handleDragStart = useCallback(
-    (e: React.DragEvent) => {
-      e.dataTransfer.effectAllowed = "move";
-      e.dataTransfer.setData("text/plain", String(index));
-      onDragStart(index);
+  const handleMouseDown = useCallback(
+    (e: React.MouseEvent) => {
+      onMouseDown(index, e);
     },
-    [index, onDragStart],
-  );
-
-  const handleDragOver = useCallback(
-    (e: React.DragEvent) => {
-      e.preventDefault();
-      e.dataTransfer.dropEffect = "move";
-      onDragOver(index);
-    },
-    [index, onDragOver],
+    [index, onMouseDown],
   );
 
   const handleContextMenu = useCallback(
@@ -166,16 +149,14 @@ export function Tab({
       role="tab"
       aria-selected={isActive}
       tabIndex={isActive ? 0 : -1}
-      draggable={!isEditing}
       data-tab-id={tab.id}
       onClick={handleClick}
       onDoubleClick={handleDoubleClick}
-      onDragStart={handleDragStart}
-      onDragOver={handleDragOver}
-      onDragEnd={onDragEnd}
+      onMouseDown={handleMouseDown}
       onContextMenu={handleContextMenu}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
+      style={{ cursor: "grab", userSelect: "none" }}
     >
       <span
         className="tab__status"

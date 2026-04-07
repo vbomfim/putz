@@ -36,7 +36,8 @@ export function TabBar() {
   const closeAllTabs = useTabStore((s) => s.closeAllTabs);
 
   const [contextMenu, setContextMenu] = useState<ContextMenu | null>(null);
-  const [dragFromIndex, setDragFromIndex] = useState<number | null>(null);
+  const dragState = useRef<{ fromIndex: number; active: boolean } | null>(null);
+  const tabsContainerRef = useRef<HTMLDivElement>(null);
   const contextMenuRef = useRef<HTMLDivElement>(null);
 
   // Register keyboard shortcuts
@@ -78,23 +79,43 @@ export function TabBar() {
     [],
   );
 
-  const handleDragStart = useCallback((index: number) => {
-    setDragFromIndex(index);
+  // Mouse-based tab reordering (HTML5 drag doesn't work in Tauri webviews)
+  const handleMouseDown = useCallback((index: number, e: React.MouseEvent) => {
+    // Only left mouse button, ignore if right-click (context menu)
+    if (e.button !== 0) return;
+    dragState.current = { fromIndex: index, active: false };
   }, []);
 
-  const handleDragOver = useCallback(
-    (toIndex: number) => {
-      if (dragFromIndex !== null && dragFromIndex !== toIndex) {
-        moveTab(dragFromIndex, toIndex);
-        setDragFromIndex(toIndex);
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!dragState.current || !tabsContainerRef.current) return;
+      dragState.current.active = true;
+      
+      // Find which tab element the mouse is over
+      const tabElements = tabsContainerRef.current.querySelectorAll('[role="tab"]');
+      for (let i = 0; i < tabElements.length; i++) {
+        const rect = tabElements[i].getBoundingClientRect();
+        if (e.clientX >= rect.left && e.clientX <= rect.right) {
+          if (dragState.current.fromIndex !== i) {
+            moveTab(dragState.current.fromIndex, i);
+            dragState.current.fromIndex = i;
+          }
+          break;
+        }
       }
-    },
-    [dragFromIndex, moveTab],
-  );
+    };
 
-  const handleDragEnd = useCallback(() => {
-    setDragFromIndex(null);
-  }, []);
+    const handleMouseUp = () => {
+      dragState.current = null;
+    };
+
+    window.addEventListener("mousemove", handleMouseMove);
+    window.addEventListener("mouseup", handleMouseUp);
+    return () => {
+      window.removeEventListener("mousemove", handleMouseMove);
+      window.removeEventListener("mouseup", handleMouseUp);
+    };
+  }, [moveTab]);
 
   const handleContextAction = useCallback(
     (action: string) => {
@@ -136,8 +157,7 @@ export function TabBar() {
         className="tabbar__tabs"
         role="tablist"
         aria-label="Terminal tabs"
-        onDragOver={(e) => e.preventDefault()}
-        onDrop={(e) => e.preventDefault()}
+        ref={tabsContainerRef}
       >
         {tabs.map((tab, index) => (
           <Tab
@@ -147,9 +167,7 @@ export function TabBar() {
             index={index}
             onActivate={activateTab}
             onClose={removeTab}
-            onDragStart={handleDragStart}
-            onDragOver={handleDragOver}
-            onDragEnd={handleDragEnd}
+            onMouseDown={handleMouseDown}
             onContextMenu={handleContextMenu}
             onRename={renameTab}
           />
