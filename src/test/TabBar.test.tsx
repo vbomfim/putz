@@ -35,9 +35,11 @@ vi.mock("../stores/tabStore", () => ({
       duplicateTab: mockDuplicateTab,
       closeOtherTabs: mockCloseOtherTabs,
       closeAllTabs: mockCloseAllTabs,
+      loggingSessions: new Set<string>(),
     };
     return selector(state);
   }),
+  MAX_TITLE_LENGTH: 100,
 }));
 
 let mockTabs: Tab[] = [];

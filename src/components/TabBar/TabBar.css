@@ -79,6 +79,24 @@
   flex-shrink: 0;
 }
 
+/* Logging indicator — red dot when session logging is active */
+.tab__logging-indicator {
+  color: #ff5555;
+  font-size: 0.5rem;
+  flex-shrink: 0;
+  animation: pulse-logging 2s ease-in-out infinite;
+}
+
+@keyframes pulse-logging {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.4;
+  }
+}
+
 /* Tab title */
 .tab__title {
   overflow: hidden;

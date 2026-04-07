@@ -13,6 +13,8 @@ const mockActivateNextTab = vi.fn();
 const mockActivatePreviousTab = vi.fn();
 const mockActivateTabByIndex = vi.fn();
 const mockSplitActivePane = vi.fn();
+const mockToggleSearch = vi.fn();
+const mockToggleLogging = vi.fn();
 
 vi.mock("../stores/tabStore", () => ({
   useTabStore: Object.assign(
@@ -25,6 +27,8 @@ vi.mock("../stores/tabStore", () => ({
         activatePreviousTab: mockActivatePreviousTab,
         activateTabByIndex: mockActivateTabByIndex,
         splitActivePane: mockSplitActivePane,
+        toggleSearch: mockToggleSearch,
+        toggleLogging: mockToggleLogging,
       };
       return selector(state);
     }),

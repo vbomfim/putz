@@ -174,6 +174,12 @@ interface TabState {
   activeTabId: string;
   tabCounter: number;
 
+  // Search state
+  isSearchOpen: boolean;
+
+  // Logging state — tracks which sessions have active logging
+  loggingSessions: Set<string>;
+
   // Tab lifecycle
   addTab: () => Promise<void>;
   removeTab: (id: string) => void;
@@ -198,12 +204,23 @@ interface TabState {
   splitActivePane: (direction: "horizontal" | "vertical") => Promise<void>;
   unsplitPane: (tabId: string, paneSessionId: string) => void;
   resizePane: (tabId: string, ratio: number) => void;
+
+  // Search
+  toggleSearch: () => void;
+  closeSearch: () => void;
+
+  // Logging
+  toggleLogging: () => void;
+  setLogging: (sessionId: string, active: boolean) => void;
+  isLogging: (sessionId: string) => boolean;
 }
 
 export const useTabStore = create<TabState>((set, get) => ({
   tabs: [],
   activeTabId: "",
   tabCounter: 0,
+  isSearchOpen: false,
+  loggingSessions: new Set<string>(),
 
   addTab: async () => {
     let sessionId: string;
@@ -467,5 +484,71 @@ export const useTabStore = create<TabState>((set, get) => ({
         };
       }),
     }));
+  },
+
+  // ─── Search ──────────────────────────────────────────────────────────
+
+  toggleSearch: () => {
+    set((state) => ({ isSearchOpen: !state.isSearchOpen }));
+  },
+
+  closeSearch: () => {
+    set({ isSearchOpen: false });
+  },
+
+  // ─── Logging ─────────────────────────────────────────────────────────
+
+  toggleLogging: () => {
+    const { activeTabId, tabs, loggingSessions } = get();
+    const activeTab = tabs.find((t) => t.id === activeTabId);
+    if (!activeTab) return;
+
+    const sessionId = getFirstLeafSessionId(activeTab.layout);
+    const newLogging = new Set(loggingSessions);
+
+    if (newLogging.has(sessionId)) {
+      // Stop logging
+      newLogging.delete(sessionId);
+      invoke("logging_stop", { sessionId }).catch(() => {
+        // Ignore — may not have been started
+      });
+    } else {
+      // Start logging with default config
+      newLogging.add(sessionId);
+      invoke("logging_start", {
+        sessionId,
+        config: {
+          directory: "",
+          sessionName: activeTab.title.replace(/\s+/g, "-").toLowerCase(),
+          timestamps: true,
+          stripAnsi: true,
+          maxFileSize: 100 * 1024 * 1024,
+          flushIntervalMs: 100,
+        },
+      }).catch(() => {
+        // Rollback on failure
+        const rollback = new Set(get().loggingSessions);
+        rollback.delete(sessionId);
+        set({ loggingSessions: rollback });
+      });
+    }
+
+    set({ loggingSessions: newLogging });
+  },
+
+  setLogging: (sessionId: string, active: boolean) => {
+    set((state) => {
+      const newLogging = new Set(state.loggingSessions);
+      if (active) {
+        newLogging.add(sessionId);
+      } else {
+        newLogging.delete(sessionId);
+      }
+      return { loggingSessions: newLogging };
+    });
+  },
+
+  isLogging: (sessionId: string) => {
+    return get().loggingSessions.has(sessionId);
   },
 }));

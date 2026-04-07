@@ -17,6 +17,8 @@ export function useKeyboardShortcuts(): void {
   const activatePreviousTab = useTabStore((s) => s.activatePreviousTab);
   const activateTabByIndex = useTabStore((s) => s.activateTabByIndex);
   const splitActivePane = useTabStore((s) => s.splitActivePane);
+  const toggleSearch = useTabStore((s) => s.toggleSearch);
+  const toggleLogging = useTabStore((s) => s.toggleLogging);
 
   const handleKeyDown = useCallback(
     (e: KeyboardEvent) => {
@@ -78,6 +80,20 @@ export function useKeyboardShortcuts(): void {
         splitActivePane("vertical");
         return;
       }
+
+      // Ctrl+F — Toggle scrollback search
+      if (key === "f" && !e.shiftKey) {
+        e.preventDefault();
+        toggleSearch();
+        return;
+      }
+
+      // Ctrl+Shift+L — Toggle session logging
+      if (key === "l" && e.shiftKey) {
+        e.preventDefault();
+        toggleLogging();
+        return;
+      }
     },
     [
       addTab,
@@ -86,6 +102,8 @@ export function useKeyboardShortcuts(): void {
       activatePreviousTab,
       activateTabByIndex,
       splitActivePane,
+      toggleSearch,
+      toggleLogging,
     ],
   );
 

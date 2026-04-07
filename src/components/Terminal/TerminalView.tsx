@@ -3,13 +3,18 @@
  *
  * Renders a full-viewport terminal connected to a PTY session via Tauri IPC.
  * Handles loading, error, and process-exited states.
+ * Includes an integrated search bar overlay (Ctrl+F).
  *
  * Props:
  * - sessionId: UUID v4 identifying the PTY session
  * - onTitleChange: callback for shell title escape sequences
  * - onRestart: callback to restart a closed session
+ * - isSearchOpen: whether the search bar should be visible
+ * - onSearchClose: callback when search bar is closed
  */
 import { useTerminal } from "./useTerminal";
+import { useSearch } from "./useSearch";
+import { SearchBar } from "./SearchBar";
 import "@xterm/xterm/css/xterm.css";
 import "./Terminal.css";
 
@@ -20,6 +25,10 @@ interface TerminalViewProps {
   onTitleChange?: (title: string) => void;
   /** Callback to restart the terminal after the process exits. */
   onRestart?: () => void;
+  /** Whether the search bar is open (controlled by parent). */
+  isSearchOpen?: boolean;
+  /** Callback to close the search bar. */
+  onSearchClose?: () => void;
 }
 
 /** Terminal emulator view connected to a PTY backend session. */
@@ -27,11 +36,27 @@ export function TerminalView({
   sessionId,
   onTitleChange,
   onRestart,
+  isSearchOpen: externalSearchOpen,
+  onSearchClose,
 }: TerminalViewProps) {
-  const { terminalRef, isReady, error, hasExited } = useTerminal({
-    sessionId,
-    onTitleChange,
-  });
+  const { terminalRef, isReady, error, hasExited, terminalInstance } =
+    useTerminal({
+      sessionId,
+      onTitleChange,
+    });
+
+  const search = useSearch({ terminal: terminalInstance });
+
+  // Use external search state if provided, otherwise internal
+  const searchOpen =
+    externalSearchOpen !== undefined
+      ? externalSearchOpen
+      : search.isSearchOpen;
+
+  const handleSearchClose = () => {
+    search.closeSearch();
+    onSearchClose?.();
+  };
 
   if (error) {
     return (
@@ -56,6 +81,18 @@ export function TerminalView({
 
   return (
     <div className="terminal-wrapper" data-testid="terminal-wrapper">
+      {searchOpen && (
+        <SearchBar
+          onSearch={search.findNext}
+          onSearchPrevious={search.findPrevious}
+          onClose={handleSearchClose}
+          onCaseSensitiveToggle={search.toggleCaseSensitive}
+          onRegexToggle={search.toggleRegex}
+          hasResults={search.hasResults}
+          caseSensitive={search.caseSensitive}
+          useRegex={search.useRegex}
+        />
+      )}
       {!isReady && (
         <div className="terminal-loading" data-testid="terminal-loading">
           <span>Starting terminal…</span>

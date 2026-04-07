@@ -3,12 +3,21 @@
  *
  * Renders the tab title, status indicator, and close button.
  * Supports drag-to-reorder via HTML5 drag and drop.
+ * Shows a logging indicator when session logging is active.
  *
  * Accessibility: role="tab", aria-selected for active state.
  */
 import { useState, useCallback, useRef } from "react";
 import type { Tab as TabType } from "../../types";
-import { MAX_TITLE_LENGTH } from "../../stores/tabStore";
+import { MAX_TITLE_LENGTH, useTabStore } from "../../stores/tabStore";
+
+/** Extracts the first leaf session ID from a PaneNode tree. */
+function getFirstLeafSessionId(
+  node: TabType["layout"],
+): string {
+  if (node.type === "leaf") return node.terminalSessionId;
+  return getFirstLeafSessionId(node.children[0]);
+}
 
 interface TabProps {
   /** Tab data. */
@@ -58,6 +67,11 @@ export function Tab({
   const [isEditing, setIsEditing] = useState(false);
   const [editValue, setEditValue] = useState(tab.title);
   const inputRef = useRef<HTMLInputElement>(null);
+  const loggingSessions = useTabStore((s) => s.loggingSessions);
+
+  // Check if any session in this tab is being logged
+  const sessionId = getFirstLeafSessionId(tab.layout);
+  const isLogging = loggingSessions.has(sessionId);
 
   const handleClick = useCallback(
     (e: React.MouseEvent) => {
@@ -160,6 +174,17 @@ export function Tab({
         style={{ backgroundColor: STATUS_COLORS[tab.status] }}
         aria-label={`Status: ${tab.status}`}
       />
+
+      {isLogging && (
+        <span
+          className="tab__logging-indicator"
+          data-testid="tab-logging-indicator"
+          title="Logging active"
+          aria-label="Logging active"
+        >
+          ●
+        </span>
+      )}
 
       {isEditing ? (
         <input
