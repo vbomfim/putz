@@ -55,6 +55,8 @@ vi.mock("../stores/tabStore", () => ({
   useTabStore: vi.fn((selector: (state: unknown) => unknown) => {
     const state = {
       unsplitPane: vi.fn(),
+      isSearchOpen: false,
+      closeSearch: vi.fn(),
     };
     return selector(state);
   }),

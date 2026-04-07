@@ -5,11 +5,13 @@ export { TerminalView } from "./TerminalView";
 export { ConnectionTerminalView } from "./ConnectionTerminalView";
 export { HostKeyDialog } from "./HostKeyDialog";
 export { AuthPromptDialog } from "./AuthPromptDialog";
+export { SearchBar } from "./SearchBar";
 export { HighlightEditor } from "./HighlightEditor";
 export { HighlightEngine } from "./HighlightEngine";
 export { hasNestedQuantifiers, execRegexWithTimeout } from "./HighlightEngine";
 export { useTerminal } from "./useTerminal";
 export { useConnection } from "./useConnection";
+export { useSearch } from "./useSearch";
 export type {
   PtySpawnArgs,
   PtyWriteArgs,

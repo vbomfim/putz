@@ -10,6 +10,7 @@ use std::collections::HashMap;
 
 use tauri::{AppHandle, State};
 
+use crate::logging::LogManager;
 use crate::pty::PtyManager;
 
 #[cfg(test)]
@@ -20,9 +21,11 @@ use crate::pty::PtyError;
 /// Returns the UUID session ID that identifies this session for
 /// all subsequent operations (write, resize, close).
 #[tauri::command]
+#[allow(clippy::too_many_arguments)]
 pub fn pty_spawn(
     app: AppHandle,
     state: State<'_, PtyManager>,
+    log_state: State<'_, LogManager>,
     shell: Option<String>,
     cwd: Option<String>,
     cols: u16,
@@ -30,7 +33,7 @@ pub fn pty_spawn(
     env: Option<HashMap<String, String>>,
 ) -> Result<String, String> {
     state
-        .spawn(&app, shell, cwd, cols, rows, env)
+        .spawn(&app, shell, cwd, cols, rows, env, log_state.get_loggers())
         .map_err(|e| e.to_string())
 }
 

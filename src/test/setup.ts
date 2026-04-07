@@ -96,5 +96,15 @@ vi.mock("@xterm/addon-unicode11", () => ({
   })),
 }));
 
+vi.mock("@xterm/addon-search", () => ({
+  SearchAddon: vi.fn().mockImplementation(() => ({
+    findNext: vi.fn().mockReturnValue(false),
+    findPrevious: vi.fn().mockReturnValue(false),
+    clearDecorations: vi.fn(),
+    dispose: vi.fn(),
+    onDidChangeResults: vi.fn().mockReturnValue(createDisposable()),
+  })),
+}));
+
 // Mock xterm CSS import
 vi.mock("@xterm/xterm/css/xterm.css", () => ({}));

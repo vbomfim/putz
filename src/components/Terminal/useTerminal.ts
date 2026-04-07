@@ -44,6 +44,8 @@ interface UseTerminalReturn {
   hasExited: boolean;
   /** Exit code of the PTY process (null if still running). */
   exitCode: number | null;
+  /** Reference to the xterm Terminal instance (for addons like search). */
+  terminalInstance: Terminal | null;
   /** Whether keyword highlighting is currently enabled. */
   highlightEnabled: boolean;
 }
@@ -324,6 +326,7 @@ export function useTerminal({
     error,
     hasExited,
     exitCode,
+    terminalInstance: terminalInstanceRef.current,
     highlightEnabled,
   };
 }

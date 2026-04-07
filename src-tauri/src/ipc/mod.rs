@@ -1,6 +1,7 @@
 /// IPC module — Tauri command handlers for frontend–backend communication.
 pub mod connection;
 pub mod highlight;
+pub mod logging;
 pub mod session;
 pub mod sftp;
 pub mod terminal;
@@ -14,6 +15,7 @@ pub use highlight::{
     highlight_create_set, highlight_delete_set, highlight_get_set, highlight_list_sets,
     highlight_update_set,
 };
+pub use logging::{logging_start, logging_status, logging_stop};
 pub use session::{
     session_create, session_create_folder, session_delete, session_delete_folder,
     session_duplicate, session_export, session_get, session_import, session_list, session_move,

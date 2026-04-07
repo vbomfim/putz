@@ -41,6 +41,8 @@ export function SplitContainer({
   isActive,
 }: SplitContainerProps) {
   const unsplitPane = useTabStore((s) => s.unsplitPane);
+  const isSearchOpen = useTabStore((s) => s.isSearchOpen);
+  const closeSearch = useTabStore((s) => s.closeSearch);
 
   return (
     <div
@@ -56,6 +58,8 @@ export function SplitContainer({
         node={layout}
         tabId={tabId}
         onClosePane={(sessionId) => unsplitPane(tabId, sessionId)}
+        isSearchOpen={isActive && isSearchOpen}
+        onSearchClose={closeSearch}
       />
     </div>
   );
@@ -65,10 +69,18 @@ interface PaneRendererProps {
   node: PaneNode;
   tabId: string;
   onClosePane: (sessionId: string) => void;
+  isSearchOpen: boolean;
+  onSearchClose: () => void;
 }
 
 /** Recursive renderer for PaneNode. */
-function PaneRenderer({ node, tabId, onClosePane }: PaneRendererProps) {
+function PaneRenderer({
+  node,
+  tabId,
+  onClosePane,
+  isSearchOpen,
+  onSearchClose,
+}: PaneRendererProps) {
   if (node.type === "leaf") {
     return (
       <TerminalView
@@ -77,6 +89,8 @@ function PaneRenderer({ node, tabId, onClosePane }: PaneRendererProps) {
           // For now, close the pane on restart
           onClosePane(node.terminalSessionId);
         }}
+        isSearchOpen={isSearchOpen}
+        onSearchClose={onSearchClose}
       />
     );
   }
@@ -92,6 +106,8 @@ function PaneRenderer({ node, tabId, onClosePane }: PaneRendererProps) {
           node={node.children[0]}
           tabId={tabId}
           onClosePane={onClosePane}
+          isSearchOpen={isSearchOpen}
+          onSearchClose={onSearchClose}
         />
       </Allotment.Pane>
       <Allotment.Pane>
@@ -99,6 +115,8 @@ function PaneRenderer({ node, tabId, onClosePane }: PaneRendererProps) {
           node={node.children[1]}
           tabId={tabId}
           onClosePane={onClosePane}
+          isSearchOpen={isSearchOpen}
+          onSearchClose={onSearchClose}
         />
       </Allotment.Pane>
     </Allotment>
