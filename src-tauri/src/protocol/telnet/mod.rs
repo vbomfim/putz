@@ -10,6 +10,7 @@
 /// - Resize: send NAWS subnegotiation
 pub mod negotiation;
 
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 
 use async_trait::async_trait;
@@ -52,7 +53,9 @@ pub struct TelnetConnection {
     /// Write half of the TCP stream (None when disconnected).
     writer: Option<WriteHandle>,
     /// Whether the connection is currently active.
-    connected: bool,
+    /// Shared with the read loop via `Arc<AtomicBool>` so EOF/error
+    /// in the read task immediately reflects in `is_connected()`.
+    connected: Arc<AtomicBool>,
     /// Handle to the read loop task (for cancellation on disconnect).
     read_task: Option<tokio::task::JoinHandle<()>>,
     /// Current terminal dimensions (for NAWS).
@@ -65,7 +68,7 @@ impl TelnetConnection {
     pub fn new() -> Self {
         Self {
             writer: None,
-            connected: false,
+            connected: Arc::new(AtomicBool::new(false)),
             read_task: None,
             cols: 80,
             rows: 24,
@@ -162,17 +165,20 @@ impl TelnetConnection {
             ))
         })?;
 
-        // Enable TCP keepalive
+        // Enable TCP keepalive — detects dead connections in ~90s
         let sock_ref = socket2::SockRef::from(&stream);
         let keepalive = socket2::TcpKeepalive::new()
-            .with_time(Duration::from_secs(60));
+            .with_time(Duration::from_secs(60))
+            .with_interval(Duration::from_secs(10));
+        // Note: with_retries() is not available on all platforms (macOS).
+        // On Linux, the default retry count (typically 9) is acceptable.
         let _ = sock_ref.set_tcp_keepalive(&keepalive);
 
         // Split stream into read/write halves
         let (read_half, write_half) = stream.into_split();
         let writer = Arc::new(TokioMutex::new(write_half));
         self.writer = Some(writer.clone());
-        self.connected = true;
+        self.connected.store(true, Ordering::SeqCst);
 
         // Emit connected status
         emitter.emit_status(
@@ -186,6 +192,7 @@ impl TelnetConnection {
         // Spawn the read loop
         let cols = self.cols;
         let rows = self.rows;
+        let connected_flag = self.connected.clone();
         let read_task = tokio::spawn(read_loop(
             read_half,
             writer.clone(),
@@ -193,6 +200,7 @@ impl TelnetConnection {
             emitter,
             cols,
             rows,
+            connected_flag,
         ));
         self.read_task = Some(read_task);
 
@@ -200,6 +208,7 @@ impl TelnetConnection {
     }
 
     /// Writes raw bytes to the Telnet connection (with IAC escaping).
+    #[allow(dead_code)]
     pub async fn write_bytes(&self, data: &[u8]) -> Result<(), ProtocolError> {
         let writer = self
             .writer
@@ -217,7 +226,17 @@ impl TelnetConnection {
         Ok(())
     }
 
+    /// Returns a clone of the write handle for use outside the HashMap lock.
+    ///
+    /// The `Arc<TokioMutex<OwnedWriteHalf>>` can be cloned cheaply
+    /// (just incrementing the reference count) and used independently
+    /// of the HashMap lock.
+    pub fn write_handle(&self) -> Option<WriteHandle> {
+        self.writer.clone()
+    }
+
     /// Sends a NAWS update to the remote server.
+    #[allow(dead_code)]
     pub async fn send_resize(
         &mut self,
         cols: u16,
@@ -257,7 +276,7 @@ impl TelnetConnection {
             let _ = w.shutdown().await;
         }
 
-        self.connected = false;
+        self.connected.store(false, Ordering::SeqCst);
         Ok(())
     }
 }
@@ -292,7 +311,7 @@ impl Protocol for TelnetConnection {
     }
 
     fn is_connected(&self) -> bool {
-        self.connected
+        self.connected.load(Ordering::SeqCst)
     }
 
     fn protocol_type(&self) -> ProtocolType {
@@ -302,7 +321,8 @@ impl Protocol for TelnetConnection {
 
 /// Background read loop — reads from TCP, parses Telnet, emits events.
 ///
-/// Runs as a tokio task. On EOF or error, emits a disconnect status event.
+/// Runs as a tokio task. On EOF or error, emits a disconnect status event
+/// and sets the `connected` flag to `false` via `Arc<AtomicBool>`.
 /// Negotiation responses are sent back through the shared write handle.
 async fn read_loop(
     mut reader: tokio::net::tcp::OwnedReadHalf,
@@ -311,6 +331,7 @@ async fn read_loop(
     emitter: Arc<dyn EventEmitter>,
     cols: u16,
     rows: u16,
+    connected: Arc<AtomicBool>,
 ) {
     let mut buf = [0u8; READ_BUFFER_SIZE];
     let mut parser_state = ParserState::Data;
@@ -320,6 +341,7 @@ async fn read_loop(
         match reader.read(&mut buf).await {
             Ok(0) => {
                 // EOF — connection closed by remote
+                connected.store(false, Ordering::SeqCst);
                 emitter.emit_status(
                     &connection_id,
                     &ConnectionStatusPayload {
@@ -349,6 +371,7 @@ async fn read_loop(
                 }
             }
             Err(e) => {
+                connected.store(false, Ordering::SeqCst);
                 emitter.emit_status(
                     &connection_id,
                     &ConnectionStatusPayload {
@@ -365,6 +388,7 @@ async fn read_loop(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::protocol::test_utils::MockEmitter;
 
     // ====================================================================
     // TelnetConnection unit tests
@@ -508,44 +532,6 @@ mod tests {
         };
         let result = Protocol::connect(&mut conn, params).await;
         assert!(result.is_err());
-    }
-
-    // ====================================================================
-    // Mock emitter for testing
-    // ====================================================================
-
-    struct MockEmitter {
-        outputs: std::sync::Mutex<Vec<(String, String)>>,
-        statuses: std::sync::Mutex<Vec<(String, ConnectionStatusPayload)>>,
-    }
-
-    impl MockEmitter {
-        fn new() -> Self {
-            Self {
-                outputs: std::sync::Mutex::new(Vec::new()),
-                statuses: std::sync::Mutex::new(Vec::new()),
-            }
-        }
-    }
-
-    impl EventEmitter for MockEmitter {
-        fn emit_output(&self, connection_id: &str, data: &str) {
-            self.outputs
-                .lock()
-                .unwrap()
-                .push((connection_id.to_string(), data.to_string()));
-        }
-
-        fn emit_status(
-            &self,
-            connection_id: &str,
-            payload: &ConnectionStatusPayload,
-        ) {
-            self.statuses
-                .lock()
-                .unwrap()
-                .push((connection_id.to_string(), payload.clone()));
-        }
     }
 
     // ====================================================================

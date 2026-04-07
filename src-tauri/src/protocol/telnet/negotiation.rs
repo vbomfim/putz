@@ -1,15 +1,15 @@
-/// Telnet protocol negotiation — IAC command parsing and response generation.
-///
-/// Implements RFC 854 Telnet option negotiation as pure functions.
-/// No network I/O — operates on byte slices for testability.
-///
-/// # Telnet Protocol Summary (RFC 854)
-///
-/// - IAC (0xFF) introduces a command sequence
-/// - Two-byte commands: IAC + command_byte
-/// - Three-byte option commands: IAC + WILL/WONT/DO/DONT + option_byte
-/// - Subnegotiation: IAC SB option ... IAC SE
-/// - Data byte 0xFF must be escaped as 0xFF 0xFF
+//! Telnet protocol negotiation — IAC command parsing and response generation.
+//!
+//! Implements RFC 854 Telnet option negotiation as pure functions.
+//! No network I/O — operates on byte slices for testability.
+//!
+//! # Telnet Protocol Summary (RFC 854)
+//!
+//! - IAC (0xFF) introduces a command sequence
+//! - Two-byte commands: IAC + command_byte
+//! - Three-byte option commands: IAC + WILL/WONT/DO/DONT + option_byte
+//! - Subnegotiation: IAC SB option ... IAC SE
+//! - Data byte 0xFF must be escaped as 0xFF 0xFF
 
 // ─── Telnet Protocol Constants ───────────────────────────────────────
 
@@ -57,9 +57,10 @@ const TERMINAL_TYPE: &[u8] = b"xterm-256color";
 ///
 /// The parser may receive partial sequences across TCP reads,
 /// so state must be preserved between invocations.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, Default, PartialEq)]
 pub enum ParserState {
     /// Normal data mode — bytes are passed through.
+    #[default]
     Data,
     /// Received IAC — waiting for the command byte.
     Iac,
@@ -69,12 +70,6 @@ pub enum ParserState {
     Subnegotiation(Vec<u8>),
     /// Inside subnegotiation, received IAC — waiting for SE or escaped 0xFF.
     SubnegotiationIac(Vec<u8>),
-}
-
-impl Default for ParserState {
-    fn default() -> Self {
-        Self::Data
-    }
 }
 
 /// Result of parsing a chunk of Telnet data.
@@ -154,8 +149,8 @@ pub fn parse_telnet(
             }
             ParserState::Subnegotiation(ref mut buf) => {
                 if byte == IAC {
-                    let buf_clone = buf.clone();
-                    *state = ParserState::SubnegotiationIac(buf_clone);
+                    let taken = std::mem::take(buf);
+                    *state = ParserState::SubnegotiationIac(taken);
                 } else {
                     buf.push(byte);
                 }
@@ -168,8 +163,8 @@ pub fn parse_telnet(
                 } else if byte == IAC {
                     // Escaped 0xFF inside subnegotiation
                     buf.push(IAC);
-                    let buf_clone = buf.clone();
-                    *state = ParserState::Subnegotiation(buf_clone);
+                    let taken = std::mem::take(buf);
+                    *state = ParserState::Subnegotiation(taken);
                 } else {
                     // Malformed sequence — discard and return to data mode
                     *state = ParserState::Data;

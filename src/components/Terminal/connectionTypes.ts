@@ -28,8 +28,8 @@ export interface ConnectionOpenInput {
 export interface ConnectionWriteArgs {
   /** Connection ID from connection_open. */
   connectionId: string;
-  /** Raw bytes to write. */
-  data: number[];
+  /** Base64-encoded bytes to write. */
+  data: string;
 }
 
 /** Arguments for the connection_resize IPC command. */

@@ -166,8 +166,9 @@ export function useConnection({
         // Bridge: terminal keystrokes → connection write
         const dataDisposable = terminal.onData((data: string) => {
           if (disposed) return;
-          const bytes = Array.from(new TextEncoder().encode(data));
-          invoke("connection_write", { connectionId, data: bytes }).catch(
+          const bytes = new TextEncoder().encode(data);
+          const base64 = btoa(String.fromCharCode(...bytes));
+          invoke("connection_write", { connectionId, data: base64 }).catch(
             () => {},
           );
         });
@@ -175,8 +176,8 @@ export function useConnection({
         // Bridge: terminal binary data → connection write
         const binaryDisposable = terminal.onBinary((data: string) => {
           if (disposed) return;
-          const bytes = Array.from(data, (char) => char.charCodeAt(0));
-          invoke("connection_write", { connectionId, data: bytes }).catch(
+          const base64 = btoa(data);
+          invoke("connection_write", { connectionId, data: base64 }).catch(
             () => {},
           );
         });

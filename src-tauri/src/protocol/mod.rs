@@ -10,6 +10,9 @@
 pub mod connection_manager;
 pub mod telnet;
 
+#[cfg(test)]
+pub mod test_utils;
+
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use std::fmt;
@@ -104,6 +107,7 @@ pub struct ConnectionStatusPayload {
 /// The read loop is NOT part of this trait — it's spawned separately
 /// by the ConnectionManager after `connect()` succeeds.
 #[async_trait]
+#[allow(dead_code)]
 pub trait Protocol: Send + Sync {
     /// Establish a connection using the given parameters.
     async fn connect(&mut self, params: ConnectionParams) -> Result<(), ProtocolError>;

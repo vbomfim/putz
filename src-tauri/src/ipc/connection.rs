@@ -53,15 +53,22 @@ pub async fn connection_open(
         .map_err(|e| e.to_string())
 }
 
-/// Writes input bytes to an active connection.
+/// Writes input data to an active connection.
+///
+/// Accepts data as a base64-encoded string for safe transport via IPC.
+/// This matches the output direction (base64 events from backend).
 #[tauri::command]
 pub async fn connection_write(
     state: State<'_, ConnectionManager>,
     connection_id: String,
-    data: Vec<u8>,
+    data: String,
 ) -> Result<(), String> {
+    use base64::Engine;
+    let bytes = base64::engine::general_purpose::STANDARD
+        .decode(&data)
+        .map_err(|e| format!("Invalid base64 data: {e}"))?;
     state
-        .write(&connection_id, &data)
+        .write(&connection_id, &bytes)
         .await
         .map_err(|e| e.to_string())
 }
@@ -163,5 +170,25 @@ mod tests {
         assert_eq!(input.username, Some("admin".into()));
         assert_eq!(input.cols, 132);
         assert_eq!(input.rows, 43);
+    }
+
+    #[test]
+    fn base64_decode_valid_data() {
+        use base64::Engine;
+        let original = b"hello world";
+        let encoded = base64::engine::general_purpose::STANDARD
+            .encode(original);
+        let decoded = base64::engine::general_purpose::STANDARD
+            .decode(&encoded)
+            .unwrap();
+        assert_eq!(decoded, original);
+    }
+
+    #[test]
+    fn base64_decode_invalid_data_returns_error() {
+        use base64::Engine;
+        let result = base64::engine::general_purpose::STANDARD
+            .decode("not-valid-base64!!!");
+        assert!(result.is_err());
     }
 }

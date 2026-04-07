@@ -63,13 +63,13 @@ describe("Connection IPC Type Contracts", () => {
   });
 
   describe("ConnectionWriteArgs", () => {
-    it("has connectionId and data fields", () => {
+    it("has connectionId and base64-encoded data fields", () => {
       const args: ConnectionWriteArgs = {
         connectionId: "abc-123",
-        data: [72, 101, 108, 108, 111],
+        data: btoa("Hello"),
       };
       expect(args.connectionId).toBe("abc-123");
-      expect(args.data).toEqual([72, 101, 108, 108, 111]);
+      expect(args.data).toBe("SGVsbG8=");
     });
   });
 

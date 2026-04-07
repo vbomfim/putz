@@ -6,9 +6,11 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
+use tokio::io::AsyncWriteExt;
 use tokio::sync::Mutex as TokioMutex;
 use uuid::Uuid;
 
+use super::telnet::negotiation::{build_naws_subnegotiation, escape_iac};
 use super::telnet::{EventEmitter, TauriEventEmitter, TelnetConnection};
 use super::{ConnectionParams, Protocol, ProtocolError, ProtocolType};
 
@@ -101,42 +103,80 @@ impl ConnectionManager {
     }
 
     /// Writes data to an active connection.
+    ///
+    /// Clones the write handle from the map while briefly holding the lock,
+    /// then drops the lock before performing network I/O.
     pub async fn write(
         &self,
         connection_id: &str,
         data: &[u8],
     ) -> Result<(), ProtocolError> {
-        let conns = self.connections.lock().await;
-        let conn = conns.get(connection_id).ok_or_else(|| {
-            ProtocolError::ChannelClosed(format!(
-                "Connection not found: {connection_id}"
-            ))
-        })?;
+        let writer = {
+            let conns = self.connections.lock().await;
+            let conn = conns.get(connection_id).ok_or_else(|| {
+                ProtocolError::ChannelClosed(format!(
+                    "Connection not found: {connection_id}"
+                ))
+            })?;
 
-        if !conn.is_connected() {
-            return Err(ProtocolError::ChannelClosed(
-                "Connection is closed".into(),
-            ));
-        }
+            if !conn.is_connected() {
+                return Err(ProtocolError::ChannelClosed(
+                    "Connection is closed".into(),
+                ));
+            }
 
-        conn.write_bytes(data).await
+            conn.write_handle().ok_or_else(|| {
+                ProtocolError::ChannelClosed("not connected".into())
+            })?
+            // lock dropped here
+        };
+
+        let escaped = escape_iac(data);
+        let mut w = writer.lock().await;
+        w.write_all(&escaped)
+            .await
+            .map_err(|e| ProtocolError::IoError(e.to_string()))?;
+        w.flush()
+            .await
+            .map_err(|e| ProtocolError::IoError(e.to_string()))?;
+        Ok(())
     }
 
     /// Resizes the terminal for an active connection.
+    ///
+    /// Clones the write handle from the map while briefly holding the lock,
+    /// then drops the lock before performing network I/O.
     pub async fn resize(
         &self,
         connection_id: &str,
         cols: u16,
         rows: u16,
     ) -> Result<(), ProtocolError> {
-        let mut conns = self.connections.lock().await;
-        let conn = conns.get_mut(connection_id).ok_or_else(|| {
-            ProtocolError::ChannelClosed(format!(
-                "Connection not found: {connection_id}"
-            ))
-        })?;
+        let writer = {
+            let conns = self.connections.lock().await;
+            let conn = conns.get(connection_id).ok_or_else(|| {
+                ProtocolError::ChannelClosed(format!(
+                    "Connection not found: {connection_id}"
+                ))
+            })?;
 
-        conn.send_resize(cols, rows).await
+            conn.write_handle().ok_or_else(|| {
+                ProtocolError::ChannelClosed("not connected".into())
+            })?
+            // lock dropped here
+        };
+
+        let mut naws_msg = Vec::new();
+        build_naws_subnegotiation(cols, rows, &mut naws_msg);
+
+        let mut w = writer.lock().await;
+        w.write_all(&naws_msg)
+            .await
+            .map_err(|e| ProtocolError::IoError(e.to_string()))?;
+        w.flush()
+            .await
+            .map_err(|e| ProtocolError::IoError(e.to_string()))?;
+        Ok(())
     }
 
     /// Closes an active connection and removes it from the manager.
@@ -155,6 +195,7 @@ impl ConnectionManager {
     }
 
     /// Returns whether a connection exists and is active.
+    #[allow(dead_code)]
     pub async fn is_connected(&self, connection_id: &str) -> bool {
         let conns = self.connections.lock().await;
         conns
@@ -173,33 +214,7 @@ impl ConnectionManager {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::protocol::telnet::EventEmitter;
-    use crate::protocol::{ConnectionStatus, ConnectionStatusPayload};
-    use std::sync::Mutex as StdMutex;
-
-    // ── Mock emitter ──────────────────────────────────────────────────
-
-    struct MockEmitter {
-        statuses: StdMutex<Vec<(String, ConnectionStatusPayload)>>,
-    }
-
-    impl MockEmitter {
-        fn new() -> Self {
-            Self {
-                statuses: StdMutex::new(Vec::new()),
-            }
-        }
-    }
-
-    impl EventEmitter for MockEmitter {
-        fn emit_output(&self, _id: &str, _data: &str) {}
-        fn emit_status(&self, id: &str, payload: &ConnectionStatusPayload) {
-            self.statuses
-                .lock()
-                .unwrap()
-                .push((id.to_string(), payload.clone()));
-        }
-    }
+    use crate::protocol::test_utils::MockEmitter;
 
     // ── Unit tests ────────────────────────────────────────────────────
 
