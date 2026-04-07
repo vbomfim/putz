@@ -5,7 +5,7 @@
  *
  * Tags: [UNIT], [AC-1]–[AC-6]
  */
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { TransferQueue } from "../components/SFTP/TransferQueue";
 import type { TransferInfo } from "../components/SFTP/types";

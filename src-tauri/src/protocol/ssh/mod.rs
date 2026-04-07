@@ -84,6 +84,7 @@ impl SshConnection {
     ///
     /// Used by SFTP to open a subsystem channel on the same SSH connection.
     /// Returns `None` if the connection is not established.
+    #[allow(dead_code)]
     pub fn session_handle(
         &self,
     ) -> Option<&client::Handle<SshHandler>> {

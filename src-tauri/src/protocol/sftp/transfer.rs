@@ -19,6 +19,7 @@ pub const MAX_CONCURRENT_TRANSFERS: usize = 5;
 pub const TRANSFER_BUFFER_SIZE: usize = 64 * 1024;
 
 /// Minimum interval between progress events (milliseconds).
+#[allow(dead_code)]
 pub const PROGRESS_INTERVAL_MS: u64 = 250;
 
 /// Direction of a file transfer.
@@ -47,6 +48,7 @@ pub enum TransferStatus {
 
 impl TransferStatus {
     /// Returns true if the transfer is in a terminal state.
+    #[allow(dead_code)]
     pub fn is_terminal(&self) -> bool {
         matches!(
             self,
@@ -277,6 +279,7 @@ impl TransferEngine {
     }
 
     /// Gets a snapshot of a specific transfer.
+    #[allow(dead_code)]
     pub async fn get(
         &self,
         transfer_id: &str,
@@ -286,6 +289,7 @@ impl TransferEngine {
     }
 
     /// Gets snapshots of all transfers.
+    #[allow(dead_code)]
     pub async fn list(&self) -> Vec<TransferInfo> {
         let transfers = self.transfers.lock().await;
         transfers.values().cloned().collect()
@@ -297,6 +301,7 @@ impl TransferEngine {
     }
 
     /// Removes completed/failed/cancelled transfers from tracking.
+    #[allow(dead_code)]
     pub async fn prune_terminal(&self) -> usize {
         let mut transfers = self.transfers.lock().await;
         let before = transfers.len();

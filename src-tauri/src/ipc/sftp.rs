@@ -9,17 +9,16 @@
 ///
 /// File transfers run as background tokio tasks. Progress is reported
 /// via Tauri events (`sftp-progress-{transferId}`, `sftp-complete-{transferId}`).
-use std::sync::Arc;
 use std::time::Instant;
 
-use serde::Deserialize;
 use tauri::{AppHandle, Emitter, State};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use uuid::Uuid;
 
 use crate::protocol::connection_manager::ConnectionManager;
 use crate::protocol::sftp::path::{
-    normalize_remote_path, validate_remote_path,
+    normalize_remote_path, validate_local_path,
+    validate_remote_path, MAX_TRANSFER_SIZE,
 };
 use crate::protocol::sftp::transfer::{
     TransferCompletePayload, TransferDirection, TransferInfo,
@@ -198,10 +197,8 @@ pub async fn sftp_download(
     let normalized = normalize_remote_path(&remote_path);
     validate_remote_path(&normalized)?;
 
-    // Validate local path is not empty
-    if local_path.is_empty() {
-        return Err("Local path cannot be empty".into());
-    }
+    // Validate local path — canonicalize and confine to home/temp
+    let canonical_local = validate_local_path(&local_path)?;
 
     // Get file size for progress tracking
     let total_bytes = sftp_manager
@@ -223,6 +220,14 @@ pub async fn sftp_download(
         .await
         .map_err(|e| e.to_string())?;
 
+    // Enforce file size limit
+    if total_bytes > MAX_TRANSFER_SIZE {
+        return Err(format!(
+            "File size ({total_bytes} bytes) exceeds maximum \
+             transfer size ({MAX_TRANSFER_SIZE} bytes / 10 GB)"
+        ));
+    }
+
     let transfer_id = Uuid::new_v4().to_string();
 
     // Register the transfer
@@ -230,7 +235,7 @@ pub async fn sftp_download(
         transfer_id.clone(),
         sftp_session_id.clone(),
         normalized.clone(),
-        local_path.clone(),
+        canonical_local.clone(),
         TransferDirection::Download,
         total_bytes,
     );
@@ -255,8 +260,38 @@ pub async fn sftp_download(
     let app_clone = app.clone();
     let sessions = sessions_arc.clone();
     let sid = sftp_session_id.clone();
+    let download_local_path = canonical_local.clone();
+
+    // Get semaphore for concurrency control
+    let semaphore = {
+        let s = sessions_arc.lock().await;
+        match s.get(&sftp_session_id) {
+            Some(h) => h.transfers.semaphore(),
+            None => {
+                return Err("SFTP session not found".into());
+            }
+        }
+    };
 
     tokio::spawn(async move {
+        // Acquire semaphore permit — limits concurrent transfers
+        let _permit = match semaphore.acquire_owned().await {
+            Ok(p) => p,
+            Err(_) => {
+                let s = sessions.lock().await;
+                if let Some(h) = s.get(&sid) {
+                    let _ = h
+                        .transfers
+                        .mark_failed(
+                            &tid,
+                            "Transfer semaphore closed".into(),
+                        )
+                        .await;
+                }
+                return;
+            }
+        };
+
         let start = Instant::now();
 
         // Update status to in-progress
@@ -307,7 +342,7 @@ pub async fn sftp_download(
 
         // Create local file
         let mut local_file =
-            match tokio::fs::File::create(&local_path).await {
+            match tokio::fs::File::create(&download_local_path).await {
                 Ok(f) => f,
                 Err(e) => {
                     let s = sessions.lock().await;
@@ -347,6 +382,12 @@ pub async fn sftp_download(
                 Ok(0) => break,
                 Ok(n) => n,
                 Err(e) => {
+                    // Clean up partial download on read error
+                    drop(local_file);
+                    let _ = tokio::fs::remove_file(
+                        &download_local_path,
+                    )
+                    .await;
                     let s = sessions.lock().await;
                     if let Some(h) = s.get(&sid) {
                         let _ = h
@@ -373,6 +414,12 @@ pub async fn sftp_download(
             if let Err(e) =
                 local_file.write_all(&buffer[..n]).await
             {
+                // Clean up partial download on write error
+                drop(local_file);
+                let _ = tokio::fs::remove_file(
+                    &download_local_path,
+                )
+                .await;
                 let s = sessions.lock().await;
                 if let Some(h) = s.get(&sid) {
                     let _ = h
@@ -421,6 +468,61 @@ pub async fn sftp_download(
             }
         }
 
+        // Flush and sync to ensure all data is written to disk
+        if let Err(e) = local_file.flush().await {
+            drop(local_file);
+            let _ =
+                tokio::fs::remove_file(&download_local_path)
+                    .await;
+            let s = sessions.lock().await;
+            if let Some(h) = s.get(&sid) {
+                let _ = h
+                    .transfers
+                    .mark_failed(
+                        &tid,
+                        format!("Flush error: {e}"),
+                    )
+                    .await;
+            }
+            let _ = app_clone.emit(
+                &format!("sftp-complete-{tid}"),
+                TransferCompletePayload {
+                    transfer_id: tid,
+                    status: TransferStatus::Failed,
+                    error: Some(format!("Flush error: {e}")),
+                    bytes_transferred,
+                },
+            );
+            return;
+        }
+
+        if let Err(e) = local_file.sync_all().await {
+            drop(local_file);
+            let _ =
+                tokio::fs::remove_file(&download_local_path)
+                    .await;
+            let s = sessions.lock().await;
+            if let Some(h) = s.get(&sid) {
+                let _ = h
+                    .transfers
+                    .mark_failed(
+                        &tid,
+                        format!("Sync error: {e}"),
+                    )
+                    .await;
+            }
+            let _ = app_clone.emit(
+                &format!("sftp-complete-{tid}"),
+                TransferCompletePayload {
+                    transfer_id: tid,
+                    status: TransferStatus::Failed,
+                    error: Some(format!("Sync error: {e}")),
+                    bytes_transferred,
+                },
+            );
+            return;
+        }
+
         // Completed
         {
             let s = sessions.lock().await;
@@ -460,18 +562,25 @@ pub async fn sftp_upload(
     let normalized = normalize_remote_path(&remote_path);
     validate_remote_path(&normalized)?;
 
-    if local_path.is_empty() {
-        return Err("Local path cannot be empty".into());
-    }
+    // Validate local path — canonicalize and confine to home/temp
+    let canonical_local = validate_local_path(&local_path)?;
 
     // Get local file size
     let local_metadata =
-        tokio::fs::metadata(&local_path)
+        tokio::fs::metadata(&canonical_local)
             .await
             .map_err(|e| {
                 format!("Failed to read local file: {e}")
             })?;
     let total_bytes = local_metadata.len();
+
+    // Enforce file size limit
+    if total_bytes > MAX_TRANSFER_SIZE {
+        return Err(format!(
+            "File size ({total_bytes} bytes) exceeds maximum \
+             transfer size ({MAX_TRANSFER_SIZE} bytes / 10 GB)"
+        ));
+    }
 
     let transfer_id = Uuid::new_v4().to_string();
 
@@ -479,7 +588,7 @@ pub async fn sftp_upload(
         transfer_id.clone(),
         sftp_session_id.clone(),
         normalized.clone(),
-        local_path.clone(),
+        canonical_local.clone(),
         TransferDirection::Upload,
         total_bytes,
     );
@@ -503,8 +612,38 @@ pub async fn sftp_upload(
     let app_clone = app.clone();
     let sessions = sessions_arc.clone();
     let sid = sftp_session_id.clone();
+    let upload_local_path = canonical_local.clone();
+
+    // Get semaphore for concurrency control
+    let semaphore = {
+        let s = sessions_arc.lock().await;
+        match s.get(&sftp_session_id) {
+            Some(h) => h.transfers.semaphore(),
+            None => {
+                return Err("SFTP session not found".into());
+            }
+        }
+    };
 
     tokio::spawn(async move {
+        // Acquire semaphore permit — limits concurrent transfers
+        let _permit = match semaphore.acquire_owned().await {
+            Ok(p) => p,
+            Err(_) => {
+                let s = sessions.lock().await;
+                if let Some(h) = s.get(&sid) {
+                    let _ = h
+                        .transfers
+                        .mark_failed(
+                            &tid,
+                            "Transfer semaphore closed".into(),
+                        )
+                        .await;
+                }
+                return;
+            }
+        };
+
         let start = Instant::now();
 
         // Update status
@@ -520,7 +659,7 @@ pub async fn sftp_upload(
 
         // Open local file
         let mut local_file =
-            match tokio::fs::File::open(&local_path).await {
+            match tokio::fs::File::open(&upload_local_path).await {
                 Ok(f) => f,
                 Err(e) => {
                     let s = sessions.lock().await;

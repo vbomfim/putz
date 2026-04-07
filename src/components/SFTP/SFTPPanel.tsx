@@ -88,12 +88,21 @@ export function SFTPPanel({ connectionId, onClose }: SFTPPanelProps) {
       switch (action) {
         case "download":
           if (file && !file.isDir) {
-            // In a real app, use a file save dialog
-            const localPath = `/tmp/${file.name}`;
-            try {
-              await download(file.path, localPath);
-            } catch (err: unknown) {
-              console.error("[SFTPPanel] Download failed:", err);
+            // Sanitize the filename: strip path separators and traversal
+            const safeName = file.name
+              .replace(/[/\\]/g, "_")
+              .replace(/\.\./g, "_");
+            const suggestedPath = `~/Downloads/${safeName}`;
+            const localPath = window.prompt(
+              `Save "${safeName}" to:`,
+              suggestedPath,
+            );
+            if (localPath) {
+              try {
+                await download(file.path, localPath);
+              } catch (err: unknown) {
+                console.error("[SFTPPanel] Download failed:", err);
+              }
             }
           }
           break;
@@ -105,11 +114,16 @@ export function SFTPPanel({ connectionId, onClose }: SFTPPanelProps) {
           break;
         case "delete":
           if (file) {
-            try {
-              await deleteFile(file.path);
-              await refresh();
-            } catch (err: unknown) {
-              console.error("[SFTPPanel] Delete failed:", err);
+            const confirmed = window.confirm(
+              `Are you sure you want to delete "${file.name}"?`,
+            );
+            if (confirmed) {
+              try {
+                await deleteFile(file.path);
+                await refresh();
+              } catch (err: unknown) {
+                console.error("[SFTPPanel] Delete failed:", err);
+              }
             }
           }
           break;

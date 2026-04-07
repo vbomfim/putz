@@ -84,6 +84,7 @@ pub struct SftpSessionHandle {
     /// The russh-sftp client session.
     pub session: russh_sftp::client::SftpSession,
     /// The SSH connection ID this SFTP session is attached to.
+    #[allow(dead_code)]
     pub connection_id: String,
     /// Transfer engine for this session.
     pub transfers: TransferEngine,
@@ -153,6 +154,7 @@ impl SftpManager {
     /// Closes all SFTP sessions associated with a given SSH connection.
     ///
     /// Called when an SSH connection is closed to clean up SFTP sessions.
+    #[allow(dead_code)]
     pub async fn close_by_connection(
         &self,
         connection_id: &str,
@@ -230,6 +232,7 @@ impl SftpManager {
 }
 
 /// Formats Unix permissions as a human-readable string (e.g., "rwxr-xr-x").
+#[allow(dead_code)]
 pub fn format_permissions(mode: u32) -> String {
     let mut result = String::with_capacity(9);
 
@@ -257,6 +260,7 @@ pub fn format_permissions(mode: u32) -> String {
 }
 
 /// Formats a file size in human-readable units (B, KB, MB, GB, TB).
+#[allow(dead_code)]
 pub fn format_file_size(bytes: u64) -> String {
     const KB: u64 = 1024;
     const MB: u64 = 1024 * KB;
