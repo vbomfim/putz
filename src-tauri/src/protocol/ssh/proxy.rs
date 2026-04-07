@@ -575,6 +575,8 @@ mod tests {
             color_scheme: None,
             auto_log: None,
             jump_host_id,
+            auto_login: None,
+            auto_login_device_type: None,
         };
         sm.create_session(input).unwrap()
     }
@@ -687,6 +689,8 @@ mod tests {
             color_scheme: None,
             auto_log: None,
             jump_host_id: Some(id2.clone()),
+            auto_login: None,
+            auto_login_device_type: None,
         };
         sm.update_session(&id1, update).unwrap();
 
@@ -729,6 +733,8 @@ mod tests {
             color_scheme: None,
             auto_log: None,
             jump_host_id: None,
+            auto_login: None,
+            auto_login_device_type: None,
         };
         let telnet_id = sm.create_session(input).unwrap();
 
@@ -772,6 +778,8 @@ mod tests {
             color_scheme: None,
             auto_log: None,
             jump_host_id: None,
+            auto_login: None,
+            auto_login_device_type: None,
         };
 
         // SessionManager may reject empty host for SSH — if so,
@@ -850,6 +858,8 @@ mod tests {
             color_scheme: None,
             auto_log: None,
             jump_host_id: None,
+            auto_login: None,
+            auto_login_device_type: None,
         };
         let id = sm.create_session(input).unwrap();
 

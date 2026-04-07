@@ -27,6 +27,8 @@ export interface SessionProfile {
   colorScheme?: string;
   autoLog?: boolean;
   jumpHostId?: string;
+  autoLogin?: boolean;
+  autoLoginDeviceType?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -83,6 +85,8 @@ export interface CreateSessionInput {
   colorScheme?: string;
   autoLog?: boolean;
   jumpHostId?: string;
+  autoLogin?: boolean;
+  autoLoginDeviceType?: string;
 }
 
 /** Input for updating a session (partial — only non-undefined fields apply). */
@@ -103,6 +107,8 @@ export interface UpdateSessionInput {
   colorScheme?: string;
   autoLog?: boolean;
   jumpHostId?: string;
+  autoLogin?: boolean;
+  autoLoginDeviceType?: string;
 }
 
 /** Input for moving a session to a different folder. */

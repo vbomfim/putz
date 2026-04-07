@@ -12,17 +12,22 @@ mod session;
 mod templates;
 mod theme;
 mod vault;
+mod history;
+mod autologin;
 
 use commands::greet;
 use compliance::ChangeWindowManager;
 use highlight::HighlightManager;
 use ipc::{
+    autologin_cancel, autologin_delete_profile, autologin_get_profile, autologin_process,
+    autologin_set_profile, autologin_start,
     change_window_active, change_window_check, change_window_delete, change_window_list,
     change_window_set,
     connection_close, connection_open, connection_resize, connection_write,
     forwarding_add, forwarding_list, forwarding_remove, forwarding_status,
     highlight_create_set,
     highlight_delete_set, highlight_get_set, highlight_list_sets, highlight_update_set,
+    history_add, history_clear, history_get_recent, history_search,
     key_delete, key_generate, key_get_public, key_import, key_list,
     logging_start, logging_status, logging_stop,
     ping_start, ping_stop, save_backup,
@@ -49,6 +54,8 @@ use session::SessionManager;
 use theme::ThemeManager;
 use templates::TemplateManager;
 use vault::VaultManager;
+use history::CommandHistoryManager;
+use autologin::AutoLoginManager;
 
 // Needed for try_state() in on_window_event handler
 use tauri::Manager;
@@ -71,6 +78,8 @@ pub fn run() {
         .manage(ScriptManager::new())
         .manage(ThemeManager::new())
         .manage(ForwardingManager::new())
+        .manage(CommandHistoryManager::new().expect("Failed to initialize command history database"))
+        .manage(AutoLoginManager::new())
         .manage(PingManager::new())
         .manage(TemplateManager::new())
         .invoke_handler(tauri::generate_handler![
@@ -150,14 +159,24 @@ pub fn run() {
             theme_delete,
             theme_import,
             theme_export,
-        .manage(PingManager::new())
-        .manage(TemplateManager::new())
+            history_add,
+            history_search,
+            history_get_recent,
+            history_clear,
+            autologin_get_profile,
+            autologin_set_profile,
+            autologin_delete_profile,
+            autologin_start,
+            autologin_process,
+            autologin_cancel,
+            ping_start,
+            ping_stop,
+            save_backup,
             template_list,
             template_get,
             template_create,
             template_delete,
             template_execute,
->>>>>>> origin/main
         ])
         // Fix 8: Graceful app exit — clean up PTY sessions and protocol connections
         .on_window_event(|window, event| {
