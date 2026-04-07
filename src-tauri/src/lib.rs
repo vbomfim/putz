@@ -5,6 +5,7 @@ mod logging;
 mod protocol;
 mod pty;
 mod session;
+mod theme;
 mod vault;
 
 use commands::greet;
@@ -17,6 +18,7 @@ use ipc::{
     session_delete_folder, session_duplicate, session_export, session_get, session_import,
     session_list, session_move, session_search, session_update, sftp_close, sftp_delete,
     sftp_download, sftp_list, sftp_mkdir, sftp_open, sftp_rename, sftp_stat, sftp_upload,
+    theme_create, theme_delete, theme_export, theme_get, theme_import, theme_list, theme_update,
     vault_delete, vault_get, vault_list, vault_set,
 };
 use logging::LogManager;
@@ -24,6 +26,7 @@ use protocol::connection_manager::ConnectionManager;
 use protocol::sftp::SftpManager;
 use pty::PtyManager;
 use session::SessionManager;
+use theme::ThemeManager;
 use vault::VaultManager;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -37,6 +40,7 @@ pub fn run() {
         .manage(LogManager::new())
         .manage(SftpManager::new())
         .manage(HighlightManager::new())
+        .manage(ThemeManager::new())
         .invoke_handler(tauri::generate_handler![
             greet,
             pty_spawn,
@@ -82,6 +86,13 @@ pub fn run() {
             highlight_create_set,
             highlight_update_set,
             highlight_delete_set,
+            theme_list,
+            theme_get,
+            theme_create,
+            theme_update,
+            theme_delete,
+            theme_import,
+            theme_export,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

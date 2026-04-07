@@ -5,6 +5,7 @@ pub mod logging;
 pub mod session;
 pub mod sftp;
 pub mod terminal;
+pub mod theme;
 pub mod vault;
 
 pub use connection::{
@@ -26,4 +27,7 @@ pub use sftp::{
     sftp_open, sftp_rename, sftp_stat, sftp_upload,
 };
 pub use terminal::{pty_close, pty_resize, pty_spawn, pty_write};
+pub use theme::{
+    theme_create, theme_delete, theme_export, theme_get, theme_import, theme_list, theme_update,
+};
 pub use vault::{vault_delete, vault_get, vault_list, vault_set};
