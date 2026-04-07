@@ -76,41 +76,8 @@ impl TelnetConnection {
     }
 }
 
-/// Event emitter trait — abstracts Tauri event emission for testability.
-///
-/// The real implementation uses `tauri::AppHandle::emit()`.
-/// Tests can provide a mock implementation.
-pub trait EventEmitter: Send + Sync + 'static {
-    fn emit_output(&self, connection_id: &str, data: &str);
-    fn emit_status(&self, connection_id: &str, payload: &ConnectionStatusPayload);
-}
-
-/// Tauri-backed event emitter.
-pub struct TauriEventEmitter {
-    app: tauri::AppHandle,
-}
-
-impl TauriEventEmitter {
-    pub fn new(app: tauri::AppHandle) -> Self {
-        Self { app }
-    }
-}
-
-impl EventEmitter for TauriEventEmitter {
-    fn emit_output(&self, connection_id: &str, data: &str) {
-        let event = format!("connection-output-{connection_id}");
-        let _ = tauri::Emitter::emit(&self.app, &event, data);
-    }
-
-    fn emit_status(
-        &self,
-        connection_id: &str,
-        payload: &ConnectionStatusPayload,
-    ) {
-        let event = format!("connection-status-{connection_id}");
-        let _ = tauri::Emitter::emit(&self.app, &event, payload);
-    }
-}
+// Re-export EventEmitter from the protocol level for backward compatibility.
+pub use super::EventEmitter;
 
 impl TelnetConnection {
     /// Connects to a Telnet server and starts the read loop.
@@ -459,6 +426,8 @@ mod tests {
             username: None,
             cols: 80,
             rows: 24,
+            credential_id: None,
+            key_path: None,
         };
         let result = conn
             .connect_with_emitter(params, "test-id".into(), emitter)
@@ -482,6 +451,8 @@ mod tests {
             username: None,
             cols: 80,
             rows: 24,
+            credential_id: None,
+            key_path: None,
         };
         let result = conn
             .connect_with_emitter(params, "test-id".into(), emitter)
@@ -505,6 +476,8 @@ mod tests {
             username: None,
             cols: 80,
             rows: 24,
+            credential_id: None,
+            key_path: None,
         };
 
         // Use a very short timeout approach: this will fail with connection
@@ -529,6 +502,8 @@ mod tests {
             username: None,
             cols: 80,
             rows: 24,
+            credential_id: None,
+            key_path: None,
         };
         let result = Protocol::connect(&mut conn, params).await;
         assert!(result.is_err());
@@ -567,6 +542,8 @@ mod tests {
             username: None,
             cols: 80,
             rows: 24,
+            credential_id: None,
+            key_path: None,
         };
 
         let result = conn
@@ -621,6 +598,8 @@ mod tests {
             username: None,
             cols: 80,
             rows: 24,
+            credential_id: None,
+            key_path: None,
         };
 
         conn.connect_with_emitter(params, "test-write".into(), emitter)
@@ -662,6 +641,8 @@ mod tests {
             username: None,
             cols: 80,
             rows: 24,
+            credential_id: None,
+            key_path: None,
         };
 
         conn.connect_with_emitter(params, "test-resize".into(), emitter)
@@ -729,6 +710,8 @@ mod tests {
             username: None,
             cols: 80,
             rows: 24,
+            credential_id: None,
+            key_path: None,
         };
 
         conn.connect_with_emitter(params, "test-nego".into(), emitter)

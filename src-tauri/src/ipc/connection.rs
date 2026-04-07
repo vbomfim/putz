@@ -10,6 +10,7 @@ use tauri::{AppHandle, State};
 
 use crate::protocol::connection_manager::ConnectionManager;
 use crate::protocol::ProtocolType;
+use crate::vault::VaultManager;
 
 /// Input DTO for the connection_open IPC command.
 #[derive(Debug, Clone, Deserialize)]
@@ -27,16 +28,24 @@ pub struct ConnectionOpenInput {
     pub cols: u16,
     /// Terminal height in rows.
     pub rows: u16,
+    /// Vault credential ID for SSH password/passphrase retrieval.
+    pub credential_id: Option<String>,
+    /// Path to an SSH private key file.
+    pub key_path: Option<String>,
 }
 
 /// Opens a new protocol connection.
 ///
 /// Returns the generated connection ID that identifies this connection
 /// for all subsequent operations (write, resize, close).
+///
+/// For SSH connections, retrieves credentials from VaultManager in Rust
+/// (never via the frontend) using the optional `credentialId`.
 #[tauri::command]
 pub async fn connection_open(
     app: AppHandle,
     state: State<'_, ConnectionManager>,
+    vault: State<'_, VaultManager>,
     input: ConnectionOpenInput,
 ) -> Result<String, String> {
     let params = crate::protocol::ConnectionParams {
@@ -45,12 +54,40 @@ pub async fn connection_open(
         username: input.username,
         cols: input.cols,
         rows: input.rows,
+        credential_id: input.credential_id.clone(),
+        key_path: input.key_path.clone(),
     };
 
-    state
-        .open(params, input.protocol, app)
-        .await
-        .map_err(|e| e.to_string())
+    // For SSH, pass vault reference so auth can retrieve credentials
+    // server-side. Vault is cheaply wrapped since Tauri already
+    // stores it in an Arc internally.
+    match input.protocol {
+        ProtocolType::Ssh => {
+            // Retrieve the password from vault before connecting,
+            // so the async connection doesn't need owned VaultManager.
+            let vault_password =
+                if let Some(ref cred_id) = input.credential_id {
+                    vault
+                        .get_for_session(cred_id)
+                        .ok()
+                        .map(|c| c.secret.clone())
+                } else {
+                    None
+                };
+            state
+                .open_ssh_with_password(
+                    params,
+                    app,
+                    vault_password,
+                )
+                .await
+                .map_err(|e| e.to_string())
+        }
+        _ => state
+            .open(params, input.protocol, app)
+            .await
+            .map_err(|e| e.to_string()),
+    }
 }
 
 /// Writes input data to an active connection.

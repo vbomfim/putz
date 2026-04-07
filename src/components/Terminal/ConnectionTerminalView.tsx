@@ -5,12 +5,16 @@
  * Shows connection status (connecting, connected, disconnected, error)
  * and provides reconnect functionality.
  *
+ * For SSH connections, shows host key verification and auth prompt dialogs
+ * when triggered by backend events.
+ *
  * Props:
  * - connectionConfig: settings for the connection (host, port, protocol)
  * - onTitleChange: callback for terminal title escape sequences
  * - onStatusChange: callback for connection status changes
  */
 import { useConnection } from "./useConnection";
+import { HostKeyDialog } from "./HostKeyDialog";
 import type {
   ConnectionOpenInput,
   ConnectionStatusType,
@@ -33,12 +37,22 @@ export function ConnectionTerminalView({
   onTitleChange,
   onStatusChange,
 }: ConnectionTerminalViewProps) {
-  const { terminalRef, isReady, error, status, statusMessage, reconnect } =
-    useConnection({
-      connectionConfig,
-      onTitleChange,
-      onStatusChange,
-    });
+  const {
+    terminalRef,
+    isReady,
+    error,
+    status,
+    statusMessage,
+    reconnect,
+    hostKey,
+    // authPrompt is captured by useConnection but not rendered yet —
+    // the IPC response wiring needs to be implemented first.
+    // See the TODO comment near the end of this component.
+  } = useConnection({
+    connectionConfig,
+    onTitleChange,
+    onStatusChange,
+  });
 
   if (error) {
     return (
@@ -89,6 +103,31 @@ export function ConnectionTerminalView({
           </button>
         </div>
       )}
+
+      {/* SSH host key verification dialog */}
+      {hostKey && (
+        <HostKeyDialog
+          hostKey={hostKey}
+          host={connectionConfig.host ?? "unknown"}
+          onAccept={() => {
+            // TODO: Send IPC command to accept host key and resume connection
+            // For now, dialogs are informational
+          }}
+          onReject={() => {
+            // TODO: Send IPC command to reject host key
+          }}
+        />
+      )}
+
+      {/*
+        AuthPromptDialog is intentionally NOT rendered yet.
+        The backend emits auth-prompt events, but the IPC command to
+        send passwords back from the frontend is not implemented.
+        Rendering the dialog would create a dead-end UX where the
+        user enters a password that goes nowhere.
+        TODO: Implement connection_auth_respond IPC command first,
+        then enable this dialog.
+      */}
     </div>
   );
 }

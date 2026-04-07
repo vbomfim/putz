@@ -22,6 +22,8 @@ import type {
   ConnectionOpenInput,
   ConnectionStatusPayload,
   ConnectionStatusType,
+  HostKeyPayload,
+  AuthPromptPayload,
 } from "./connectionTypes";
 
 interface UseConnectionOptions {
@@ -31,6 +33,10 @@ interface UseConnectionOptions {
   onTitleChange?: (title: string) => void;
   /** Callback when the connection status changes. */
   onStatusChange?: (status: ConnectionStatusType, message?: string) => void;
+  /** Callback when a host key verification event is received. */
+  onHostKey?: (payload: HostKeyPayload) => void;
+  /** Callback when an auth prompt event is received. */
+  onAuthPrompt?: (payload: AuthPromptPayload) => void;
 }
 
 interface UseConnectionReturn {
@@ -46,6 +52,10 @@ interface UseConnectionReturn {
   statusMessage: string | null;
   /** Reconnect function — opens a new connection. */
   reconnect: () => void;
+  /** Host key payload if verification event received. */
+  hostKey: HostKeyPayload | null;
+  /** Auth prompt payload if auth prompt event received. */
+  authPrompt: AuthPromptPayload | null;
 }
 
 /**
@@ -58,6 +68,8 @@ export function useConnection({
   connectionConfig,
   onTitleChange,
   onStatusChange,
+  onHostKey,
+  onAuthPrompt,
 }: UseConnectionOptions): UseConnectionReturn {
   const terminalRef = useRef<HTMLDivElement | null>(null);
   const terminalInstanceRef = useRef<Terminal | null>(null);
@@ -68,12 +80,18 @@ export function useConnection({
   const [status, setStatus] = useState<ConnectionStatusType>("connecting");
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [reconnectKey, setReconnectKey] = useState(0);
+  const [hostKey, setHostKey] = useState<HostKeyPayload | null>(null);
+  const [authPrompt, setAuthPrompt] = useState<AuthPromptPayload | null>(null);
 
   // Store callbacks in refs to avoid effect re-runs
   const onTitleChangeRef = useRef(onTitleChange);
   onTitleChangeRef.current = onTitleChange;
   const onStatusChangeRef = useRef(onStatusChange);
   onStatusChangeRef.current = onStatusChange;
+  const onHostKeyRef = useRef(onHostKey);
+  onHostKeyRef.current = onHostKey;
+  const onAuthPromptRef = useRef(onAuthPrompt);
+  onAuthPromptRef.current = onAuthPrompt;
 
   const reconnect = useCallback(() => {
     setError(null);
@@ -225,6 +243,54 @@ export function useConnection({
         );
         unlisteners.push(unlistenStatus);
 
+        // Listen for SSH host key verification events
+        const unlistenHostKey = await listen<string>(
+          `connection-hostkey-${connectionId}`,
+          (event) => {
+            if (disposed) return;
+            try {
+              const payload: HostKeyPayload = JSON.parse(event.payload);
+              setHostKey(payload);
+              onHostKeyRef.current?.(payload);
+            } catch {
+              // Malformed payload — ignore
+            }
+          },
+        );
+        unlisteners.push(unlistenHostKey);
+
+        // Listen for SSH host key warning events (MITM)
+        const unlistenHostKeyWarning = await listen<string>(
+          `connection-hostkey-warning-${connectionId}`,
+          (event) => {
+            if (disposed) return;
+            try {
+              const payload: HostKeyPayload = JSON.parse(event.payload);
+              setHostKey(payload);
+              onHostKeyRef.current?.(payload);
+            } catch {
+              // Malformed payload — ignore
+            }
+          },
+        );
+        unlisteners.push(unlistenHostKeyWarning);
+
+        // Listen for SSH auth prompt events
+        const unlistenAuthPrompt = await listen<string>(
+          `connection-auth-prompt-${connectionId}`,
+          (event) => {
+            if (disposed) return;
+            try {
+              const payload: AuthPromptPayload = JSON.parse(event.payload);
+              setAuthPrompt(payload);
+              onAuthPromptRef.current?.(payload);
+            } catch {
+              // Malformed payload — ignore
+            }
+          },
+        );
+        unlisteners.push(unlistenAuthPrompt);
+
         // Store disposables for cleanup
         unlisteners.push(() => dataDisposable.dispose());
         unlisteners.push(() => binaryDisposable.dispose());
@@ -301,5 +367,7 @@ export function useConnection({
     status,
     statusMessage,
     reconnect,
+    hostKey,
+    authPrompt,
   };
 }

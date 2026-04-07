@@ -5,15 +5,16 @@
 
 use std::sync::Mutex as StdMutex;
 
-use super::telnet::EventEmitter;
+use super::EventEmitter;
 use super::ConnectionStatusPayload;
 
 /// Mock event emitter for testing protocol connections.
 ///
-/// Records all emitted outputs and status changes for assertion.
+/// Records all emitted outputs, status changes, and custom events.
 pub struct MockEmitter {
     pub outputs: StdMutex<Vec<(String, String)>>,
     pub statuses: StdMutex<Vec<(String, ConnectionStatusPayload)>>,
+    pub events: StdMutex<Vec<(String, String)>>,
 }
 
 impl MockEmitter {
@@ -21,6 +22,7 @@ impl MockEmitter {
         Self {
             outputs: StdMutex::new(Vec::new()),
             statuses: StdMutex::new(Vec::new()),
+            events: StdMutex::new(Vec::new()),
         }
     }
 }
@@ -42,5 +44,12 @@ impl EventEmitter for MockEmitter {
             .lock()
             .unwrap()
             .push((connection_id.to_string(), payload.clone()));
+    }
+
+    fn emit_event(&self, event: &str, payload: &str) {
+        self.events
+            .lock()
+            .unwrap()
+            .push((event.to_string(), payload.to_string()));
     }
 }
