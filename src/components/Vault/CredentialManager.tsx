@@ -118,11 +118,17 @@ export function CredentialManager({
     setDeleteConfirmId(null);
   }, []);
 
-  /** Handles right-click context menu. */
+  /** Context menu dimensions for viewport clamping. */
+  const CONTEXT_MENU_WIDTH = 160;
+  const CONTEXT_MENU_HEIGHT = 80;
+
+  /** Handles right-click context menu with viewport clamping. */
   const handleContextMenu = useCallback(
     (e: React.MouseEvent, id: string) => {
       e.preventDefault();
-      setContextMenu({ x: e.clientX, y: e.clientY, id });
+      const x = Math.min(e.clientX, window.innerWidth - CONTEXT_MENU_WIDTH);
+      const y = Math.min(e.clientY, window.innerHeight - CONTEXT_MENU_HEIGHT);
+      setContextMenu({ x, y, id });
     },
     [],
   );
@@ -265,9 +271,12 @@ export function CredentialManager({
         <div
           className="credential-delete-confirm-overlay"
           data-testid="credential-delete-confirm"
+          role="alertdialog"
+          aria-modal="true"
+          aria-labelledby="credential-delete-title"
         >
           <div className="credential-delete-confirm">
-            <p>
+            <p id="credential-delete-title">
               Delete credential{" "}
               <strong>{deletingCredential?.name ?? deleteConfirmId}</strong>?
             </p>

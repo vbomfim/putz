@@ -303,4 +303,26 @@ describe("CredentialManager", () => {
     await user.click(screen.getByTestId("credential-item-cred-1"));
     expect(onSelect).toHaveBeenCalledWith("cred-1");
   });
+
+  // ─── ARIA attributes ─────────────────────────────────────
+
+  it("delete confirmation has ARIA alertdialog attributes", async () => {
+    mockVaultList.mockResolvedValue(sampleCredentials);
+    const user = userEvent.setup();
+    render(<CredentialManager />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId("credential-item-cred-1")).toBeInTheDocument();
+    });
+
+    // Right-click and choose Delete
+    const item = screen.getByTestId("credential-item-cred-1");
+    await user.pointer({ keys: "[MouseRight]", target: item });
+    await user.click(screen.getByTestId("credential-context-delete"));
+
+    const overlay = screen.getByTestId("credential-delete-confirm");
+    expect(overlay).toHaveAttribute("role", "alertdialog");
+    expect(overlay).toHaveAttribute("aria-modal", "true");
+    expect(overlay).toHaveAttribute("aria-labelledby", "credential-delete-title");
+  });
 });

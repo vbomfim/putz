@@ -65,15 +65,23 @@ pub fn validate_credential_username(username: &str) -> Result<(), VaultError> {
     Ok(())
 }
 
-/// Validates that a secret is not empty.
+/// Maximum allowed secret length in bytes.
+const MAX_SECRET_LENGTH: usize = 10_000;
+
+/// Validates that a secret is not empty and within size limits.
 ///
-/// SECURITY: This function only checks for emptiness.
+/// SECURITY: This function only checks length constraints.
 /// The secret value MUST NOT appear in error messages.
 pub fn validate_secret(secret: &str) -> Result<(), VaultError> {
     if secret.is_empty() {
         return Err(VaultError::InvalidInput(
             "Secret cannot be empty".into(),
         ));
+    }
+    if secret.len() > MAX_SECRET_LENGTH {
+        return Err(VaultError::InvalidInput(format!(
+            "Secret exceeds maximum length of {MAX_SECRET_LENGTH} bytes"
+        )));
     }
     Ok(())
 }
@@ -194,6 +202,21 @@ mod tests {
             let msg = e.to_string();
             assert!(!msg.contains("hunter2"));
         }
+    }
+
+    #[test]
+    fn secret_at_max_length_accepted() {
+        let secret = "a".repeat(10_000);
+        assert!(validate_secret(&secret).is_ok());
+    }
+
+    #[test]
+    fn secret_over_max_length_rejected() {
+        let secret = "a".repeat(10_001);
+        let result = validate_secret(&secret);
+        assert!(result.is_err());
+        let msg = result.unwrap_err().to_string();
+        assert!(msg.contains("maximum length"));
     }
 
     // ─── UUID validation ──────────────────────────────────────

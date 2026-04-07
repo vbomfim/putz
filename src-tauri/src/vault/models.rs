@@ -9,6 +9,7 @@
 ///   backend-only `get_for_session`.
 /// - `KeyringEntry` is serialized into the OS keychain — never persisted to disk.
 use serde::{Deserialize, Serialize};
+use std::fmt;
 use zeroize::Zeroize;
 
 /// The type of credential stored.
@@ -41,11 +42,21 @@ pub struct CredentialMeta {
 /// - Only be returned via `vault_get` IPC (for the editor) or `get_for_session` (Rust-only)
 /// - Never be logged, serialized to disk, or included in error messages
 /// - Be zeroized when no longer needed
-#[derive(Debug, Clone, Serialize, Deserialize)]
+/// - Custom `Debug` impl masks the secret field as `[REDACTED]`
+#[derive(Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Credential {
     pub meta: CredentialMeta,
     pub secret: String,
+}
+
+impl fmt::Debug for Credential {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("Credential")
+            .field("meta", &self.meta)
+            .field("secret", &"[REDACTED]")
+            .finish()
+    }
 }
 
 impl Drop for Credential {
@@ -57,11 +68,22 @@ impl Drop for Credential {
 /// What gets stored in the OS keychain, serialized as JSON.
 ///
 /// The keychain entry key is the credential UUID, scoped to service "putz".
-#[derive(Debug, Clone, Serialize, Deserialize)]
+/// Custom `Debug` impl masks the secret field as `[REDACTED]`.
+#[derive(Clone, Serialize, Deserialize)]
 pub(crate) struct KeyringEntry {
     pub username: String,
     pub secret: String,
     pub credential_type: CredentialType,
+}
+
+impl fmt::Debug for KeyringEntry {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("KeyringEntry")
+            .field("username", &self.username)
+            .field("secret", &"[REDACTED]")
+            .field("credential_type", &self.credential_type)
+            .finish()
+    }
 }
 
 impl Drop for KeyringEntry {
@@ -91,7 +113,8 @@ impl Default for VaultIndex {
 /// Input DTO for creating or updating a credential via IPC.
 ///
 /// If `id` is provided, it's an update. Otherwise, a new credential is created.
-#[derive(Debug, Clone, Deserialize)]
+/// Custom `Debug` impl masks the secret field as `[REDACTED]`.
+#[derive(Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SetCredentialInput {
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -100,6 +123,18 @@ pub struct SetCredentialInput {
     pub username: String,
     pub secret: String,
     pub credential_type: CredentialType,
+}
+
+impl fmt::Debug for SetCredentialInput {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("SetCredentialInput")
+            .field("id", &self.id)
+            .field("name", &self.name)
+            .field("username", &self.username)
+            .field("secret", &"[REDACTED]")
+            .field("credential_type", &self.credential_type)
+            .finish()
+    }
 }
 
 impl Drop for SetCredentialInput {
@@ -285,5 +320,55 @@ mod tests {
         let json = serde_json::to_string(&meta).unwrap();
         // The JSON must not contain a "secret" key (credential_type: "password" is fine)
         assert!(!json.contains(r#""secret""#));
+    }
+
+    // ─── Custom Debug impls mask secrets ──────────────────────
+
+    #[test]
+    fn credential_debug_masks_secret() {
+        let cred = Credential {
+            meta: CredentialMeta {
+                id: "c1".into(),
+                name: "Test".into(),
+                username: "admin".into(),
+                credential_type: CredentialType::Password,
+                last_used: None,
+                created_at: "2024-01-01T00:00:00Z".into(),
+                updated_at: "2024-01-01T00:00:00Z".into(),
+            },
+            secret: "super_secret_password".into(),
+        };
+        let debug_str = format!("{:?}", cred);
+        assert!(debug_str.contains("[REDACTED]"));
+        assert!(!debug_str.contains("super_secret_password"));
+    }
+
+    #[test]
+    fn keyring_entry_debug_masks_secret() {
+        let entry = KeyringEntry {
+            username: "admin".into(),
+            secret: "keyring_secret_value".into(),
+            credential_type: CredentialType::Password,
+        };
+        let debug_str = format!("{:?}", entry);
+        assert!(debug_str.contains("[REDACTED]"));
+        assert!(!debug_str.contains("keyring_secret_value"));
+    }
+
+    #[test]
+    fn set_credential_input_debug_masks_secret() {
+        let input = SetCredentialInput {
+            id: None,
+            name: "Test".into(),
+            username: "user".into(),
+            secret: "input_secret_value".into(),
+            credential_type: CredentialType::Password,
+        };
+        let debug_str = format!("{:?}", input);
+        assert!(debug_str.contains("[REDACTED]"));
+        assert!(!debug_str.contains("input_secret_value"));
+        // Other fields should still be visible
+        assert!(debug_str.contains("Test"));
+        assert!(debug_str.contains("user"));
     }
 }

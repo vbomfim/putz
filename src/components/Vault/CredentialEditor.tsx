@@ -8,7 +8,7 @@
  * SECURITY: Password field is masked by default with a reveal toggle.
  * The secret only transits through the frontend for this editor form.
  */
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import type { CredentialType, SetCredentialInput, Credential } from "./types";
 import { CREDENTIAL_TYPE_LABELS } from "./types";
 
@@ -49,6 +49,17 @@ export function CredentialEditor({
   );
   const [showSecret, setShowSecret] = useState(false);
   const [errors, setErrors] = useState<FormErrors>({});
+
+  // Close on Escape key
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        onCancel();
+      }
+    };
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [onCancel]);
 
   const validate = useCallback((): FormErrors => {
     const errs: FormErrors = {};
@@ -100,6 +111,9 @@ export function CredentialEditor({
     <div
       className="credential-editor-overlay"
       data-testid="credential-editor"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="credential-editor-title"
       onClick={onCancel}
     >
       <form
@@ -108,7 +122,7 @@ export function CredentialEditor({
         onClick={(e) => e.stopPropagation()}
         data-testid="credential-editor-form"
       >
-        <h2 className="credential-editor-title">
+        <h2 className="credential-editor-title" id="credential-editor-title">
           {isEdit ? "Edit Credential" : "New Credential"}
         </h2>
 
@@ -170,6 +184,7 @@ export function CredentialEditor({
               onChange={(e) => setSecret(e.target.value)}
               placeholder="••••••••"
               aria-invalid={!!errors.secret}
+              autoComplete="off"
               data-testid="credential-editor-secret"
             />
             <button

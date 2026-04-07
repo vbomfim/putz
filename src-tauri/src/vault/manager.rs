@@ -20,6 +20,7 @@ use std::path::{Path, PathBuf};
 use std::sync::{Mutex, MutexGuard};
 
 use directories::ProjectDirs;
+use zeroize::Zeroizing;
 
 use super::error::VaultError;
 use super::keyring::KeyringBackend;
@@ -69,12 +70,15 @@ impl VaultManager {
     }
 
     /// Resolves the platform-appropriate config directory.
+    ///
+    /// Panics if the platform doesn't support standard directories
+    /// (e.g., no HOME on Unix, no APPDATA on Windows). This is fail-fast
+    /// by design — the vault cannot function without a stable config path.
     fn resolve_config_dir() -> PathBuf {
-        if let Some(proj_dirs) = ProjectDirs::from("com", "putz", "putz") {
-            proj_dirs.config_dir().to_path_buf()
-        } else {
-            PathBuf::from(".")
-        }
+        ProjectDirs::from("com", "putz", "putz")
+            .expect("Failed to resolve config directory: HOME or APPDATA not set")
+            .config_dir()
+            .to_path_buf()
     }
 
     /// Acquires the internal mutex, returning a graceful error on poisoning.
@@ -213,8 +217,8 @@ impl VaultManager {
             .ok_or_else(|| VaultError::NotFound(id.into()))?;
         drop(index); // Release lock before keyring I/O
 
-        // Retrieve secret from keychain
-        let entry_json = self.keyring.retrieve(id)?;
+        // Retrieve secret from keychain (zeroized when dropped)
+        let entry_json = Zeroizing::new(self.keyring.retrieve(id)?);
         let entry: KeyringEntry = serde_json::from_str(&entry_json)
             .map_err(|e| VaultError::ParseError(format!("Keyring entry corrupt: {e}")))?;
 
@@ -244,8 +248,8 @@ impl VaultManager {
         self.save_to_disk(&index)?;
         drop(index);
 
-        // Retrieve secret from keychain
-        let entry_json = self.keyring.retrieve(id)?;
+        // Retrieve secret from keychain (zeroized when dropped)
+        let entry_json = Zeroizing::new(self.keyring.retrieve(id)?);
         let entry: KeyringEntry = serde_json::from_str(&entry_json)
             .map_err(|e| VaultError::ParseError(format!("Keyring entry corrupt: {e}")))?;
 
@@ -268,40 +272,48 @@ impl VaultManager {
 
         let now = Self::now_iso8601();
 
-        // Build keyring entry
+        // Build keyring entry (zeroized when dropped)
         let keyring_entry = KeyringEntry {
             username: input.username.clone(),
             secret: input.secret.clone(),
             credential_type: input.credential_type.clone(),
         };
-        let entry_json = serde_json::to_string(&keyring_entry)?;
+        let entry_json = Zeroizing::new(serde_json::to_string(&keyring_entry)?);
 
         let mut index = self.lock_index()?;
 
-        let id = if let Some(existing_id) = &input.id {
-            // Update existing credential
+        // Determine ID and validate existence for updates
+        let (id, is_update) = if let Some(ref existing_id) = input.id {
             validation::validate_uuid(existing_id)?;
-            let meta = index
-                .credentials
-                .iter_mut()
-                .find(|c| c.id == *existing_id)
-                .ok_or_else(|| VaultError::NotFound(existing_id.clone()))?;
-
-            meta.name = input.name.clone();
-            meta.username = input.username.clone();
-            meta.credential_type = input.credential_type.clone();
-            meta.updated_at = now;
-
-            existing_id.clone()
+            if !index.credentials.iter().any(|c| c.id == *existing_id) {
+                return Err(VaultError::NotFound(existing_id.clone()));
+            }
+            (existing_id.clone(), true)
         } else {
-            // Create new credential
             if index.credentials.len() >= MAX_CREDENTIALS {
                 return Err(VaultError::InvalidInput(format!(
                     "Maximum number of credentials ({MAX_CREDENTIALS}) reached"
                 )));
             }
+            (uuid::Uuid::new_v4().to_string(), false)
+        };
 
-            let id = uuid::Uuid::new_v4().to_string();
+        // Store secret in keychain BEFORE mutating index.
+        // If keyring fails, index remains unchanged.
+        self.keyring.store(&id, &entry_json)?;
+
+        // Now safe to mutate index — keyring succeeded
+        if is_update {
+            let meta = index
+                .credentials
+                .iter_mut()
+                .find(|c| c.id == id)
+                .expect("existence validated above");
+            meta.name = input.name.clone();
+            meta.username = input.username.clone();
+            meta.credential_type = input.credential_type.clone();
+            meta.updated_at = now;
+        } else {
             let meta = CredentialMeta {
                 id: id.clone(),
                 name: input.name.clone(),
@@ -312,11 +324,7 @@ impl VaultManager {
                 updated_at: now,
             };
             index.credentials.push(meta);
-            id
-        };
-
-        // Store secret in keychain
-        self.keyring.store(&id, &entry_json)?;
+        }
 
         // Persist index to disk
         self.save_to_disk(&index)?;
@@ -354,23 +362,6 @@ impl VaultManager {
 mod tests {
     use super::super::keyring::mock::MockKeyring;
     use super::*;
-    use std::sync::Arc;
-
-    /// Creates a VaultManager with a temp directory and mock keyring.
-    fn test_manager() -> (VaultManager, Arc<MockKeyring>) {
-        let dir = tempfile::tempdir().unwrap();
-        let mock = Arc::new(MockKeyring::new());
-        // We need a separate MockKeyring for the manager since we can't share Arc<MockKeyring>
-        // as Box<dyn KeyringBackend>. Use a wrapper approach.
-        let mock_for_manager = MockKeyring::new();
-        let manager = VaultManager::with_backend(
-            Box::new(mock_for_manager),
-            dir.path().to_path_buf(),
-        );
-        // Return mock for inspection — but note: can't share with manager.
-        // Instead, let's just test through the manager's public API.
-        (manager, mock)
-    }
 
     /// Creates a VaultManager with a temp directory and returns the dir handle.
     fn test_manager_with_dir() -> (VaultManager, tempfile::TempDir) {
@@ -741,5 +732,69 @@ mod tests {
         mgr.delete(&id1).unwrap();
         assert_eq!(mgr.list().unwrap().len(), 1);
         assert!(mgr.get(&id2).is_ok());
+    }
+
+    // ─── Keyring failure rollback ────────────────────────────────
+
+    /// A keyring mock that always fails on store, used to test rollback behavior.
+    struct FailingKeyring;
+
+    impl KeyringBackend for FailingKeyring {
+        fn store(&self, _id: &str, _entry_json: &str) -> Result<(), VaultError> {
+            Err(VaultError::AccessDenied("Keychain locked".into()))
+        }
+        fn retrieve(&self, _id: &str) -> Result<String, VaultError> {
+            Err(VaultError::NotFound("not stored".into()))
+        }
+        fn delete(&self, _id: &str) -> Result<(), VaultError> {
+            Err(VaultError::NotFound("not stored".into()))
+        }
+    }
+
+    #[test]
+    fn set_keyring_failure_does_not_mutate_index() {
+        let dir = tempfile::tempdir().unwrap();
+        let mgr = VaultManager::with_backend(
+            Box::new(FailingKeyring),
+            dir.path().to_path_buf(),
+        );
+
+        let result = mgr.set(sample_input());
+        assert!(result.is_err(), "set() should fail when keyring is unavailable");
+
+        let list = mgr.list().unwrap();
+        assert!(list.is_empty(), "index must remain empty after keyring failure");
+    }
+
+    #[test]
+    fn update_keyring_failure_does_not_mutate_index() {
+        // First, create a credential with a working keyring
+        let dir = tempfile::tempdir().unwrap();
+        let working_mgr = VaultManager::with_backend(
+            Box::new(MockKeyring::new()),
+            dir.path().to_path_buf(),
+        );
+        let id = working_mgr.set(sample_input()).unwrap();
+        let original = working_mgr.list().unwrap();
+        assert_eq!(original.len(), 1);
+        let original_name = original[0].name.clone();
+        drop(working_mgr);
+
+        // Now create a manager with a failing keyring pointing at the same dir
+        let failing_mgr = VaultManager::with_backend(
+            Box::new(FailingKeyring),
+            dir.path().to_path_buf(),
+        );
+
+        let mut update = sample_input();
+        update.id = Some(id);
+        update.name = "Updated Name".into();
+        let result = failing_mgr.set(update);
+        assert!(result.is_err(), "update should fail when keyring is unavailable");
+
+        // Verify index was not mutated
+        let list = failing_mgr.list().unwrap();
+        assert_eq!(list.len(), 1);
+        assert_eq!(list[0].name, original_name, "name must not change after keyring failure");
     }
 }

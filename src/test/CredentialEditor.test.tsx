@@ -331,4 +331,35 @@ describe("CredentialEditor", () => {
 
     expect(screen.getByLabelText(/Passphrase/)).toBeInTheDocument();
   });
+
+  // ─── Escape key ──────────────────────────────────────────
+
+  it("calls onCancel when Escape key is pressed", async () => {
+    const user = userEvent.setup();
+    render(<CredentialEditor onSave={onSave} onCancel={onCancel} />);
+
+    await user.keyboard("{Escape}");
+    expect(onCancel).toHaveBeenCalledTimes(1);
+  });
+
+  // ─── ARIA attributes ─────────────────────────────────────
+
+  it("has correct ARIA dialog attributes", () => {
+    render(<CredentialEditor onSave={onSave} onCancel={onCancel} />);
+
+    const overlay = screen.getByTestId("credential-editor");
+    expect(overlay).toHaveAttribute("role", "dialog");
+    expect(overlay).toHaveAttribute("aria-modal", "true");
+    expect(overlay).toHaveAttribute("aria-labelledby", "credential-editor-title");
+
+    // Title must have matching id
+    const title = screen.getByText("New Credential");
+    expect(title).toHaveAttribute("id", "credential-editor-title");
+  });
+
+  it("has autoComplete=off on secret field", () => {
+    render(<CredentialEditor onSave={onSave} onCancel={onCancel} />);
+    const secretInput = screen.getByTestId("credential-editor-secret");
+    expect(secretInput).toHaveAttribute("autoComplete", "off");
+  });
 });
