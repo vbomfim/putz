@@ -15,11 +15,13 @@ use ipc::{
     logging_start, logging_status, logging_stop, pty_close, pty_resize, pty_spawn, pty_write,
     serial_list_ports, serial_send_break, session_create, session_create_folder, session_delete,
     session_delete_folder, session_duplicate, session_export, session_get, session_import,
-    session_list, session_move, session_search, session_update, vault_delete, vault_get,
-    vault_list, vault_set,
+    session_list, session_move, session_search, session_update, sftp_close, sftp_delete,
+    sftp_download, sftp_list, sftp_mkdir, sftp_open, sftp_rename, sftp_stat, sftp_upload,
+    vault_delete, vault_get, vault_list, vault_set,
 };
 use logging::LogManager;
 use protocol::connection_manager::ConnectionManager;
+use protocol::sftp::SftpManager;
 use pty::PtyManager;
 use session::SessionManager;
 use vault::VaultManager;
@@ -33,6 +35,7 @@ pub fn run() {
         .manage(ConnectionManager::new())
         .manage(VaultManager::new())
         .manage(LogManager::new())
+        .manage(SftpManager::new())
         .manage(HighlightManager::new())
         .invoke_handler(tauri::generate_handler![
             greet,
@@ -58,6 +61,15 @@ pub fn run() {
             session_export,
             session_create_folder,
             session_delete_folder,
+            sftp_open,
+            sftp_list,
+            sftp_stat,
+            sftp_download,
+            sftp_upload,
+            sftp_rename,
+            sftp_delete,
+            sftp_mkdir,
+            sftp_close,
             vault_list,
             vault_get,
             vault_set,

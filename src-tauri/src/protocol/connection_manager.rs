@@ -514,6 +514,70 @@ impl ConnectionManager {
             .unwrap_or(false)
     }
 
+    /// Opens an SFTP subsystem channel on an existing SSH connection.
+    ///
+    /// Returns a `russh::ChannelStream` suitable for initializing
+    /// `russh_sftp::client::SftpSession`. The channel is opened on
+    /// the SSH session and the "sftp" subsystem is requested.
+    ///
+    /// Must be called while holding no other locks on SftpManager to
+    /// avoid deadlock. The returned stream is fully independent.
+    pub async fn open_sftp_channel(
+        &self,
+        connection_id: &str,
+    ) -> Result<russh::ChannelStream<russh::client::Msg>, ProtocolError> {
+        let mut conns = self.connections.lock().await;
+        let conn = conns.get_mut(connection_id).ok_or_else(|| {
+            ProtocolError::ChannelClosed(format!(
+                "Connection not found: {connection_id}"
+            ))
+        })?;
+
+        if !conn.is_connected() {
+            return Err(ProtocolError::ChannelClosed(
+                "SSH connection is not active".into(),
+            ));
+        }
+
+        match conn {
+            ProtocolConnection::Ssh(ssh_conn) => {
+                let session = ssh_conn
+                    .session_handle_mut()
+                    .ok_or_else(|| {
+                        ProtocolError::ChannelClosed(
+                            "SSH session not connected".into(),
+                        )
+                    })?;
+
+                // Open a new session channel for SFTP
+                let channel = session
+                    .channel_open_session()
+                    .await
+                    .map_err(|e| {
+                        ProtocolError::ChannelClosed(format!(
+                            "Failed to open SFTP channel: {e}"
+                        ))
+                    })?;
+
+                // Request the "sftp" subsystem
+                channel
+                    .request_subsystem(true, "sftp")
+                    .await
+                    .map_err(|e| {
+                        ProtocolError::ChannelClosed(format!(
+                            "Failed to request SFTP subsystem: {e}"
+                        ))
+                    })?;
+
+                Ok(channel.into_stream())
+            }
+            _ => Err(ProtocolError::InvalidParams(
+                "SFTP is only supported for SSH connections"
+                    .into(),
+            )),
+        }
+    }
+
     /// Returns the number of active connections.
     #[allow(dead_code)]
     pub async fn count(&self) -> usize {
