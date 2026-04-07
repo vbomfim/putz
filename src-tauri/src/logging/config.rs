@@ -9,9 +9,11 @@ use std::path::PathBuf;
 const DEFAULT_LOG_DIR_NAME: &str = "putz-logs";
 
 /// Default maximum log file size in bytes (100 MB).
+#[allow(dead_code)]
 const DEFAULT_MAX_FILE_SIZE: u64 = 100 * 1024 * 1024;
 
 /// Default flush interval in milliseconds.
+#[allow(dead_code)]
 const DEFAULT_FLUSH_INTERVAL_MS: u64 = 100;
 
 /// Configuration for a session logger instance.
@@ -37,6 +39,7 @@ pub struct LogConfig {
 
 impl LogConfig {
     /// Creates a new LogConfig with defaults and the given session name.
+    #[allow(dead_code)]
     pub fn new(session_name: &str) -> Self {
         Self {
             directory: default_log_directory(),

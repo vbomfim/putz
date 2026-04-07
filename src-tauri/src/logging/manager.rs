@@ -96,6 +96,7 @@ impl LogManager {
     }
 
     /// Checks if logging is active for a session.
+    #[allow(dead_code)]
     pub fn is_active(&self, session_id: &str) -> bool {
         let loggers = self.loggers.lock().unwrap_or_else(|e| e.into_inner());
         loggers.contains_key(session_id)

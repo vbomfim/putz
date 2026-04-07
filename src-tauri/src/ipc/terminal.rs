@@ -21,6 +21,7 @@ use crate::pty::PtyError;
 /// Returns the UUID session ID that identifies this session for
 /// all subsequent operations (write, resize, close).
 #[tauri::command]
+#[allow(clippy::too_many_arguments)]
 pub fn pty_spawn(
     app: AppHandle,
     state: State<'_, PtyManager>,

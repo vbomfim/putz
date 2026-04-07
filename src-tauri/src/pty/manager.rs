@@ -81,6 +81,7 @@ impl PtyManager {
     ///
     /// Validates shell path, working directory, and environment variables
     /// before spawning.
+    #[allow(clippy::too_many_arguments)]
     pub fn spawn(
         &self,
         app: &AppHandle,

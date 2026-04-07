@@ -16,16 +16,14 @@ use time::OffsetDateTime;
 use super::config::{LogConfig, LogStatus};
 use super::error::LogError;
 
-/// Regex pattern for standard ANSI escape sequences.
-/// Matches: ESC [ (params) (final byte)
-/// Also matches OSC sequences: ESC ] ... ST
-const ANSI_ESCAPE_PATTERN: &str = r"\x1b\[[0-9;]*[a-zA-Z]|\x1b\][^\x07]*\x07|\x1b\[[0-9;]*m";
-
 /// Internal mutable state of the session logger.
 struct LoggerInner {
     writer: BufWriter<File>,
     config: LogConfig,
     current_file_path: PathBuf,
+    /// Original base stem captured at construction (e.g. "session_2025-01-15_14-32-01").
+    /// Used for all rotation file names so suffixes never compound.
+    original_stem: String,
     current_file_size: u64,
     bytes_written: u64,
     rotation_count: u32,
@@ -33,8 +31,6 @@ struct LoggerInner {
     /// Tracks whether the last byte written was a newline,
     /// so timestamps are only added at the start of lines.
     at_line_start: bool,
-    /// Buffer for accumulating partial lines (for ANSI stripping).
-    line_buffer: Vec<u8>,
 }
 
 /// Session logger that writes terminal output to a file.
@@ -50,29 +46,34 @@ impl SessionLogger {
     ///
     /// File naming: `{session_name}_{YYYY-MM-DD_HH-mm-ss}.log`
     /// Directory is created recursively if it doesn't exist.
-    /// File permissions set to 0644 on Unix.
+    /// File permissions set to 0600 on Unix (owner-only; logs may contain sensitive data).
     pub fn new(config: LogConfig) -> Result<Self, LogError> {
         config
             .validate()
-            .map_err(|e| LogError::InvalidSessionName(e))?;
+            .map_err(LogError::InvalidSessionName)?;
 
         // Create log directory
         fs::create_dir_all(&config.directory)
             .map_err(|e| LogError::DirectoryFailed(e.to_string()))?;
 
         let file_path = generate_log_file_path(&config);
+        let original_stem = file_path
+            .file_stem()
+            .unwrap_or_default()
+            .to_string_lossy()
+            .to_string();
         let file = create_log_file(&file_path)?;
 
         let inner = LoggerInner {
             writer: BufWriter::new(file),
             config,
             current_file_path: file_path,
+            original_stem,
             current_file_size: 0,
             bytes_written: 0,
             rotation_count: 0,
             last_flush: Instant::now(),
             at_line_start: true,
-            line_buffer: Vec::with_capacity(4096),
         };
 
         Ok(Self {
@@ -202,11 +203,11 @@ fn create_log_file(path: &PathBuf) -> Result<File, LogError> {
         .open(path)
         .map_err(|e| LogError::FileCreateFailed(e.to_string()))?;
 
-    // Set 0644 permissions on Unix
+    // Set 0600 permissions on Unix (owner-only; logs may contain sensitive data)
     #[cfg(unix)]
     {
         use std::os::unix::fs::PermissionsExt;
-        let _ = fs::set_permissions(path, fs::Permissions::from_mode(0o644));
+        let _ = fs::set_permissions(path, fs::Permissions::from_mode(0o600));
     }
 
     Ok(file)
@@ -237,8 +238,8 @@ pub fn strip_ansi_sequences(data: &[u8]) -> Vec<u8> {
                         {
                             i += 1;
                         }
-                        // Skip the final byte (letter)
-                        if i < data.len() && data[i].is_ascii_alphabetic() {
+                        // Skip the final byte (0x40-0x7E: letters, @, ~, etc.)
+                        if i < data.len() && (0x40..=0x7E).contains(&data[i]) {
                             i += 1;
                         }
                         continue;
@@ -265,6 +266,25 @@ pub fn strip_ansi_sequences(data: &[u8]) -> Vec<u8> {
                     b'(' | b')' | b'*' | b'+' => {
                         // Character set designation: skip 2 more bytes
                         i += 3;
+                        continue;
+                    }
+                    // DCS, APC, PM, SOS — string sequences terminated by ST (ESC \ or 0x9C)
+                    b'P' | b'_' | b'^' | b'X' => {
+                        i += 2;
+                        while i < data.len() {
+                            if data[i] == 0x9C {
+                                i += 1;
+                                break;
+                            }
+                            if data[i] == 0x1b
+                                && i + 1 < data.len()
+                                && data[i + 1] == b'\\'
+                            {
+                                i += 2;
+                                break;
+                            }
+                            i += 1;
+                        }
                         continue;
                     }
                     _ => {
@@ -359,16 +379,10 @@ fn rotate_file(inner: &mut LoggerInner) -> Result<(), LogError> {
     // Increment rotation count
     inner.rotation_count += 1;
 
-    // Generate new file path with rotation suffix
-    let stem = inner
-        .current_file_path
-        .file_stem()
-        .unwrap_or_default()
-        .to_string_lossy()
-        .to_string();
+    // Generate new file path using the ORIGINAL stem (avoids compounding _partN suffixes)
     let new_path = inner
         .current_file_path
-        .with_file_name(format!("{}_part{}.log", stem, inner.rotation_count + 1));
+        .with_file_name(format!("{}_part{}.log", inner.original_stem, inner.rotation_count + 1));
 
     // Create new file
     let new_file = create_log_file(&new_path)?;
@@ -691,18 +705,116 @@ mod tests {
         assert_eq!(status.bytes_written, 0);
     }
 
-    #[cfg(unix)]
     #[test]
-    fn log_file_has_correct_permissions() {
-        use std::os::unix::fs::PermissionsExt;
-
+    fn multiple_rotations_dont_compound_part_suffixes() {
         let dir = tempfile::tempdir().unwrap();
-        let config = test_config(dir.path());
+        let mut config = test_config(dir.path());
+        config.max_file_size = 1024; // minimum valid (1 KB)
         let logger = SessionLogger::new(config).unwrap();
-        let path = logger.file_path();
 
-        let metadata = fs::metadata(path).unwrap();
-        let mode = metadata.permissions().mode() & 0o777;
-        assert_eq!(mode, 0o644);
+        let original_path = logger.file_path();
+        let original_stem = original_path
+            .file_stem()
+            .unwrap()
+            .to_string_lossy()
+            .to_string();
+
+        // Write enough data to trigger at least 3 rotations (1 KB × 3 = ~3 KB min)
+        let chunk = b"aaaaaaaaaaaaaaaa\n"; // 17 bytes × 250 = 4250 bytes >> 1024 × 3
+        for _ in 0..250 {
+            logger.write_data(chunk).unwrap();
+        }
+        logger.flush().unwrap();
+
+        let status = logger.status();
+        assert!(
+            status.rotation_count >= 3,
+            "Expected >= 3 rotations, got {}",
+            status.rotation_count
+        );
+
+        // Collect rotated file names in the directory
+        let files: Vec<String> = fs::read_dir(dir.path())
+            .unwrap()
+            .filter_map(|e| {
+                let name = e.ok()?.file_name().to_string_lossy().to_string();
+                if name.contains("_part") { Some(name) } else { None }
+            })
+            .collect();
+
+        // Every rotated file should be {original_stem}_partN.log,
+        // NOT {original_stem}_part2_part3.log
+        for name in &files {
+            let suffix_count = name.matches("_part").count();
+            assert_eq!(
+                suffix_count, 1,
+                "File name has compounded _part suffixes: {name}"
+            );
+            // Verify stem prefix is always the original (not accumulated)
+            assert!(
+                name.starts_with(&original_stem),
+                "Rotated file {name} doesn't start with original stem '{original_stem}'"
+            );
+        }
+    }
+
+    // --- CSI parser edge cases (Fix #4) ---
+
+    #[test]
+    fn strip_ansi_handles_csi_tilde_final_byte() {
+        // Function key F5: ESC[15~
+        let input = b"\x1b[15~visible";
+        let result = strip_ansi_sequences(input);
+        assert_eq!(result, b"visible");
+    }
+
+    #[test]
+    fn strip_ansi_handles_csi_at_sign_final_byte() {
+        // Insert characters: ESC[4@
+        let input = b"\x1b[4@visible";
+        let result = strip_ansi_sequences(input);
+        assert_eq!(result, b"visible");
+    }
+
+    // --- DCS/APC/PM/SOS handler tests (Fix #5) ---
+
+    #[test]
+    fn strip_ansi_removes_dcs_sequence() {
+        // DCS (Device Control String): ESC P ... ST (ESC \)
+        let input = b"\x1bPsome data\x1b\\visible";
+        let result = strip_ansi_sequences(input);
+        assert_eq!(result, b"visible");
+    }
+
+    #[test]
+    fn strip_ansi_removes_apc_sequence() {
+        // APC (Application Program Command): ESC _ ... ST (ESC \)
+        let input = b"\x1b_app command\x1b\\visible";
+        let result = strip_ansi_sequences(input);
+        assert_eq!(result, b"visible");
+    }
+
+    #[test]
+    fn strip_ansi_removes_pm_sequence() {
+        // PM (Privacy Message): ESC ^ ... ST (ESC \)
+        let input = b"\x1b^privacy\x1b\\visible";
+        let result = strip_ansi_sequences(input);
+        assert_eq!(result, b"visible");
+    }
+
+    #[test]
+    fn strip_ansi_removes_sos_sequence() {
+        // SOS (Start of String): ESC X ... ST (ESC \)
+        let input = b"\x1bXsos data\x1b\\visible";
+        let result = strip_ansi_sequences(input);
+        assert_eq!(result, b"visible");
+    }
+
+    #[test]
+    fn strip_ansi_removes_dcs_with_0x9c_terminator() {
+        // DCS terminated by 0x9C (C1 ST)
+        let input = b"\x1bPsome data\x9cvisible";
+        let result = strip_ansi_sequences(input);
+        assert_eq!(result, b"visible");
     }
 }

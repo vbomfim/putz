@@ -510,7 +510,10 @@ export const useTabStore = create<TabState>((set, get) => ({
       // Stop logging
       newLogging.delete(sessionId);
       invoke("logging_stop", { sessionId }).catch(() => {
-        // Ignore — may not have been started
+        // Rollback — re-add sessionId if stop failed
+        const rollback = new Set(get().loggingSessions);
+        rollback.add(sessionId);
+        set({ loggingSessions: rollback });
       });
     } else {
       // Start logging with default config

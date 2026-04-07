@@ -10,16 +10,19 @@ use crate::logging::{LogConfig, LogManager, LogStatus};
 ///
 /// Creates a log file and begins capturing terminal output.
 /// Returns the path to the log file on success.
+///
+/// Security: The log directory is always set server-side to the default
+/// `~/putz-logs/`. Frontend-supplied directory values are ignored to
+/// prevent arbitrary file writes via a compromised webview.
 #[tauri::command]
 pub fn logging_start(
     state: State<'_, LogManager>,
     session_id: String,
     mut config: LogConfig,
 ) -> Result<String, String> {
-    // Use default log directory if none specified
-    if config.directory.as_os_str().is_empty() {
-        config.directory = crate::logging::config::default_log_directory();
-    }
+    // SECURITY: Always override directory to prevent arbitrary file write.
+    // A compromised webview could pass any path — we force the safe default.
+    config.directory = crate::logging::config::default_log_directory();
     state
         .start_logging(&session_id, config)
         .map_err(|e| e.to_string())
