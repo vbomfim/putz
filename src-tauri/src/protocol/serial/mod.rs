@@ -617,6 +617,8 @@ mod tests {
             username: None,
             cols: 80,
             rows: 24,
+            credential_id: None,
+            key_path: None,
         };
         let result = conn.connect(params).await;
         assert!(result.is_err());

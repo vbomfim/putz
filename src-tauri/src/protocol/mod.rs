@@ -9,6 +9,7 @@
 /// `HashMap<String, Box<dyn Protocol>>` behind a `tokio::sync::Mutex`.
 pub mod connection_manager;
 pub mod serial;
+pub mod ssh;
 pub mod telnet;
 
 #[cfg(test)]
@@ -37,6 +38,7 @@ pub enum ProtocolType {
 /// - SSH/Telnet: host + port (+ optional username)
 /// - Serial: host = serial port path, port = baud rate
 /// - Local: no host/port needed
+/// - SSH only: credential_id (vault), key_path (private key file)
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ConnectionParams {
@@ -45,6 +47,59 @@ pub struct ConnectionParams {
     pub username: Option<String>,
     pub cols: u16,
     pub rows: u16,
+    /// Vault credential ID for SSH password/passphrase retrieval.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub credential_id: Option<String>,
+    /// Path to an SSH private key file.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub key_path: Option<String>,
+}
+
+/// Event emitter trait — abstracts Tauri event emission for testability.
+///
+/// Moved to the protocol level because both SSH and Telnet connections
+/// need to emit output and status events to the frontend.
+///
+/// The real implementation uses `tauri::AppHandle::emit()`.
+/// Tests can provide a mock implementation.
+pub trait EventEmitter: Send + Sync + 'static {
+    /// Emits terminal output data (base64 encoded) to the frontend.
+    fn emit_output(&self, connection_id: &str, data: &str);
+    /// Emits a connection status change to the frontend.
+    fn emit_status(&self, connection_id: &str, payload: &ConnectionStatusPayload);
+    /// Emits a custom event with a JSON payload to the frontend.
+    fn emit_event(&self, event: &str, payload: &str);
+}
+
+/// Tauri-backed event emitter.
+pub struct TauriEventEmitter {
+    app: tauri::AppHandle,
+}
+
+impl TauriEventEmitter {
+    pub fn new(app: tauri::AppHandle) -> Self {
+        Self { app }
+    }
+}
+
+impl EventEmitter for TauriEventEmitter {
+    fn emit_output(&self, connection_id: &str, data: &str) {
+        let event = format!("connection-output-{connection_id}");
+        let _ = tauri::Emitter::emit(&self.app, &event, data);
+    }
+
+    fn emit_status(
+        &self,
+        connection_id: &str,
+        payload: &ConnectionStatusPayload,
+    ) {
+        let event = format!("connection-status-{connection_id}");
+        let _ = tauri::Emitter::emit(&self.app, &event, payload);
+    }
+
+    fn emit_event(&self, event: &str, payload: &str) {
+        let _ = tauri::Emitter::emit(&self.app, event, payload);
+    }
 }
 
 /// Errors that can occur during protocol operations.
@@ -175,11 +230,13 @@ mod tests {
             username: None,
             cols: 80,
             rows: 24,
+            credential_id: None,
+            key_path: None,
         };
         let json = serde_json::to_string(&params).unwrap();
         assert!(json.contains("192.168.1.1"));
         assert!(json.contains("23"));
-        // None fields still serialize (no skip_serializing_if)
+        // None fields with skip_serializing_if omit from JSON
     }
 
     #[test]
@@ -190,6 +247,8 @@ mod tests {
             username: Some("admin".into()),
             cols: 120,
             rows: 40,
+            credential_id: None,
+            key_path: None,
         };
         let json = serde_json::to_string(&params).unwrap();
         let restored: ConnectionParams = serde_json::from_str(&json).unwrap();
@@ -198,6 +257,40 @@ mod tests {
         assert_eq!(restored.username, Some("admin".into()));
         assert_eq!(restored.cols, 120);
         assert_eq!(restored.rows, 40);
+    }
+
+    #[test]
+    fn connection_params_with_ssh_fields() {
+        let params = ConnectionParams {
+            host: Some("server.local".into()),
+            port: Some(22),
+            username: Some("root".into()),
+            cols: 80,
+            rows: 24,
+            credential_id: Some("cred-uuid-123".into()),
+            key_path: Some("/home/user/.ssh/id_rsa".into()),
+        };
+        let json = serde_json::to_string(&params).unwrap();
+        assert!(json.contains("credentialId"));
+        assert!(json.contains("cred-uuid-123"));
+        assert!(json.contains("keyPath"));
+        assert!(json.contains("id_rsa"));
+    }
+
+    #[test]
+    fn connection_params_omits_none_ssh_fields() {
+        let params = ConnectionParams {
+            host: Some("host".into()),
+            port: Some(23),
+            username: None,
+            cols: 80,
+            rows: 24,
+            credential_id: None,
+            key_path: None,
+        };
+        let json = serde_json::to_string(&params).unwrap();
+        assert!(!json.contains("credentialId"));
+        assert!(!json.contains("keyPath"));
     }
 
     // ====================================================================

@@ -22,6 +22,10 @@ export interface ConnectionOpenInput {
   cols: number;
   /** Terminal height in rows. */
   rows: number;
+  /** Vault credential ID for SSH password/passphrase retrieval. */
+  credentialId?: string;
+  /** Path to an SSH private key file. */
+  keyPath?: string;
   // -- Serial-specific fields (only when protocol = "serial") --
   /** Baud rate for serial connections (default: 9600). */
   baudRate?: number;
@@ -118,4 +122,28 @@ export interface ConnectionStatusPayload {
   status: ConnectionStatusType;
   /** Optional message with details (e.g., error description). */
   message?: string;
+}
+
+/** Payload for connection-hostkey-{connectionId} events. */
+export interface HostKeyPayload {
+  /** Remote hostname. */
+  host: string;
+  /** Remote port. */
+  port: number;
+  /** SSH key type (e.g., "ssh-ed25519"). */
+  keyType: string;
+  /** SHA256 fingerprint of the server's host key. */
+  fingerprint: string;
+  /** Action: "new" for first connection, "changed" for MITM warning. */
+  action: "new" | "changed";
+  /** Expected fingerprint (only for "changed" action). */
+  expectedFingerprint?: string;
+}
+
+/** Payload for connection-auth-prompt-{connectionId} events. */
+export interface AuthPromptPayload {
+  /** Username being authenticated. */
+  username: string;
+  /** Available authentication methods. */
+  methods: string[];
 }

@@ -6,21 +6,31 @@
 ///
 /// Thread-safe via `Arc<tokio::sync::Mutex<>>` since protocol
 /// operations are async.
+///
+/// Uses `Connection` enum for protocol dispatch so each protocol
+/// handles its own write/resize/close semantics natively.
 use std::collections::HashMap;
 use std::sync::Arc;
 
+use tokio::io::AsyncWriteExt;
 use tokio::sync::Mutex as TokioMutex;
 use uuid::Uuid;
 
 use super::serial::config::SerialConfig;
 use super::serial::SerialConnection;
-use super::telnet::{EventEmitter, TauriEventEmitter, TelnetConnection};
-use super::{ConnectionParams, Protocol, ProtocolError, ProtocolType};
+use super::ssh::SshConnection;
+use super::telnet::negotiation::{build_naws_subnegotiation, escape_iac};
+use super::telnet::TelnetConnection;
+use super::{
+    ConnectionParams, EventEmitter, Protocol, ProtocolError, ProtocolType,
+    TauriEventEmitter,
+};
+use crate::vault::VaultManager;
 
 /// Maximum number of concurrent protocol connections.
 const MAX_CONNECTIONS: usize = 64;
 
-/// Wrapper enum for protocol connection types.
+/// Protocol-specific connection wrapper.
 ///
 /// Each variant owns a concrete connection implementation.
 /// The enum dispatches to protocol-specific methods while allowing
@@ -28,43 +38,74 @@ const MAX_CONNECTIONS: usize = 64;
 /// in a single HashMap.
 enum ProtocolConnection {
     Telnet(TelnetConnection),
+    Ssh(SshConnection),
     Serial(SerialConnection),
 }
 
 impl ProtocolConnection {
-    /// Writes data to the connection using protocol-specific encoding.
-    async fn write(&mut self, data: &[u8]) -> Result<(), ProtocolError> {
+    fn is_connected(&self) -> bool {
         match self {
-            Self::Telnet(conn) => conn.write(data).await,
-            Self::Serial(conn) => conn.write(data).await,
+            Self::Telnet(c) => c.is_connected(),
+            Self::Ssh(c) => c.is_connected(),
+            Self::Serial(c) => c.is_connected(),
         }
     }
 
-    /// Resizes the terminal (protocol-specific behavior).
+    /// Writes data using protocol-specific semantics.
+    async fn write(&mut self, data: &[u8]) -> Result<(), ProtocolError> {
+        match self {
+            Self::Telnet(c) => {
+                let writer = c.write_handle().ok_or_else(|| {
+                    ProtocolError::ChannelClosed("not connected".into())
+                })?;
+                let escaped = escape_iac(data);
+                let mut w = writer.lock().await;
+                w.write_all(&escaped)
+                    .await
+                    .map_err(|e| ProtocolError::IoError(e.to_string()))?;
+                w.flush()
+                    .await
+                    .map_err(|e| ProtocolError::IoError(e.to_string()))?;
+                Ok(())
+            }
+            Self::Ssh(c) => c.write_bytes(data).await,
+            Self::Serial(c) => c.write(data).await,
+        }
+    }
+
+    /// Resizes terminal using protocol-specific semantics.
     async fn resize(
         &mut self,
         cols: u16,
         rows: u16,
     ) -> Result<(), ProtocolError> {
         match self {
-            Self::Telnet(conn) => conn.resize(cols, rows).await,
+            Self::Telnet(c) => {
+                let writer = c.write_handle().ok_or_else(|| {
+                    ProtocolError::ChannelClosed("not connected".into())
+                })?;
+                let mut naws_msg = Vec::new();
+                build_naws_subnegotiation(cols, rows, &mut naws_msg);
+                let mut w = writer.lock().await;
+                w.write_all(&naws_msg)
+                    .await
+                    .map_err(|e| ProtocolError::IoError(e.to_string()))?;
+                w.flush()
+                    .await
+                    .map_err(|e| ProtocolError::IoError(e.to_string()))?;
+                Ok(())
+            }
+            Self::Ssh(c) => c.send_resize(cols, rows).await,
             Self::Serial(conn) => conn.resize(cols, rows).await,
         }
     }
 
-    /// Closes the connection.
+    /// Closes the connection using protocol-specific semantics.
     async fn close(&mut self) -> Result<(), ProtocolError> {
         match self {
-            Self::Telnet(conn) => conn.close().await,
+            Self::Telnet(c) => c.close().await,
+            Self::Ssh(c) => c.close().await,
             Self::Serial(conn) => conn.disconnect().await,
-        }
-    }
-
-    /// Returns whether the connection is currently active.
-    fn is_connected(&self) -> bool {
-        match self {
-            Self::Telnet(conn) => conn.is_connected(),
-            Self::Serial(conn) => conn.is_connected(),
         }
     }
 
@@ -127,6 +168,101 @@ impl ConnectionManager {
         .await
     }
 
+    /// Opens an SSH connection with a pre-resolved vault password.
+    ///
+    /// The IPC layer retrieves the password from VaultManager before
+    /// calling this, avoiding the need to pass VaultManager across
+    /// async boundaries.
+    pub async fn open_ssh_with_password(
+        &self,
+        params: ConnectionParams,
+        app: tauri::AppHandle,
+        vault_password: Option<String>,
+    ) -> Result<String, ProtocolError> {
+        self.open_ssh_with_emitter(
+            params,
+            Arc::new(TauriEventEmitter::new(app)),
+            vault_password,
+        )
+        .await
+    }
+
+    /// Opens an SSH connection with a custom emitter (for testing).
+    async fn open_ssh_with_emitter(
+        &self,
+        params: ConnectionParams,
+        emitter: Arc<dyn EventEmitter>,
+        vault_password: Option<String>,
+    ) -> Result<String, ProtocolError> {
+        // Check connection limit
+        {
+            let conns = self.connections.lock().await;
+            if conns.len() >= MAX_CONNECTIONS {
+                return Err(ProtocolError::InvalidParams(format!(
+                    "Maximum connections reached ({MAX_CONNECTIONS})"
+                )));
+            }
+        }
+
+        let connection_id = Uuid::new_v4().to_string();
+
+        let mut conn = SshConnection::new();
+        conn.connect_with_emitter(
+            params,
+            connection_id.clone(),
+            emitter,
+            vault_password,
+        )
+        .await?;
+
+        let mut conns = self.connections.lock().await;
+        conns.insert(
+            connection_id.clone(),
+            ProtocolConnection::Ssh(conn),
+        );
+
+        Ok(connection_id)
+    }
+
+    /// Opens a connection with VaultManager access (for SSH auth).
+    #[allow(dead_code)]
+    pub async fn open_with_vault(
+        &self,
+        params: ConnectionParams,
+        protocol: ProtocolType,
+        app: tauri::AppHandle,
+        vault: Arc<VaultManager>,
+    ) -> Result<String, ProtocolError> {
+        match protocol {
+            ProtocolType::Ssh => {
+                // Extract password from vault before async
+                let vault_password =
+                    if let Some(ref cred_id) = params.credential_id
+                    {
+                        vault
+                            .get_for_session(cred_id)
+                            .ok()
+                            .map(|c| c.secret.clone())
+                    } else {
+                        None
+                    };
+                self.open_ssh_with_emitter(
+                    params,
+                    Arc::new(TauriEventEmitter::new(app)),
+                    vault_password,
+                )
+                .await
+            }
+            _ => self
+                .open_with_emitter(
+                    params,
+                    protocol,
+                    Arc::new(TauriEventEmitter::new(app)),
+                )
+                .await,
+        }
+    }
+
     /// Opens a connection with a custom event emitter (for testing).
     pub async fn open_with_emitter(
         &self,
@@ -178,9 +314,15 @@ impl ConnectionManager {
                 );
             }
             ProtocolType::Ssh => {
-                return Err(ProtocolError::InvalidParams(
-                    "SSH protocol not yet implemented".into(),
-                ));
+                // SSH connections should use open_ssh_with_password()
+                // or open_ssh_with_emitter() which accept a pre-resolved
+                // vault password. This path is kept for backwards
+                // compatibility with tests that don't use vault.
+                return self
+                    .open_ssh_with_emitter(
+                        params, emitter, None,
+                    )
+                    .await;
             }
             ProtocolType::Local => {
                 return Err(ProtocolError::InvalidParams(
@@ -244,8 +386,10 @@ impl ConnectionManager {
 
     /// Writes data to an active connection.
     ///
-    /// Protocol-specific encoding (e.g., IAC escaping for Telnet)
-    /// is handled internally by each protocol implementation.
+    /// Delegates to protocol-specific write semantics:
+    /// - Telnet: IAC escaping + raw TCP write
+    /// - SSH: channel data message
+    /// - Serial: raw byte write
     pub async fn write(
         &self,
         connection_id: &str,
@@ -269,8 +413,10 @@ impl ConnectionManager {
 
     /// Resizes the terminal for an active connection.
     ///
-    /// For Telnet, sends NAWS subnegotiation.
-    /// For Serial, this is a no-op.
+    /// Delegates to protocol-specific resize semantics:
+    /// - Telnet: NAWS subnegotiation
+    /// - SSH: channel window change message
+    /// - Serial: no-op
     pub async fn resize(
         &self,
         connection_id: &str,
@@ -418,18 +564,24 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn open_ssh_returns_not_implemented() {
+    async fn open_ssh_to_unreachable_host_returns_error() {
         let mgr = ConnectionManager::new();
         let emitter = Arc::new(MockEmitter::new());
         let params = ConnectionParams {
-            host: Some("localhost".into()),
+            host: Some("192.0.2.1".into()), // TEST-NET — unreachable
             port: Some(22),
-            username: None,
+            username: Some("test".into()),
             cols: 80,
             rows: 24,
+            credential_id: None,
+            key_path: None,
         };
         let result = mgr
-            .open_with_emitter(params, ProtocolType::Ssh, emitter)
+            .open_with_emitter(
+                params,
+                ProtocolType::Ssh,
+                emitter,
+            )
             .await;
         assert!(result.is_err());
     }
@@ -444,9 +596,15 @@ mod tests {
             username: None,
             cols: 80,
             rows: 24,
+            credential_id: None,
+            key_path: None,
         };
         let result = mgr
-            .open_with_emitter(params, ProtocolType::Local, emitter)
+            .open_with_emitter(
+                params,
+                ProtocolType::Local,
+                emitter,
+            )
             .await;
         assert!(result.is_err());
     }
@@ -461,6 +619,8 @@ mod tests {
             username: None,
             cols: 80,
             rows: 24,
+            credential_id: None,
+            key_path: None,
         };
         let result = mgr
             .open_with_emitter(params, ProtocolType::Serial, emitter)
@@ -484,6 +644,8 @@ mod tests {
             username: None,
             cols: 80,
             rows: 24,
+            credential_id: None,
+            key_path: None,
         };
         let result = mgr
             .open_with_emitter(params, ProtocolType::Serial, emitter)
@@ -541,6 +703,8 @@ mod tests {
             username: None,
             cols: 80,
             rows: 24,
+            credential_id: None,
+            key_path: None,
         };
         let config = build_serial_config(&params).unwrap();
         assert_eq!(config.port, "/dev/ttyUSB0");
@@ -555,6 +719,8 @@ mod tests {
             username: None,
             cols: 80,
             rows: 24,
+            credential_id: None,
+            key_path: None,
         };
         let config = build_serial_config(&params).unwrap();
         assert_eq!(config.baud_rate, 115);
@@ -568,6 +734,8 @@ mod tests {
             username: None,
             cols: 80,
             rows: 24,
+            credential_id: None,
+            key_path: None,
         };
         assert!(build_serial_config(&params).is_err());
     }
@@ -599,10 +767,16 @@ mod tests {
             username: None,
             cols: 80,
             rows: 24,
+            credential_id: None,
+            key_path: None,
         };
 
         let conn_id = mgr
-            .open_with_emitter(params, ProtocolType::Telnet, emitter)
+            .open_with_emitter(
+                params,
+                ProtocolType::Telnet,
+                emitter,
+            )
             .await
             .unwrap();
 
@@ -650,10 +824,16 @@ mod tests {
             username: None,
             cols: 80,
             rows: 24,
+            credential_id: None,
+            key_path: None,
         };
 
         let conn_id = mgr
-            .open_with_emitter(params, ProtocolType::Telnet, emitter)
+            .open_with_emitter(
+                params,
+                ProtocolType::Telnet,
+                emitter,
+            )
             .await
             .unwrap();
 
@@ -722,6 +902,8 @@ mod tests {
             username: None,
             cols: 80,
             rows: 24,
+            credential_id: None,
+            key_path: None,
         };
 
         let conn_id = mgr
@@ -769,6 +951,8 @@ mod tests {
             username: None,
             cols: 80,
             rows: 24,
+            credential_id: None,
+            key_path: None,
         };
 
         let conn_id = mgr
@@ -793,6 +977,8 @@ mod tests {
             username: None,
             cols: 80,
             rows: 24,
+            credential_id: None,
+            key_path: None,
         };
         let config = build_serial_config(&params).unwrap();
         assert_eq!(config.baud_rate, u16::MAX as u32);
@@ -807,6 +993,8 @@ mod tests {
             username: None,
             cols: 80,
             rows: 24,
+            credential_id: None,
+            key_path: None,
         };
         let config = build_serial_config(&params).unwrap();
         // Port 0 maps to baud 0 — validation will catch this later
@@ -850,6 +1038,8 @@ mod tests {
             username: None,
             cols: 80,
             rows: 24,
+            credential_id: None,
+            key_path: None,
         };
 
         let conn_id = mgr
@@ -915,6 +1105,8 @@ mod tests {
             username: None,
             cols: 80,
             rows: 24,
+            credential_id: None,
+            key_path: None,
         };
 
         let conn_id = mgr

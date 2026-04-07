@@ -28,6 +28,9 @@ tokio = { version = "1", features = ["net", "io-util", "sync", "time", "rt", "ma
 socket2 = "0.5"
 keyring = { version = "3", features = ["apple-native", "windows-native", "sync-secret-service"] }
 zeroize = { version = "1", features = ["derive"] }
+russh = "0.46"
+russh-keys = "0.46"
+sha2 = "0.10"
 serialport = "4.9"
 
 [dev-dependencies]
