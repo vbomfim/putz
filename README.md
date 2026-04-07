@@ -55,6 +55,7 @@ npm run dev
 | `npm run lint:fix`   | Auto-fix lint issues                       |
 | `npm run format`     | Format code with Prettier                  |
 | `npm run format:check` | Check code formatting                    |
+| `npm run version:bump` | Bump version across all config files     |
 
 ## Project Structure
 
@@ -76,16 +77,81 @@ putz/
 │   │   └── commands/       # Tauri command handlers
 │   ├── Cargo.toml          # Rust dependencies
 │   └── tauri.conf.json     # Tauri configuration
+├── scripts/                # Build & utility scripts
+│   └── version-bump.mjs    # Cross-file version synchronization
 ├── package.json            # Node.js dependencies and scripts
 ├── vite.config.ts          # Vite + Vitest configuration
 ├── eslint.config.js        # ESLint flat config
 ├── tsconfig.json           # TypeScript configuration
+├── CHANGELOG.md            # Release history
 └── .github/workflows/      # CI/CD pipelines
+    ├── ci.yml              # Continuous integration
+    └── release.yml         # Release build & publish
 ```
 
 ## Contributing
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
+
+## Distribution
+
+Putz is distributed as platform-native installers:
+
+| Platform | Format               | Notes                              |
+|----------|----------------------|------------------------------------|
+| Windows  | `.msi`               | MSI installer with Start Menu shortcut |
+| macOS    | `.dmg`               | Drag-to-Applications, universal binary (arm64 + x86_64) |
+| Linux    | `.AppImage`, `.deb`  | AppImage for any distro, .deb for Debian/Ubuntu |
+
+### Creating a Release
+
+1. Bump the version:
+   ```bash
+   npm run version:bump -- --minor   # or --patch, --major, or explicit 1.2.3
+   ```
+
+2. Commit and tag:
+   ```bash
+   git add -A && git commit -m "chore: bump version to X.Y.Z"
+   git tag vX.Y.Z
+   git push origin main --tags
+   ```
+
+3. The [release workflow](.github/workflows/release.yml) triggers automatically, building for all three platforms and uploading artifacts to a GitHub Release.
+
+### Auto-Update
+
+Putz includes built-in auto-update support via `tauri-plugin-updater`. When a new version is published to GitHub Releases, the app checks for updates on startup and shows a notification with **Update Now** / **Later** / **Skip** options.
+
+### Version Management
+
+The `npm run version:bump` script keeps version numbers synchronized across:
+- `package.json`
+- `src-tauri/Cargo.toml`
+- `src-tauri/tauri.conf.json`
+
+### Code Signing (TODO)
+
+Release builds are currently **unsigned**. To enable code signing:
+
+1. **Windows**: Obtain an EV code signing certificate. Set `TAURI_SIGNING_PRIVATE_KEY` in GitHub repository secrets.
+2. **macOS**: Enroll in the Apple Developer Program. Configure `APPLE_CERTIFICATE`, `APPLE_CERTIFICATE_PASSWORD`, `APPLE_SIGNING_IDENTITY`, and notarization credentials.
+3. **Linux**: Code signing is not required for AppImage/DEB distribution.
+
+### Update Signing
+
+To enable signed updates (required for the auto-updater):
+
+```bash
+# Generate a signing keypair
+npx tauri signer generate -w ~/.tauri/putz.key
+
+# Add to GitHub repository secrets:
+#   TAURI_SIGNING_PRIVATE_KEY = contents of ~/.tauri/putz.key
+#   TAURI_SIGNING_PRIVATE_KEY_PASSWORD = password you set (if any)
+
+# Add the PUBLIC key to src-tauri/tauri.conf.json → plugins.updater.pubkey
+```
 
 ## License
 

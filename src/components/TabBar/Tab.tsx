@@ -10,6 +10,7 @@
 import { useState, useCallback, useRef } from "react";
 import type { Tab as TabType } from "../../types";
 import { MAX_TITLE_LENGTH, useTabStore } from "../../stores/tabStore";
+import { useBroadcastStore } from "../../stores/broadcastStore";
 
 /** Extracts the first leaf session ID from a PaneNode tree. */
 function getFirstLeafSessionId(
@@ -68,10 +69,17 @@ export function Tab({
   const [editValue, setEditValue] = useState(tab.title);
   const inputRef = useRef<HTMLInputElement>(null);
   const loggingSessions = useTabStore((s) => s.loggingSessions);
+  const isBroadcastActive = useBroadcastStore((s) => s.isActive);
+  const broadcastTargetIds = useBroadcastStore((s) => s.targetTabIds);
 
   // Check if any session in this tab is being logged
   const sessionId = getFirstLeafSessionId(tab.layout);
   const isLogging = loggingSessions.has(sessionId);
+
+  // Broadcast indicators
+  const isBroadcastSource = isBroadcastActive && isActive;
+  const isBroadcastTarget =
+    isBroadcastActive && broadcastTargetIds.has(tab.id);
 
   const handleClick = useCallback(
     (e: React.MouseEvent) => {
@@ -183,6 +191,28 @@ export function Tab({
           aria-label="Logging active"
         >
           ●
+        </span>
+      )}
+
+      {isBroadcastSource && (
+        <span
+          className="tab__broadcast-label"
+          data-testid="tab-broadcast-label"
+          title="Broadcasting from this tab"
+          aria-label="Broadcasting"
+        >
+          BROADCAST
+        </span>
+      )}
+
+      {isBroadcastTarget && (
+        <span
+          className="tab__broadcast-target"
+          data-testid="tab-broadcast-target"
+          title="Receiving broadcast"
+          aria-label="Receiving broadcast"
+        >
+          📡
         </span>
       )}
 

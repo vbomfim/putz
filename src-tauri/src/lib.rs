@@ -11,7 +11,9 @@ mod vault;
 use commands::greet;
 use highlight::HighlightManager;
 use ipc::{
-    connection_close, connection_open, connection_resize, connection_write, highlight_create_set,
+    connection_close, connection_open, connection_resize, connection_write,
+    forwarding_add, forwarding_list, forwarding_remove, forwarding_status,
+    highlight_create_set,
     highlight_delete_set, highlight_get_set, highlight_list_sets, highlight_update_set,
     logging_start, logging_status, logging_stop, pty_close, pty_resize, pty_spawn, pty_write,
     serial_list_ports, serial_send_break, session_create, session_create_folder, session_delete,
@@ -24,6 +26,7 @@ use ipc::{
 use logging::LogManager;
 use protocol::connection_manager::ConnectionManager;
 use protocol::sftp::SftpManager;
+use protocol::ssh::forwarding::ForwardingManager;
 use pty::PtyManager;
 use session::SessionManager;
 use theme::ThemeManager;
@@ -33,6 +36,8 @@ use vault::VaultManager;
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_updater::Builder::new().build())
+        .plugin(tauri_plugin_process::init())
         .manage(PtyManager::new())
         .manage(SessionManager::new())
         .manage(ConnectionManager::new())
@@ -41,6 +46,7 @@ pub fn run() {
         .manage(SftpManager::new())
         .manage(HighlightManager::new())
         .manage(ThemeManager::new())
+        .manage(ForwardingManager::new())
         .invoke_handler(tauri::generate_handler![
             greet,
             pty_spawn,
@@ -53,6 +59,10 @@ pub fn run() {
             connection_close,
             serial_list_ports,
             serial_send_break,
+            forwarding_add,
+            forwarding_remove,
+            forwarding_list,
+            forwarding_status,
             session_list,
             session_get,
             session_create,

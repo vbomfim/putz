@@ -21,6 +21,7 @@ import {
 } from "../Terminal/SerialConfig";
 import { DEFAULT_SERIAL_CONFIG } from "../Terminal/connectionTypes";
 import type { SerialConfigValues } from "../Terminal/connectionTypes";
+import { JumpHostConfig } from "./JumpHostConfig";
 
 interface SessionEditorProps {
   /** Session to edit (undefined = create mode). */
@@ -65,6 +66,9 @@ export function SessionEditor({
   );
   const [username, setUsername] = useState(session?.username ?? "");
   const [errors, setErrors] = useState<FormErrors>({});
+  const [jumpHostId, setJumpHostId] = useState<string | undefined>(
+    session?.jumpHostId,
+  );
   const [serialConfig, setSerialConfig] = useState<SerialConfigValues>(() => ({
     port: session?.serialPort ?? DEFAULT_SERIAL_CONFIG.port,
     baudRate: session?.serialBaud ?? DEFAULT_SERIAL_CONFIG.baudRate,
@@ -134,6 +138,9 @@ export function SessionEditor({
           host: host.trim() || undefined,
           port: portNum,
           username: username.trim() || undefined,
+          ...(protocol === "ssh"
+            ? { jumpHostId }
+            : {}),
           ...(protocol === "serial"
             ? {
                 serialPort: serialConfig.port,
@@ -154,6 +161,9 @@ export function SessionEditor({
           host: host.trim() || undefined,
           port: portNum,
           username: username.trim() || undefined,
+          ...(protocol === "ssh"
+            ? { jumpHostId }
+            : {}),
           ...(protocol === "serial"
             ? {
                 serialPort: serialConfig.port,
@@ -168,13 +178,15 @@ export function SessionEditor({
         onSave(input);
       }
     },
-    [name, protocol, host, port, username, folderId, isEdit, onSave, validate, serialConfig],
+    [name, protocol, host, port, username, folderId, isEdit, onSave, validate, serialConfig, jumpHostId],
   );
 
   /** Whether the protocol needs host/port fields. */
   const needsHost = protocol === "ssh" || protocol === "telnet";
   /** Whether the protocol needs serial config. */
   const needsSerial = protocol === "serial";
+  /** Whether the protocol supports jump host. */
+  const needsJumpHost = protocol === "ssh";
 
   return (
     <div
@@ -302,6 +314,15 @@ export function SessionEditor({
             data-testid="session-editor-username"
           />
         </div>
+
+        {/* Jump Host — shown when protocol = ssh */}
+        {needsJumpHost && (
+          <JumpHostConfig
+            jumpHostId={jumpHostId}
+            currentSessionId={session?.id}
+            onChange={setJumpHostId}
+          />
+        )}
 
         {/* Actions */}
         <div className="session-editor-actions">

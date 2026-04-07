@@ -138,7 +138,9 @@ impl ProtocolConnection {
 /// Manages all active protocol connections.
 ///
 /// Accessed from Tauri IPC command handlers. Uses `tokio::sync::Mutex`
-/// because protocol operations are async.
+/// because protocol operations are async. Cloneable because the inner
+/// state is behind an `Arc`.
+#[derive(Clone)]
 pub struct ConnectionManager {
     connections: Arc<TokioMutex<HashMap<String, ProtocolConnection>>>,
 }
@@ -214,6 +216,58 @@ impl ConnectionManager {
             vault_password,
         )
         .await?;
+
+        let mut conns = self.connections.lock().await;
+        conns.insert(
+            connection_id.clone(),
+            ProtocolConnection::Ssh(conn),
+        );
+
+        Ok(connection_id)
+    }
+
+    /// Opens an SSH connection through a chain of jump hosts.
+    ///
+    /// Connects through each hop in order, tunneling via `direct-tcpip`
+    /// channels. The final connection to the target goes through the
+    /// last hop's tunnel.
+    ///
+    /// The intermediate jump host sessions are stored in the final
+    /// `SshConnection` for lifecycle management — they are cleaned up
+    /// when the connection closes.
+    pub async fn open_ssh_through_jump_hosts(
+        &self,
+        params: ConnectionParams,
+        app: tauri::AppHandle,
+        vault_password: Option<String>,
+        hops: Vec<super::ssh::proxy::JumpHostHop>,
+    ) -> Result<String, ProtocolError> {
+        // Check connection limit
+        {
+            let conns = self.connections.lock().await;
+            if conns.len() >= MAX_CONNECTIONS {
+                return Err(ProtocolError::InvalidParams(format!(
+                    "Maximum connections reached ({MAX_CONNECTIONS})"
+                )));
+            }
+        }
+
+        let connection_id = Uuid::new_v4().to_string();
+        let emitter: Arc<dyn EventEmitter> =
+            Arc::new(TauriEventEmitter::new(app));
+
+        let (mut conn, jump_sessions) =
+            super::ssh::proxy::connect_through_jump_hosts(
+                &hops,
+                params,
+                connection_id.clone(),
+                emitter,
+                vault_password,
+            )
+            .await?;
+
+        // Store jump sessions in the connection for lifecycle mgmt
+        conn.set_jump_sessions(jump_sessions);
 
         let mut conns = self.connections.lock().await;
         conns.insert(
@@ -583,6 +637,140 @@ impl ConnectionManager {
     pub async fn count(&self) -> usize {
         self.connections.lock().await.len()
     }
+
+    /// Returns a clone of the SSH session handle for a connection.
+    ///
+    /// Used by ForwardingManager to open direct-tcpip channels
+    /// and request tcpip-forward on existing SSH connections.
+    ///
+    /// Note: The returned reference is valid only while the lock is held.
+    /// Callers should perform their operation under the lock via the
+    /// provided callback methods (`open_direct_tcpip_channel`,
+    /// `request_tcpip_forward`).
+    #[allow(dead_code)] // Used by forwarding at runtime
+    pub async fn get_ssh_session_handle(
+        &self,
+        connection_id: &str,
+    ) -> Result<
+        russh::client::Handle<super::ssh::SshHandler>,
+        ProtocolError,
+    > {
+        let conns = self.connections.lock().await;
+        let conn = conns.get(connection_id).ok_or_else(|| {
+            ProtocolError::ChannelClosed(format!(
+                "Connection not found: {connection_id}"
+            ))
+        })?;
+
+        match conn {
+            ProtocolConnection::Ssh(_ssh_conn) => {
+                drop(conns);
+                Err(ProtocolError::InvalidParams(
+                    "Use open_direct_tcpip_channel() or \
+                     request_tcpip_forward() instead"
+                        .into(),
+                ))
+            }
+            _ => Err(ProtocolError::InvalidParams(
+                "Port forwarding is only supported for SSH connections"
+                    .into(),
+            )),
+        }
+    }
+
+    /// Opens a direct-tcpip channel for local port forwarding (-L).
+    ///
+    /// Returns a channel that can relay data to the remote host:port.
+    pub async fn open_direct_tcpip_channel(
+        &self,
+        connection_id: &str,
+        host: &str,
+        port: u32,
+        originator_address: &str,
+        originator_port: u32,
+    ) -> Result<
+        russh::Channel<russh::client::Msg>,
+        ProtocolError,
+    > {
+        let conns = self.connections.lock().await;
+        let conn = conns.get(connection_id).ok_or_else(|| {
+            ProtocolError::ChannelClosed(format!(
+                "Connection not found: {connection_id}"
+            ))
+        })?;
+
+        match conn {
+            ProtocolConnection::Ssh(ssh_conn) => {
+                let session = ssh_conn
+                    .session_handle()
+                    .ok_or_else(|| {
+                        ProtocolError::ChannelClosed(
+                            "SSH session not connected".into(),
+                        )
+                    })?;
+
+                session
+                    .channel_open_direct_tcpip(
+                        host,
+                        port,
+                        originator_address,
+                        originator_port,
+                    )
+                    .await
+                    .map_err(|e| {
+                        ProtocolError::IoError(format!(
+                            "Failed to open direct-tcpip channel: {e}"
+                        ))
+                    })
+            }
+            _ => Err(ProtocolError::InvalidParams(
+                "Port forwarding is only supported for SSH connections"
+                    .into(),
+            )),
+        }
+    }
+
+    /// Requests remote port forwarding (-R) on an SSH connection.
+    ///
+    /// Returns the actual port the server bound to (may differ from requested).
+    pub async fn request_tcpip_forward(
+        &self,
+        connection_id: &str,
+        address: &str,
+        port: u32,
+    ) -> Result<u32, ProtocolError> {
+        let mut conns = self.connections.lock().await;
+        let conn = conns.get_mut(connection_id).ok_or_else(|| {
+            ProtocolError::ChannelClosed(format!(
+                "Connection not found: {connection_id}"
+            ))
+        })?;
+
+        match conn {
+            ProtocolConnection::Ssh(ssh_conn) => {
+                let session = ssh_conn
+                    .session_handle_mut()
+                    .ok_or_else(|| {
+                        ProtocolError::ChannelClosed(
+                            "SSH session not connected".into(),
+                        )
+                    })?;
+
+                session
+                    .tcpip_forward(address, port)
+                    .await
+                    .map_err(|e| {
+                        ProtocolError::IoError(format!(
+                            "Remote forwarding request denied: {e}"
+                        ))
+                    })
+            }
+            _ => Err(ProtocolError::InvalidParams(
+                "Port forwarding is only supported for SSH connections"
+                    .into(),
+            )),
+        }
+    }
 }
 
 /// Builds a `SerialConfig` from generic `ConnectionParams`.
@@ -857,7 +1045,7 @@ mod tests {
 
     #[tokio::test]
     async fn write_and_resize_active_connection() {
-        use tokio::io::{AsyncReadExt, AsyncWriteExt};
+        use tokio::io::AsyncReadExt;
 
         let listener =
             tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
