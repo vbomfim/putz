@@ -59,6 +59,8 @@ export function broadcastWrite(
 
   // 4b. Send to ALL sessions in each target tab (other tabs)
   for (const targetTabId of broadcastState.targetTabIds) {
+    // Skip the source tab — already handled in 4a
+    if (targetTabId === sourceTab.id) continue;
     const targetTab = tabState.tabs.find((t) => t.id === targetTabId);
     if (!targetTab) continue;
 
