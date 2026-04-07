@@ -1,16 +1,19 @@
 mod commands;
 mod ipc;
+mod protocol;
 mod pty;
 mod session;
 mod vault;
 
 use commands::greet;
 use ipc::{
+    connection_close, connection_open, connection_resize, connection_write,
     pty_close, pty_resize, pty_spawn, pty_write, session_create, session_create_folder,
     session_delete, session_delete_folder, session_duplicate, session_export, session_get,
     session_import, session_list, session_move, session_search, session_update, vault_delete,
     vault_get, vault_list, vault_set,
 };
+use protocol::connection_manager::ConnectionManager;
 use pty::PtyManager;
 use session::SessionManager;
 use vault::VaultManager;
@@ -21,6 +24,7 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .manage(PtyManager::new())
         .manage(SessionManager::new())
+        .manage(ConnectionManager::new())
         .manage(VaultManager::new())
         .invoke_handler(tauri::generate_handler![
             greet,
@@ -28,6 +32,10 @@ pub fn run() {
             pty_write,
             pty_resize,
             pty_close,
+            connection_open,
+            connection_write,
+            connection_resize,
+            connection_close,
             session_list,
             session_get,
             session_create,
