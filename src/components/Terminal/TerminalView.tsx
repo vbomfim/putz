@@ -3,11 +3,13 @@
  *
  * Renders a full-viewport terminal connected to a PTY session via Tauri IPC.
  * Handles loading, error, and process-exited states.
+ * Supports keyword highlighting with optional highlight set.
  *
  * Props:
  * - sessionId: UUID v4 identifying the PTY session
  * - onTitleChange: callback for shell title escape sequences
  * - onRestart: callback to restart a closed session
+ * - highlightSetId: optional highlight set ID to apply
  */
 import { useTerminal } from "./useTerminal";
 import "@xterm/xterm/css/xterm.css";
@@ -20,6 +22,8 @@ interface TerminalViewProps {
   onTitleChange?: (title: string) => void;
   /** Callback to restart the terminal after the process exits. */
   onRestart?: () => void;
+  /** Optional highlight set ID to apply for keyword highlighting. */
+  highlightSetId?: string;
 }
 
 /** Terminal emulator view connected to a PTY backend session. */
@@ -27,11 +31,14 @@ export function TerminalView({
   sessionId,
   onTitleChange,
   onRestart,
+  highlightSetId,
 }: TerminalViewProps) {
-  const { terminalRef, isReady, error, hasExited } = useTerminal({
-    sessionId,
-    onTitleChange,
-  });
+  const { terminalRef, isReady, error, hasExited, highlightEnabled } =
+    useTerminal({
+      sessionId,
+      onTitleChange,
+      highlightSetId,
+    });
 
   if (error) {
     return (
@@ -66,6 +73,15 @@ export function TerminalView({
         className="terminal-container"
         data-testid="terminal-container"
       />
+      {highlightEnabled && (
+        <div
+          className="terminal-highlight-indicator"
+          data-testid="highlight-indicator"
+          title="Keyword highlighting active (Ctrl+Shift+H to toggle)"
+        >
+          HL
+        </div>
+      )}
       {hasExited && onRestart && (
         <div
           className="terminal-exit-overlay"

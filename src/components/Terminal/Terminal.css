@@ -271,3 +271,253 @@
 .terminal-dialog-btn-danger:hover {
   background-color: #ff6e6e;
 }
+
+/* ── Keyword Highlight Indicator ──────────────────────────── */
+
+.terminal-highlight-indicator {
+  position: absolute;
+  top: 4px;
+  right: 8px;
+  padding: 2px 6px;
+  border-radius: 3px;
+  background-color: rgba(80, 250, 123, 0.2);
+  color: #50fa7b;
+  font-size: 0.7rem;
+  font-weight: 600;
+  font-family: var(--font-mono, monospace);
+  letter-spacing: 0.05em;
+  z-index: 15;
+  pointer-events: none;
+  user-select: none;
+}
+
+/* ── Highlight Editor ─────────────────────────────────────── */
+
+.highlight-editor-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 200;
+  background-color: rgba(0, 0, 0, 0.7);
+}
+
+.highlight-editor-modal {
+  background-color: var(--bg-secondary, #1e1e2e);
+  border: 1px solid var(--border, #444);
+  border-radius: 0.5rem;
+  padding: 1.5rem 2rem;
+  max-width: 640px;
+  width: 90%;
+  max-height: 85vh;
+  overflow-y: auto;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+}
+
+.highlight-editor-modal h2 {
+  font-size: 1.25rem;
+  margin-bottom: 1rem;
+  color: var(--text-primary, #fff);
+}
+
+.highlight-editor-modal h3 {
+  font-size: 1rem;
+  margin-bottom: 0.75rem;
+  color: var(--text-primary, #fff);
+}
+
+.highlight-editor-modal h4 {
+  font-size: 0.875rem;
+  margin-bottom: 0.5rem;
+  color: var(--text-secondary, #999);
+}
+
+.highlight-editor-field {
+  margin-bottom: 0.75rem;
+}
+
+.highlight-editor-field label {
+  display: block;
+  font-size: 0.8125rem;
+  color: var(--text-secondary, #999);
+  margin-bottom: 0.25rem;
+}
+
+.highlight-editor-field input[type="text"],
+.highlight-editor-field input[type="number"],
+.highlight-editor-field select {
+  width: 100%;
+  padding: 0.4rem 0.6rem;
+  border: 1px solid var(--border, #444);
+  border-radius: 0.375rem;
+  background-color: var(--bg-primary, #0d1117);
+  color: var(--text-primary, #fff);
+  font-size: 0.875rem;
+  box-sizing: border-box;
+}
+
+.highlight-editor-field input:focus,
+.highlight-editor-field select:focus {
+  outline: none;
+  border-color: var(--accent, #50fa7b);
+}
+
+.highlight-editor-error {
+  display: block;
+  font-size: 0.75rem;
+  color: #ff5555;
+  margin-top: 0.25rem;
+}
+
+.highlight-editor-rule {
+  border: 1px solid var(--border, #333);
+  border-radius: 0.375rem;
+  padding: 0.75rem;
+  margin-bottom: 0.75rem;
+  background-color: rgba(0, 0, 0, 0.2);
+}
+
+.highlight-editor-colors {
+  display: flex;
+  gap: 1rem;
+}
+
+.highlight-editor-colors > .highlight-editor-field {
+  flex: 1;
+}
+
+.highlight-editor-color-input {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.highlight-editor-color-input input[type="color"] {
+  width: 32px;
+  height: 24px;
+  border: 1px solid var(--border, #444);
+  border-radius: 3px;
+  cursor: pointer;
+  padding: 0;
+}
+
+.highlight-editor-color-input span {
+  font-size: 0.75rem;
+  font-family: var(--font-mono, monospace);
+  color: var(--text-secondary, #999);
+}
+
+.highlight-editor-style-options {
+  display: flex;
+  gap: 1rem;
+  margin-bottom: 0.75rem;
+}
+
+.highlight-editor-style-options label {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  font-size: 0.8125rem;
+  color: var(--text-secondary, #999);
+  cursor: pointer;
+}
+
+.highlight-editor-remove-rule {
+  padding: 0.25rem 0.75rem;
+  border: 1px solid #ff5555;
+  border-radius: 0.25rem;
+  background: transparent;
+  color: #ff5555;
+  font-size: 0.75rem;
+  cursor: pointer;
+  margin-top: 0.5rem;
+}
+
+.highlight-editor-remove-rule:hover {
+  background-color: rgba(255, 85, 85, 0.1);
+}
+
+.highlight-editor-add-rule {
+  padding: 0.4rem 1rem;
+  border: 1px dashed var(--border, #444);
+  border-radius: 0.375rem;
+  background: transparent;
+  color: var(--text-secondary, #999);
+  font-size: 0.8125rem;
+  cursor: pointer;
+  width: 100%;
+  margin-top: 0.25rem;
+}
+
+.highlight-editor-add-rule:hover {
+  border-color: var(--accent, #50fa7b);
+  color: var(--accent, #50fa7b);
+}
+
+.highlight-editor-palette-swatches {
+  display: flex;
+  gap: 0.375rem;
+  flex-wrap: wrap;
+  margin-bottom: 1rem;
+}
+
+.highlight-editor-swatch {
+  width: 24px;
+  height: 24px;
+  border-radius: 3px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  cursor: pointer;
+}
+
+.highlight-editor-swatch:hover {
+  border-color: #fff;
+  transform: scale(1.1);
+}
+
+.highlight-editor-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--border, #333);
+}
+
+.highlight-editor-cancel,
+.highlight-editor-save {
+  padding: 0.5rem 1.25rem;
+  border-radius: 0.375rem;
+  font-size: 0.875rem;
+  cursor: pointer;
+  border: 1px solid transparent;
+}
+
+.highlight-editor-cancel {
+  background: transparent;
+  color: var(--text-secondary, #999);
+  border-color: var(--border, #444);
+}
+
+.highlight-editor-cancel:hover {
+  color: var(--text-primary, #fff);
+  border-color: var(--text-secondary, #999);
+}
+
+.highlight-editor-save {
+  background-color: var(--accent, #50fa7b);
+  color: var(--bg-primary, #0d1117);
+  border-color: var(--accent, #50fa7b);
+}
+
+.highlight-editor-save:hover {
+  background-color: var(--accent-hover, #69ff94);
+}
+
+.highlight-editor-save:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
