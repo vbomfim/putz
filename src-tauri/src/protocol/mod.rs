@@ -9,6 +9,7 @@
 /// `HashMap<String, Box<dyn Protocol>>` behind a `tokio::sync::Mutex`.
 pub mod connection_manager;
 pub mod serial;
+pub mod sftp;
 pub mod ssh;
 pub mod telnet;
 

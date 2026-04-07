@@ -1,0 +1,365 @@
+/**
+ * SFTP Panel and Transfer Queue styles.
+ *
+ * Dark theme matching the terminal emulator aesthetic.
+ */
+
+/* ── SFTP Panel ─────────────────────────────────────────────── */
+
+.sftp-panel {
+  display: flex;
+  flex-direction: column;
+  background: #1e1e2e;
+  color: #cdd6f4;
+  font-family: "JetBrains Mono", "Cascadia Code", "Fira Code", monospace;
+  font-size: 13px;
+  height: 100%;
+  overflow: hidden;
+  border-left: 1px solid #313244;
+}
+
+.sftp-panel.sftp-error {
+  padding: 16px;
+  color: #f38ba8;
+}
+
+.sftp-panel.sftp-loading {
+  padding: 16px;
+  color: #a6adc8;
+}
+
+/* ── Toolbar ────────────────────────────────────────────────── */
+
+.sftp-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  background: #181825;
+  border-bottom: 1px solid #313244;
+  min-height: 32px;
+}
+
+.sftp-btn {
+  background: transparent;
+  border: 1px solid #45475a;
+  color: #cdd6f4;
+  padding: 2px 8px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+  line-height: 1.4;
+}
+
+.sftp-btn:hover {
+  background: #313244;
+}
+
+.sftp-btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.sftp-close-btn {
+  margin-left: auto;
+}
+
+.sftp-path {
+  flex: 1;
+  padding: 0 8px;
+  color: #89b4fa;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ── File List ──────────────────────────────────────────────── */
+
+.sftp-file-list {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+.sftp-file-header {
+  display: flex;
+  padding: 4px 8px;
+  background: #181825;
+  border-bottom: 1px solid #313244;
+  font-size: 11px;
+  color: #6c7086;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+
+.sftp-file-row {
+  display: flex;
+  padding: 3px 8px;
+  cursor: pointer;
+  border-bottom: 1px solid transparent;
+}
+
+.sftp-file-row:hover {
+  background: #313244;
+}
+
+.sftp-file-row.selected {
+  background: #45475a;
+}
+
+.sftp-file-row.is-dir .sftp-col-name {
+  color: #89b4fa;
+}
+
+.sftp-col-name {
+  flex: 3;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sftp-col-size {
+  flex: 1;
+  text-align: right;
+  color: #a6adc8;
+}
+
+.sftp-col-perms {
+  flex: 1;
+  text-align: center;
+  font-family: monospace;
+  color: #a6adc8;
+}
+
+.sftp-col-date {
+  flex: 1.5;
+  text-align: right;
+  color: #a6adc8;
+  font-size: 12px;
+}
+
+.sftp-icon {
+  font-size: 14px;
+  flex-shrink: 0;
+}
+
+.sftp-empty {
+  padding: 16px;
+  text-align: center;
+  color: #6c7086;
+}
+
+.sftp-loading-indicator {
+  padding: 16px;
+  text-align: center;
+  color: #a6adc8;
+}
+
+/* ── Rename Input ───────────────────────────────────────────── */
+
+.sftp-rename-input {
+  background: #1e1e2e;
+  border: 1px solid #89b4fa;
+  color: #cdd6f4;
+  padding: 1px 4px;
+  font-size: 13px;
+  font-family: inherit;
+  outline: none;
+  border-radius: 2px;
+}
+
+/* ── Context Menu ───────────────────────────────────────────── */
+
+.sftp-context-menu {
+  position: fixed;
+  background: #181825;
+  border: 1px solid #45475a;
+  border-radius: 6px;
+  padding: 4px 0;
+  min-width: 160px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+  z-index: 1000;
+}
+
+.sftp-menu-item {
+  display: block;
+  width: 100%;
+  padding: 6px 16px;
+  background: transparent;
+  border: none;
+  color: #cdd6f4;
+  font-size: 13px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.sftp-menu-item:hover {
+  background: #313244;
+}
+
+.sftp-menu-danger {
+  color: #f38ba8;
+}
+
+.sftp-menu-separator {
+  height: 1px;
+  background: #313244;
+  margin: 4px 0;
+}
+
+/* ── Properties Dialog ──────────────────────────────────────── */
+
+.sftp-properties-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2000;
+}
+
+.sftp-properties {
+  background: #1e1e2e;
+  border: 1px solid #45475a;
+  border-radius: 8px;
+  padding: 16px 24px;
+  min-width: 300px;
+  max-width: 500px;
+}
+
+.sftp-properties h3 {
+  margin: 0 0 12px 0;
+  color: #cdd6f4;
+  font-size: 14px;
+}
+
+.sftp-properties dl {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 4px 16px;
+  margin: 0 0 12px 0;
+}
+
+.sftp-properties dt {
+  color: #6c7086;
+  font-size: 12px;
+}
+
+.sftp-properties dd {
+  margin: 0;
+  color: #cdd6f4;
+  font-size: 12px;
+  word-break: break-all;
+}
+
+.sftp-properties button {
+  background: #313244;
+  border: 1px solid #45475a;
+  color: #cdd6f4;
+  padding: 4px 16px;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.sftp-properties button:hover {
+  background: #45475a;
+}
+
+/* ── Transfer Queue ─────────────────────────────────────────── */
+
+.sftp-transfer-queue {
+  border-top: 1px solid #313244;
+  background: #181825;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.sftp-transfer-header {
+  padding: 4px 8px;
+  font-size: 11px;
+  color: #6c7086;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  border-bottom: 1px solid #313244;
+}
+
+.sftp-transfer-list {
+  padding: 4px 0;
+}
+
+.sftp-transfer-row {
+  padding: 4px 8px;
+  border-bottom: 1px solid #1e1e2e;
+}
+
+.sftp-transfer-info {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 2px;
+}
+
+.sftp-transfer-icon {
+  font-size: 12px;
+}
+
+.sftp-transfer-name {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12px;
+}
+
+.sftp-transfer-status {
+  font-size: 12px;
+}
+
+.sftp-transfer-progress {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.sftp-progress-bar {
+  flex: 1;
+  height: 4px;
+  background: #313244;
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.sftp-progress-fill {
+  height: 100%;
+  background: #89b4fa;
+  border-radius: 2px;
+  transition: width 0.2s ease;
+}
+
+.status-completed .sftp-progress-fill {
+  background: #a6e3a1;
+}
+
+.status-failed .sftp-progress-fill {
+  background: #f38ba8;
+}
+
+.sftp-transfer-details {
+  font-size: 11px;
+  color: #6c7086;
+  white-space: nowrap;
+}
+
+.sftp-transfer-error {
+  color: #f38ba8;
+}
