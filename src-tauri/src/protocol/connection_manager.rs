@@ -503,6 +503,17 @@ impl ConnectionManager {
         conn.close().await
     }
 
+    /// Closes all active protocol connections.
+    ///
+    /// Called during graceful app shutdown. Errors from individual
+    /// connections are silently ignored since the app is exiting.
+    pub async fn close_all(&self) {
+        let mut conns = self.connections.lock().await;
+        for (_id, mut conn) in conns.drain() {
+            let _ = conn.close().await;
+        }
+    }
+
     /// Sends a serial break signal to a connection.
     ///
     /// Only valid for serial connections — returns an error for other types.

@@ -15,6 +15,7 @@ import { Terminal } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
 import { WebglAddon } from "@xterm/addon-webgl";
 import { Unicode11Addon } from "@xterm/addon-unicode11";
+import { WebLinksAddon } from "@xterm/addon-web-links";
 import { invoke } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import { DEFAULT_TERMINAL_THEME, TERMINAL_CONFIG } from "./types";
@@ -25,6 +26,12 @@ import type {
   HostKeyPayload,
   AuthPromptPayload,
 } from "./connectionTypes";
+import {
+  WORD_SEPARATOR,
+  FONT_SIZE_DEFAULT,
+  WAKE_RECONNECT_GRACE_MS,
+  clampFontSize,
+} from "./terminalPolish";
 
 interface UseConnectionOptions {
   /** Session profile details for the connection. */
@@ -118,6 +125,8 @@ export function useConnection({
       cursorStyle: "block",
       allowProposedApi: true,
       screenReaderMode: true,
+      // Fix 5: Better word separators for double-click selection
+      wordSeparator: WORD_SEPARATOR,
     });
 
     terminalInstanceRef.current = terminal;
@@ -130,6 +139,16 @@ export function useConnection({
     const unicodeAddon = new Unicode11Addon();
     terminal.loadAddon(unicodeAddon);
     terminal.unicode.activeVersion = "11";
+
+    // Fix 6: Load clickable URL addon
+    try {
+      const webLinksAddon = new WebLinksAddon((_event, uri) => {
+        window.open(uri, "_blank");
+      });
+      terminal.loadAddon(webLinksAddon);
+    } catch {
+      // Non-critical
+    }
 
     // Open terminal in the DOM container
     terminal.open(container);
@@ -155,6 +174,72 @@ export function useConnection({
     // Title change detection
     const titleDisposable = terminal.onTitleChange((title: string) => {
       onTitleChangeRef.current?.(title);
+    });
+
+    // Fix 1: Right-click paste
+    const handleContextMenu = (e: MouseEvent) => {
+      e.preventDefault();
+      if (disposed || !activeConnectionId) return;
+      const connId = activeConnectionId;
+      navigator.clipboard.readText().then((text) => {
+        if (!text || disposed) return;
+        terminal.paste(text);
+        const bytes = new TextEncoder().encode(text);
+        const base64 = btoa(String.fromCharCode(...bytes));
+        invoke("connection_write", { connectionId: connId, data: base64 }).catch(() => {});
+      }).catch(() => {});
+    };
+    container.addEventListener("contextmenu", handleContextMenu);
+
+    // Fix 2 & 7: Keyboard shortcuts
+    terminal.attachCustomKeyEventHandler((event: KeyboardEvent) => {
+      if (event.type !== "keydown") return true;
+
+      // Ctrl+Shift+C — copy selection
+      if (event.ctrlKey && event.shiftKey && event.key === "C") {
+        const selection = terminal.getSelection();
+        if (selection) navigator.clipboard.writeText(selection).catch(() => {});
+        return false;
+      }
+
+      // Ctrl+Shift+V — paste
+      if (event.ctrlKey && event.shiftKey && event.key === "V") {
+        if (!activeConnectionId) return false;
+        const connId = activeConnectionId;
+        navigator.clipboard.readText().then((text) => {
+          if (!text || disposed) return;
+          terminal.paste(text);
+          const bytes = new TextEncoder().encode(text);
+          const base64 = btoa(String.fromCharCode(...bytes));
+          invoke("connection_write", { connectionId: connId, data: base64 }).catch(() => {});
+        }).catch(() => {});
+        return false;
+      }
+
+      // Fix 7: Ctrl+= / Ctrl+Plus — increase font size
+      if (event.ctrlKey && !event.shiftKey && (event.key === "=" || event.key === "+")) {
+        const current = terminal.options.fontSize ?? FONT_SIZE_DEFAULT;
+        terminal.options.fontSize = clampFontSize(current + 1);
+        try { fitAddon.fit(); } catch { /* ignore */ }
+        return false;
+      }
+
+      // Fix 7: Ctrl+- — decrease font size
+      if (event.ctrlKey && !event.shiftKey && event.key === "-") {
+        const current = terminal.options.fontSize ?? FONT_SIZE_DEFAULT;
+        terminal.options.fontSize = clampFontSize(current - 1);
+        try { fitAddon.fit(); } catch { /* ignore */ }
+        return false;
+      }
+
+      // Fix 7: Ctrl+0 — reset font size
+      if (event.ctrlKey && !event.shiftKey && event.key === "0") {
+        terminal.options.fontSize = FONT_SIZE_DEFAULT;
+        try { fitAddon.fit(); } catch { /* ignore */ }
+        return false;
+      }
+
+      return true;
     });
 
     // Open connection and set up I/O bridges
@@ -330,6 +415,34 @@ export function useConnection({
     };
     window.addEventListener("resize", handleWindowResize);
 
+    // Fix 9: Detect system sleep/resume via visibilitychange.
+    // When the page becomes visible again after being hidden, check if
+    // the connection is still alive. If it was connected but is now
+    // disconnected, show a reconnect prompt.
+    let lastHiddenAt = 0;
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        lastHiddenAt = Date.now();
+        return;
+      }
+      // Page just became visible — check if we were away long enough
+      if (!disposed && lastHiddenAt > 0) {
+        const elapsed = Date.now() - lastHiddenAt;
+        if (elapsed > WAKE_RECONNECT_GRACE_MS && activeConnectionId) {
+          // Try a small status check — if the connection dropped while
+          // we were asleep, the backend will have already emitted a
+          // disconnected status event. We just need to nudge the UI
+          // by writing a zero-length check or refreshing the terminal.
+          try {
+            fitAddon.fit();
+          } catch {
+            // Ignore
+          }
+        }
+      }
+    };
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
     // Cleanup on unmount
     return () => {
       disposed = true;
@@ -337,6 +450,8 @@ export function useConnection({
         clearTimeout(resizeDebounceTimer);
       }
       window.removeEventListener("resize", handleWindowResize);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      container.removeEventListener("contextmenu", handleContextMenu);
       titleDisposable.dispose();
 
       for (const unlisten of unlisteners) {

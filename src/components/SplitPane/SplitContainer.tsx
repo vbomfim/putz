@@ -9,6 +9,7 @@
  *
  * @module SplitContainer
  */
+import { useCallback } from "react";
 import { Allotment } from "allotment";
 import "allotment/dist/style.css";
 import { TerminalView } from "../Terminal";
@@ -46,6 +47,15 @@ export function SplitContainer({
   const unsplitPane = useTabStore((s) => s.unsplitPane);
   const isSearchOpen = useTabStore((s) => s.isSearchOpen);
   const closeSearch = useTabStore((s) => s.closeSearch);
+  const renameTab = useTabStore((s) => s.renameTab);
+
+  // Fix 4: Tab title from shell escape sequences — update tab store title
+  const handleTitleChange = useCallback(
+    (title: string) => {
+      renameTab(tabId, title);
+    },
+    [tabId, renameTab],
+  );
 
   return (
     <div
@@ -61,6 +71,7 @@ export function SplitContainer({
         node={layout}
         tabId={tabId}
         onClosePane={(sessionId) => unsplitPane(tabId, sessionId)}
+        onTitleChange={handleTitleChange}
         isSearchOpen={isActive && isSearchOpen}
         onSearchClose={closeSearch}
         isBroadcastTarget={isBroadcastTarget}
@@ -73,6 +84,7 @@ interface PaneRendererProps {
   node: PaneNode;
   tabId: string;
   onClosePane: (sessionId: string) => void;
+  onTitleChange: (title: string) => void;
   isSearchOpen: boolean;
   onSearchClose: () => void;
   isBroadcastTarget?: boolean;
@@ -83,6 +95,7 @@ function PaneRenderer({
   node,
   tabId,
   onClosePane,
+  onTitleChange,
   isSearchOpen,
   onSearchClose,
   isBroadcastTarget,
@@ -91,6 +104,7 @@ function PaneRenderer({
     return (
       <TerminalView
         sessionId={node.terminalSessionId}
+        onTitleChange={onTitleChange}
         onRestart={() => {
           // For now, close the pane on restart
           onClosePane(node.terminalSessionId);
@@ -98,6 +112,7 @@ function PaneRenderer({
         isSearchOpen={isSearchOpen}
         onSearchClose={onSearchClose}
         isBroadcastTarget={isBroadcastTarget}
+        tabElementId={tabId}
       />
     );
   }
@@ -113,6 +128,7 @@ function PaneRenderer({
           node={node.children[0]}
           tabId={tabId}
           onClosePane={onClosePane}
+          onTitleChange={onTitleChange}
           isSearchOpen={isSearchOpen}
           onSearchClose={onSearchClose}
           isBroadcastTarget={isBroadcastTarget}
@@ -123,6 +139,7 @@ function PaneRenderer({
           node={node.children[1]}
           tabId={tabId}
           onClosePane={onClosePane}
+          onTitleChange={onTitleChange}
           isSearchOpen={isSearchOpen}
           onSearchClose={onSearchClose}
           isBroadcastTarget={isBroadcastTarget}

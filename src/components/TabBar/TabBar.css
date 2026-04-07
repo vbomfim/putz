@@ -97,6 +97,20 @@
   }
 }
 
+/* Bell flash — brief yellow flash on tab when \a is received (Fix 3) */
+.tab--bell-flash {
+  animation: bell-flash 0.3s ease-out;
+}
+
+@keyframes bell-flash {
+  0% {
+    background-color: rgba(241, 250, 140, 0.4);
+  }
+  100% {
+    background-color: transparent;
+  }
+}
+
 /* Tab title */
 .tab__title {
   overflow: hidden;

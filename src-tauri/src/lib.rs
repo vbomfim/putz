@@ -39,6 +39,9 @@ use session::SessionManager;
 use theme::ThemeManager;
 use vault::VaultManager;
 
+// Needed for try_state() in on_window_event handler
+use tauri::Manager;
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -128,6 +131,18 @@ pub fn run() {
             theme_import,
             theme_export,
         ])
+        // Fix 8: Graceful app exit — clean up PTY sessions and protocol connections
+        .on_window_event(|window, event| {
+            if let tauri::WindowEvent::CloseRequested { .. } = event {
+                // Close all PTY sessions (sends SIGHUP to child processes)
+                let pty_mgr: tauri::State<'_, PtyManager> = window.state();
+                pty_mgr.close_all();
+                // Close all protocol connections
+                let conn_mgr: tauri::State<'_, ConnectionManager> = window.state();
+                // Block briefly on async close — app is exiting anyway
+                tauri::async_runtime::block_on(conn_mgr.close_all());
+            }
+        })
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }

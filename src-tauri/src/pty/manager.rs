@@ -137,6 +137,14 @@ impl PtyManager {
 
         let mut cmd = CommandBuilder::new(&shell_path);
 
+        // Spawn as login shell so it sources ~/.zprofile / ~/.bash_profile
+        // This ensures the full PATH is available (Homebrew, cargo, nvm, etc.)
+        // Without this, macOS GUI apps get a minimal PATH (/usr/bin:/bin only)
+        cmd.arg("-l");
+
+        // Set TERM so the shell knows how to handle terminal features
+        cmd.env("TERM", "xterm-256color");
+
         // Set working directory if provided (already validated)
         if let Some(dir) = cwd {
             cmd.cwd(dir);
@@ -266,6 +274,23 @@ impl PtyManager {
         let _ = session.child.kill();
 
         Ok(())
+    }
+
+    /// Closes all active PTY sessions.
+    ///
+    /// Called during graceful app shutdown to send SIGHUP to all child
+    /// processes, ensuring they clean up (e.g., flush logs, release locks).
+    /// Errors from individual sessions are silently ignored since the app
+    /// is exiting anyway.
+    pub fn close_all(&self) {
+        let mut sessions = match self.sessions.lock() {
+            Ok(s) => s,
+            Err(_) => return, // Poisoned mutex — nothing we can do
+        };
+
+        for (_id, mut session) in sessions.drain() {
+            let _ = session.child.kill();
+        }
     }
 
     /// Starts an OS thread that reads PTY output and emits Tauri events.

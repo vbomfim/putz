@@ -13,10 +13,13 @@
  * - isSearchOpen: whether the search bar should be visible
  * - onSearchClose: callback when search bar is closed
  * - highlightSetId: optional highlight set ID to apply
+ * - onBell: callback when a visual bell (\a) is received
  */
+import { useCallback } from "react";
 import { useTerminal } from "./useTerminal";
 import { useSearch } from "./useSearch";
 import { SearchBar } from "./SearchBar";
+import { BELL_FLASH_CLASS, BELL_FLASH_DURATION_MS } from "./terminalPolish";
 import "@xterm/xterm/css/xterm.css";
 import "./Terminal.css";
 
@@ -35,6 +38,8 @@ interface TerminalViewProps {
   highlightSetId?: string;
   /** Whether this terminal is a broadcast target (red border indicator). */
   isBroadcastTarget?: boolean;
+  /** Optional ref to the tab element for visual bell flash. */
+  tabElementId?: string;
 }
 
 /** Terminal emulator view connected to a PTY backend session. */
@@ -46,12 +51,34 @@ export function TerminalView({
   onSearchClose,
   highlightSetId,
   isBroadcastTarget,
+  tabElementId,
 }: TerminalViewProps) {
+  // Fix 3: Visual bell — briefly flash the terminal wrapper
+  const handleBell = useCallback(() => {
+    // Flash the tab element if available, otherwise flash the terminal wrapper
+    const targetId = tabElementId;
+    if (targetId) {
+      const tabEl = document.querySelector(`[data-tab-id="${targetId}"]`);
+      if (tabEl) {
+        tabEl.classList.add(BELL_FLASH_CLASS);
+        setTimeout(() => tabEl.classList.remove(BELL_FLASH_CLASS), BELL_FLASH_DURATION_MS);
+        return;
+      }
+    }
+    // Fallback: flash the terminal wrapper
+    const wrapper = document.querySelector(`[data-session-id="${sessionId}"]`);
+    if (wrapper) {
+      wrapper.classList.add(BELL_FLASH_CLASS);
+      setTimeout(() => wrapper.classList.remove(BELL_FLASH_CLASS), BELL_FLASH_DURATION_MS);
+    }
+  }, [tabElementId, sessionId]);
+
   const { terminalRef, isReady, error, hasExited, highlightEnabled, terminalInstance } =
     useTerminal({
       sessionId,
       onTitleChange,
       highlightSetId,
+      onBell: handleBell,
     });
 
   const search = useSearch({ terminal: terminalInstance });
@@ -92,6 +119,7 @@ export function TerminalView({
     <div
       className={`terminal-wrapper${isBroadcastTarget ? " terminal-wrapper--broadcast-target" : ""}`}
       data-testid="terminal-wrapper"
+      data-session-id={sessionId}
     >      {searchOpen && (
         <SearchBar
           onSearch={search.findNext}
