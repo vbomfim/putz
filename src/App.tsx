@@ -2,16 +2,18 @@
  * Application shell — entry point for the Putz terminal emulator.
  *
  * Renders a tabbed terminal interface with:
+ * - SessionSidebar on the left for session management
  * - TabBar at the top for tab management
  * - SplitContainer for the active tab's pane layout
  * - Empty state with "New Terminal" prompt when no tabs exist
- *
- * On initial load, creates one tab with a local terminal.
  */
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useTabStore } from "./stores/tabStore";
 import { TabBar } from "./components/TabBar";
 import { SplitContainer } from "./components/SplitPane";
+import { SessionSidebar } from "./components/SessionManager";
+import type { SessionProfile } from "./components/SessionManager";
+import "./components/SessionManager/SessionManager.css";
 import "./styles/App.css";
 
 function App() {
@@ -19,6 +21,7 @@ function App() {
   const activeTabId = useTabStore((s) => s.activeTabId);
   const addTab = useTabStore((s) => s.addTab);
   const hasInitialized = useRef(false);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   // Create the first tab on mount
   useEffect(() => {
@@ -28,6 +31,17 @@ function App() {
   }, [addTab]);
 
   const handleNewTerminal = useCallback(() => {
+    addTab();
+  }, [addTab]);
+
+  const handleSidebarToggle = useCallback(() => {
+    setSidebarOpen((prev) => !prev);
+  }, []);
+
+  /** Called when a session is opened from the sidebar. */
+  const handleSessionOpen = useCallback((_session: SessionProfile) => {
+    // Future: spawn a connection for this session profile.
+    // For now, just open a new local terminal tab.
     addTab();
   }, [addTab]);
 
@@ -55,6 +69,23 @@ function App() {
 
   return (
     <main className="app-container" data-testid="app-root">
+      <SessionSidebar
+        isOpen={sidebarOpen}
+        onToggle={handleSidebarToggle}
+        onSessionOpen={handleSessionOpen}
+      />
+      {!sidebarOpen && (
+        <button
+          className="sidebar-toggle"
+          onClick={handleSidebarToggle}
+          type="button"
+          aria-label="Open session manager"
+          data-testid="sidebar-toggle"
+          title="Toggle Session Manager (Ctrl+B)"
+        >
+          ▶
+        </button>
+      )}
       <TabBar />
       <div className="app-content">
         {tabs.map((tab) => (
