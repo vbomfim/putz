@@ -1,5 +1,6 @@
 /// IPC module — Tauri command handlers for frontend–backend communication.
 pub mod connection;
+pub mod forwarding;
 pub mod highlight;
 pub mod logging;
 pub mod session;
@@ -10,6 +11,9 @@ pub mod vault;
 pub use connection::{
     connection_close, connection_open, connection_resize, connection_write, serial_list_ports,
     serial_send_break,
+};
+pub use forwarding::{
+    forwarding_add, forwarding_list, forwarding_remove, forwarding_status,
 };
 pub use highlight::{
     highlight_create_set, highlight_delete_set, highlight_get_set, highlight_list_sets,
