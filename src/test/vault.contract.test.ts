@@ -44,6 +44,34 @@ describe("Vault type contracts", () => {
     expect(meta.lastUsed).toBeUndefined();
   });
 
+  it("CredentialMeta expiresAt and rotationDays are optional", () => {
+    const meta: CredentialMeta = {
+      id: "id",
+      name: "Test",
+      username: "user",
+      credentialType: "password",
+      createdAt: "2024-01-01T00:00:00Z",
+      updatedAt: "2024-01-01T00:00:00Z",
+    };
+    expect(meta.expiresAt).toBeUndefined();
+    expect(meta.rotationDays).toBeUndefined();
+  });
+
+  it("CredentialMeta with rotation fields populated", () => {
+    const meta: CredentialMeta = {
+      id: "id",
+      name: "Test",
+      username: "user",
+      credentialType: "password",
+      createdAt: "2024-01-01T00:00:00Z",
+      updatedAt: "2024-01-01T00:00:00Z",
+      expiresAt: "2025-06-01T00:00:00Z",
+      rotationDays: 90,
+    };
+    expect(meta.expiresAt).toBe("2025-06-01T00:00:00Z");
+    expect(meta.rotationDays).toBe(90);
+  });
+
   it("CredentialMeta does NOT have a secret field", () => {
     const meta: CredentialMeta = {
       id: "id",
@@ -140,7 +168,7 @@ describe("Vault type contracts", () => {
   // ─── IPC command name contracts ────────────────────────────
 
   it("IPC command names use snake_case", () => {
-    const commands = ["vault_list", "vault_get", "vault_set", "vault_delete"];
+    const commands = ["vault_list", "vault_get", "vault_set", "vault_delete", "vault_check_expiring"];
     commands.forEach((cmd) => {
       expect(cmd).toMatch(/^[a-z_]+$/);
     });

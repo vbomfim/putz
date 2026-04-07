@@ -60,6 +60,10 @@ pub struct SessionProfile {
     pub auto_log: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub jump_host_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub auto_login: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub auto_login_device_type: Option<String>,
     pub created_at: String,
     pub updated_at: String,
 }
@@ -140,6 +144,8 @@ pub struct CreateSessionInput {
     pub color_scheme: Option<String>,
     pub auto_log: Option<bool>,
     pub jump_host_id: Option<String>,
+    pub auto_login: Option<bool>,
+    pub auto_login_device_type: Option<String>,
 }
 
 fn default_folder_id() -> String {
@@ -166,6 +172,8 @@ pub struct UpdateSessionInput {
     pub color_scheme: Option<String>,
     pub auto_log: Option<bool>,
     pub jump_host_id: Option<String>,
+    pub auto_login: Option<bool>,
+    pub auto_login_device_type: Option<String>,
 }
 
 /// Input DTO for moving a session to a different folder.
@@ -242,6 +250,8 @@ mod tests {
             color_scheme: None,
             auto_log: None,
             jump_host_id: None,
+            auto_login: None,
+            auto_login_device_type: None,
             created_at: "2024-01-01T00:00:00Z".into(),
             updated_at: "2024-01-01T00:00:00Z".into(),
         };
@@ -251,6 +261,7 @@ mod tests {
         // None fields should be omitted
         assert!(!json.contains("serialPort"));
         assert!(!json.contains("credentialId"));
+        assert!(!json.contains("autoLogin"));
     }
 
     #[test]
@@ -273,6 +284,8 @@ mod tests {
             color_scheme: Some("dark".into()),
             auto_log: Some(true),
             jump_host_id: None,
+            auto_login: None,
+            auto_login_device_type: None,
             created_at: "2024-06-01T12:00:00Z".into(),
             updated_at: "2024-06-01T12:00:00Z".into(),
         };
@@ -355,6 +368,8 @@ mod tests {
                 color_scheme: None,
                 auto_log: None,
                 jump_host_id: None,
+                auto_login: None,
+                auto_login_device_type: None,
                 created_at: "2024-01-01T00:00:00Z".into(),
                 updated_at: "2024-01-01T00:00:00Z".into(),
             }],

@@ -54,6 +54,17 @@ pub fn vault_delete(
     state.delete(&id).map_err(|e| e.to_string())
 }
 
+/// Returns credentials that expire within the given number of days.
+///
+/// Used on startup and periodically to show rotation reminders.
+#[tauri::command]
+pub fn vault_check_expiring(
+    state: State<'_, VaultManager>,
+    days_ahead: u32,
+) -> Result<Vec<CredentialMeta>, String> {
+    state.check_expiring(days_ahead).map_err(|e| e.to_string())
+}
+
 #[cfg(test)]
 mod tests {
     use crate::vault::error::VaultError;

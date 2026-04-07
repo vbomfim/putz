@@ -63,6 +63,27 @@ describe("IPC Contract — SessionProfile", () => {
     expect(profile.port).toBeUndefined();
     expect(profile.username).toBeUndefined();
     expect(profile.credentialId).toBeUndefined();
+    expect(profile.autoLogin).toBeUndefined();
+    expect(profile.autoLoginDeviceType).toBeUndefined();
+  });
+
+  /**
+   * [CONTRACT] autoLogin and autoLoginDeviceType fields match Rust backend.
+   */
+  it("supports autoLogin fields for session auto-login", () => {
+    const profile: SessionProfile = {
+      id: "auto-login-test",
+      name: "Cisco Router",
+      folderId: "root",
+      protocol: "ssh",
+      host: "10.0.0.1",
+      autoLogin: true,
+      autoLoginDeviceType: "cisco_ios",
+      createdAt: "2024-01-01T00:00:00Z",
+      updatedAt: "2024-01-01T00:00:00Z",
+    };
+    expect(profile.autoLogin).toBe(true);
+    expect(profile.autoLoginDeviceType).toBe("cisco_ios");
   });
 });
 

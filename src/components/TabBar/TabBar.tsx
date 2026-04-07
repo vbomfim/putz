@@ -12,6 +12,7 @@ import { useState, useCallback, useEffect, useRef } from "react";
 import { useTabStore } from "../../stores/tabStore";
 import { Tab } from "./Tab";
 import { useKeyboardShortcuts } from "./useKeyboardShortcuts";
+import { ChangeWindowIndicator } from "../Compliance/ChangeWindowIndicator";
 import "./TabBar.css";
 
 /** Context menu state. */
@@ -121,7 +122,13 @@ export function TabBar() {
 
   return (
     <div className="tabbar">
-      <div className="tabbar__tabs" role="tablist" aria-label="Terminal tabs">
+      <div
+        className="tabbar__tabs"
+        role="tablist"
+        aria-label="Terminal tabs"
+        onDragOver={(e) => e.preventDefault()}
+        onDrop={(e) => e.preventDefault()}
+      >
         {tabs.map((tab, index) => (
           <Tab
             key={tab.id}
@@ -138,6 +145,8 @@ export function TabBar() {
           />
         ))}
       </div>
+
+      <ChangeWindowIndicator />
 
       <button
         className="tabbar__add"

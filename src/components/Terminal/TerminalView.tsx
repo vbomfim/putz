@@ -19,6 +19,7 @@ import { useCallback } from "react";
 import { useTerminal } from "./useTerminal";
 import { useSearch } from "./useSearch";
 import { SearchBar } from "./SearchBar";
+import { ChangeWindowWarning } from "../Compliance/ChangeWindowWarning";
 import { BELL_FLASH_CLASS, BELL_FLASH_DURATION_MS } from "./terminalPolish";
 import "@xterm/xterm/css/xterm.css";
 import "./Terminal.css";
@@ -40,6 +41,8 @@ interface TerminalViewProps {
   isBroadcastTarget?: boolean;
   /** Optional ref to the tab element for visual bell flash. */
   tabElementId?: string;
+  /** Whether change window enforcement is enabled. */
+  changeWindowEnabled?: boolean;
 }
 
 /** Terminal emulator view connected to a PTY backend session. */
@@ -52,6 +55,7 @@ export function TerminalView({
   highlightSetId,
   isBroadcastTarget,
   tabElementId,
+  changeWindowEnabled = false,
 }: TerminalViewProps) {
   // Fix 3: Visual bell — briefly flash the terminal wrapper
   const handleBell = useCallback(() => {
@@ -73,12 +77,23 @@ export function TerminalView({
     }
   }, [tabElementId, sessionId]);
 
-  const { terminalRef, isReady, error, hasExited, highlightEnabled, terminalInstance } =
+  const {
+    terminalRef,
+    isReady,
+    error,
+    hasExited,
+    highlightEnabled,
+    terminalInstance,
+    changeWindowWarning,
+    onChangeWindowProceed,
+    onChangeWindowCancel,
+  } =
     useTerminal({
       sessionId,
       onTitleChange,
       highlightSetId,
       onBell: handleBell,
+      changeWindowEnabled,
     });
 
   const search = useSearch({ terminal: terminalInstance });
@@ -164,6 +179,14 @@ export function TerminalView({
             Restart Terminal
           </button>
         </div>
+      )}
+      {changeWindowWarning.show && (
+        <ChangeWindowWarning
+          command={changeWindowWarning.command}
+          reason={changeWindowWarning.reason}
+          onProceed={onChangeWindowProceed}
+          onCancel={onChangeWindowCancel}
+        />
       )}
     </div>
   );

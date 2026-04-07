@@ -17,6 +17,10 @@ export interface CredentialMeta {
   lastUsed?: string;
   createdAt: string;
   updatedAt: string;
+  /** ISO 8601 timestamp when this credential expires. */
+  expiresAt?: string;
+  /** Number of days between credential rotations. */
+  rotationDays?: number;
 }
 
 /** Full credential including the secret (for editor form). */
@@ -33,6 +37,10 @@ export interface SetCredentialInput {
   username: string;
   secret: string;
   credentialType: CredentialType;
+  /** ISO 8601 timestamp when this credential expires. */
+  expiresAt?: string;
+  /** Number of days between credential rotations. */
+  rotationDays?: number;
 }
 
 /** Human-readable labels for credential types. */
