@@ -3612,11 +3612,13 @@ version = "0.1.0"
 dependencies = [
  "async-trait",
  "base64 0.22.1",
+ "chrono",
  "directories",
  "keyring",
  "portable-pty",
  "russh",
  "russh-keys",
+ "russh-sftp",
  "serde",
  "serde_json",
  "serialport",

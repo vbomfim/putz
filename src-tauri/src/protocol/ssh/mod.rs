@@ -80,6 +80,25 @@ impl SshConnection {
         }
     }
 
+    /// Returns a clone of the SSH session handle for opening additional channels.
+    ///
+    /// Used by SFTP to open a subsystem channel on the same SSH connection.
+    /// Returns `None` if the connection is not established.
+    pub fn session_handle(
+        &self,
+    ) -> Option<&client::Handle<SshHandler>> {
+        self.session.as_ref()
+    }
+
+    /// Returns a mutable reference to the SSH session handle.
+    ///
+    /// Used by ConnectionManager to open additional channels (e.g., SFTP).
+    pub fn session_handle_mut(
+        &mut self,
+    ) -> Option<&mut client::Handle<SshHandler>> {
+        self.session.as_mut()
+    }
+
     /// Connects to an SSH server with event emission support.
     ///
     /// This is the main entry point for SSH connections. Steps:
