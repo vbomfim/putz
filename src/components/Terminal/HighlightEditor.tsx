@@ -99,10 +99,21 @@ export function HighlightEditor({
         newErrors[`rule-${idx}-bg`] = "Invalid hex color";
       }
       if (rule.matchType === "regex") {
-        try {
-          new RegExp(rule.pattern);
-        } catch {
-          newErrors[`rule-${idx}-pattern`] = "Invalid regex pattern";
+        // Reject nested quantifiers (ReDoS protection) [OWASP-A06]
+        // Only flag unbounded inner quantifiers: +, *, {n,}
+        const hasUnsafeNesting =
+          /\([^)]*[+*]\)[+*{]/.test(rule.pattern) ||
+          /\([^)]*\{\d+,\}\)[+*{]/.test(rule.pattern);
+        if (hasUnsafeNesting) {
+          newErrors[`rule-${idx}-pattern`] =
+            "Pattern contains unsafe nested quantifiers";
+        } else {
+          try {
+            new RegExp(rule.pattern);
+          } catch {
+            // Generic message — never expose regex compile error details
+            newErrors[`rule-${idx}-pattern`] = "Invalid regex pattern";
+          }
         }
       }
       if (rule.priority < 0 || rule.priority > 999) {

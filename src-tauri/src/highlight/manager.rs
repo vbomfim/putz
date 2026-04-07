@@ -104,6 +104,7 @@ impl HighlightManager {
     /// Creates a new highlight set. Returns the generated UUID.
     pub fn create_set(&self, input: CreateHighlightSetInput) -> Result<String, HighlightError> {
         validation::validate_name(&input.name)?;
+        validation::validate_description(&input.description)?;
         validation::validate_rules_count(input.rules.len())?;
 
         // Validate each rule
@@ -175,6 +176,10 @@ impl HighlightManager {
     ) -> Result<(), HighlightError> {
         if let Some(ref name) = input.name {
             validation::validate_name(name)?;
+        }
+
+        if let Some(ref description) = input.description {
+            validation::validate_description(description)?;
         }
 
         if let Some(ref rules) = input.rules {
@@ -1018,5 +1023,50 @@ mod tests {
             },
         );
         assert!(matches!(result, Err(HighlightError::DuplicateName(_))));
+    }
+
+    #[test]
+    fn create_set_description_too_long_rejected() {
+        let (mgr, _tmp) = test_manager();
+        let long_desc = "a".repeat(2001);
+        let result = mgr.create_set(CreateHighlightSetInput {
+            name: "Desc Test".into(),
+            description: long_desc,
+            rules: vec![],
+        });
+        assert!(matches!(result, Err(HighlightError::InvalidInput(_))));
+    }
+
+    #[test]
+    fn update_set_description_too_long_rejected() {
+        let (mgr, _tmp) = test_manager();
+        let id = mgr
+            .create_set(CreateHighlightSetInput {
+                name: "Desc Update Test".into(),
+                description: String::new(),
+                rules: vec![],
+            })
+            .unwrap();
+        let result = mgr.update_set(
+            &id,
+            UpdateHighlightSetInput {
+                name: None,
+                description: Some("b".repeat(2001)),
+                rules: None,
+            },
+        );
+        assert!(matches!(result, Err(HighlightError::InvalidInput(_))));
+    }
+
+    #[test]
+    fn create_set_valid_description_accepted() {
+        let (mgr, _tmp) = test_manager();
+        let desc = "a".repeat(2000);
+        let result = mgr.create_set(CreateHighlightSetInput {
+            name: "Valid Desc".into(),
+            description: desc,
+            rules: vec![],
+        });
+        assert!(result.is_ok());
     }
 }

@@ -185,6 +185,26 @@ describe("HighlightEditor", () => {
     expect(mockOnSave).not.toHaveBeenCalled();
   });
 
+  it("rejects regex with nested quantifiers (ReDoS protection)", () => {
+    render(<HighlightEditor onSave={mockOnSave} onCancel={mockOnCancel} />);
+    const nameInput = screen.getByTestId("highlight-name-input");
+    fireEvent.change(nameInput, { target: { value: "Test Set" } });
+
+    // Set pattern to ReDoS-vulnerable regex
+    const patternInput = screen.getByTestId("rule-pattern-input-0");
+    fireEvent.change(patternInput, { target: { value: "(a+)+" } });
+
+    // Change match type to regex
+    const matchTypeSelect = screen.getByTestId("rule-matchtype-select-0");
+    fireEvent.change(matchTypeSelect, { target: { value: "regex" } });
+
+    fireEvent.click(screen.getByTestId("highlight-save-btn"));
+    expect(
+      screen.getByText("Pattern contains unsafe nested quantifiers"),
+    ).toBeInTheDocument();
+    expect(mockOnSave).not.toHaveBeenCalled();
+  });
+
   // ─── Save callback ──────────────────────────────────────────
 
   it("calls onSave with valid input", () => {

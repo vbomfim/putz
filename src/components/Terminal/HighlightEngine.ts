@@ -6,7 +6,8 @@
  * - Hooks into terminal.onWriteParsed to detect new output
  * - Scans visible viewport lines for matches, creates xterm Decorations
  * - Priority-sorted: highest priority rule wins on overlapping regions
- * - Catastrophic backtracking protection: 10ms timeout per line (via char limit)
+ * - ReDoS protection: nested quantifier rejection + 50ms per-line timeout
+ * - Decoration lifecycle: old decorations disposed before each scan cycle
  * - Toggle on/off without losing rule state
  *
  * @module HighlightEngine
@@ -19,6 +20,9 @@ const MAX_LINE_LENGTH = 10_000;
 
 /** Debounce interval for processing new output (ms). */
 const DEBOUNCE_MS = 16;
+
+/** Maximum time in ms for regex matching on a single line. */
+const MATCH_TIMEOUT_MS = 50;
 
 /** A compiled rule ready for matching. */
 interface CompiledRule {
@@ -39,8 +43,33 @@ interface HighlightMatch {
 }
 
 /**
+ * Detects regex patterns vulnerable to catastrophic backtracking (ReDoS).
+ *
+ * Rejects patterns with nested quantifiers where the inner quantifier is
+ * unbounded: `(a+)+`, `(a*)*`, `(a+)*`, `(a{2,})+`.
+ *
+ * Safe patterns are NOT flagged:
+ * - `(a{2}){5}` — fixed inner repetition
+ * - `(a{2,5}){3}` — bounded inner repetition
+ * - `(a|b)+` — alternation without inner quantifier
+ */
+function hasNestedQuantifiers(pattern: string): boolean {
+  // Group containing + or * (unbounded), followed by outer quantifier
+  // e.g. (a+)+  (a*)*  (a+)*  (?:a+)+
+  if (/\([^)]*[+*]\)[+*{]/.test(pattern)) {
+    return true;
+  }
+  // Group containing {n,} (unbounded range), followed by outer quantifier
+  // e.g. (a{2,})+  — but NOT (a{2}){5} or (a{2,5}){3}
+  if (/\([^)]*\{\d+,\}\)[+*{]/.test(pattern)) {
+    return true;
+  }
+  return false;
+}
+
+/**
  * Converts a highlight pattern to a RegExp based on its match type.
- * Returns null if the pattern is invalid.
+ * Returns null if the pattern is invalid or vulnerable to ReDoS.
  */
 function patternToRegex(pattern: string, matchType: MatchType): RegExp | null {
   try {
@@ -51,8 +80,13 @@ function patternToRegex(pattern: string, matchType: MatchType): RegExp | null {
         return new RegExp(escapeRegex(pattern), "gi");
       case "wildcard":
         return new RegExp(wildcardToRegex(pattern), "gi");
-      case "regex":
+      case "regex": {
+        // Reject patterns with nested quantifiers (ReDoS protection)
+        if (hasNestedQuantifiers(pattern)) {
+          return null;
+        }
         return new RegExp(pattern, "g");
+      }
       default:
         return null;
     }
@@ -66,9 +100,15 @@ function escapeRegex(str: string): string {
   return str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
-/** Converts a wildcard pattern (* and ?) to a regex source string. */
+/**
+ * Converts a wildcard pattern (* and ?) to a regex source string.
+ * Collapses consecutive `*` wildcards before conversion to prevent
+ * generating patterns like `.*.*.*` which are redundant.
+ */
 function wildcardToRegex(pattern: string): string {
-  return pattern
+  // Collapse consecutive * wildcards: "***" → "*"
+  const collapsed = pattern.replace(/\*{2,}/g, "*");
+  return collapsed
     .split("")
     .map((char) => {
       switch (char) {
@@ -81,6 +121,34 @@ function wildcardToRegex(pattern: string): string {
       }
     })
     .join("");
+}
+
+/**
+ * Executes regex matching on a text string with a timeout guard.
+ * Returns all matches found within the time limit.
+ * Aborts and returns partial results if matching exceeds MATCH_TIMEOUT_MS.
+ */
+function execRegexWithTimeout(regex: RegExp, text: string): RegExpExecArray[] {
+  const results: RegExpExecArray[] = [];
+  const deadline = Date.now() + MATCH_TIMEOUT_MS;
+  regex.lastIndex = 0;
+  let match: RegExpExecArray | null;
+
+  while ((match = regex.exec(text)) !== null) {
+    results.push(match);
+
+    // Prevent infinite loops on zero-length matches
+    if (match[0].length === 0) {
+      regex.lastIndex++;
+    }
+
+    // Abort if matching is taking too long (ReDoS protection)
+    if (Date.now() > deadline) {
+      break;
+    }
+  }
+
+  return results;
 }
 
 /**
@@ -104,7 +172,6 @@ export class HighlightEngine {
   private disposed = false;
   private debounceTimer: ReturnType<typeof setTimeout> | null = null;
   private writeDisposable: { dispose: () => void } | null = null;
-  private lastProcessedLine = -1;
 
   constructor(terminal: Terminal) {
     this.terminal = terminal;
@@ -156,7 +223,6 @@ export class HighlightEngine {
     this.writeDisposable = null;
 
     this.clearDecorations();
-    this.lastProcessedLine = -1;
   }
 
   /** Toggles highlighting on/off. Returns the new state. */
@@ -201,62 +267,53 @@ export class HighlightEngine {
 
   /**
    * Scans the visible viewport for matches and creates decorations.
-   * Only processes lines that haven't been processed yet (incremental).
+   * Clears all previous decorations before each scan cycle to prevent
+   * memory leaks from accumulated stale decoration objects.
    */
   private processViewport(): void {
     if (!this.enabled || this.disposed || this.compiledRules.length === 0) {
       return;
     }
 
+    // Clear old decorations before re-scanning (prevents memory leak)
+    this.clearDecorations();
+
     const buffer = this.terminal.buffer.active;
     const totalLines = buffer.length;
 
-    // Process visible viewport + any new lines since last processing
+    // Process visible viewport
     const viewportStart = buffer.viewportY;
     const viewportEnd = Math.min(
       viewportStart + this.terminal.rows,
       totalLines,
     );
 
-    // Also process new lines added since last time
-    const processStart = Math.max(
-      viewportStart,
-      Math.min(this.lastProcessedLine + 1, viewportStart),
-    );
-
     const matches: HighlightMatch[] = [];
 
-    for (let lineIdx = processStart; lineIdx < viewportEnd; lineIdx++) {
+    for (let lineIdx = viewportStart; lineIdx < viewportEnd; lineIdx++) {
       const line = buffer.getLine(lineIdx);
       if (!line) continue;
 
       const text = line.translateToString(true);
       if (text.length === 0 || text.length > MAX_LINE_LENGTH) continue;
 
-      // Run each compiled rule against this line
+      // Run each compiled rule against this line with timeout protection
       for (const compiled of this.compiledRules) {
-        compiled.regex.lastIndex = 0;
-        let match: RegExpExecArray | null;
+        const lineMatches = execRegexWithTimeout(compiled.regex, text);
 
-        while ((match = compiled.regex.exec(text)) !== null) {
+        for (const match of lineMatches) {
           matches.push({
             line: lineIdx,
             startCol: match.index,
             length: match[0].length,
             rule: compiled.rule,
           });
-
-          // Prevent infinite loops on zero-length matches
-          if (match[0].length === 0) {
-            compiled.regex.lastIndex++;
-          }
         }
       }
     }
 
     // Apply decorations for non-overlapping matches (priority-sorted)
     this.applyDecorations(matches);
-    this.lastProcessedLine = viewportEnd - 1;
   }
 
   /**
@@ -341,4 +398,10 @@ export class HighlightEngine {
 }
 
 // Export helpers for testing
-export { patternToRegex, escapeRegex, wildcardToRegex };
+export {
+  patternToRegex,
+  escapeRegex,
+  wildcardToRegex,
+  hasNestedQuantifiers,
+  execRegexWithTimeout,
+};

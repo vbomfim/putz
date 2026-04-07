@@ -7,6 +7,7 @@ export { HostKeyDialog } from "./HostKeyDialog";
 export { AuthPromptDialog } from "./AuthPromptDialog";
 export { HighlightEditor } from "./HighlightEditor";
 export { HighlightEngine } from "./HighlightEngine";
+export { hasNestedQuantifiers, execRegexWithTimeout } from "./HighlightEngine";
 export { useTerminal } from "./useTerminal";
 export { useConnection } from "./useConnection";
 export type {
@@ -42,10 +43,7 @@ export type {
   CreateHighlightRuleInput,
   UpdateHighlightSetInput,
 } from "./highlightTypes";
-export {
-  MATCH_TYPE_LABELS,
-  HIGHLIGHT_COLOR_PALETTE,
-} from "./highlightTypes";
+export { MATCH_TYPE_LABELS, HIGHLIGHT_COLOR_PALETTE } from "./highlightTypes";
 export { DEFAULT_SERIAL_CONFIG } from "./connectionTypes";
 export { DEFAULT_TERMINAL_THEME, TERMINAL_CONFIG } from "./types";
 export { SerialConfig } from "./SerialConfig";
