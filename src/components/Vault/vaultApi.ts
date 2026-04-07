@@ -29,3 +29,10 @@ export async function vaultSet(input: SetCredentialInput): Promise<string> {
 export async function vaultDelete(id: string): Promise<void> {
   return invoke<void>("vault_delete", { id });
 }
+
+/** Returns credentials that expire within the given number of days. */
+export async function vaultCheckExpiring(
+  daysAhead: number,
+): Promise<CredentialMeta[]> {
+  return invoke<CredentialMeta[]>("vault_check_expiring", { daysAhead });
+}

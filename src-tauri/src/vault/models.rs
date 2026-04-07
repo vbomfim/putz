@@ -34,6 +34,12 @@ pub struct CredentialMeta {
     pub last_used: Option<String>,
     pub created_at: String,
     pub updated_at: String,
+    /// ISO 8601 timestamp when this credential expires.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub expires_at: Option<String>,
+    /// Number of days between credential rotations.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub rotation_days: Option<u32>,
 }
 
 /// Full credential including the secret.
@@ -123,6 +129,12 @@ pub struct SetCredentialInput {
     pub username: String,
     pub secret: String,
     pub credential_type: CredentialType,
+    /// ISO 8601 timestamp when this credential expires.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub expires_at: Option<String>,
+    /// Number of days between credential rotations.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub rotation_days: Option<u32>,
 }
 
 impl fmt::Debug for SetCredentialInput {
@@ -133,6 +145,8 @@ impl fmt::Debug for SetCredentialInput {
             .field("username", &self.username)
             .field("secret", &"[REDACTED]")
             .field("credential_type", &self.credential_type)
+            .field("expires_at", &self.expires_at)
+            .field("rotation_days", &self.rotation_days)
             .finish()
     }
 }
@@ -183,6 +197,8 @@ mod tests {
             last_used: None,
             created_at: "2024-01-01T00:00:00Z".into(),
             updated_at: "2024-01-01T00:00:00Z".into(),
+            expires_at: None,
+            rotation_days: None,
         };
         let json = serde_json::to_string(&meta).unwrap();
         assert!(json.contains("credentialType"));
@@ -202,6 +218,8 @@ mod tests {
             last_used: Some("2024-06-15T10:30:00Z".into()),
             created_at: "2024-01-01T00:00:00Z".into(),
             updated_at: "2024-01-01T00:00:00Z".into(),
+            expires_at: None,
+            rotation_days: None,
         };
         let json = serde_json::to_string(&meta).unwrap();
         assert!(json.contains("lastUsed"));
@@ -218,6 +236,8 @@ mod tests {
             last_used: Some("2024-06-01T12:00:00Z".into()),
             created_at: "2024-01-01T00:00:00Z".into(),
             updated_at: "2024-06-01T12:00:00Z".into(),
+            expires_at: None,
+            rotation_days: None,
         };
         let json = serde_json::to_string(&meta).unwrap();
         let restored: CredentialMeta = serde_json::from_str(&json).unwrap();
@@ -237,6 +257,8 @@ mod tests {
                 last_used: None,
                 created_at: "2024-01-01T00:00:00Z".into(),
                 updated_at: "2024-01-01T00:00:00Z".into(),
+                expires_at: None,
+                rotation_days: None,
             },
             secret: "hunter2".into(),
         };
@@ -264,6 +286,8 @@ mod tests {
                 last_used: None,
                 created_at: "2024-01-01T00:00:00Z".into(),
                 updated_at: "2024-01-01T00:00:00Z".into(),
+                expires_at: None,
+                rotation_days: None,
             }],
         };
         let json = serde_json::to_string_pretty(&index).unwrap();
@@ -316,6 +340,8 @@ mod tests {
             last_used: None,
             created_at: "2024-01-01T00:00:00Z".into(),
             updated_at: "2024-01-01T00:00:00Z".into(),
+            expires_at: None,
+            rotation_days: None,
         };
         let json = serde_json::to_string(&meta).unwrap();
         // The JSON must not contain a "secret" key (credential_type: "password" is fine)
@@ -335,6 +361,8 @@ mod tests {
                 last_used: None,
                 created_at: "2024-01-01T00:00:00Z".into(),
                 updated_at: "2024-01-01T00:00:00Z".into(),
+                expires_at: None,
+                rotation_days: None,
             },
             secret: "super_secret_password".into(),
         };
@@ -363,6 +391,8 @@ mod tests {
             username: "user".into(),
             secret: "input_secret_value".into(),
             credential_type: CredentialType::Password,
+            expires_at: None,
+            rotation_days: None,
         };
         let debug_str = format!("{:?}", input);
         assert!(debug_str.contains("[REDACTED]"));
