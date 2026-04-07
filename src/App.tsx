@@ -31,6 +31,9 @@ import { CredentialManager } from "./components/Vault";
 import { KeyManager } from "./components/Keys";
 import { ConfigDiff } from "./components/ConfigDiff";
 import { TemplatePanel } from "./components/Templates";
+import { ThemeEditor } from "./components/Terminal/ThemeEditor";
+import { FontConfig } from "./components/Terminal/FontConfig";
+import { useThemeStore } from "./stores/themeStore";
 import type { SessionProfile } from "./components/SessionManager";
 import type { ParsedConnection } from "./components/QuickConnect";
 import "./components/SessionManager/SessionManager.css";
@@ -50,6 +53,8 @@ function App() {
   const [templatePanelOpen, setTemplatePanelOpen] = useState(false);
   const [vaultOpen, setVaultOpen] = useState(false);
   const [keyManagerOpen, setKeyManagerOpen] = useState(false);
+  const [themeEditorOpen, setThemeEditorOpen] = useState(false);
+  const [fontConfigOpen, setFontConfigOpen] = useState(false);
 
   // Listen for native menu events from the Tauri backend
   useMenuEvents();
@@ -59,6 +64,8 @@ function App() {
     setMenuEventCallbacks({
       onToggleVault: () => setVaultOpen((prev) => !prev),
       onToggleKeyManager: () => setKeyManagerOpen((prev) => !prev),
+      onToggleThemeEditor: () => setThemeEditorOpen((prev) => !prev),
+      onToggleFontConfig: () => setFontConfigOpen((prev) => !prev),
     });
     return () => setMenuEventCallbacks({});
   }, []);
@@ -111,6 +118,16 @@ function App() {
       if (keyManagerOpen) {
         e.preventDefault();
         setKeyManagerOpen(false);
+        return;
+      }
+      if (themeEditorOpen) {
+        e.preventDefault();
+        setThemeEditorOpen(false);
+        return;
+      }
+      if (fontConfigOpen) {
+        e.preventDefault();
+        setFontConfigOpen(false);
         return;
       }
     };
@@ -323,6 +340,64 @@ function App() {
               ✕
             </button>
             <KeyManager />
+          </div>
+        </div>
+      )}
+
+      {/* Theme Editor overlay */}
+      {themeEditorOpen && (
+        <div
+          className="modal-overlay"
+          data-testid="theme-editor-overlay"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setThemeEditorOpen(false);
+          }}
+          role="dialog"
+          aria-modal="true"
+          aria-label="Theme Editor"
+        >
+          <div className="modal-panel modal-panel--wide" data-testid="theme-editor-panel">
+            <button
+              className="modal-close"
+              onClick={() => setThemeEditorOpen(false)}
+              aria-label="Close Theme Editor"
+            >
+              ✕
+            </button>
+            <ThemeEditor
+              themes={[]}
+              editingTheme={null}
+              onSave={() => setThemeEditorOpen(false)}
+              onCancel={() => setThemeEditorOpen(false)}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* Font Config overlay */}
+      {fontConfigOpen && (
+        <div
+          className="modal-overlay"
+          data-testid="font-config-overlay"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setFontConfigOpen(false);
+          }}
+          role="dialog"
+          aria-modal="true"
+          aria-label="Font Settings"
+        >
+          <div className="modal-panel" data-testid="font-config-panel">
+            <button
+              className="modal-close"
+              onClick={() => setFontConfigOpen(false)}
+              aria-label="Close Font Settings"
+            >
+              ✕
+            </button>
+            <FontConfig 
+              settings={useThemeStore.getState().fontSettings}
+              onChange={(s) => useThemeStore.getState().setFontSettings(s)}
+            />
           </div>
         </div>
       )}

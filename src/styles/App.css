@@ -171,3 +171,4 @@
   outline: 2px solid var(--accent-hover);
   outline-offset: 2px;
 }
+.modal-panel--wide { max-width: 800px; width: 90%; }

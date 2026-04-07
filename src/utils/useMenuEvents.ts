@@ -22,6 +22,8 @@ interface MenuEventPayload {
 export interface MenuEventCallbacks {
   onToggleVault?: () => void;
   onToggleKeyManager?: () => void;
+  onToggleThemeEditor?: () => void;
+  onToggleFontConfig?: () => void;
 }
 
 // Module-level callbacks — set by App.tsx via setMenuEventCallbacks
