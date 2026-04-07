@@ -20,6 +20,7 @@ import {
   TERMINAL_CONFIG,
   type PtyExitPayload,
 } from "./types";
+import { useThemeStore } from "../../stores/themeStore";
 import { HighlightEngine } from "./HighlightEngine";
 import type { HighlightSet } from "./highlightTypes";
 import { broadcastWrite } from "../../utils/broadcastHelper";
@@ -143,11 +144,16 @@ export function useTerminal({
     const unlisteners: UnlistenFn[] = [];
     let disposed = false;
 
+    // Read initial font/theme from themeStore
+    const themeState = useThemeStore.getState();
+    const initialFontSettings = themeState.fontSettings;
+    const initialColors = themeState.activeColors;
+
     const terminal = new Terminal({
-      fontSize: TERMINAL_CONFIG.fontSize,
-      fontFamily: TERMINAL_CONFIG.fontFamily,
+      fontSize: initialFontSettings.fontSize,
+      fontFamily: initialFontSettings.fontFamily,
       scrollback: TERMINAL_CONFIG.scrollback,
-      theme: DEFAULT_TERMINAL_THEME,
+      theme: initialColors || DEFAULT_TERMINAL_THEME,
       cursorBlink: true,
       cursorStyle: "block",
       allowProposedApi: true,
@@ -493,6 +499,30 @@ export function useTerminal({
       // unmounts and remounts the original terminal in the new layout tree.
     };
   }, [sessionId]);
+
+  // Effect: subscribe to themeStore for live theme/font changes
+  useEffect(() => {
+    const unsubscribe = useThemeStore.subscribe((state) => {
+      const term = terminalInstanceRef.current;
+      if (!term) return;
+      
+      // Apply font changes
+      if (state.fontSettings) {
+        term.options.fontSize = state.fontSettings.fontSize;
+        term.options.fontFamily = state.fontSettings.fontFamily;
+        term.options.lineHeight = state.fontSettings.lineHeight;
+      }
+      
+      // Apply theme colors
+      if (state.activeColors) {
+        term.options.theme = state.activeColors;
+      }
+      
+      // Re-fit after font change
+      try { fitAddonRef.current?.fit(); } catch { /* ignore */ }
+    });
+    return unsubscribe;
+  }, []);
 
   // Effect: load and apply highlight set when highlightSetId changes
   useEffect(() => {
