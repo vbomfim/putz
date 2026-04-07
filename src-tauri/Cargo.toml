@@ -24,7 +24,7 @@ base64 = "0.22"
 directories = "6"
 time = { version = "0.3", features = ["formatting"] }
 async-trait = "0.1"
-tokio = { version = "1", features = ["net", "io-util", "sync", "time", "rt", "macros"] }
+tokio = { version = "1", features = ["net", "io-util", "sync", "time", "rt", "macros", "process"] }
 socket2 = "0.5"
 keyring = { version = "3", features = ["apple-native", "windows-native", "sync-secret-service"] }
 zeroize = { version = "1", features = ["derive"] }
