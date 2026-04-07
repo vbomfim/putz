@@ -1,45 +1,38 @@
-import { useCallback, useEffect, useState } from "react";
-import { invoke } from "@tauri-apps/api/core";
-import { TerminalView, TERMINAL_CONFIG } from "./components/Terminal";
+/**
+ * Application shell — entry point for the Putz terminal emulator.
+ *
+ * Renders a tabbed terminal interface with:
+ * - SessionSidebar on the left for session management
+ * - TabBar at the top for tab management
+ * - SplitContainer for the active tab's pane layout
+ * - Empty state with "New Terminal" prompt when no tabs exist
+ */
+import { useCallback, useEffect, useRef, useState } from "react";
+import { useTabStore } from "./stores/tabStore";
+import { TabBar } from "./components/TabBar";
+import { SplitContainer } from "./components/SplitPane";
 import { SessionSidebar } from "./components/SessionManager";
 import type { SessionProfile } from "./components/SessionManager";
 import "./components/SessionManager/SessionManager.css";
 import "./styles/App.css";
 
-/** Application shell — entry point for the Putz terminal emulator. */
 function App() {
-  const [sessionId, setSessionId] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const tabs = useTabStore((s) => s.tabs);
+  const activeTabId = useTabStore((s) => s.activeTabId);
+  const addTab = useTabStore((s) => s.addTab);
+  const hasInitialized = useRef(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
-  /** Spawns a new PTY session and stores the session ID. */
-  const spawnSession = useCallback(async () => {
-    setError(null);
-    setSessionId(null);
-
-    try {
-      const id = await invoke<string>("pty_spawn", {
-        cols: TERMINAL_CONFIG.defaultCols,
-        rows: TERMINAL_CONFIG.defaultRows,
-      });
-      setSessionId(id);
-    } catch (err: unknown) {
-      setError(`Failed to start terminal: ${String(err)}`);
-    }
-  }, []);
-
-  // Spawn shell on first render
+  // Create the first tab on mount
   useEffect(() => {
-    spawnSession();
-  }, [spawnSession]);
+    if (hasInitialized.current) return;
+    hasInitialized.current = true;
+    addTab();
+  }, [addTab]);
 
-  const handleTitleChange = useCallback((title: string) => {
-    document.title = title ? `${title} — Putz` : "Putz";
-  }, []);
-
-  const handleRestart = useCallback(() => {
-    spawnSession();
-  }, [spawnSession]);
+  const handleNewTerminal = useCallback(() => {
+    addTab();
+  }, [addTab]);
 
   const handleSidebarToggle = useCallback(() => {
     setSidebarOpen((prev) => !prev);
@@ -48,32 +41,27 @@ function App() {
   /** Called when a session is opened from the sidebar. */
   const handleSessionOpen = useCallback((_session: SessionProfile) => {
     // Future: spawn a connection for this session profile.
-    // For now, the terminal is already running a local shell.
-  }, []);
+    // For now, just open a new local terminal tab.
+    addTab();
+  }, [addTab]);
 
-  if (error) {
+  // Empty state — all tabs closed
+  if (tabs.length === 0 && hasInitialized.current) {
     return (
       <main className="app-container" data-testid="app-root">
-        <div className="app-error" data-testid="app-error">
-          <h2>Failed to Start Terminal</h2>
-          <p>{error}</p>
+        <TabBar />
+        <div className="app-empty-state" data-testid="app-empty-state">
+          <p>No open terminals</p>
           <button
-            className="app-retry-btn"
-            onClick={handleRestart}
+            className="app-new-terminal-btn"
+            onClick={handleNewTerminal}
             type="button"
           >
-            Retry
+            New Terminal
           </button>
-        </div>
-      </main>
-    );
-  }
-
-  if (!sessionId) {
-    return (
-      <main className="app-container" data-testid="app-root">
-        <div className="app-loading" data-testid="app-loading">
-          Starting terminal…
+          <p className="app-empty-hint">
+            or press <kbd>Ctrl+T</kbd>
+          </p>
         </div>
       </main>
     );
@@ -98,11 +86,17 @@ function App() {
           ▶
         </button>
       )}
-      <TerminalView
-        sessionId={sessionId}
-        onTitleChange={handleTitleChange}
-        onRestart={handleRestart}
-      />
+      <TabBar />
+      <div className="app-content">
+        {tabs.map((tab) => (
+          <SplitContainer
+            key={tab.id}
+            layout={tab.layout}
+            tabId={tab.id}
+            isActive={tab.id === activeTabId}
+          />
+        ))}
+      </div>
     </main>
   );
 }

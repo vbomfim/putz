@@ -41,14 +41,14 @@ function resetMocks() {
   mockInvoke.mockReset().mockResolvedValue(undefined);
   capturedListeners = new Map();
   mockUnlistenFns = [];
-  mockListen.mockReset().mockImplementation(
-    (eventName: string, callback: EventCallback) => {
+  mockListen
+    .mockReset()
+    .mockImplementation((eventName: string, callback: EventCallback) => {
       capturedListeners.set(eventName, callback);
       const unlisten = vi.fn();
       mockUnlistenFns.push(unlisten);
       return Promise.resolve(unlisten);
-    },
-  );
+    });
 }
 
 // ============================================================
@@ -97,17 +97,12 @@ describe("Terminal Lifecycle — PTY Exit", () => {
   it("shows exit overlay on normal exit (code 0)", async () => {
     await act(async () => {
       render(
-        <TerminalView
-          sessionId="normal-exit-session"
-          onRestart={vi.fn()}
-        />,
+        <TerminalView sessionId="normal-exit-session" onRestart={vi.fn()} />,
       );
     });
 
     await waitFor(() => {
-      expect(
-        capturedListeners.has("pty-exit-normal-exit-session"),
-      ).toBe(true);
+      expect(capturedListeners.has("pty-exit-normal-exit-session")).toBe(true);
     });
 
     act(() => {
@@ -131,9 +126,7 @@ describe("Terminal Lifecycle — PTY Exit", () => {
     });
 
     await waitFor(() => {
-      expect(
-        capturedListeners.has("pty-exit-no-restart-session"),
-      ).toBe(true);
+      expect(capturedListeners.has("pty-exit-no-restart-session")).toBe(true);
     });
 
     act(() => {
@@ -165,9 +158,9 @@ describe("Terminal Lifecycle — PTY Exit", () => {
     });
 
     await waitFor(() => {
-      expect(
-        capturedListeners.has("pty-exit-restart-click-session"),
-      ).toBe(true);
+      expect(capturedListeners.has("pty-exit-restart-click-session")).toBe(
+        true,
+      );
     });
 
     act(() => {
@@ -220,9 +213,7 @@ describe("Terminal Lifecycle — Event Listeners", () => {
     let unmountFn: () => void;
 
     await act(async () => {
-      const result = render(
-        <TerminalView sessionId="cleanup-session" />,
-      );
+      const result = render(<TerminalView sessionId="cleanup-session" />);
       unmountFn = result.unmount;
     });
 
@@ -249,9 +240,7 @@ describe("Terminal Lifecycle — Event Listeners", () => {
     let unmountFn: () => void;
 
     await act(async () => {
-      const result = render(
-        <TerminalView sessionId="close-on-unmount" />,
-      );
+      const result = render(<TerminalView sessionId="close-on-unmount" />);
       unmountFn = result.unmount;
     });
 
@@ -298,10 +287,7 @@ describe("Terminal Lifecycle — Error Handling", () => {
 
     await act(async () => {
       render(
-        <TerminalView
-          sessionId="error-retry-session"
-          onRestart={vi.fn()}
-        />,
+        <TerminalView sessionId="error-retry-session" onRestart={vi.fn()} />,
       );
     });
 

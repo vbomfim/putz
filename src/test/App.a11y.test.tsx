@@ -2,13 +2,14 @@
  * Accessibility tests for the App component.
  *
  * Verifies semantic HTML structure and ARIA attributes.
- * Updated for Issue #3: App now renders a terminal instead of the greet form.
+ * Updated for Issue #5: App now renders a tabbed UI with TabBar + SplitContainer.
  *
  * Tags: [COVERAGE], [AC-2]
  */
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import App from "../App";
+import { useTabStore } from "../stores/tabStore";
 
 // Mock Tauri APIs
 const mockInvoke = vi.fn().mockResolvedValue(undefined);
@@ -21,67 +22,88 @@ vi.mock("@tauri-apps/api/event", () => ({
   listen: (...args: unknown[]) => mockListen(...args),
 }));
 
+// Mock allotment
+vi.mock("allotment", () => {
+  const AllotmentComponent = ({ children }: { children: React.ReactNode }) => (
+    <div data-testid="allotment-container">{children}</div>
+  );
+
+  AllotmentComponent.Pane = ({ children }: { children: React.ReactNode }) => (
+    <div>{children}</div>
+  );
+
+  return { Allotment: AllotmentComponent };
+});
+
+vi.mock("allotment/dist/style.css", () => ({}));
+
 describe("App — Accessibility", () => {
   beforeEach(() => {
     mockInvoke.mockReset().mockResolvedValue(undefined);
     mockListen.mockReset().mockResolvedValue(vi.fn());
+    useTabStore.setState({ tabs: [], activeTabId: "", tabCounter: 0 });
   });
 
   /**
    * [COVERAGE] The main container uses semantic <main> element,
    * which is critical for screen readers to identify the primary content.
    */
-  it("uses semantic <main> element as app container", () => {
-    mockInvoke.mockReturnValue(new Promise(() => {}));
-
-    render(<App />);
-
-    const main = screen.getByRole("main");
-    expect(main).toBeInTheDocument();
-  });
-
-  /**
-   * [COVERAGE] Loading state is visible and descriptive for screen readers.
-   */
-  it("loading state has descriptive text", () => {
-    mockInvoke.mockReturnValue(new Promise(() => {}));
-
-    render(<App />);
-
-    const loading = screen.getByTestId("app-loading");
-    expect(loading).toHaveTextContent("Starting terminal");
-  });
-
-  /**
-   * [COVERAGE] Error state has a heading for screen reader navigation.
-   */
-  it("error state has heading and descriptive text", async () => {
-    mockInvoke.mockRejectedValueOnce(new Error("test error"));
+  it("uses semantic <main> element as app container", async () => {
+    mockInvoke.mockResolvedValueOnce("session-1");
 
     render(<App />);
 
     await waitFor(() => {
-      const heading = screen.getByRole("heading", { level: 2 });
-      expect(heading).toHaveTextContent("Failed to Start Terminal");
+      const main = screen.getByRole("main");
+      expect(main).toBeInTheDocument();
     });
   });
 
   /**
-   * [COVERAGE] Retry button has type="button" (not submit) and accessible name.
+   * [COVERAGE] Tab bar uses role="tablist" for screen readers.
    */
-  it("retry button is accessible", async () => {
-    mockInvoke.mockRejectedValueOnce(new Error("test error"));
+  it("tab bar has role tablist", async () => {
+    mockInvoke.mockResolvedValueOnce("session-1");
 
     render(<App />);
 
     await waitFor(() => {
-      const button = screen.getByRole("button", { name: "Retry" });
-      expect(button).toHaveAttribute("type", "button");
+      const tablist = screen.getByRole("tablist");
+      expect(tablist).toBeInTheDocument();
     });
   });
 
   /**
-   * [COVERAGE] Terminal wrapper is rendered with test ID for automation.
+   * [COVERAGE] Each tab uses role="tab" with aria-selected.
+   */
+  it("tab has role tab with aria-selected", async () => {
+    mockInvoke.mockResolvedValueOnce("session-1");
+
+    render(<App />);
+
+    await waitFor(() => {
+      const tabs = screen.getAllByRole("tab");
+      expect(tabs.length).toBeGreaterThanOrEqual(1);
+      expect(tabs[0]).toHaveAttribute("aria-selected", "true");
+    });
+  });
+
+  /**
+   * [COVERAGE] Add button has aria-label.
+   */
+  it("add tab button has accessible label", async () => {
+    mockInvoke.mockResolvedValueOnce("session-1");
+
+    render(<App />);
+
+    await waitFor(() => {
+      const addBtn = screen.getByLabelText("New tab");
+      expect(addBtn).toBeInTheDocument();
+    });
+  });
+
+  /**
+   * [COVERAGE] Terminal container is present after successful spawn.
    */
   it("terminal container is present after successful spawn", async () => {
     mockInvoke.mockResolvedValueOnce("session-123");
@@ -89,8 +111,8 @@ describe("App — Accessibility", () => {
     render(<App />);
 
     await waitFor(() => {
-      const wrapper = screen.getByTestId("terminal-wrapper");
-      expect(wrapper).toBeInTheDocument();
+      const wrappers = screen.getAllByTestId("terminal-wrapper");
+      expect(wrappers.length).toBeGreaterThanOrEqual(1);
     });
   });
 });
