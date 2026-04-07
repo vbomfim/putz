@@ -114,6 +114,7 @@ function PaneRenderer({
   if (node.type === "leaf") {
     const terminalView = (
       <TerminalView
+        key={node.terminalSessionId}
         sessionId={node.terminalSessionId}
         onTitleChange={onTitleChange}
         onRestart={() => {

@@ -451,6 +451,16 @@ export const useTabStore = create<TabState>((set, get) => ({
         t.id === tabId ? { ...t, layout: newLayout } : t,
       ),
     }));
+
+    // Send a newline to the original session to trigger a fresh prompt.
+    // When splitting, the original terminal is unmounted and remounted by React,
+    // losing the visible output. A newline makes the shell redraw the prompt.
+    setTimeout(() => {
+      invoke("pty_write", {
+        sessionId: paneSessionId,
+        data: [10], // newline
+      }).catch(() => {});
+    }, 300);
   },
 
   splitActivePane: async (direction: "horizontal" | "vertical") => {
