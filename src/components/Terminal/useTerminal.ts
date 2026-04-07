@@ -21,6 +21,7 @@ import {
 } from "./types";
 import { HighlightEngine } from "./HighlightEngine";
 import type { HighlightSet } from "./highlightTypes";
+import { broadcastWrite } from "../../utils/broadcastHelper";
 
 interface UseTerminalOptions {
   /** UUID v4 session identifier from pty_spawn. */
@@ -138,6 +139,7 @@ export function useTerminal({
     const dataDisposable = terminal.onData((data: string) => {
       if (disposed) return;
       const bytes = Array.from(new TextEncoder().encode(data));
+      broadcastWrite(sessionId, bytes);
       invoke("pty_write", { sessionId, data: bytes }).catch(() => {
         // pty_write failure — input dropped silently
       });

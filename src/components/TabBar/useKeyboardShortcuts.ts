@@ -8,6 +8,7 @@
  */
 import { useEffect, useCallback } from "react";
 import { useTabStore } from "../../stores/tabStore";
+import { useBroadcastStore } from "../../stores/broadcastStore";
 
 /** Registers global keyboard shortcuts for tab and pane management. */
 export function useKeyboardShortcuts(): void {
@@ -19,6 +20,7 @@ export function useKeyboardShortcuts(): void {
   const splitActivePane = useTabStore((s) => s.splitActivePane);
   const toggleSearch = useTabStore((s) => s.toggleSearch);
   const toggleLogging = useTabStore((s) => s.toggleLogging);
+  const toggleBroadcast = useBroadcastStore((s) => s.toggle);
 
   const handleKeyDown = useCallback(
     (e: KeyboardEvent) => {
@@ -94,6 +96,17 @@ export function useKeyboardShortcuts(): void {
         toggleLogging();
         return;
       }
+
+      // Ctrl+Shift+A — Toggle broadcast mode
+      if (key === "a" && e.shiftKey) {
+        e.preventDefault();
+        const { tabs, activeTabId } = useTabStore.getState();
+        toggleBroadcast(
+          tabs.map((t) => t.id),
+          activeTabId,
+        );
+        return;
+      }
     },
     [
       addTab,
@@ -104,6 +117,7 @@ export function useKeyboardShortcuts(): void {
       splitActivePane,
       toggleSearch,
       toggleLogging,
+      toggleBroadcast,
     ],
   );
 
