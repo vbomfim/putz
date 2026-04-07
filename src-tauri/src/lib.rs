@@ -3,17 +3,20 @@ mod ipc;
 mod protocol;
 mod pty;
 mod session;
+mod vault;
 
 use commands::greet;
 use ipc::{
     connection_close, connection_open, connection_resize, connection_write,
     pty_close, pty_resize, pty_spawn, pty_write, session_create, session_create_folder,
     session_delete, session_delete_folder, session_duplicate, session_export, session_get,
-    session_import, session_list, session_move, session_search, session_update,
+    session_import, session_list, session_move, session_search, session_update, vault_delete,
+    vault_get, vault_list, vault_set,
 };
 use protocol::connection_manager::ConnectionManager;
 use pty::PtyManager;
 use session::SessionManager;
+use vault::VaultManager;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -22,6 +25,7 @@ pub fn run() {
         .manage(PtyManager::new())
         .manage(SessionManager::new())
         .manage(ConnectionManager::new())
+        .manage(VaultManager::new())
         .invoke_handler(tauri::generate_handler![
             greet,
             pty_spawn,
@@ -44,6 +48,10 @@ pub fn run() {
             session_export,
             session_create_folder,
             session_delete_folder,
+            vault_list,
+            vault_get,
+            vault_set,
+            vault_delete,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
