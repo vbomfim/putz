@@ -14,6 +14,7 @@ import { invoke } from "@tauri-apps/api/core";
 import type { Tab, PaneNode } from "../types";
 import { MAX_SPLIT_DEPTH } from "../types";
 import { TERMINAL_CONFIG } from "../components/Terminal";
+import { useBroadcastStore } from "./broadcastStore";
 
 /** Maximum allowed length for tab titles. */
 export const MAX_TITLE_LENGTH = 100;
@@ -264,6 +265,9 @@ export const useTabStore = create<TabState>((set, get) => ({
 
     const newTabs = tabs.filter((t) => t.id !== id);
 
+    // Clean up broadcast targets — remove closed tab silently
+    useBroadcastStore.getState().removeTab(id);
+
     // Determine new active tab
     let newActiveId = get().activeTabId;
     if (newActiveId === id) {
@@ -363,6 +367,9 @@ export const useTabStore = create<TabState>((set, get) => ({
       tabs: tabs.filter((t) => t.id === keepId),
       activeTabId: keepId,
     });
+
+    // Deactivate broadcast — all target tabs were closed
+    useBroadcastStore.getState().deactivate();
   },
 
   closeAllTabs: () => {
@@ -374,6 +381,9 @@ export const useTabStore = create<TabState>((set, get) => ({
       }
     }
     set({ tabs: [], activeTabId: "" });
+
+    // Deactivate broadcast — all tabs closed
+    useBroadcastStore.getState().deactivate();
   },
 
   activateNextTab: () => {
