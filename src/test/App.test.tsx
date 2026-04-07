@@ -1,6 +1,15 @@
+/**
+ * Unit tests for the App component with tabbed UI.
+ *
+ * Updated for Issue #5: App now renders a TabBar + SplitContainer
+ * instead of a single terminal. Tab/PTY lifecycle is managed by tabStore.
+ *
+ * Tags: [COVERAGE], [AC-1]
+ */
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import App from "../App";
+import { useTabStore, resetTabCounter } from "../stores/tabStore";
 
 // Mock the Tauri invoke API — must always return a promise
 const mockInvoke = vi.fn().mockResolvedValue(undefined);
@@ -14,35 +23,43 @@ vi.mock("@tauri-apps/api/event", () => ({
   listen: (...args: unknown[]) => mockListen(...args),
 }));
 
+// Mock allotment for split panes
+vi.mock("allotment", () => {
+  const AllotmentComponent = ({
+    children,
+  }: {
+    children: React.ReactNode;
+  }) => <div data-testid="allotment-container">{children}</div>;
+
+  AllotmentComponent.Pane = ({ children }: { children: React.ReactNode }) => (
+    <div>{children}</div>
+  );
+
+  return { Allotment: AllotmentComponent };
+});
+
+vi.mock("allotment/dist/style.css", () => ({}));
+
 describe("App", () => {
   beforeEach(() => {
     mockInvoke.mockReset().mockResolvedValue(undefined);
     mockListen.mockReset().mockResolvedValue(vi.fn());
-    // Default: listen returns a no-op unlisten function
-    mockListen.mockResolvedValue(vi.fn());
+    useTabStore.setState({ tabs: [], activeTabId: "" });
+    resetTabCounter();
   });
 
-  it("shows loading state initially before PTY spawns", () => {
-    // Never resolve invoke — stays in loading state
-    mockInvoke.mockReturnValue(new Promise(() => {}));
+  it("has the app-root test id on the main container", async () => {
+    mockInvoke.mockResolvedValueOnce("test-session-id");
 
     render(<App />);
 
-    const loading = screen.getByTestId("app-loading");
-    expect(loading).toBeInTheDocument();
-    expect(loading).toHaveTextContent("Starting terminal");
+    await waitFor(() => {
+      const root = screen.getByTestId("app-root");
+      expect(root).toBeInTheDocument();
+    });
   });
 
-  it("has the app-root test id on the main container", () => {
-    mockInvoke.mockReturnValue(new Promise(() => {}));
-
-    render(<App />);
-
-    const root = screen.getByTestId("app-root");
-    expect(root).toBeInTheDocument();
-  });
-
-  it("calls pty_spawn on mount with default dimensions", async () => {
+  it("calls pty_spawn on mount to create the first tab", async () => {
     mockInvoke.mockResolvedValueOnce("test-session-id");
 
     render(<App />);
@@ -55,37 +72,36 @@ describe("App", () => {
     });
   });
 
-  it("renders terminal container after successful spawn", async () => {
+  it("renders the tab bar", async () => {
     mockInvoke.mockResolvedValueOnce("test-session-id");
 
     render(<App />);
 
     await waitFor(() => {
-      const container = screen.getByTestId("terminal-wrapper");
-      expect(container).toBeInTheDocument();
+      const tablist = screen.getByRole("tablist");
+      expect(tablist).toBeInTheDocument();
     });
   });
 
-  it("shows error state when pty_spawn fails", async () => {
-    mockInvoke.mockRejectedValueOnce(new Error("Shell not found"));
+  it("renders a terminal after successful spawn", async () => {
+    mockInvoke.mockResolvedValueOnce("test-session-id");
 
     render(<App />);
 
     await waitFor(() => {
-      const error = screen.getByTestId("app-error");
-      expect(error).toBeInTheDocument();
-      expect(error).toHaveTextContent("Failed to Start Terminal");
+      const wrappers = screen.getAllByTestId("terminal-wrapper");
+      expect(wrappers.length).toBeGreaterThanOrEqual(1);
     });
   });
 
-  it("shows retry button on error", async () => {
-    mockInvoke.mockRejectedValueOnce(new Error("Shell not found"));
+  it("renders the add tab button", async () => {
+    mockInvoke.mockResolvedValueOnce("test-session-id");
 
     render(<App />);
 
     await waitFor(() => {
-      const button = screen.getByRole("button", { name: "Retry" });
-      expect(button).toBeInTheDocument();
+      const addBtn = screen.getByLabelText("New tab");
+      expect(addBtn).toBeInTheDocument();
     });
   });
 });

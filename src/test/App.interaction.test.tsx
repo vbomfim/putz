@@ -1,8 +1,8 @@
 /**
  * Integration tests for App component user interactions.
  *
- * Tests the terminal lifecycle: spawn, error handling, and retry flow.
- * Updated for Issue #3: App now renders a terminal instead of the greet form.
+ * Tests the tabbed terminal lifecycle: tab creation, tab switching, and terminal rendering.
+ * Updated for Issue #5: App now renders a TabBar + SplitContainer.
  *
  * Tags: [BOUNDARY], [EDGE], [CONTRACT]
  */
@@ -10,6 +10,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import App from "../App";
+import { useTabStore, resetTabCounter } from "../stores/tabStore";
 
 // Mock module — re-declared per file so each test file is independent
 const mockInvoke = vi.fn().mockResolvedValue(undefined);
@@ -22,17 +23,36 @@ vi.mock("@tauri-apps/api/event", () => ({
   listen: (...args: unknown[]) => mockListen(...args),
 }));
 
-describe("App — User Interaction Flow", () => {
+// Mock allotment
+vi.mock("allotment", () => {
+  const AllotmentComponent = ({
+    children,
+  }: {
+    children: React.ReactNode;
+  }) => <div data-testid="allotment-container">{children}</div>;
+
+  AllotmentComponent.Pane = ({ children }: { children: React.ReactNode }) => (
+    <div>{children}</div>
+  );
+
+  return { Allotment: AllotmentComponent };
+});
+
+vi.mock("allotment/dist/style.css", () => ({}));
+
+describe("App — User Interaction Flow (Tabbed UI)", () => {
   beforeEach(() => {
     mockInvoke.mockReset().mockResolvedValue(undefined);
     mockListen.mockReset().mockResolvedValue(vi.fn());
+    useTabStore.setState({ tabs: [], activeTabId: "" });
+    resetTabCounter();
   });
 
   /**
    * [BOUNDARY] Tests the complete spawn flow:
-   * App mounts → calls pty_spawn → renders terminal with session ID.
+   * App mounts → calls addTab → tab renders with terminal.
    */
-  it("spawns PTY session on mount and renders terminal", async () => {
+  it("creates initial tab on mount and renders terminal", async () => {
     mockInvoke.mockResolvedValueOnce("session-abc-123");
 
     render(<App />);
@@ -67,82 +87,57 @@ describe("App — User Interaction Flow", () => {
   });
 
   /**
-   * [EDGE] Tests error state when PTY spawn fails.
-   * User should see an error message with a retry button.
+   * [BOUNDARY] Adding a second tab shows two tabs.
    */
-  it("shows error and retry when pty_spawn fails", async () => {
-    mockInvoke.mockRejectedValueOnce(new Error("No shell found"));
-
-    render(<App />);
-
-    await waitFor(() => {
-      expect(screen.getByTestId("app-error")).toBeInTheDocument();
-      expect(screen.getByText(/Failed to Start Terminal/)).toBeInTheDocument();
-      expect(screen.getByText(/No shell found/)).toBeInTheDocument();
-    });
-  });
-
-  /**
-   * [BOUNDARY] Tests the retry flow:
-   * Spawn fails → user clicks Retry → spawn is called again.
-   */
-  it("retries pty_spawn when user clicks Retry after error", async () => {
+  it("shows two tabs after clicking add", async () => {
     const user = userEvent.setup();
-
-    // First call fails, second succeeds
     mockInvoke
-      .mockRejectedValueOnce(new Error("Temporary failure"))
-      .mockResolvedValueOnce("new-session-id");
+      .mockResolvedValueOnce("session-1")
+      .mockResolvedValueOnce("session-2");
 
     render(<App />);
 
-    // Wait for error state
     await waitFor(() => {
-      expect(screen.getByTestId("app-error")).toBeInTheDocument();
+      expect(screen.getByRole("tab")).toBeInTheDocument();
     });
 
-    // Click retry
-    const retryButton = screen.getByRole("button", { name: "Retry" });
-    await user.click(retryButton);
+    const addBtn = screen.getByLabelText("New tab");
+    await user.click(addBtn);
 
-    // Should call pty_spawn again (2 spawn calls total, plus potential pty_resize/pty_close)
     await waitFor(() => {
-      const spawnCalls = mockInvoke.mock.calls.filter(
-        (call: unknown[]) => call[0] === "pty_spawn",
-      );
-      expect(spawnCalls).toHaveLength(2);
-    });
-
-    // Should now show terminal
-    await waitFor(() => {
-      const wrapper = screen.getByTestId("terminal-wrapper");
-      expect(wrapper).toBeInTheDocument();
+      const tabs = screen.getAllByRole("tab");
+      expect(tabs).toHaveLength(2);
     });
   });
 
   /**
-   * [EDGE] Tests loading → terminal transition.
-   * Loading state should disappear once the terminal is ready.
+   * [BOUNDARY] Clicking a tab activates it.
    */
-  it("transitions from loading to terminal", async () => {
-    let resolveSpawn: (value: string) => void;
-    mockInvoke.mockReturnValueOnce(
-      new Promise<string>((resolve) => {
-        resolveSpawn = resolve;
-      }),
-    );
+  it("clicking a tab switches the active tab", async () => {
+    const user = userEvent.setup();
+    mockInvoke
+      .mockResolvedValueOnce("session-1")
+      .mockResolvedValueOnce("session-2");
 
     render(<App />);
 
-    // Should be in loading state
-    expect(screen.getByTestId("app-loading")).toBeInTheDocument();
-
-    // Resolve the spawn
-    resolveSpawn!("session-id");
-
-    // Should transition to terminal
     await waitFor(() => {
-      expect(screen.getByTestId("terminal-wrapper")).toBeInTheDocument();
+      expect(screen.getByRole("tab")).toBeInTheDocument();
     });
+
+    // Add second tab
+    const addBtn = screen.getByLabelText("New tab");
+    await user.click(addBtn);
+
+    await waitFor(() => {
+      const tabs = screen.getAllByRole("tab");
+      expect(tabs).toHaveLength(2);
+    });
+
+    // Click first tab
+    const tabs = screen.getAllByRole("tab");
+    await user.click(tabs[0]);
+
+    expect(tabs[0]).toHaveAttribute("aria-selected", "true");
   });
 });
