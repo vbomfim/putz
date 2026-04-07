@@ -1,4 +1,5 @@
 mod commands;
+mod highlight;
 mod ipc;
 mod protocol;
 mod pty;
@@ -6,13 +7,14 @@ mod session;
 mod vault;
 
 use commands::greet;
+use highlight::HighlightManager;
 use ipc::{
-    connection_close, connection_open, connection_resize, connection_write,
-    pty_close, pty_resize, pty_spawn, pty_write, serial_list_ports, serial_send_break,
-    session_create, session_create_folder, session_delete, session_delete_folder,
-    session_duplicate, session_export, session_get, session_import, session_list,
-    session_move, session_search, session_update, vault_delete, vault_get, vault_list,
-    vault_set,
+    connection_close, connection_open, connection_resize, connection_write, highlight_create_set,
+    highlight_delete_set, highlight_get_set, highlight_list_sets, highlight_update_set, pty_close,
+    pty_resize, pty_spawn, pty_write, serial_list_ports, serial_send_break, session_create,
+    session_create_folder, session_delete, session_delete_folder, session_duplicate,
+    session_export, session_get, session_import, session_list, session_move, session_search,
+    session_update, vault_delete, vault_get, vault_list, vault_set,
 };
 use protocol::connection_manager::ConnectionManager;
 use pty::PtyManager;
@@ -27,6 +29,7 @@ pub fn run() {
         .manage(SessionManager::new())
         .manage(ConnectionManager::new())
         .manage(VaultManager::new())
+        .manage(HighlightManager::new())
         .invoke_handler(tauri::generate_handler![
             greet,
             pty_spawn,
@@ -55,6 +58,11 @@ pub fn run() {
             vault_get,
             vault_set,
             vault_delete,
+            highlight_list_sets,
+            highlight_get_set,
+            highlight_create_set,
+            highlight_update_set,
+            highlight_delete_set,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

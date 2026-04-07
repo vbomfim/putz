@@ -3615,6 +3615,7 @@ dependencies = [
  "directories",
  "keyring",
  "portable-pty",
+ "regex",
  "russh",
  "russh-keys",
  "serde",
