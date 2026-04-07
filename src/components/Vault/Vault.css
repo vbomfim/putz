@@ -1,0 +1,423 @@
+/* Credential Vault Styles
+ *
+ * Uses CSS variables from global.css for consistency.
+ * Follows SessionManager.css patterns.
+ */
+
+/* ─── Manager Layout ─────────────────────────────────────── */
+
+.credential-manager {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background-color: var(--bg-secondary);
+}
+
+.credential-manager-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.75rem 0.75rem 0.5rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.credential-manager-title {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin: 0;
+}
+
+.credential-manager-add {
+  background-color: var(--accent);
+  color: var(--text-primary);
+  border: none;
+  border-radius: 0.25rem;
+  width: 1.75rem;
+  height: 1.75rem;
+  font-size: 1rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color 0.15s;
+}
+
+.credential-manager-add:hover {
+  background-color: var(--accent-hover);
+}
+
+.credential-manager-error {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.375rem 0.75rem;
+  background-color: rgba(255, 85, 85, 0.15);
+  color: #ff5555;
+  font-size: 0.75rem;
+}
+
+.credential-manager-error button {
+  background: none;
+  border: none;
+  color: inherit;
+  cursor: pointer;
+  font-size: 0.75rem;
+}
+
+.credential-manager-loading {
+  padding: 2rem 1rem;
+  text-align: center;
+  color: var(--text-secondary);
+  font-size: 0.8125rem;
+}
+
+/* ─── Empty State ────────────────────────────────────────── */
+
+.credential-manager-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem 1rem;
+  text-align: center;
+}
+
+.credential-manager-empty p {
+  color: var(--text-secondary);
+  font-size: 0.8125rem;
+  margin-bottom: 0.75rem;
+}
+
+.credential-manager-empty-btn {
+  padding: 0.375rem 0.75rem;
+  background-color: var(--accent);
+  color: var(--text-primary);
+  border: none;
+  border-radius: 0.25rem;
+  font-size: 0.8125rem;
+  cursor: pointer;
+  transition: background-color 0.15s;
+}
+
+.credential-manager-empty-btn:hover {
+  background-color: var(--accent-hover);
+}
+
+/* ─── Credential List ────────────────────────────────────── */
+
+.credential-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  flex: 1;
+  overflow-y: auto;
+}
+
+.credential-list-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.5rem 0.75rem;
+  cursor: pointer;
+  font-size: 0.8125rem;
+  color: var(--text-primary);
+  transition: background-color 0.1s;
+  user-select: none;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+.credential-list-item:hover {
+  background-color: rgba(255, 255, 255, 0.04);
+}
+
+.credential-list-item-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+  min-width: 0;
+  flex: 1;
+}
+
+.credential-list-item-name {
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.credential-list-item-username {
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.credential-list-item-meta {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.125rem;
+  flex-shrink: 0;
+  margin-left: 0.5rem;
+}
+
+.credential-list-item-type {
+  color: var(--text-secondary);
+  font-size: 0.6875rem;
+}
+
+.credential-list-item-date {
+  color: var(--text-secondary);
+  font-size: 0.625rem;
+}
+
+/* ─── Context Menu ───────────────────────────────────────── */
+
+.credential-context-menu {
+  position: fixed;
+  background-color: var(--bg-secondary);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 0.375rem;
+  padding: 0.25rem 0;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+  z-index: 100;
+  min-width: 140px;
+}
+
+.credential-context-menu button {
+  display: block;
+  width: 100%;
+  padding: 0.375rem 0.75rem;
+  background: none;
+  border: none;
+  color: var(--text-primary);
+  font-size: 0.8125rem;
+  text-align: left;
+  cursor: pointer;
+}
+
+.credential-context-menu button:hover {
+  background-color: rgba(255, 255, 255, 0.06);
+}
+
+.credential-context-menu button.danger {
+  color: #ff5555;
+}
+
+.credential-context-menu hr {
+  border: none;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  margin: 0.25rem 0;
+}
+
+/* ─── Delete Confirmation ────────────────────────────────── */
+
+.credential-delete-confirm-overlay {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: rgba(0, 0, 0, 0.5);
+  z-index: 200;
+}
+
+.credential-delete-confirm {
+  background-color: var(--bg-secondary);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 0.5rem;
+  padding: 1.5rem;
+  width: 360px;
+  max-width: 90vw;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+}
+
+.credential-delete-confirm p {
+  color: var(--text-primary);
+  font-size: 0.875rem;
+  margin: 0 0 0.5rem;
+}
+
+.credential-delete-confirm-warning {
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+}
+
+.credential-delete-confirm-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  margin-top: 1.25rem;
+}
+
+.credential-delete-confirm-actions button {
+  padding: 0.5rem 1rem;
+  border-radius: 0.25rem;
+  font-size: 0.8125rem;
+  cursor: pointer;
+}
+
+.credential-delete-confirm-actions button:first-child {
+  background: none;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: var(--text-secondary);
+}
+
+.credential-delete-confirm-actions button:first-child:hover {
+  color: var(--text-primary);
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+.credential-delete-confirm-actions button.danger {
+  background-color: #ff5555;
+  border: none;
+  color: #fff;
+}
+
+.credential-delete-confirm-actions button.danger:hover {
+  background-color: #ff3333;
+}
+
+/* ─── Editor Modal ───────────────────────────────────────── */
+
+.credential-editor-overlay {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: rgba(0, 0, 0, 0.5);
+  z-index: 200;
+}
+
+.credential-editor {
+  background-color: var(--bg-secondary);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 0.5rem;
+  padding: 1.5rem;
+  width: 400px;
+  max-width: 90vw;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+}
+
+.credential-editor-title {
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 1.25rem;
+}
+
+.credential-editor-field {
+  margin-bottom: 0.875rem;
+}
+
+.credential-editor-field label {
+  display: block;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+  margin-bottom: 0.25rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.credential-editor-field input,
+.credential-editor-field select {
+  width: 100%;
+  padding: 0.5rem 0.625rem;
+  background-color: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 0.25rem;
+  color: var(--text-primary);
+  font-size: 0.875rem;
+  outline: none;
+  transition: border-color 0.15s;
+}
+
+.credential-editor-field input:focus,
+.credential-editor-field select:focus {
+  border-color: var(--accent-hover);
+}
+
+.credential-editor-field input[aria-invalid="true"] {
+  border-color: #ff5555;
+}
+
+.credential-editor-secret-row {
+  display: flex;
+  gap: 0.375rem;
+}
+
+.credential-editor-secret-row input {
+  flex: 1;
+}
+
+.credential-editor-toggle-secret {
+  background: none;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 0.25rem;
+  color: var(--text-secondary);
+  cursor: pointer;
+  padding: 0.375rem 0.5rem;
+  font-size: 0.875rem;
+  transition: border-color 0.15s;
+}
+
+.credential-editor-toggle-secret:hover {
+  border-color: rgba(255, 255, 255, 0.2);
+  color: var(--text-primary);
+}
+
+.credential-editor-error {
+  display: block;
+  font-size: 0.75rem;
+  color: #ff5555;
+  margin-top: 0.25rem;
+}
+
+.credential-editor-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  margin-top: 1.25rem;
+}
+
+.credential-editor-cancel {
+  padding: 0.5rem 1rem;
+  background: none;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 0.25rem;
+  color: var(--text-secondary);
+  font-size: 0.8125rem;
+  cursor: pointer;
+}
+
+.credential-editor-cancel:hover {
+  color: var(--text-primary);
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+.credential-editor-save {
+  padding: 0.5rem 1rem;
+  background-color: var(--accent);
+  border: none;
+  border-radius: 0.25rem;
+  color: var(--text-primary);
+  font-size: 0.8125rem;
+  cursor: pointer;
+  transition: background-color 0.15s;
+}
+
+.credential-editor-save:hover {
+  background-color: var(--accent-hover);
+}
+
+.credential-editor-save:disabled,
+.credential-editor-cancel:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}

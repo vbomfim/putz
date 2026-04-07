@@ -1,6 +1,7 @@
 /// IPC module — Tauri command handlers for frontend–backend communication.
 pub mod session;
 pub mod terminal;
+pub mod vault;
 
 pub use session::{
     session_create, session_create_folder, session_delete, session_delete_folder,
@@ -8,3 +9,4 @@ pub use session::{
     session_move, session_search, session_update,
 };
 pub use terminal::{pty_close, pty_resize, pty_spawn, pty_write};
+pub use vault::{vault_delete, vault_get, vault_list, vault_set};
