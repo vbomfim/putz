@@ -14,6 +14,7 @@
  * - Command Templates panel (Ctrl+Shift+T)
  */
 import { useCallback, useEffect, useRef, useState } from "react";
+import { invoke } from "@tauri-apps/api/core";
 import { useTabStore } from "./stores/tabStore";
 import { useBroadcastStore } from "./stores/broadcastStore";
 import { TabBar } from "./components/TabBar";
@@ -34,6 +35,7 @@ import { TemplatePanel } from "./components/Templates";
 import { ThemeEditor } from "./components/Terminal/ThemeEditor";
 import { FontConfig } from "./components/Terminal/FontConfig";
 import { useThemeStore } from "./stores/themeStore";
+import type { Theme } from "./components/Terminal/themeTypes";
 import type { SessionProfile } from "./components/SessionManager";
 import type { ParsedConnection } from "./components/QuickConnect";
 import "./components/SessionManager/SessionManager.css";
@@ -55,17 +57,36 @@ function App() {
   const [keyManagerOpen, setKeyManagerOpen] = useState(false);
   const [themeEditorOpen, setThemeEditorOpen] = useState(false);
   const [fontConfigOpen, setFontConfigOpen] = useState(false);
+  const [availableThemes, setAvailableThemes] = useState<Theme[]>([]);
 
   // Listen for native menu events from the Tauri backend
   useMenuEvents();
 
-  // Wire menu event callbacks for vault/key-manager panels
+  // Load available themes from the backend when the theme editor opens
+  useEffect(() => {
+    if (!themeEditorOpen) return;
+    invoke<Theme[]>("theme_list")
+      .then((themes) => {
+        setAvailableThemes(themes);
+        useThemeStore
+          .getState()
+          .setThemes(themes.map((t) => ({ id: t.id, name: t.name, isBuiltin: t.isBuiltin })));
+      })
+      .catch((err) => {
+        console.warn("[App] Failed to load themes:", err);
+      });
+  }, [themeEditorOpen]);
+
+  // Wire menu event callbacks for panel toggles
   useEffect(() => {
     setMenuEventCallbacks({
       onToggleVault: () => setVaultOpen((prev) => !prev),
       onToggleKeyManager: () => setKeyManagerOpen((prev) => !prev),
       onToggleThemeEditor: () => setThemeEditorOpen((prev) => !prev),
       onToggleFontConfig: () => setFontConfigOpen((prev) => !prev),
+      onToggleConfigDiff: () => setConfigDiffOpen((prev) => !prev),
+      onToggleTemplates: () => setTemplatePanelOpen((prev) => !prev),
+      onToggleHistory: () => setHistoryOpen((prev) => !prev),
     });
     return () => setMenuEventCallbacks({});
   }, []);
@@ -133,7 +154,7 @@ function App() {
     };
     window.addEventListener("keydown", handleEscape);
     return () => window.removeEventListener("keydown", handleEscape);
-  }, [vaultOpen, keyManagerOpen]);
+  }, [vaultOpen, keyManagerOpen, themeEditorOpen, fontConfigOpen]);
 
   const handleNewTerminal = useCallback(() => {
     addTab();
@@ -206,7 +227,15 @@ function App() {
       <main className="app-container" data-testid="app-root">
         <UpdateChecker />
         <TabBar />
-        <Toolbar />
+        <Toolbar
+          onOpenHistory={() => setHistoryOpen(true)}
+          onOpenTemplates={() => setTemplatePanelOpen(true)}
+          onOpenConfigDiff={() => setConfigDiffOpen(true)}
+          onOpenVault={() => setVaultOpen(true)}
+          onOpenKeyManager={() => setKeyManagerOpen(true)}
+          onOpenThemeEditor={() => setThemeEditorOpen(true)}
+          onOpenFontConfig={() => setFontConfigOpen(true)}
+        />
         <ShortcutsPanel />
         <HistoryPanel
           isOpen={historyOpen}
@@ -257,7 +286,15 @@ function App() {
         </button>
       )}
       <TabBar />
-      <Toolbar />
+      <Toolbar
+        onOpenHistory={() => setHistoryOpen(true)}
+        onOpenTemplates={() => setTemplatePanelOpen(true)}
+        onOpenConfigDiff={() => setConfigDiffOpen(true)}
+        onOpenVault={() => setVaultOpen(true)}
+        onOpenKeyManager={() => setKeyManagerOpen(true)}
+        onOpenThemeEditor={() => setThemeEditorOpen(true)}
+        onOpenFontConfig={() => setFontConfigOpen(true)}
+      />
       <BroadcastBar />
       <ShortcutsPanel />
       <HistoryPanel
@@ -365,7 +402,7 @@ function App() {
               ✕
             </button>
             <ThemeEditor
-              themes={[]}
+              themes={availableThemes}
               editingTheme={null}
               onSave={() => setThemeEditorOpen(false)}
               onCancel={() => setThemeEditorOpen(false)}

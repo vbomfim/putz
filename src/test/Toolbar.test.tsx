@@ -1,7 +1,8 @@
 /**
  * Unit tests for Toolbar component.
  *
- * Tags: [TDD], [AC-toolbar-render], [AC-toolbar-click], [AC-toolbar-visibility]
+ * Tags: [TDD], [AC-toolbar-render], [AC-toolbar-click], [AC-toolbar-visibility],
+ *       [AC-toolbar-callbacks]
  */
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
@@ -124,10 +125,99 @@ describe("Toolbar", () => {
     );
   });
 
-  it("Settings button calls toggleShortcutsPanel", () => {
+  it("Shortcuts button calls toggleShortcutsPanel", () => {
     render(<Toolbar />);
-    fireEvent.click(screen.getByTestId("toolbar-settings"));
+    fireEvent.click(screen.getByTestId("toolbar-shortcuts"));
     expect(mockToggleShortcutsPanel).toHaveBeenCalledTimes(1);
+  });
+
+  // ─── Callback props for panel actions ──────────────────────────
+
+  it("History button calls onOpenHistory callback", () => {
+    const onOpenHistory = vi.fn();
+    render(<Toolbar onOpenHistory={onOpenHistory} />);
+    fireEvent.click(screen.getByTestId("toolbar-history"));
+    expect(onOpenHistory).toHaveBeenCalledTimes(1);
+  });
+
+  it("Templates button calls onOpenTemplates callback", () => {
+    const onOpenTemplates = vi.fn();
+    render(<Toolbar onOpenTemplates={onOpenTemplates} />);
+    fireEvent.click(screen.getByTestId("toolbar-templates"));
+    expect(onOpenTemplates).toHaveBeenCalledTimes(1);
+  });
+
+  it("SFTP button calls onOpenSftp callback", () => {
+    const onOpenSftp = vi.fn();
+    render(<Toolbar onOpenSftp={onOpenSftp} />);
+    fireEvent.click(screen.getByTestId("toolbar-sftp"));
+    expect(onOpenSftp).toHaveBeenCalledTimes(1);
+  });
+
+  it("Ping button calls onOpenPing callback", () => {
+    const onOpenPing = vi.fn();
+    render(<Toolbar onOpenPing={onOpenPing} />);
+    fireEvent.click(screen.getByTestId("toolbar-ping"));
+    expect(onOpenPing).toHaveBeenCalledTimes(1);
+  });
+
+  it("Script button calls onOpenScript callback", () => {
+    const onOpenScript = vi.fn();
+    render(<Toolbar onOpenScript={onOpenScript} />);
+    fireEvent.click(screen.getByTestId("toolbar-script"));
+    expect(onOpenScript).toHaveBeenCalledTimes(1);
+  });
+
+  it("Theme Editor button calls onOpenThemeEditor callback", () => {
+    const onOpenThemeEditor = vi.fn();
+    render(<Toolbar onOpenThemeEditor={onOpenThemeEditor} />);
+    fireEvent.click(screen.getByTestId("toolbar-theme-editor"));
+    expect(onOpenThemeEditor).toHaveBeenCalledTimes(1);
+  });
+
+  it("Font Config button calls onOpenFontConfig callback", () => {
+    const onOpenFontConfig = vi.fn();
+    render(<Toolbar onOpenFontConfig={onOpenFontConfig} />);
+    fireEvent.click(screen.getByTestId("toolbar-font-config"));
+    expect(onOpenFontConfig).toHaveBeenCalledTimes(1);
+  });
+
+  it("Config Diff button calls onOpenConfigDiff callback", () => {
+    const onOpenConfigDiff = vi.fn();
+    render(<Toolbar onOpenConfigDiff={onOpenConfigDiff} />);
+    fireEvent.click(screen.getByTestId("toolbar-config-diff"));
+    expect(onOpenConfigDiff).toHaveBeenCalledTimes(1);
+  });
+
+  it("Vault button calls onOpenVault callback", () => {
+    const onOpenVault = vi.fn();
+    render(<Toolbar onOpenVault={onOpenVault} />);
+    fireEvent.click(screen.getByTestId("toolbar-vault"));
+    expect(onOpenVault).toHaveBeenCalledTimes(1);
+  });
+
+  it("Key Manager button calls onOpenKeyManager callback", () => {
+    const onOpenKeyManager = vi.fn();
+    render(<Toolbar onOpenKeyManager={onOpenKeyManager} />);
+    fireEvent.click(screen.getByTestId("toolbar-key-manager"));
+    expect(onOpenKeyManager).toHaveBeenCalledTimes(1);
+  });
+
+  it("callback buttons are no-ops when no callback is provided", () => {
+    // Should not throw when callbacks are omitted
+    render(<Toolbar />);
+    expect(() => {
+      fireEvent.click(screen.getByTestId("toolbar-history"));
+      fireEvent.click(screen.getByTestId("toolbar-templates"));
+      fireEvent.click(screen.getByTestId("toolbar-sftp"));
+      fireEvent.click(screen.getByTestId("toolbar-ping"));
+      fireEvent.click(screen.getByTestId("toolbar-script"));
+      fireEvent.click(screen.getByTestId("toolbar-theme-editor"));
+      fireEvent.click(screen.getByTestId("toolbar-font-config"));
+      fireEvent.click(screen.getByTestId("toolbar-config-diff"));
+      fireEvent.click(screen.getByTestId("toolbar-vault"));
+      fireEvent.click(screen.getByTestId("toolbar-key-manager"));
+    }).not.toThrow();
   });
 
   // ─── Button tooltips ───────────────────────────────────────────

@@ -1,11 +1,11 @@
 /**
  * Unit tests for useMenuEvents hook.
  *
- * Tags: [TDD], [AC-menu-dispatch]
+ * Tags: [TDD], [AC-menu-dispatch], [AC-menu-panels]
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { renderHook } from "@testing-library/react";
-import { useMenuEvents } from "../utils/useMenuEvents";
+import { useMenuEvents, setMenuEventCallbacks } from "../utils/useMenuEvents";
 
 // ─── Capture the event listener from @tauri-apps/api/event ────────
 
@@ -89,6 +89,7 @@ describe("useMenuEvents", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     capturedCallback = null;
+    setMenuEventCallbacks({});
   });
 
   afterEach(() => {
@@ -183,6 +184,88 @@ describe("useMenuEvents", () => {
     renderHook(() => useMenuEvents());
     emitMenuEvent("menu-keyboard-shortcuts");
     expect(mockToggleShortcutsPanel).toHaveBeenCalledTimes(1);
+  });
+
+  // ─── Panel toggle callbacks via setMenuEventCallbacks ──────────
+
+  it("menu-theme-editor calls onToggleThemeEditor callback", () => {
+    const onToggleThemeEditor = vi.fn();
+    setMenuEventCallbacks({ onToggleThemeEditor });
+    renderHook(() => useMenuEvents());
+    emitMenuEvent("menu-theme-editor");
+    expect(onToggleThemeEditor).toHaveBeenCalledTimes(1);
+  });
+
+  it("menu-font-config calls onToggleFontConfig callback", () => {
+    const onToggleFontConfig = vi.fn();
+    setMenuEventCallbacks({ onToggleFontConfig });
+    renderHook(() => useMenuEvents());
+    emitMenuEvent("menu-font-config");
+    expect(onToggleFontConfig).toHaveBeenCalledTimes(1);
+  });
+
+  it("menu-config-diff calls onToggleConfigDiff callback", () => {
+    const onToggleConfigDiff = vi.fn();
+    setMenuEventCallbacks({ onToggleConfigDiff });
+    renderHook(() => useMenuEvents());
+    emitMenuEvent("menu-config-diff");
+    expect(onToggleConfigDiff).toHaveBeenCalledTimes(1);
+  });
+
+  it("menu-templates calls onToggleTemplates callback", () => {
+    const onToggleTemplates = vi.fn();
+    setMenuEventCallbacks({ onToggleTemplates });
+    renderHook(() => useMenuEvents());
+    emitMenuEvent("menu-templates");
+    expect(onToggleTemplates).toHaveBeenCalledTimes(1);
+  });
+
+  it("menu-history calls onToggleHistory callback", () => {
+    const onToggleHistory = vi.fn();
+    setMenuEventCallbacks({ onToggleHistory });
+    renderHook(() => useMenuEvents());
+    emitMenuEvent("menu-history");
+    expect(onToggleHistory).toHaveBeenCalledTimes(1);
+  });
+
+  it("menu-sftp calls onToggleSftp callback", () => {
+    const onToggleSftp = vi.fn();
+    setMenuEventCallbacks({ onToggleSftp });
+    renderHook(() => useMenuEvents());
+    emitMenuEvent("menu-sftp");
+    expect(onToggleSftp).toHaveBeenCalledTimes(1);
+  });
+
+  it("menu-ping calls onTogglePing callback", () => {
+    const onTogglePing = vi.fn();
+    setMenuEventCallbacks({ onTogglePing });
+    renderHook(() => useMenuEvents());
+    emitMenuEvent("menu-ping");
+    expect(onTogglePing).toHaveBeenCalledTimes(1);
+  });
+
+  it("menu-script calls onToggleScript callback", () => {
+    const onToggleScript = vi.fn();
+    setMenuEventCallbacks({ onToggleScript });
+    renderHook(() => useMenuEvents());
+    emitMenuEvent("menu-script");
+    expect(onToggleScript).toHaveBeenCalledTimes(1);
+  });
+
+  it("menu-credential-vault calls onToggleVault callback", () => {
+    const onToggleVault = vi.fn();
+    setMenuEventCallbacks({ onToggleVault });
+    renderHook(() => useMenuEvents());
+    emitMenuEvent("menu-credential-vault");
+    expect(onToggleVault).toHaveBeenCalledTimes(1);
+  });
+
+  it("menu-ssh-key-manager calls onToggleKeyManager callback", () => {
+    const onToggleKeyManager = vi.fn();
+    setMenuEventCallbacks({ onToggleKeyManager });
+    renderHook(() => useMenuEvents());
+    emitMenuEvent("menu-ssh-key-manager");
+    expect(onToggleKeyManager).toHaveBeenCalledTimes(1);
   });
 
   // ─── Unknown events ───────────────────────────────────────────

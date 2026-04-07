@@ -4,7 +4,8 @@
  * Rendered below the TabBar. Groups buttons into logical sections:
  * Connection | Layout | Terminal | Tools | Settings.
  *
- * Each button dispatches actions via existing Zustand stores.
+ * Each button dispatches actions via existing Zustand stores or
+ * optional callback props passed from App.tsx for panel toggles.
  * Visibility is controlled by the settingsStore.
  *
  * @module Toolbar
@@ -14,6 +15,20 @@ import { useTabStore } from "../../stores/tabStore";
 import { useBroadcastStore } from "../../stores/broadcastStore";
 import { useSettingsStore } from "../../stores/settingsStore";
 import "./Toolbar.css";
+
+/** Callback props for actions that toggle App-level panel state. */
+export interface ToolbarProps {
+  onOpenSftp?: () => void;
+  onOpenPing?: () => void;
+  onOpenHistory?: () => void;
+  onOpenTemplates?: () => void;
+  onOpenScript?: () => void;
+  onOpenThemeEditor?: () => void;
+  onOpenFontConfig?: () => void;
+  onOpenConfigDiff?: () => void;
+  onOpenVault?: () => void;
+  onOpenKeyManager?: () => void;
+}
 
 /** Props for individual toolbar buttons. */
 interface ToolbarButtonProps {
@@ -54,7 +69,18 @@ function ToolbarSeparator() {
 }
 
 /** Toolbar component — horizontal icon bar below the tab bar. */
-export function Toolbar() {
+export function Toolbar({
+  onOpenSftp,
+  onOpenPing,
+  onOpenHistory,
+  onOpenTemplates,
+  onOpenScript,
+  onOpenThemeEditor,
+  onOpenFontConfig,
+  onOpenConfigDiff,
+  onOpenVault,
+  onOpenKeyManager,
+}: ToolbarProps = {}) {
   const toolbarVisible = useSettingsStore((s) => s.toolbarVisible);
   const toggleShortcutsPanel = useSettingsStore((s) => s.toggleShortcutsPanel);
 
@@ -101,6 +127,9 @@ export function Toolbar() {
   }, [splitActivePane]);
 
   const handleSplitHorizontal = useCallback(() => {
+    // TODO: horizontal split should target the currently focused pane, not the
+    // first leaf. This requires a `focusedPaneId` in the tab store — deferred
+    // to a follow-up ticket.
     splitActivePane("horizontal");
   }, [splitActivePane]);
 
@@ -131,26 +160,46 @@ export function Toolbar() {
   }, [toggleBroadcast, tabs, activeTabId]);
 
   const handleSftp = useCallback(() => {
-    // Placeholder — future SFTP panel
-  }, []);
+    onOpenSftp?.();
+  }, [onOpenSftp]);
 
   const handlePing = useCallback(() => {
-    // Placeholder — future ping dashboard
-  }, []);
+    onOpenPing?.();
+  }, [onOpenPing]);
 
   const handleHistory = useCallback(() => {
-    // Placeholder — future command history
-  }, []);
+    onOpenHistory?.();
+  }, [onOpenHistory]);
 
   const handleTemplates = useCallback(() => {
-    // Placeholder — future command templates
-  }, []);
+    onOpenTemplates?.();
+  }, [onOpenTemplates]);
 
   const handleScript = useCallback(() => {
-    // Placeholder — future script editor
-  }, []);
+    onOpenScript?.();
+  }, [onOpenScript]);
 
-  const handleSettings = useCallback(() => {
+  const handleThemeEditor = useCallback(() => {
+    onOpenThemeEditor?.();
+  }, [onOpenThemeEditor]);
+
+  const handleFontConfig = useCallback(() => {
+    onOpenFontConfig?.();
+  }, [onOpenFontConfig]);
+
+  const handleConfigDiff = useCallback(() => {
+    onOpenConfigDiff?.();
+  }, [onOpenConfigDiff]);
+
+  const handleVault = useCallback(() => {
+    onOpenVault?.();
+  }, [onOpenVault]);
+
+  const handleKeyManager = useCallback(() => {
+    onOpenKeyManager?.();
+  }, [onOpenKeyManager]);
+
+  const handleShortcuts = useCallback(() => {
     toggleShortcutsPanel();
   }, [toggleShortcutsPanel]);
 
@@ -281,15 +330,45 @@ export function Toolbar() {
         onClick={handleScript}
         testId="toolbar-script"
       />
+      <ToolbarButton
+        icon="🔑"
+        tooltip="Credential Vault"
+        onClick={handleVault}
+        testId="toolbar-vault"
+      />
+      <ToolbarButton
+        icon="🔐"
+        tooltip="SSH Key Manager"
+        onClick={handleKeyManager}
+        testId="toolbar-key-manager"
+      />
+      <ToolbarButton
+        icon="📊"
+        tooltip="Config Diff Viewer (Ctrl+Shift+K)"
+        onClick={handleConfigDiff}
+        testId="toolbar-config-diff"
+      />
 
       <ToolbarSeparator />
 
-      {/* Settings */}
+      {/* Settings group */}
       <ToolbarButton
-        icon="⚙️"
-        tooltip="Settings"
-        onClick={handleSettings}
-        testId="toolbar-settings"
+        icon="🎨"
+        tooltip="Color Theme"
+        onClick={handleThemeEditor}
+        testId="toolbar-theme-editor"
+      />
+      <ToolbarButton
+        icon="🔤"
+        tooltip="Font Settings"
+        onClick={handleFontConfig}
+        testId="toolbar-font-config"
+      />
+      <ToolbarButton
+        icon="⌨️"
+        tooltip="Keyboard Shortcuts"
+        onClick={handleShortcuts}
+        testId="toolbar-shortcuts"
       />
     </div>
   );

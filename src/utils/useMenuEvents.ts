@@ -18,12 +18,18 @@ interface MenuEventPayload {
   id: string;
 }
 
-/** Callback type for vault/key-manager panel toggles. */
+/** Callback type for panel toggles managed by App.tsx state. */
 export interface MenuEventCallbacks {
   onToggleVault?: () => void;
   onToggleKeyManager?: () => void;
   onToggleThemeEditor?: () => void;
   onToggleFontConfig?: () => void;
+  onToggleConfigDiff?: () => void;
+  onToggleTemplates?: () => void;
+  onToggleHistory?: () => void;
+  onToggleSftp?: () => void;
+  onTogglePing?: () => void;
+  onToggleScript?: () => void;
 }
 
 // Module-level callbacks — set by App.tsx via setMenuEventCallbacks
@@ -134,6 +140,38 @@ export function useMenuEvents(): void {
 
         case "menu-ssh-key-manager":
           menuCallbacks.onToggleKeyManager?.();
+          break;
+
+        case "menu-theme-editor":
+          menuCallbacks.onToggleThemeEditor?.();
+          break;
+
+        case "menu-font-config":
+          menuCallbacks.onToggleFontConfig?.();
+          break;
+
+        case "menu-config-diff":
+          menuCallbacks.onToggleConfigDiff?.();
+          break;
+
+        case "menu-templates":
+          menuCallbacks.onToggleTemplates?.();
+          break;
+
+        case "menu-history":
+          menuCallbacks.onToggleHistory?.();
+          break;
+
+        case "menu-sftp":
+          menuCallbacks.onToggleSftp?.();
+          break;
+
+        case "menu-ping":
+          menuCallbacks.onTogglePing?.();
+          break;
+
+        case "menu-script":
+          menuCallbacks.onToggleScript?.();
           break;
 
         case "menu-start-logging":

@@ -458,7 +458,11 @@ export const useTabStore = create<TabState>((set, get) => ({
     const activeTab = tabs.find((t) => t.id === activeTabId);
     if (!activeTab) return;
 
-    // Split the first leaf pane in the active tab
+    // TODO: Split currently always targets the first leaf pane in the active
+    // tab. For "horizontal split should reference the current pane selected",
+    // we need a `focusedPaneId` tracked in the tab store so that splits target
+    // the user's currently focused pane instead of the first leaf. This is a
+    // known limitation — deferred to a follow-up ticket.
     const firstSession = getFirstLeafSessionId(activeTab.layout);
     await splitPane(activeTabId, firstSession, direction);
   },
