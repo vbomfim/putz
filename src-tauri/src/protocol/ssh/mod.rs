@@ -11,8 +11,11 @@
 /// - Resize: channel window change request
 /// - Disconnect: close channel + session gracefully
 pub mod auth;
+pub mod forwarding;
 pub mod known_hosts;
 pub mod proxy;
+#[allow(dead_code)] // Runtime-only module; called from SshHandler callbacks
+pub mod x11;
 
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
@@ -661,7 +664,8 @@ impl Protocol for SshConnection {
 
 /// SSH client handler — implements russh callback interface.
 ///
-/// Handles host key verification and authentication banners.
+/// Handles host key verification, authentication banners, and
+/// server-initiated channel opens (forwarded-tcpip, X11).
 /// Data reception is handled via channel reads in the read loop,
 /// not through the Handler trait.
 pub struct SshHandler {
@@ -670,6 +674,11 @@ pub struct SshHandler {
     port: u16,
     emitter: Arc<dyn EventEmitter>,
     known_hosts_path: std::path::PathBuf,
+    /// Reference to the forwarding manager for handling
+    /// server-initiated forwarded-tcpip channels (-R).
+    forwarding_manager: Option<Arc<forwarding::ForwardingManager>>,
+    /// X11 forwarding state for handling server-initiated X11 channels.
+    x11_state: Option<Arc<x11::X11State>>,
 }
 
 impl SshHandler {
@@ -686,7 +695,24 @@ impl SshHandler {
             port,
             emitter,
             known_hosts_path,
+            forwarding_manager: None,
+            x11_state: None,
         }
+    }
+
+    /// Sets the forwarding manager for remote forward callbacks.
+    #[allow(dead_code)] // Called during SSH connection setup at runtime
+    pub fn set_forwarding_manager(
+        &mut self,
+        mgr: Arc<forwarding::ForwardingManager>,
+    ) {
+        self.forwarding_manager = Some(mgr);
+    }
+
+    /// Sets the X11 forwarding state for X11 channel callbacks.
+    #[allow(dead_code)] // Called during SSH connection setup at runtime
+    pub fn set_x11_state(&mut self, state: Arc<x11::X11State>) {
+        self.x11_state = Some(state);
     }
 }
 
@@ -760,6 +786,60 @@ impl client::Handler for SshHandler {
                 Ok(false)
             }
         }
+    }
+
+    /// Handles server-initiated forwarded-tcpip channels (remote forwarding -R).
+    ///
+    /// The SSH server opens this channel when a client connects to a
+    /// remotely-forwarded port. We relay it to the local target.
+    async fn server_channel_open_forwarded_tcpip(
+        &mut self,
+        channel: russh::Channel<client::Msg>,
+        connected_address: &str,
+        connected_port: u32,
+        _originator_address: &str,
+        _originator_port: u32,
+        _session: &mut client::Session,
+    ) -> Result<(), Self::Error> {
+        if let Some(ref mgr) = self.forwarding_manager {
+            let mgr = mgr.clone();
+            let addr = connected_address.to_string();
+            tokio::spawn(async move {
+                mgr.handle_remote_forward_channel(
+                    channel,
+                    &addr,
+                    connected_port,
+                )
+                .await;
+            });
+        }
+        Ok(())
+    }
+
+    /// Handles server-initiated X11 channels.
+    ///
+    /// The SSH server opens this channel when an X11 application on the
+    /// remote side tries to connect to the display. We relay it to the
+    /// local X server.
+    async fn server_channel_open_x11(
+        &mut self,
+        channel: russh::Channel<client::Msg>,
+        _originator_address: &str,
+        _originator_port: u32,
+        _session: &mut client::Session,
+    ) -> Result<(), Self::Error> {
+        if let Some(ref state) = self.x11_state {
+            let display = state.display_number;
+            let channels = state.active_channels.clone();
+            let bytes = state.bytes_relayed.clone();
+            tokio::spawn(async move {
+                x11::handle_x11_channel(
+                    channel, display, channels, bytes,
+                )
+                .await;
+            });
+        }
+        Ok(())
     }
 }
 
