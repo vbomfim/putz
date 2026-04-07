@@ -1,0 +1,21 @@
+/**
+ * SplitContainer styles.
+ *
+ * Ensures split panes fill their container and
+ * provides custom styling for the allotment sash (divider).
+ */
+
+.split-container {
+  flex: 1;
+  overflow: hidden;
+}
+
+/* Allotment sash (divider) customization */
+.split-container .sash-container .sash {
+  background-color: rgba(255, 255, 255, 0.06);
+  transition: background-color 0.15s;
+}
+
+.split-container .sash-container .sash:hover {
+  background-color: var(--accent-hover);
+}
