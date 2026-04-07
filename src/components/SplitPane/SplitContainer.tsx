@@ -24,6 +24,8 @@ interface SplitContainerProps {
   tabId: string;
   /** Whether the parent tab is currently active (controls visibility). */
   isActive: boolean;
+  /** Whether this tab is a broadcast target (red border indicator). */
+  isBroadcastTarget?: boolean;
 }
 
 /**
@@ -39,6 +41,7 @@ export function SplitContainer({
   layout,
   tabId,
   isActive,
+  isBroadcastTarget,
 }: SplitContainerProps) {
   const unsplitPane = useTabStore((s) => s.unsplitPane);
   const isSearchOpen = useTabStore((s) => s.isSearchOpen);
@@ -60,6 +63,7 @@ export function SplitContainer({
         onClosePane={(sessionId) => unsplitPane(tabId, sessionId)}
         isSearchOpen={isActive && isSearchOpen}
         onSearchClose={closeSearch}
+        isBroadcastTarget={isBroadcastTarget}
       />
     </div>
   );
@@ -71,6 +75,7 @@ interface PaneRendererProps {
   onClosePane: (sessionId: string) => void;
   isSearchOpen: boolean;
   onSearchClose: () => void;
+  isBroadcastTarget?: boolean;
 }
 
 /** Recursive renderer for PaneNode. */
@@ -80,6 +85,7 @@ function PaneRenderer({
   onClosePane,
   isSearchOpen,
   onSearchClose,
+  isBroadcastTarget,
 }: PaneRendererProps) {
   if (node.type === "leaf") {
     return (
@@ -91,6 +97,7 @@ function PaneRenderer({
         }}
         isSearchOpen={isSearchOpen}
         onSearchClose={onSearchClose}
+        isBroadcastTarget={isBroadcastTarget}
       />
     );
   }
@@ -108,6 +115,7 @@ function PaneRenderer({
           onClosePane={onClosePane}
           isSearchOpen={isSearchOpen}
           onSearchClose={onSearchClose}
+          isBroadcastTarget={isBroadcastTarget}
         />
       </Allotment.Pane>
       <Allotment.Pane>
@@ -117,6 +125,7 @@ function PaneRenderer({
           onClosePane={onClosePane}
           isSearchOpen={isSearchOpen}
           onSearchClose={onSearchClose}
+          isBroadcastTarget={isBroadcastTarget}
         />
       </Allotment.Pane>
     </Allotment>

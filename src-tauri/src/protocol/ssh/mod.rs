@@ -13,6 +13,7 @@
 pub mod auth;
 pub mod forwarding;
 pub mod known_hosts;
+pub mod proxy;
 #[allow(dead_code)] // Runtime-only module; called from SshHandler callbacks
 pub mod x11;
 
@@ -68,6 +69,10 @@ pub struct SshConnection {
     /// Current terminal dimensions.
     cols: u16,
     rows: u16,
+    /// Jump host session handles kept alive for tunneled connections.
+    /// These are the intermediate SSH sessions in a jump host chain.
+    /// Disconnected when this connection closes.
+    jump_sessions: Vec<client::Handle<SshHandler>>,
 }
 
 impl SshConnection {
@@ -80,6 +85,7 @@ impl SshConnection {
             read_task: None,
             cols: 80,
             rows: 24,
+            jump_sessions: Vec::new(),
         }
     }
 
@@ -101,6 +107,27 @@ impl SshConnection {
         &mut self,
     ) -> Option<&mut client::Handle<SshHandler>> {
         self.session.as_mut()
+    }
+
+    /// Takes ownership of the SSH session handle, leaving `None`.
+    ///
+    /// Used by the jump host proxy to extract the handle for lifecycle
+    /// management without disconnecting the SSH session.
+    pub fn take_session_handle(
+        &mut self,
+    ) -> Option<client::Handle<SshHandler>> {
+        self.session.take()
+    }
+
+    /// Sets the jump host session handles for lifecycle management.
+    ///
+    /// These handles are kept alive so the tunneled channels remain open.
+    /// They are disconnected when this connection closes.
+    pub fn set_jump_sessions(
+        &mut self,
+        sessions: Vec<client::Handle<SshHandler>>,
+    ) {
+        self.jump_sessions = sessions;
     }
 
     /// Connects to an SSH server with event emission support.
@@ -307,6 +334,214 @@ impl SshConnection {
         Ok(())
     }
 
+    /// Connects to an SSH server over an existing async stream.
+    ///
+    /// Used for jump host support: the stream is a `direct-tcpip` channel
+    /// from a jump host, forwarding to the target. Uses
+    /// `russh::client::connect_stream()` instead of TCP connect.
+    ///
+    /// Steps are identical to `connect_with_emitter()` except step 3
+    /// (TCP connect) is replaced by stream-based connect.
+    pub async fn connect_with_emitter_over_stream<S>(
+        &mut self,
+        stream: S,
+        params: ConnectionParams,
+        connection_id: String,
+        emitter: Arc<dyn EventEmitter>,
+        vault_password: Option<String>,
+    ) -> Result<(), ProtocolError>
+    where
+        S: tokio::io::AsyncRead
+            + tokio::io::AsyncWrite
+            + Unpin
+            + Send
+            + 'static,
+    {
+        let host = params.host.as_deref().ok_or_else(|| {
+            ProtocolError::InvalidParams(
+                "host is required for SSH".into(),
+            )
+        })?;
+
+        if host.is_empty() {
+            return Err(ProtocolError::InvalidParams(
+                "host cannot be empty".into(),
+            ));
+        }
+
+        let port = params.port.unwrap_or(DEFAULT_SSH_PORT);
+        let username =
+            params.username.as_deref().unwrap_or("root").to_string();
+        self.cols = params.cols;
+        self.rows = params.rows;
+
+        // Emit connecting status
+        emitter.emit_status(
+            &connection_id,
+            &ConnectionStatusPayload {
+                status: ConnectionStatus::Connecting,
+                message: Some(format!(
+                    "Connecting to {host}:{port} as {username} \
+                     (through tunnel)..."
+                )),
+            },
+        );
+
+        // Build russh client config (same security settings)
+        let preferred = russh::Preferred {
+            kex: std::borrow::Cow::Borrowed(&[
+                russh::kex::CURVE25519,
+                russh::kex::CURVE25519_PRE_RFC_8731,
+                russh::kex::DH_G16_SHA512,
+                russh::kex::DH_G14_SHA256,
+                russh::kex::EXTENSION_SUPPORT_AS_CLIENT,
+                russh::kex::EXTENSION_OPENSSH_STRICT_KEX_AS_CLIENT,
+            ]),
+            key: std::borrow::Cow::Borrowed(&[
+                russh::keys::key::ED25519,
+                russh::keys::key::ECDSA_SHA2_NISTP256,
+                russh::keys::key::ECDSA_SHA2_NISTP521,
+                russh::keys::key::RSA_SHA2_256,
+                russh::keys::key::RSA_SHA2_512,
+            ]),
+            cipher: std::borrow::Cow::Borrowed(&[
+                russh::cipher::CHACHA20_POLY1305,
+                russh::cipher::AES_256_GCM,
+                russh::cipher::AES_256_CTR,
+                russh::cipher::AES_128_CTR,
+            ]),
+            mac: std::borrow::Cow::Borrowed(&[
+                russh::mac::HMAC_SHA512_ETM,
+                russh::mac::HMAC_SHA256_ETM,
+                russh::mac::HMAC_SHA512,
+                russh::mac::HMAC_SHA256,
+            ]),
+            compression: std::borrow::Cow::Borrowed(&[
+                russh::compression::NONE,
+            ]),
+        };
+
+        let config = Arc::new(client::Config {
+            inactivity_timeout: Some(std::time::Duration::from_secs(
+                KEEPALIVE_INTERVAL_SECS
+                    * (KEEPALIVE_MAX_MISSED as u64 + 1),
+            )),
+            keepalive_interval: Some(
+                std::time::Duration::from_secs(
+                    KEEPALIVE_INTERVAL_SECS,
+                ),
+            ),
+            keepalive_max: KEEPALIVE_MAX_MISSED,
+            preferred,
+            ..Default::default()
+        });
+
+        // Create handler (host key verification still applies)
+        let known_hosts_path =
+            known_hosts::default_known_hosts_path();
+        let handler = SshHandler::new(
+            connection_id.clone(),
+            host.to_string(),
+            port,
+            emitter.clone(),
+            known_hosts_path,
+        );
+
+        // Connect SSH over the tunneled stream (no TCP timeout needed
+        // — the stream is already established through the jump host)
+        let session = client::connect_stream(
+            config, stream, handler,
+        )
+        .await
+        .map_err(|e| {
+            ProtocolError::ConnectionRefused(format!(
+                "SSH connection to {host}:{port} through tunnel \
+                 failed: {e}"
+            ))
+        })?;
+
+        let mut handle = session;
+
+        // Authenticate (same as direct connection)
+        let auth_result = auth::authenticate(
+            &mut handle,
+            &username,
+            &params,
+            vault_password,
+            &connection_id,
+            emitter.clone(),
+        )
+        .await;
+
+        if let Err(e) = auth_result {
+            let _ = handle
+                .disconnect(
+                    Disconnect::ByApplication,
+                    "auth failed",
+                    "en",
+                )
+                .await;
+            return Err(e);
+        }
+
+        // Open session channel, request PTY and shell
+        let channel =
+            handle.channel_open_session().await.map_err(|e| {
+                ProtocolError::ChannelClosed(format!(
+                    "Failed to open SSH channel: {e}"
+                ))
+            })?;
+
+        channel
+            .request_pty(
+                false,
+                TERMINAL_TYPE,
+                self.cols as u32,
+                self.rows as u32,
+                0,
+                0,
+                &[],
+            )
+            .await
+            .map_err(|e| {
+                ProtocolError::ChannelClosed(format!(
+                    "Failed to request PTY: {e}"
+                ))
+            })?;
+
+        channel.request_shell(false).await.map_err(|e| {
+            ProtocolError::ChannelClosed(format!(
+                "Failed to request shell: {e}"
+            ))
+        })?;
+
+        self.session = Some(handle);
+        let channel = Arc::new(tokio::sync::Mutex::new(channel));
+        self.channel = Some(channel.clone());
+        self.connected.store(true, Ordering::SeqCst);
+
+        // Emit connected status
+        emitter.emit_status(
+            &connection_id,
+            &ConnectionStatusPayload {
+                status: ConnectionStatus::Connected,
+                message: None,
+            },
+        );
+
+        // Spawn read loop
+        let connected_flag = self.connected.clone();
+        let read_task = tokio::spawn(ssh_read_loop(
+            channel,
+            connection_id,
+            emitter,
+            connected_flag,
+        ));
+        self.read_task = Some(read_task);
+
+        Ok(())
+    }
+
     /// Writes data to the SSH channel.
     pub async fn write_bytes(
         &self,
@@ -366,6 +601,17 @@ impl SshConnection {
                 .disconnect(
                     Disconnect::ByApplication,
                     "user disconnect",
+                    "en",
+                )
+                .await;
+        }
+
+        // Close jump host sessions (reverse order — innermost first)
+        for session in self.jump_sessions.drain(..).rev() {
+            let _ = session
+                .disconnect(
+                    Disconnect::ByApplication,
+                    "jump host cleanup",
                     "en",
                 )
                 .await;

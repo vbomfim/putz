@@ -15,6 +15,7 @@ use crate::protocol::serial::config::{
 };
 use crate::protocol::serial::scanner;
 use crate::protocol::ProtocolType;
+use crate::session::SessionManager;
 use crate::vault::VaultManager;
 
 /// Validates a serial port path against OS-specific allowlists.
@@ -101,6 +102,10 @@ pub struct ConnectionOpenInput {
     pub credential_id: Option<String>,
     /// Path to an SSH private key file.
     pub key_path: Option<String>,
+    /// Session ID of the jump host to tunnel through (SSH only).
+    /// When set, resolves the jump host chain and tunnels the
+    /// connection through intermediate SSH hops.
+    pub jump_host_id: Option<String>,
     // -- Serial-specific fields (only used when protocol = "serial") --
     /// Baud rate for serial connections (default: 9600).
     pub baud_rate: Option<u32>,
@@ -128,6 +133,7 @@ pub async fn connection_open(
     app: AppHandle,
     state: State<'_, ConnectionManager>,
     vault: State<'_, VaultManager>,
+    sessions: State<'_, SessionManager>,
     input: ConnectionOpenInput,
 ) -> Result<String, String> {
     if input.protocol == ProtocolType::Serial {
@@ -180,6 +186,30 @@ pub async fn connection_open(
                 } else {
                     None
                 };
+
+            // Check for jump host — resolve chain and tunnel
+            if let Some(ref jump_host_id) = input.jump_host_id {
+                if !jump_host_id.is_empty() {
+                    let hops =
+                        crate::protocol::ssh::proxy::resolve_jump_chain(
+                            jump_host_id,
+                            &sessions,
+                            &vault,
+                        )
+                        .map_err(|e| e.to_string())?;
+
+                    return state
+                        .open_ssh_through_jump_hosts(
+                            params,
+                            app,
+                            vault_password,
+                            hops,
+                        )
+                        .await
+                        .map_err(|e| e.to_string());
+                }
+            }
+
             state
                 .open_ssh_with_password(
                     params,
@@ -604,5 +634,61 @@ mod tests {
             let msg = err.to_string();
             assert!(!msg.is_empty(), "Display should not be empty");
         }
+    }
+
+    // ── Jump host IPC tests ─────────────────────────────────────────
+
+    /// [CONTRACT] ConnectionOpenInput with jump_host_id deserializes.
+    #[test]
+    fn connection_open_input_with_jump_host_id() {
+        let json = r#"{
+            "host": "10.0.1.1",
+            "port": 22,
+            "protocol": "ssh",
+            "username": "admin",
+            "cols": 80,
+            "rows": 24,
+            "jumpHostId": "550e8400-e29b-41d4-a716-446655440000"
+        }"#;
+        let input: super::ConnectionOpenInput =
+            serde_json::from_str(json).unwrap();
+        assert_eq!(
+            input.jump_host_id,
+            Some("550e8400-e29b-41d4-a716-446655440000".into())
+        );
+    }
+
+    /// [CONTRACT] ConnectionOpenInput without jump_host_id defaults to None.
+    #[test]
+    fn connection_open_input_without_jump_host_id() {
+        let json = r#"{
+            "host": "10.0.1.1",
+            "port": 22,
+            "protocol": "ssh",
+            "cols": 80,
+            "rows": 24
+        }"#;
+        let input: super::ConnectionOpenInput =
+            serde_json::from_str(json).unwrap();
+        assert_eq!(input.jump_host_id, None);
+    }
+
+    /// [CONTRACT] ConnectionOpenInput jump_host_id coexists with credential_id.
+    #[test]
+    fn connection_open_input_jump_host_with_credential() {
+        let json = r#"{
+            "host": "10.0.1.1",
+            "port": 22,
+            "protocol": "ssh",
+            "username": "admin",
+            "cols": 80,
+            "rows": 24,
+            "credentialId": "cred-abc",
+            "jumpHostId": "jump-uuid"
+        }"#;
+        let input: super::ConnectionOpenInput =
+            serde_json::from_str(json).unwrap();
+        assert_eq!(input.credential_id, Some("cred-abc".into()));
+        assert_eq!(input.jump_host_id, Some("jump-uuid".into()));
     }
 }
