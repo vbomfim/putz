@@ -224,6 +224,58 @@ impl ConnectionManager {
         Ok(connection_id)
     }
 
+    /// Opens an SSH connection through a chain of jump hosts.
+    ///
+    /// Connects through each hop in order, tunneling via `direct-tcpip`
+    /// channels. The final connection to the target goes through the
+    /// last hop's tunnel.
+    ///
+    /// The intermediate jump host sessions are stored in the final
+    /// `SshConnection` for lifecycle management — they are cleaned up
+    /// when the connection closes.
+    pub async fn open_ssh_through_jump_hosts(
+        &self,
+        params: ConnectionParams,
+        app: tauri::AppHandle,
+        vault_password: Option<String>,
+        hops: Vec<super::ssh::proxy::JumpHostHop>,
+    ) -> Result<String, ProtocolError> {
+        // Check connection limit
+        {
+            let conns = self.connections.lock().await;
+            if conns.len() >= MAX_CONNECTIONS {
+                return Err(ProtocolError::InvalidParams(format!(
+                    "Maximum connections reached ({MAX_CONNECTIONS})"
+                )));
+            }
+        }
+
+        let connection_id = Uuid::new_v4().to_string();
+        let emitter: Arc<dyn EventEmitter> =
+            Arc::new(TauriEventEmitter::new(app));
+
+        let (mut conn, jump_sessions) =
+            super::ssh::proxy::connect_through_jump_hosts(
+                &hops,
+                params,
+                connection_id.clone(),
+                emitter,
+                vault_password,
+            )
+            .await?;
+
+        // Store jump sessions in the connection for lifecycle mgmt
+        conn.set_jump_sessions(jump_sessions);
+
+        let mut conns = self.connections.lock().await;
+        conns.insert(
+            connection_id.clone(),
+            ProtocolConnection::Ssh(conn),
+        );
+
+        Ok(connection_id)
+    }
+
     /// Opens a connection with VaultManager access (for SSH auth).
     #[allow(dead_code)]
     pub async fn open_with_vault(
