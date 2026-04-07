@@ -411,14 +411,15 @@ export function useTerminal({
       if (!disposed) {
         setIsReady(true);
 
-        // After listeners are active, send an empty line to the PTY.
-        // This triggers the shell to redraw its prompt, which is essential
-        // when the terminal is remounted after a split (the original output
-        // was sent before listeners were registered).
+        // After listeners are active, send Ctrl+L (form feed) to the PTY.
+        // This tells the shell to clear and redraw the screen, which is
+        // essential when the terminal is remounted after a split (the
+        // original output was sent before listeners were registered).
+        // Ctrl+L = 0x0C, universally supported by bash/zsh/fish.
         setTimeout(() => {
           if (disposed) return;
-          invoke("pty_write", { sessionId, data: [10] }).catch(() => {});
-        }, 200);
+          invoke("pty_write", { sessionId, data: [12] }).catch(() => {});
+        }, 300);
       }
     };
 
