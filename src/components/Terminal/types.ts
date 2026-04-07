@@ -56,6 +56,7 @@ export interface TerminalTheme {
   cursor: string;
   cursorAccent: string;
   selectionBackground: string;
+  selectionForeground?: string;
   black: string;
   red: string;
   green: string;

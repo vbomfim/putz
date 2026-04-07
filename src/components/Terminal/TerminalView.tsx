@@ -33,6 +33,8 @@ interface TerminalViewProps {
   onSearchClose?: () => void;
   /** Optional highlight set ID to apply for keyword highlighting. */
   highlightSetId?: string;
+  /** Whether this terminal is a broadcast target (red border indicator). */
+  isBroadcastTarget?: boolean;
 }
 
 /** Terminal emulator view connected to a PTY backend session. */
@@ -43,6 +45,7 @@ export function TerminalView({
   isSearchOpen: externalSearchOpen,
   onSearchClose,
   highlightSetId,
+  isBroadcastTarget,
 }: TerminalViewProps) {
   const { terminalRef, isReady, error, hasExited, highlightEnabled, terminalInstance } =
     useTerminal({
@@ -86,8 +89,10 @@ export function TerminalView({
   }
 
   return (
-    <div className="terminal-wrapper" data-testid="terminal-wrapper">
-      {searchOpen && (
+    <div
+      className={`terminal-wrapper${isBroadcastTarget ? " terminal-wrapper--broadcast-target" : ""}`}
+      data-testid="terminal-wrapper"
+    >      {searchOpen && (
         <SearchBar
           onSearch={search.findNext}
           onSearchPrevious={search.findPrevious}

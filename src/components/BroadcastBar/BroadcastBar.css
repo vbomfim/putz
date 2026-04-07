@@ -1,0 +1,150 @@
+/**
+ * BroadcastBar styles — red accent broadcast notification bar.
+ *
+ * Uses BEM-style class naming consistent with the Putz design system.
+ * Includes pulsing animation for the broadcast indicator.
+ */
+
+.broadcast-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  height: 32px;
+  min-height: 32px;
+  padding: 0 12px;
+  background-color: rgba(255, 85, 85, 0.15);
+  border-bottom: 1px solid rgba(255, 85, 85, 0.3);
+  user-select: none;
+  -webkit-user-select: none;
+  font-size: 0.8125rem;
+  color: var(--text-primary);
+}
+
+.broadcast-bar__indicator {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.broadcast-bar__icon {
+  font-size: 0.875rem;
+  animation: broadcast-pulse 2s ease-in-out infinite;
+}
+
+@keyframes broadcast-pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.4;
+  }
+}
+
+.broadcast-bar__label {
+  font-weight: 600;
+  color: #ff5555;
+  white-space: nowrap;
+}
+
+.broadcast-bar__targets {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: thin;
+}
+
+.broadcast-bar__target {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+  white-space: nowrap;
+  padding: 2px 6px;
+  border-radius: 3px;
+  transition: background-color 0.15s;
+}
+
+.broadcast-bar__target:hover {
+  background-color: rgba(255, 255, 255, 0.06);
+}
+
+.broadcast-bar__target input[type="checkbox"] {
+  accent-color: #ff5555;
+  cursor: pointer;
+}
+
+.broadcast-bar__target-title {
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+  max-width: 120px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.broadcast-bar__stop {
+  padding: 2px 10px;
+  border: 1px solid rgba(255, 85, 85, 0.5);
+  border-radius: 3px;
+  background-color: rgba(255, 85, 85, 0.2);
+  color: #ff5555;
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background-color 0.15s;
+}
+
+.broadcast-bar__stop:hover {
+  background-color: rgba(255, 85, 85, 0.35);
+}
+
+.broadcast-bar__stop:focus-visible {
+  outline: 2px solid #ff5555;
+  outline-offset: -2px;
+}
+
+.broadcast-bar__shortcut {
+  color: var(--text-secondary);
+  font-size: 0.6875rem;
+  opacity: 0.6;
+  flex-shrink: 0;
+}
+
+/* ─── Visual indicators for broadcast target terminals ─────────── */
+
+/* Red pulsing border on terminal containers receiving broadcast */
+.terminal-wrapper--broadcast-target {
+  box-shadow: inset 0 0 0 2px rgba(255, 85, 85, 0.5);
+  animation: broadcast-border-pulse 2s ease-in-out infinite;
+}
+
+@keyframes broadcast-border-pulse {
+  0%, 100% {
+    box-shadow: inset 0 0 0 2px rgba(255, 85, 85, 0.5);
+  }
+  50% {
+    box-shadow: inset 0 0 0 2px rgba(255, 85, 85, 0.15);
+  }
+}
+
+/* BROADCAST label on the active/source tab */
+.tab__broadcast-label {
+  color: #ff5555;
+  font-size: 0.5625rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  flex-shrink: 0;
+  animation: broadcast-pulse 2s ease-in-out infinite;
+}
+
+/* Broadcast target indicator on receiving tabs */
+.tab__broadcast-target {
+  color: #ff5555;
+  font-size: 0.5rem;
+  flex-shrink: 0;
+  opacity: 0.8;
+}
