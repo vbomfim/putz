@@ -7,6 +7,7 @@ mod protocol;
 mod pty;
 mod scripting;
 mod session;
+mod templates;
 mod theme;
 mod vault;
 
@@ -25,6 +26,7 @@ use ipc::{
     session_delete_folder, session_duplicate, session_export, session_get, session_import,
     session_list, session_move, session_search, session_update, sftp_close, sftp_delete,
     sftp_download, sftp_list, sftp_mkdir, sftp_open, sftp_rename, sftp_stat, sftp_upload,
+    template_create, template_delete, template_execute, template_get, template_list,
     theme_create, theme_delete, theme_export, theme_get, theme_import, theme_list, theme_update,
     vault_delete, vault_get, vault_list, vault_set,
 };
@@ -37,6 +39,7 @@ use pty::PtyManager;
 use scripting::ScriptManager;
 use session::SessionManager;
 use theme::ThemeManager;
+use templates::TemplateManager;
 use vault::VaultManager;
 
 // Needed for try_state() in on_window_event handler
@@ -59,6 +62,7 @@ pub fn run() {
         .manage(ScriptManager::new())
         .manage(ThemeManager::new())
         .manage(ForwardingManager::new())
+        .manage(TemplateManager::new())
         .invoke_handler(tauri::generate_handler![
             greet,
             pty_spawn,
@@ -130,6 +134,11 @@ pub fn run() {
             theme_delete,
             theme_import,
             theme_export,
+            template_list,
+            template_get,
+            template_create,
+            template_delete,
+            template_execute,
         ])
         // Fix 8: Graceful app exit — clean up PTY sessions and protocol connections
         .on_window_event(|window, event| {
