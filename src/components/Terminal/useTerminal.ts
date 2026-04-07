@@ -2,8 +2,8 @@
  * Custom React hook for terminal lifecycle management.
  *
  * Manages the xterm.js Terminal instance, Tauri event listeners,
- * addon loading, and cleanup. Isolates terminal plumbing from
- * the React component tree.
+ * addon loading, keyword highlighting, and cleanup. Isolates terminal
+ * plumbing from the React component tree.
  *
  * @module useTerminal
  */
@@ -19,6 +19,8 @@ import {
   TERMINAL_CONFIG,
   type PtyExitPayload,
 } from "./types";
+import { HighlightEngine } from "./HighlightEngine";
+import type { HighlightSet } from "./highlightTypes";
 
 interface UseTerminalOptions {
   /** UUID v4 session identifier from pty_spawn. */
@@ -27,6 +29,8 @@ interface UseTerminalOptions {
   onTitleChange?: (title: string) => void;
   /** Callback when the PTY process exits. */
   onExit?: (code: number) => void;
+  /** Optional highlight set ID to load and apply. */
+  highlightSetId?: string;
 }
 
 interface UseTerminalReturn {
@@ -42,26 +46,31 @@ interface UseTerminalReturn {
   exitCode: number | null;
   /** Reference to the xterm Terminal instance (for addons like search). */
   terminalInstance: Terminal | null;
+  /** Whether keyword highlighting is currently enabled. */
+  highlightEnabled: boolean;
 }
 
 /**
  * React hook that manages the full xterm.js terminal lifecycle.
  *
  * Handles: Terminal creation → addon loading → event binding →
- * PTY I/O bridging → resize sync → cleanup on unmount.
+ * PTY I/O bridging → resize sync → highlight engine → cleanup on unmount.
  */
 export function useTerminal({
   sessionId,
   onTitleChange,
   onExit,
+  highlightSetId,
 }: UseTerminalOptions): UseTerminalReturn {
   const terminalRef = useRef<HTMLDivElement | null>(null);
   const terminalInstanceRef = useRef<Terminal | null>(null);
   const fitAddonRef = useRef<FitAddon | null>(null);
+  const highlightEngineRef = useRef<HighlightEngine | null>(null);
   const [isReady, setIsReady] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [hasExited, setHasExited] = useState(false);
   const [exitCode, setExitCode] = useState<number | null>(null);
+  const [highlightEnabled, setHighlightEnabled] = useState(false);
 
   // Store callbacks in refs to avoid effect re-runs
   const onTitleChangeRef = useRef(onTitleChange);
@@ -121,6 +130,10 @@ export function useTerminal({
       // Container may not be visible yet
     }
 
+    // Initialize highlight engine
+    const highlightEngine = new HighlightEngine(terminal);
+    highlightEngineRef.current = highlightEngine;
+
     // Bridge: terminal keystrokes → PTY write
     const dataDisposable = terminal.onData((data: string) => {
       if (disposed) return;
@@ -153,6 +166,23 @@ export function useTerminal({
     const titleDisposable = terminal.onTitleChange((title: string) => {
       onTitleChangeRef.current?.(title);
     });
+
+    // Keyboard shortcut: Ctrl+Shift+H to toggle highlighting
+    const keyHandler = terminal.attachCustomKeyEventHandler(
+      (event: KeyboardEvent) => {
+        if (
+          event.type === "keydown" &&
+          event.ctrlKey &&
+          event.shiftKey &&
+          event.key === "H"
+        ) {
+          const newState = highlightEngine.toggle();
+          setHighlightEnabled(newState);
+          return false; // Prevent default terminal handling
+        }
+        return true; // Allow normal key processing
+      },
+    );
 
     // Set up Tauri event listeners (async)
     const setupEvents = async () => {
@@ -236,10 +266,15 @@ export function useTerminal({
       }
       window.removeEventListener("resize", handleWindowResize);
 
+      // Dispose highlight engine
+      highlightEngine.dispose();
+      highlightEngineRef.current = null;
+
       dataDisposable.dispose();
       binaryDisposable.dispose();
       resizeDisposable.dispose();
       titleDisposable.dispose();
+      keyHandler.dispose();
 
       for (const unlisten of unlisteners) {
         unlisten();
@@ -256,6 +291,35 @@ export function useTerminal({
     };
   }, [sessionId]);
 
+  // Effect: load and apply highlight set when highlightSetId changes
+  useEffect(() => {
+    if (!highlightSetId || !highlightEngineRef.current) return;
+
+    let cancelled = false;
+
+    const loadHighlightSet = async () => {
+      try {
+        const set = await invoke<HighlightSet>("highlight_get_set", {
+          id: highlightSetId,
+        });
+        if (!cancelled && highlightEngineRef.current) {
+          highlightEngineRef.current.setRules(set.rules);
+          highlightEngineRef.current.enable();
+          setHighlightEnabled(true);
+        }
+      } catch {
+        // Failed to load highlight set — highlighting not available
+        // Fail silently: highlighting is a non-critical feature
+      }
+    };
+
+    loadHighlightSet();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [highlightSetId]);
+
   return {
     terminalRef,
     isReady,
@@ -263,6 +327,7 @@ export function useTerminal({
     hasExited,
     exitCode,
     terminalInstance: terminalInstanceRef.current,
+    highlightEnabled,
   };
 }
 

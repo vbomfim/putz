@@ -4,6 +4,7 @@
  * Renders a full-viewport terminal connected to a PTY session via Tauri IPC.
  * Handles loading, error, and process-exited states.
  * Includes an integrated search bar overlay (Ctrl+F).
+ * Supports keyword highlighting with optional highlight set.
  *
  * Props:
  * - sessionId: UUID v4 identifying the PTY session
@@ -11,6 +12,7 @@
  * - onRestart: callback to restart a closed session
  * - isSearchOpen: whether the search bar should be visible
  * - onSearchClose: callback when search bar is closed
+ * - highlightSetId: optional highlight set ID to apply
  */
 import { useTerminal } from "./useTerminal";
 import { useSearch } from "./useSearch";
@@ -29,6 +31,8 @@ interface TerminalViewProps {
   isSearchOpen?: boolean;
   /** Callback to close the search bar. */
   onSearchClose?: () => void;
+  /** Optional highlight set ID to apply for keyword highlighting. */
+  highlightSetId?: string;
 }
 
 /** Terminal emulator view connected to a PTY backend session. */
@@ -38,11 +42,13 @@ export function TerminalView({
   onRestart,
   isSearchOpen: externalSearchOpen,
   onSearchClose,
+  highlightSetId,
 }: TerminalViewProps) {
-  const { terminalRef, isReady, error, hasExited, terminalInstance } =
+  const { terminalRef, isReady, error, hasExited, highlightEnabled, terminalInstance } =
     useTerminal({
       sessionId,
       onTitleChange,
+      highlightSetId,
     });
 
   const search = useSearch({ terminal: terminalInstance });
@@ -103,6 +109,15 @@ export function TerminalView({
         className="terminal-container"
         data-testid="terminal-container"
       />
+      {highlightEnabled && (
+        <div
+          className="terminal-highlight-indicator"
+          data-testid="highlight-indicator"
+          title="Keyword highlighting active (Ctrl+Shift+H to toggle)"
+        >
+          HL
+        </div>
+      )}
       {hasExited && onRestart && (
         <div
           className="terminal-exit-overlay"

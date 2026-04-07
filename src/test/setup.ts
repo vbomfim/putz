@@ -15,12 +15,22 @@ vi.mock("@xterm/xterm", () => {
     cols = 80;
     rows = 24;
     unicode = { activeVersion: "11" };
+    buffer = {
+      active: {
+        length: 0,
+        viewportY: 0,
+        baseY: 0,
+        cursorY: 0,
+        getLine: () => null,
+      },
+    };
     private _onDataHandlers: Array<(data: string) => void> = [];
     private _onBinaryHandlers: Array<(data: string) => void> = [];
     private _onResizeHandlers: Array<
       (size: { cols: number; rows: number }) => void
     > = [];
     private _onTitleChangeHandlers: Array<(title: string) => void> = [];
+    private _onWriteParsedHandlers: Array<() => void> = [];
 
     constructor(options: Record<string, unknown> = {}) {
       this.options = options;
@@ -33,6 +43,14 @@ vi.mock("@xterm/xterm", () => {
     clear = vi.fn();
     reset = vi.fn();
     scrollToBottom = vi.fn();
+    registerMarker = vi.fn().mockReturnValue({
+      dispose: vi.fn(),
+    });
+    registerDecoration = vi.fn().mockReturnValue({
+      dispose: vi.fn(),
+      onRender: vi.fn(),
+    });
+    attachCustomKeyEventHandler = vi.fn().mockReturnValue(createDisposable());
 
     onData(handler: (data: string) => void) {
       this._onDataHandlers.push(handler);
@@ -48,6 +66,10 @@ vi.mock("@xterm/xterm", () => {
     }
     onTitleChange(handler: (title: string) => void) {
       this._onTitleChangeHandlers.push(handler);
+      return createDisposable();
+    }
+    onWriteParsed(handler: () => void) {
+      this._onWriteParsedHandlers.push(handler);
       return createDisposable();
     }
   }
