@@ -4,6 +4,7 @@ mod ipc;
 mod logging;
 mod protocol;
 mod pty;
+mod scripting;
 mod session;
 mod vault;
 
@@ -13,7 +14,9 @@ use ipc::{
     connection_close, connection_open, connection_resize, connection_write, highlight_create_set,
     highlight_delete_set, highlight_get_set, highlight_list_sets, highlight_update_set,
     logging_start, logging_status, logging_stop, pty_close, pty_resize, pty_spawn, pty_write,
-    serial_list_ports, serial_send_break, session_create, session_create_folder, session_delete,
+    script_delete, script_get, script_list, script_record_start, script_record_stop, script_run,
+    script_run_multi, script_save, script_status, script_stop, serial_list_ports,
+    serial_send_break, session_create, session_create_folder, session_delete,
     session_delete_folder, session_duplicate, session_export, session_get, session_import,
     session_list, session_move, session_search, session_update, sftp_close, sftp_delete,
     sftp_download, sftp_list, sftp_mkdir, sftp_open, sftp_rename, sftp_stat, sftp_upload,
@@ -23,6 +26,7 @@ use logging::LogManager;
 use protocol::connection_manager::ConnectionManager;
 use protocol::sftp::SftpManager;
 use pty::PtyManager;
+use scripting::ScriptManager;
 use session::SessionManager;
 use vault::VaultManager;
 
@@ -37,6 +41,7 @@ pub fn run() {
         .manage(LogManager::new())
         .manage(SftpManager::new())
         .manage(HighlightManager::new())
+        .manage(ScriptManager::new())
         .invoke_handler(tauri::generate_handler![
             greet,
             pty_spawn,
@@ -82,6 +87,16 @@ pub fn run() {
             highlight_create_set,
             highlight_update_set,
             highlight_delete_set,
+            script_list,
+            script_get,
+            script_save,
+            script_delete,
+            script_run,
+            script_run_multi,
+            script_status,
+            script_stop,
+            script_record_start,
+            script_record_stop,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
