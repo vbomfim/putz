@@ -487,10 +487,10 @@ export function useTerminal({
       terminalInstanceRef.current = null;
       fitAddonRef.current = null;
 
-      // Close the PTY session (fire-and-forget)
-      invoke("pty_close", { sessionId }).catch(() => {
-        // Ignore — session may already be closed
-      });
+      // NOTE: We do NOT call pty_close here. The PTY session lifecycle is
+      // managed by the tab store (removeTab/unsplitPane). Closing the PTY
+      // on unmount would kill the session when splitting panes, since React
+      // unmounts and remounts the original terminal in the new layout tree.
     };
   }, [sessionId]);
 
