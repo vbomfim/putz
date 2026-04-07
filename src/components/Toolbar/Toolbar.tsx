@@ -23,20 +23,23 @@ interface ToolbarButtonProps {
   tooltip: string;
   /** Click handler. */
   onClick: () => void;
+  /** Whether the button is disabled. */
+  disabled?: boolean;
   /** Optional test ID. */
   testId?: string;
 }
 
 /** Single toolbar button with icon and tooltip. */
-function ToolbarButton({ icon, tooltip, onClick, testId }: ToolbarButtonProps) {
+function ToolbarButton({ icon, tooltip, onClick, disabled = false, testId }: ToolbarButtonProps) {
   return (
     <button
-      className="toolbar__button"
+      className={`toolbar__button${disabled ? " toolbar__button--disabled" : ""}`}
       onClick={onClick}
       title={tooltip}
       type="button"
       aria-label={tooltip}
       data-testid={testId}
+      disabled={disabled}
     >
       <span className="toolbar__icon" aria-hidden="true">
         {icon}
@@ -62,6 +65,10 @@ export function Toolbar() {
   const toggleBroadcast = useBroadcastStore((s) => s.toggle);
   const tabs = useTabStore((s) => s.tabs);
   const activeTabId = useTabStore((s) => s.activeTabId);
+
+  // Determine if active tab is a local terminal (no remote session)
+  const activeTab = tabs.find((t) => t.id === activeTabId);
+  const isLocalTab = !activeTab || activeTab.status === "local";
 
   // ─── Action Handlers ─────────────────────────────────────────────
 
@@ -168,18 +175,21 @@ export function Toolbar() {
         tooltip="Connect"
         onClick={handleConnect}
         testId="toolbar-connect"
+        disabled={isLocalTab}
       />
       <ToolbarButton
         icon="❌"
         tooltip="Disconnect"
         onClick={handleDisconnect}
         testId="toolbar-disconnect"
+        disabled={isLocalTab}
       />
       <ToolbarButton
         icon="🔄"
         tooltip="Reconnect"
         onClick={handleReconnect}
         testId="toolbar-reconnect"
+        disabled={isLocalTab}
       />
 
       <ToolbarSeparator />

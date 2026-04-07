@@ -19,3 +19,42 @@
 .split-container .sash-container .sash:hover {
   background-color: var(--accent-hover);
 }
+
+/* Pane leaf wrapper — positioned container for close button overlay */
+.pane-leaf-wrapper {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+/* Pane close button — appears on hover in top-right corner */
+.pane-close-btn {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border: none;
+  background-color: rgba(0, 0, 0, 0.6);
+  color: var(--text-secondary);
+  font-size: 1rem;
+  line-height: 1;
+  cursor: pointer;
+  border-radius: 4px;
+  opacity: 0;
+  transition: opacity 0.15s, background-color 0.15s, color 0.15s;
+  padding: 0;
+}
+
+.pane-leaf-wrapper:hover .pane-close-btn {
+  opacity: 1;
+}
+
+.pane-close-btn:hover {
+  background-color: rgba(255, 85, 85, 0.8);
+  color: #ffffff;
+}

@@ -57,6 +57,14 @@
   outline-offset: -2px;
 }
 
+/* Disabled state — greyed out, no interaction */
+.toolbar__button:disabled,
+.toolbar__button--disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
 /* Icon inside button */
 .toolbar__icon {
   font-size: 0.8125rem;

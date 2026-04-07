@@ -210,6 +210,16 @@
   background-color: var(--accent);
 }
 
+.tabbar__context-item:disabled {
+  color: var(--text-secondary);
+  opacity: 0.4;
+  cursor: default;
+}
+
+.tabbar__context-item:disabled:hover {
+  background-color: transparent;
+}
+
 .tabbar__context-separator {
   height: 1px;
   background-color: rgba(255, 255, 255, 0.08);

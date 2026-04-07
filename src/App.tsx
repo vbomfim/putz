@@ -23,10 +23,12 @@ import { ShortcutsPanel } from "./components/Help";
 import { SplitContainer } from "./components/SplitPane";
 import { SessionSidebar } from "./components/SessionManager";
 import { UpdateChecker } from "./components/UpdateChecker";
-import { useMenuEvents } from "./utils/useMenuEvents";
+import { useMenuEvents, setMenuEventCallbacks } from "./utils/useMenuEvents";
 import { HistoryPanel } from "./components/History";
 import { QuickConnect } from "./components/QuickConnect";
 import { CredentialReminder } from "./components/Vault/CredentialReminder";
+import { CredentialManager } from "./components/Vault";
+import { KeyManager } from "./components/Keys";
 import { ConfigDiff } from "./components/ConfigDiff";
 import { TemplatePanel } from "./components/Templates";
 import type { SessionProfile } from "./components/SessionManager";
@@ -46,9 +48,20 @@ function App() {
   const [quickConnectOpen, setQuickConnectOpen] = useState(false);
   const [configDiffOpen, setConfigDiffOpen] = useState(false);
   const [templatePanelOpen, setTemplatePanelOpen] = useState(false);
+  const [vaultOpen, setVaultOpen] = useState(false);
+  const [keyManagerOpen, setKeyManagerOpen] = useState(false);
 
   // Listen for native menu events from the Tauri backend
   useMenuEvents();
+
+  // Wire menu event callbacks for vault/key-manager panels
+  useEffect(() => {
+    setMenuEventCallbacks({
+      onToggleVault: () => setVaultOpen((prev) => !prev),
+      onToggleKeyManager: () => setKeyManagerOpen((prev) => !prev),
+    });
+    return () => setMenuEventCallbacks({});
+  }, []);
 
   // Create the first tab on mount
   useEffect(() => {
@@ -85,6 +98,25 @@ function App() {
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, []);
+
+  // Global Escape key — close vault/key-manager overlays
+  useEffect(() => {
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return;
+      if (vaultOpen) {
+        e.preventDefault();
+        setVaultOpen(false);
+        return;
+      }
+      if (keyManagerOpen) {
+        e.preventDefault();
+        setKeyManagerOpen(false);
+        return;
+      }
+    };
+    window.addEventListener("keydown", handleEscape);
+    return () => window.removeEventListener("keydown", handleEscape);
+  }, [vaultOpen, keyManagerOpen]);
 
   const handleNewTerminal = useCallback(() => {
     addTab();
@@ -242,6 +274,58 @@ function App() {
         isOpen={templatePanelOpen}
         onClose={() => setTemplatePanelOpen(false)}
       />
+
+      {/* Credential Vault overlay */}
+      {vaultOpen && (
+        <div
+          className="modal-overlay"
+          data-testid="vault-overlay"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setVaultOpen(false);
+          }}
+          role="dialog"
+          aria-modal="true"
+          aria-label="Credential Vault"
+        >
+          <div className="modal-panel" data-testid="vault-panel">
+            <button
+              className="modal-close"
+              onClick={() => setVaultOpen(false)}
+              aria-label="Close Credential Vault"
+              data-testid="vault-close"
+            >
+              ✕
+            </button>
+            <CredentialManager />
+          </div>
+        </div>
+      )}
+
+      {/* SSH Key Manager overlay */}
+      {keyManagerOpen && (
+        <div
+          className="modal-overlay"
+          data-testid="key-manager-overlay"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setKeyManagerOpen(false);
+          }}
+          role="dialog"
+          aria-modal="true"
+          aria-label="SSH Key Manager"
+        >
+          <div className="modal-panel" data-testid="key-manager-panel">
+            <button
+              className="modal-close"
+              onClick={() => setKeyManagerOpen(false)}
+              aria-label="Close SSH Key Manager"
+              data-testid="key-manager-close"
+            >
+              ✕
+            </button>
+            <KeyManager />
+          </div>
+        </div>
+      )}
     </main>
   );
 }

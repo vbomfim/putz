@@ -192,18 +192,37 @@ export function useTerminal({
       console.warn("WebGL addon failed to load, using canvas renderer");
     }
 
-    // Initial fit to container
-    try {
-      fitAddon.fit();
-    } catch {
-      // Container may not be visible yet
-    }
+    /**
+     * Safely fits the terminal to its container.
+     * Guards against zero-dimension containers (e.g., during Allotment animation)
+     * and syncs the PTY size after a successful fit.
+     */
+    const safeFit = () => {
+      if (disposed) return;
+      const el = terminalRef.current;
+      if (!el || el.clientWidth === 0 || el.clientHeight === 0) return;
+      try {
+        fitAddon.fit();
+        const { cols, rows } = terminal;
+        if (cols > 0 && rows > 0) {
+          invoke("pty_resize", { sessionId, cols, rows }).catch(() => {});
+        }
+      } catch {
+        // Container may not be visible yet
+      }
+    };
 
-    // Delayed re-fit — Allotment may not have settled dimensions yet
-    // This ensures split panes render correctly
-    const fitTimer = setTimeout(() => {
-      try { fitAddon.fit(); } catch { /* ignore */ }
-    }, 150);
+    // Initial fit to container
+    safeFit();
+
+    // Staggered retry fits — Allotment split animation may not have
+    // settled dimensions yet. Multiple retries at increasing intervals
+    // ensure the terminal renders correctly in new split panes.
+    const fitTimers = [
+      setTimeout(safeFit, 150),
+      setTimeout(safeFit, 500),
+      setTimeout(safeFit, 1000),
+    ];
 
     // Initialize highlight engine
     const highlightEngine = new HighlightEngine(terminal);
@@ -407,45 +426,35 @@ export function useTerminal({
       if (resizeDebounceTimer !== null) {
         clearTimeout(resizeDebounceTimer);
       }
-      resizeDebounceTimer = setTimeout(() => {
-        if (disposed) return;
-        try {
-          fitAddon.fit();
-        } catch {
-          // Ignore fit errors during resize
-        }
-      }, 100);
+      resizeDebounceTimer = setTimeout(safeFit, 100);
     };
     window.addEventListener("resize", handleWindowResize);
 
     // ResizeObserver — re-fit when container size changes (e.g., Allotment split resize)
+    // Debounced at 50ms to avoid fitting during rapid Allotment animation
+    let resizeObserverTimer: ReturnType<typeof setTimeout> | null = null;
     const resizeObserver = new ResizeObserver(() => {
       if (disposed) return;
-      try { fitAddon.fit(); } catch { /* ignore */ }
+      if (resizeObserverTimer !== null) {
+        clearTimeout(resizeObserverTimer);
+      }
+      resizeObserverTimer = setTimeout(safeFit, 50);
     });
     resizeObserver.observe(container);
 
     // Sync initial PTY size after a short delay (DOM needs to settle)
-    const initialSizeTimeout = setTimeout(() => {
-      if (disposed) return;
-      try {
-        fitAddon.fit();
-        const { cols, rows } = terminal;
-        invoke("pty_resize", { sessionId, cols, rows }).catch(() => {
-          // Ignore — PTY may not be ready yet
-        });
-      } catch {
-        // Ignore fit errors
-      }
-    }, 100);
+    const initialSizeTimeout = setTimeout(safeFit, 100);
 
     // Cleanup on unmount
     return () => {
       disposed = true;
       clearTimeout(initialSizeTimeout);
-      clearTimeout(fitTimer);
+      for (const t of fitTimers) clearTimeout(t);
       if (resizeDebounceTimer !== null) {
         clearTimeout(resizeDebounceTimer);
+      }
+      if (resizeObserverTimer !== null) {
+        clearTimeout(resizeObserverTimer);
       }
       window.removeEventListener("resize", handleWindowResize);
       resizeObserver.disconnect();

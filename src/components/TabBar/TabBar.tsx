@@ -115,9 +115,19 @@ export function TabBar() {
         case "duplicate":
           duplicateTab(tabId);
           break;
+        case "moveLeft": {
+          const idx = tabs.findIndex((t) => t.id === tabId);
+          if (idx > 0) moveTab(idx, idx - 1);
+          break;
+        }
+        case "moveRight": {
+          const idx = tabs.findIndex((t) => t.id === tabId);
+          if (idx >= 0 && idx < tabs.length - 1) moveTab(idx, idx + 1);
+          break;
+        }
       }
     },
-    [contextMenu, removeTab, closeOtherTabs, closeAllTabs, duplicateTab],
+    [contextMenu, removeTab, closeOtherTabs, closeAllTabs, duplicateTab, tabs, moveTab],
   );
 
   return (
@@ -158,7 +168,9 @@ export function TabBar() {
         +
       </button>
 
-      {contextMenu && (
+      {contextMenu && (() => {
+        const ctxIndex = tabs.findIndex((t) => t.id === contextMenu.tabId);
+        return (
         <div
           ref={contextMenuRef}
           className="tabbar__context-menu"
@@ -198,8 +210,28 @@ export function TabBar() {
           >
             Duplicate
           </button>
+          <div className="tabbar__context-separator" />
+          <button
+            className="tabbar__context-item"
+            onClick={() => handleContextAction("moveLeft")}
+            role="menuitem"
+            type="button"
+            disabled={ctxIndex <= 0}
+          >
+            Move Left
+          </button>
+          <button
+            className="tabbar__context-item"
+            onClick={() => handleContextAction("moveRight")}
+            role="menuitem"
+            type="button"
+            disabled={ctxIndex < 0 || ctxIndex >= tabs.length - 1}
+          >
+            Move Right
+          </button>
         </div>
-      )}
+        );
+      })()}
     </div>
   );
 }

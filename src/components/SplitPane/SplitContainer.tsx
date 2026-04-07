@@ -88,6 +88,8 @@ interface PaneRendererProps {
   isSearchOpen: boolean;
   onSearchClose: () => void;
   isBroadcastTarget?: boolean;
+  /** Whether this pane is inside a split (shows close button). */
+  isInsideSplit?: boolean;
 }
 
 /** Recursive renderer for PaneNode. */
@@ -99,9 +101,18 @@ function PaneRenderer({
   isSearchOpen,
   onSearchClose,
   isBroadcastTarget,
+  isInsideSplit = false,
 }: PaneRendererProps) {
+  // Stable no-op callback for Allotment's onChange.
+  // The ResizeObserver in each terminal's useTerminal hook handles
+  // actual re-fitting; this is required before the early return to
+  // satisfy React's rules of hooks (hooks must be called unconditionally).
+  const handleSizeChange = useCallback(() => {
+    // No action needed — ResizeObserver picks up the new size.
+  }, []);
+
   if (node.type === "leaf") {
-    return (
+    const terminalView = (
       <TerminalView
         sessionId={node.terminalSessionId}
         onTitleChange={onTitleChange}
@@ -115,6 +126,25 @@ function PaneRenderer({
         tabElementId={tabId}
       />
     );
+
+    if (!isInsideSplit) {
+      return terminalView;
+    }
+
+    return (
+      <div className="pane-leaf-wrapper">
+        {terminalView}
+        <button
+          className="pane-close-btn"
+          data-testid="pane-close-btn"
+          aria-label="Close pane"
+          type="button"
+          onClick={() => onClosePane(node.terminalSessionId)}
+        >
+          ×
+        </button>
+      </div>
+    );
   }
 
   // "horizontal" = top/bottom split → Allotment vertical={true}
@@ -122,7 +152,11 @@ function PaneRenderer({
   const isVertical = node.direction === "horizontal";
 
   return (
-    <Allotment vertical={isVertical} minSize={MIN_PANE_SIZE_PX}>
+    <Allotment
+      vertical={isVertical}
+      minSize={MIN_PANE_SIZE_PX}
+      onChange={handleSizeChange}
+    >
       <Allotment.Pane preferredSize={`${node.ratio * 100}%`}>
         <PaneRenderer
           node={node.children[0]}
@@ -132,6 +166,7 @@ function PaneRenderer({
           isSearchOpen={isSearchOpen}
           onSearchClose={onSearchClose}
           isBroadcastTarget={isBroadcastTarget}
+          isInsideSplit
         />
       </Allotment.Pane>
       <Allotment.Pane>
@@ -143,6 +178,7 @@ function PaneRenderer({
           isSearchOpen={isSearchOpen}
           onSearchClose={onSearchClose}
           isBroadcastTarget={isBroadcastTarget}
+          isInsideSplit
         />
       </Allotment.Pane>
     </Allotment>
