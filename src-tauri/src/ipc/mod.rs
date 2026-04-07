@@ -43,4 +43,9 @@ pub use terminal::{pty_close, pty_resize, pty_spawn, pty_write};
 pub use theme::{
     theme_create, theme_delete, theme_export, theme_get, theme_import, theme_list, theme_update,
 };
+pub mod templates;
+
+pub use templates::{
+    template_create, template_delete, template_execute, template_get, template_list,
+};
 pub use vault::{vault_delete, vault_get, vault_list, vault_set};
