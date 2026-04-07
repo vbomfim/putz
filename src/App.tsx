@@ -1,12 +1,16 @@
 import { useCallback, useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { TerminalView, TERMINAL_CONFIG } from "./components/Terminal";
+import { SessionSidebar } from "./components/SessionManager";
+import type { SessionProfile } from "./components/SessionManager";
+import "./components/SessionManager/SessionManager.css";
 import "./styles/App.css";
 
 /** Application shell — entry point for the Putz terminal emulator. */
 function App() {
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   /** Spawns a new PTY session and stores the session ID. */
   const spawnSession = useCallback(async () => {
@@ -36,6 +40,16 @@ function App() {
   const handleRestart = useCallback(() => {
     spawnSession();
   }, [spawnSession]);
+
+  const handleSidebarToggle = useCallback(() => {
+    setSidebarOpen((prev) => !prev);
+  }, []);
+
+  /** Called when a session is opened from the sidebar. */
+  const handleSessionOpen = useCallback((_session: SessionProfile) => {
+    // Future: spawn a connection for this session profile.
+    // For now, the terminal is already running a local shell.
+  }, []);
 
   if (error) {
     return (
@@ -67,6 +81,23 @@ function App() {
 
   return (
     <main className="app-container" data-testid="app-root">
+      <SessionSidebar
+        isOpen={sidebarOpen}
+        onToggle={handleSidebarToggle}
+        onSessionOpen={handleSessionOpen}
+      />
+      {!sidebarOpen && (
+        <button
+          className="sidebar-toggle"
+          onClick={handleSidebarToggle}
+          type="button"
+          aria-label="Open session manager"
+          data-testid="sidebar-toggle"
+          title="Toggle Session Manager (Ctrl+B)"
+        >
+          ▶
+        </button>
+      )}
       <TerminalView
         sessionId={sessionId}
         onTitleChange={handleTitleChange}
