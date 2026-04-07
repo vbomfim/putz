@@ -6,7 +6,7 @@
  * Tags: [TDD], [AC-5], [AC-6], [AC-7], [AC-8]
  */
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, act } from "@testing-library/react";
 import { SplitContainer } from "../components/SplitPane";
 import type { PaneNode } from "../types";
 
@@ -67,13 +67,17 @@ describe("SplitContainer", () => {
   });
 
   describe("leaf rendering", () => {
-    it("renders a terminal for a leaf pane", () => {
+    it("renders a terminal for a leaf pane", async () => {
       const layout: PaneNode = {
         type: "leaf",
         terminalSessionId: "session-abc",
       };
 
-      render(<SplitContainer layout={layout} tabId="tab-1" isActive={true} />);
+      await act(async () => {
+        render(
+          <SplitContainer layout={layout} tabId="tab-1" isActive={true} />,
+        );
+      });
 
       const terminal = screen.getByTestId("terminal-wrapper");
       expect(terminal).toBeInTheDocument();
@@ -81,7 +85,7 @@ describe("SplitContainer", () => {
   });
 
   describe("split rendering", () => {
-    it("renders a vertical split with two terminals", () => {
+    it("renders a vertical split with two terminals", async () => {
       const layout: PaneNode = {
         type: "split",
         direction: "vertical",
@@ -92,7 +96,11 @@ describe("SplitContainer", () => {
         ratio: 0.5,
       };
 
-      render(<SplitContainer layout={layout} tabId="tab-1" isActive={true} />);
+      await act(async () => {
+        render(
+          <SplitContainer layout={layout} tabId="tab-1" isActive={true} />,
+        );
+      });
 
       const allotment = screen.getByTestId("allotment-container");
       expect(allotment).toBeInTheDocument();
@@ -103,7 +111,7 @@ describe("SplitContainer", () => {
       expect(terminals).toHaveLength(2);
     });
 
-    it("renders a horizontal split with two terminals", () => {
+    it("renders a horizontal split with two terminals", async () => {
       const layout: PaneNode = {
         type: "split",
         direction: "horizontal",
@@ -114,14 +122,18 @@ describe("SplitContainer", () => {
         ratio: 0.5,
       };
 
-      render(<SplitContainer layout={layout} tabId="tab-1" isActive={true} />);
+      await act(async () => {
+        render(
+          <SplitContainer layout={layout} tabId="tab-1" isActive={true} />,
+        );
+      });
 
       const allotment = screen.getByTestId("allotment-container");
       // Horizontal split: Allotment vertical={true} for top/bottom split
       expect(allotment).toHaveAttribute("data-vertical", "true");
     });
 
-    it("renders nested splits (2 levels)", () => {
+    it("renders nested splits (2 levels)", async () => {
       const layout: PaneNode = {
         type: "split",
         direction: "vertical",
@@ -140,7 +152,11 @@ describe("SplitContainer", () => {
         ratio: 0.5,
       };
 
-      render(<SplitContainer layout={layout} tabId="tab-1" isActive={true} />);
+      await act(async () => {
+        render(
+          <SplitContainer layout={layout} tabId="tab-1" isActive={true} />,
+        );
+      });
 
       const terminals = screen.getAllByTestId("terminal-wrapper");
       expect(terminals).toHaveLength(3);
@@ -151,17 +167,21 @@ describe("SplitContainer", () => {
   });
 
   describe("inactive tab", () => {
-    it("renders with visibility hidden when inactive", () => {
+    it("renders with visibility hidden when inactive", async () => {
       const layout: PaneNode = {
         type: "leaf",
         terminalSessionId: "session-1",
       };
 
-      const { container } = render(
-        <SplitContainer layout={layout} tabId="tab-1" isActive={false} />,
-      );
+      let container: HTMLElement;
+      await act(async () => {
+        const result = render(
+          <SplitContainer layout={layout} tabId="tab-1" isActive={false} />,
+        );
+        container = result.container;
+      });
 
-      const wrapper = container.firstChild as HTMLElement;
+      const wrapper = container!.firstChild as HTMLElement;
       expect(wrapper.style.visibility).toBe("hidden");
     });
   });

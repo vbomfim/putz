@@ -58,9 +58,7 @@ describe("TerminalView", () => {
 
   it("does not show restart button during normal operation", async () => {
     await act(async () => {
-      render(
-        <TerminalView sessionId="test-session" onRestart={vi.fn()} />,
-      );
+      render(<TerminalView sessionId="test-session" onRestart={vi.fn()} />);
     });
 
     const restartBtn = screen.queryByText("Restart Terminal");
@@ -90,9 +88,7 @@ describe("TerminalView", () => {
   it("invokes pty_close on unmount", async () => {
     let unmountFn: () => void;
     await act(async () => {
-      const result = render(
-        <TerminalView sessionId="close-test-session" />,
-      );
+      const result = render(<TerminalView sessionId="close-test-session" />);
       unmountFn = result.unmount;
     });
 

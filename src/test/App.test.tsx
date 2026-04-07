@@ -9,7 +9,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import App from "../App";
-import { useTabStore, resetTabCounter } from "../stores/tabStore";
+import { useTabStore } from "../stores/tabStore";
 
 // Mock the Tauri invoke API — must always return a promise
 const mockInvoke = vi.fn().mockResolvedValue(undefined);
@@ -25,11 +25,9 @@ vi.mock("@tauri-apps/api/event", () => ({
 
 // Mock allotment for split panes
 vi.mock("allotment", () => {
-  const AllotmentComponent = ({
-    children,
-  }: {
-    children: React.ReactNode;
-  }) => <div data-testid="allotment-container">{children}</div>;
+  const AllotmentComponent = ({ children }: { children: React.ReactNode }) => (
+    <div data-testid="allotment-container">{children}</div>
+  );
 
   AllotmentComponent.Pane = ({ children }: { children: React.ReactNode }) => (
     <div>{children}</div>
@@ -44,8 +42,7 @@ describe("App", () => {
   beforeEach(() => {
     mockInvoke.mockReset().mockResolvedValue(undefined);
     mockListen.mockReset().mockResolvedValue(vi.fn());
-    useTabStore.setState({ tabs: [], activeTabId: "" });
-    resetTabCounter();
+    useTabStore.setState({ tabs: [], activeTabId: "", tabCounter: 0 });
   });
 
   it("has the app-root test id on the main container", async () => {
@@ -105,4 +102,3 @@ describe("App", () => {
     });
   });
 });
-

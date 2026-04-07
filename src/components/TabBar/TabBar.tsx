@@ -67,11 +67,12 @@ export function TabBar() {
 
   const handleContextMenu = useCallback(
     (e: React.MouseEvent, tabId: string) => {
-      setContextMenu({
-        x: e.clientX,
-        y: e.clientY,
-        tabId,
-      });
+      // Clamp position to keep context menu within viewport
+      const menuWidth = 200;
+      const menuHeight = 200;
+      const x = Math.min(e.clientX, window.innerWidth - menuWidth);
+      const y = Math.min(e.clientY, window.innerHeight - menuHeight);
+      setContextMenu({ x, y, tabId });
     },
     [],
   );

@@ -142,8 +142,8 @@ export function useTerminal({
       ({ cols, rows }: { cols: number; rows: number }) => {
         if (disposed) return;
         invoke("pty_resize", { sessionId, cols, rows }).catch(() => {
-            // pty_resize failure — terminal may be out of sync
-          });
+          // pty_resize failure — terminal may be out of sync
+        });
       },
     );
 

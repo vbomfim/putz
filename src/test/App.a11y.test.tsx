@@ -9,7 +9,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import App from "../App";
-import { useTabStore, resetTabCounter } from "../stores/tabStore";
+import { useTabStore } from "../stores/tabStore";
 
 // Mock Tauri APIs
 const mockInvoke = vi.fn().mockResolvedValue(undefined);
@@ -24,11 +24,9 @@ vi.mock("@tauri-apps/api/event", () => ({
 
 // Mock allotment
 vi.mock("allotment", () => {
-  const AllotmentComponent = ({
-    children,
-  }: {
-    children: React.ReactNode;
-  }) => <div data-testid="allotment-container">{children}</div>;
+  const AllotmentComponent = ({ children }: { children: React.ReactNode }) => (
+    <div data-testid="allotment-container">{children}</div>
+  );
 
   AllotmentComponent.Pane = ({ children }: { children: React.ReactNode }) => (
     <div>{children}</div>
@@ -43,8 +41,7 @@ describe("App — Accessibility", () => {
   beforeEach(() => {
     mockInvoke.mockReset().mockResolvedValue(undefined);
     mockListen.mockReset().mockResolvedValue(vi.fn());
-    useTabStore.setState({ tabs: [], activeTabId: "" });
-    resetTabCounter();
+    useTabStore.setState({ tabs: [], activeTabId: "", tabCounter: 0 });
   });
 
   /**

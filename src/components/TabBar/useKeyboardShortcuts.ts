@@ -32,8 +32,9 @@ export function useKeyboardShortcuts(): void {
         return;
       }
 
-      // Ctrl+W / Cmd+W — Close active tab
-      if (key === "w" && !e.shiftKey) {
+      // Ctrl+Shift+W / Cmd+Shift+W — Close active tab
+      // (Ctrl+W conflicts with backward-kill-word in terminal shells)
+      if (key === "w" && e.shiftKey) {
         e.preventDefault();
         const { activeTabId } = useTabStore.getState();
         if (activeTabId) {
@@ -70,8 +71,9 @@ export function useKeyboardShortcuts(): void {
         return;
       }
 
-      // Ctrl+D / Cmd+D — Split vertical
-      if (key === "d" && !e.shiftKey) {
+      // Ctrl+Shift+E — Split vertical
+      // (Ctrl+D conflicts with shell EOF signal)
+      if (key === "e" && e.shiftKey) {
         e.preventDefault();
         splitActivePane("vertical");
         return;

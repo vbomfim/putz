@@ -31,7 +31,9 @@ vi.mock("../stores/tabStore", () => ({
     {
       getState: () => ({
         activeTabId: "tab-1",
-        tabs: [{ id: "tab-1", layout: { type: "leaf", terminalSessionId: "s-1" } }],
+        tabs: [
+          { id: "tab-1", layout: { type: "leaf", terminalSessionId: "s-1" } },
+        ],
         addTab: mockAddTab,
         removeTab: mockRemoveTab,
         activateNextTab: mockActivateNextTab,
@@ -87,10 +89,16 @@ describe("useKeyboardShortcuts", () => {
     expect(mockAddTab).toHaveBeenCalledTimes(1);
   });
 
-  it("Ctrl+W closes active tab", () => {
+  it("Ctrl+Shift+W closes active tab", () => {
+    renderHook(() => useKeyboardShortcuts());
+    simulateKeyDown("w", { ctrlKey: true, shiftKey: true });
+    expect(mockRemoveTab).toHaveBeenCalledWith("tab-1");
+  });
+
+  it("Ctrl+W does NOT close active tab (reserved for shell)", () => {
     renderHook(() => useKeyboardShortcuts());
     simulateKeyDown("w", { ctrlKey: true });
-    expect(mockRemoveTab).toHaveBeenCalledWith("tab-1");
+    expect(mockRemoveTab).not.toHaveBeenCalled();
   });
 
   it("Ctrl+Tab cycles to next tab", () => {
@@ -115,10 +123,16 @@ describe("useKeyboardShortcuts", () => {
     }
   });
 
-  it("Ctrl+D splits vertical", () => {
+  it("Ctrl+Shift+E splits vertical", () => {
+    renderHook(() => useKeyboardShortcuts());
+    simulateKeyDown("e", { ctrlKey: true, shiftKey: true });
+    expect(mockSplitActivePane).toHaveBeenCalledWith("vertical");
+  });
+
+  it("Ctrl+D does NOT trigger split (reserved for shell EOF)", () => {
     renderHook(() => useKeyboardShortcuts());
     simulateKeyDown("d", { ctrlKey: true });
-    expect(mockSplitActivePane).toHaveBeenCalledWith("vertical");
+    expect(mockSplitActivePane).not.toHaveBeenCalled();
   });
 
   it("Ctrl+Shift+D splits horizontal", () => {

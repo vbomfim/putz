@@ -8,6 +8,7 @@
  */
 import { useState, useCallback, useRef } from "react";
 import type { Tab as TabType } from "../../types";
+import { MAX_TITLE_LENGTH } from "../../stores/tabStore";
 
 interface TabProps {
   /** Tab data. */
@@ -168,6 +169,7 @@ export function Tab({
           onChange={(e) => setEditValue(e.target.value)}
           onBlur={handleRenameSubmit}
           onKeyDown={handleKeyDown}
+          maxLength={MAX_TITLE_LENGTH}
           aria-label="Tab title"
         />
       ) : (

@@ -15,13 +15,8 @@ import type { Tab, PaneNode } from "../types";
 import { MAX_SPLIT_DEPTH } from "../types";
 import { TERMINAL_CONFIG } from "../components/Terminal";
 
-/** Internal counter for generating default tab titles. */
-let tabCounter = 0;
-
-/** Resets the tab counter — used in tests. */
-export function resetTabCounter(): void {
-  tabCounter = 0;
-}
+/** Maximum allowed length for tab titles. */
+export const MAX_TITLE_LENGTH = 100;
 
 /** Generates a UUID v4 using crypto API. */
 function generateId(): string {
@@ -58,8 +53,7 @@ function collectSessionIds(node: PaneNode): string[] {
 function getPaneDepth(node: PaneNode): number {
   if (node.type === "leaf") return 1;
   return (
-    1 +
-    Math.max(getPaneDepth(node.children[0]), getPaneDepth(node.children[1]))
+    1 + Math.max(getPaneDepth(node.children[0]), getPaneDepth(node.children[1]))
   );
 }
 
@@ -178,6 +172,7 @@ function getFirstLeafSessionId(node: PaneNode): string {
 interface TabState {
   tabs: Tab[];
   activeTabId: string;
+  tabCounter: number;
 
   // Tab lifecycle
   addTab: () => Promise<void>;
@@ -208,13 +203,23 @@ interface TabState {
 export const useTabStore = create<TabState>((set, get) => ({
   tabs: [],
   activeTabId: "",
+  tabCounter: 0,
 
   addTab: async () => {
-    const sessionId = await spawnPtySession();
-    tabCounter += 1;
+    let sessionId: string;
+    try {
+      sessionId = await spawnPtySession();
+    } catch (err: unknown) {
+      const message =
+        err instanceof Error ? err.message : "Unknown PTY spawn error";
+      console.error("[tabStore] Failed to spawn PTY session:", message);
+      return;
+    }
+
+    const nextCounter = get().tabCounter + 1;
     const tab: Tab = {
       id: generateId(),
-      title: `Terminal ${tabCounter}`,
+      title: `Terminal ${nextCounter}`,
       layout: { type: "leaf", terminalSessionId: sessionId },
       status: "local",
       createdAt: Date.now(),
@@ -223,6 +228,7 @@ export const useTabStore = create<TabState>((set, get) => ({
     set((state) => ({
       tabs: [...state.tabs, tab],
       activeTabId: tab.id,
+      tabCounter: nextCounter,
     }));
   },
 
@@ -286,11 +292,10 @@ export const useTabStore = create<TabState>((set, get) => ({
   },
 
   renameTab: (id: string, title: string) => {
-    if (!title.trim()) return;
+    const trimmed = title.trim().slice(0, MAX_TITLE_LENGTH);
+    if (!trimmed) return;
     set((state) => ({
-      tabs: state.tabs.map((t) =>
-        t.id === id ? { ...t, title: title.trim() } : t,
-      ),
+      tabs: state.tabs.map((t) => (t.id === id ? { ...t, title: trimmed } : t)),
     }));
   },
 
@@ -299,12 +304,20 @@ export const useTabStore = create<TabState>((set, get) => ({
     const sourceTab = tabs.find((t) => t.id === id);
     if (!sourceTab) return;
 
-    // Spawn a fresh PTY session for the duplicate
-    const sessionId = await spawnPtySession();
-    tabCounter += 1;
+    let sessionId: string;
+    try {
+      sessionId = await spawnPtySession();
+    } catch (err: unknown) {
+      const message =
+        err instanceof Error ? err.message : "Unknown PTY spawn error";
+      console.error("[tabStore] Failed to spawn PTY for duplicate:", message);
+      return;
+    }
+
+    const nextCounter = get().tabCounter + 1;
     const newTab: Tab = {
       id: generateId(),
-      title: `Terminal ${tabCounter}`,
+      title: `Terminal ${nextCounter}`,
       layout: { type: "leaf", terminalSessionId: sessionId },
       status: "local",
       createdAt: Date.now(),
@@ -313,11 +326,14 @@ export const useTabStore = create<TabState>((set, get) => ({
     set((state) => ({
       tabs: [...state.tabs, newTab],
       activeTabId: newTab.id,
+      tabCounter: nextCounter,
     }));
   },
 
   closeOtherTabs: (keepId: string) => {
     const { tabs } = get();
+    if (!tabs.some((t) => t.id === keepId)) return;
+
     for (const tab of tabs) {
       if (tab.id !== keepId) {
         const sessionIds = collectSessionIds(tab.layout);
@@ -379,7 +395,16 @@ export const useTabStore = create<TabState>((set, get) => ({
     const currentDepth = getPaneDepth(tab.layout);
     if (currentDepth >= MAX_SPLIT_DEPTH) return;
 
-    const newSessionId = await spawnPtySession();
+    let newSessionId: string;
+    try {
+      newSessionId = await spawnPtySession();
+    } catch (err: unknown) {
+      const message =
+        err instanceof Error ? err.message : "Unknown PTY spawn error";
+      console.error("[tabStore] Failed to spawn PTY for split:", message);
+      return;
+    }
+
     const newLayout = splitNodeBySession(
       tab.layout,
       paneSessionId,

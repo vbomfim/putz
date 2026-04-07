@@ -35,7 +35,11 @@ interface SplitContainerProps {
  * "horizontal" split = top/bottom → Allotment vertical={true}
  * "vertical" split = left/right → Allotment vertical={false}
  */
-export function SplitContainer({ layout, tabId, isActive }: SplitContainerProps) {
+export function SplitContainer({
+  layout,
+  tabId,
+  isActive,
+}: SplitContainerProps) {
   const unsplitPane = useTabStore((s) => s.unsplitPane);
 
   return (

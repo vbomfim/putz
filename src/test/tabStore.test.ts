@@ -22,7 +22,7 @@ vi.mock("@tauri-apps/api/event", () => ({
 }));
 
 // Import after mocks are set up
-import { useTabStore, resetTabCounter } from "../stores/tabStore";
+import { useTabStore, MAX_TITLE_LENGTH } from "../stores/tabStore";
 import type { PaneNode } from "../types";
 
 describe("tabStore", () => {
@@ -31,12 +31,12 @@ describe("tabStore", () => {
     mockListen.mockReset().mockResolvedValue(vi.fn());
     // Default: pty_spawn returns a session ID
     mockInvoke.mockResolvedValue("mock-session-id");
-    // Reset Zustand state
+    // Reset Zustand state (including tabCounter)
     useTabStore.setState({
       tabs: [],
       activeTabId: "",
+      tabCounter: 0,
     });
-    resetTabCounter();
   });
 
   afterEach(() => {
@@ -323,9 +323,7 @@ describe("tabStore", () => {
         useTabStore.getState().moveTab(-1, 5);
       });
 
-      expect(useTabStore.getState().tabs.map((t) => t.id)).toEqual(
-        originalIds,
-      );
+      expect(useTabStore.getState().tabs.map((t) => t.id)).toEqual(originalIds);
     });
 
     it("handles same from and to index (no-op)", async () => {
@@ -341,9 +339,7 @@ describe("tabStore", () => {
         useTabStore.getState().moveTab(0, 0);
       });
 
-      expect(useTabStore.getState().tabs.map((t) => t.id)).toEqual(
-        originalIds,
-      );
+      expect(useTabStore.getState().tabs.map((t) => t.id)).toEqual(originalIds);
     });
   });
 
@@ -654,9 +650,7 @@ describe("tabStore", () => {
     });
 
     it("activateNextTab wraps around to first tab", async () => {
-      mockInvoke
-        .mockResolvedValueOnce("s-1")
-        .mockResolvedValueOnce("s-2");
+      mockInvoke.mockResolvedValueOnce("s-1").mockResolvedValueOnce("s-2");
 
       await act(async () => {
         await useTabStore.getState().addTab();
@@ -677,9 +671,7 @@ describe("tabStore", () => {
     });
 
     it("activatePreviousTab cycles to the previous tab", async () => {
-      mockInvoke
-        .mockResolvedValueOnce("s-1")
-        .mockResolvedValueOnce("s-2");
+      mockInvoke.mockResolvedValueOnce("s-1").mockResolvedValueOnce("s-2");
 
       await act(async () => {
         await useTabStore.getState().addTab();
@@ -699,9 +691,7 @@ describe("tabStore", () => {
     });
 
     it("activatePreviousTab wraps around to last tab", async () => {
-      mockInvoke
-        .mockResolvedValueOnce("s-1")
-        .mockResolvedValueOnce("s-2");
+      mockInvoke.mockResolvedValueOnce("s-1").mockResolvedValueOnce("s-2");
 
       await act(async () => {
         await useTabStore.getState().addTab();
@@ -804,13 +794,29 @@ describe("tabStore", () => {
       expect(state.tabs[0].id).toBe(keepTabId);
       expect(state.activeTabId).toBe(keepTabId);
     });
+
+    it("does nothing when keepId does not match any tab", async () => {
+      mockInvoke.mockResolvedValueOnce("s-1").mockResolvedValueOnce("s-2");
+
+      await act(async () => {
+        await useTabStore.getState().addTab();
+        await useTabStore.getState().addTab();
+      });
+
+      const tabsBefore = useTabStore.getState().tabs;
+
+      act(() => {
+        useTabStore.getState().closeOtherTabs("non-existent-id");
+      });
+
+      const tabsAfter = useTabStore.getState().tabs;
+      expect(tabsAfter).toHaveLength(tabsBefore.length);
+    });
   });
 
   describe("closeAllTabs [AC-9]", () => {
     it("removes all tabs", async () => {
-      mockInvoke
-        .mockResolvedValueOnce("s-1")
-        .mockResolvedValueOnce("s-2");
+      mockInvoke.mockResolvedValueOnce("s-1").mockResolvedValueOnce("s-2");
 
       await act(async () => {
         await useTabStore.getState().addTab();
@@ -824,6 +830,90 @@ describe("tabStore", () => {
       const state = useTabStore.getState();
       expect(state.tabs).toHaveLength(0);
       expect(state.activeTabId).toBe("");
+    });
+  });
+
+  describe("PTY spawn error handling", () => {
+    it("addTab does not add a tab when PTY spawn fails", async () => {
+      mockInvoke.mockRejectedValueOnce(new Error("PTY spawn failed"));
+
+      await act(async () => {
+        await useTabStore.getState().addTab();
+      });
+
+      expect(useTabStore.getState().tabs).toHaveLength(0);
+    });
+
+    it("duplicateTab does not add a tab when PTY spawn fails", async () => {
+      mockInvoke.mockResolvedValueOnce("session-original");
+
+      await act(async () => {
+        await useTabStore.getState().addTab();
+      });
+
+      const tabId = useTabStore.getState().tabs[0].id;
+      mockInvoke.mockRejectedValueOnce(new Error("PTY spawn failed"));
+
+      await act(async () => {
+        await useTabStore.getState().duplicateTab(tabId);
+      });
+
+      expect(useTabStore.getState().tabs).toHaveLength(1);
+    });
+
+    it("splitPane does not modify layout when PTY spawn fails", async () => {
+      mockInvoke.mockResolvedValueOnce("session-1");
+
+      await act(async () => {
+        await useTabStore.getState().addTab();
+      });
+
+      const tabId = useTabStore.getState().tabs[0].id;
+      mockInvoke.mockRejectedValueOnce(new Error("PTY spawn failed"));
+
+      await act(async () => {
+        await useTabStore.getState().splitPane(tabId, "session-1", "vertical");
+      });
+
+      const layout = useTabStore.getState().tabs[0].layout;
+      expect(layout.type).toBe("leaf");
+    });
+  });
+
+  describe("tab title max length", () => {
+    it("truncates title to MAX_TITLE_LENGTH characters", async () => {
+      mockInvoke.mockResolvedValueOnce("session-1");
+
+      await act(async () => {
+        await useTabStore.getState().addTab();
+      });
+
+      const tabId = useTabStore.getState().tabs[0].id;
+      const longTitle = "A".repeat(MAX_TITLE_LENGTH + 50);
+
+      act(() => {
+        useTabStore.getState().renameTab(tabId, longTitle);
+      });
+
+      const title = useTabStore.getState().tabs[0].title;
+      expect(title).toHaveLength(MAX_TITLE_LENGTH);
+    });
+
+    it("allows titles up to MAX_TITLE_LENGTH", async () => {
+      mockInvoke.mockResolvedValueOnce("session-1");
+
+      await act(async () => {
+        await useTabStore.getState().addTab();
+      });
+
+      const tabId = useTabStore.getState().tabs[0].id;
+      const exactTitle = "B".repeat(MAX_TITLE_LENGTH);
+
+      act(() => {
+        useTabStore.getState().renameTab(tabId, exactTitle);
+      });
+
+      expect(useTabStore.getState().tabs[0].title).toBe(exactTitle);
     });
   });
 });
@@ -840,7 +930,6 @@ function getDeepestSessionId(node: PaneNode): string {
 function getPaneDepth(node: PaneNode): number {
   if (node.type === "leaf") return 1;
   return (
-    1 +
-    Math.max(getPaneDepth(node.children[0]), getPaneDepth(node.children[1]))
+    1 + Math.max(getPaneDepth(node.children[0]), getPaneDepth(node.children[1]))
   );
 }
