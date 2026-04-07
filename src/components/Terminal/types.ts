@@ -104,7 +104,8 @@ export const TERMINAL_CONFIG = {
   /** Default font size in pixels. */
   fontSize: 14,
   /** Font family for the terminal. */
-  fontFamily: '"JetBrains Mono", "Fira Code", "Cascadia Code", Menlo, Monaco, "Courier New", monospace',
+  fontFamily:
+    '"JetBrains Mono", "Fira Code", "Cascadia Code", Menlo, Monaco, "Courier New", monospace',
   /** Scrollback buffer size in lines. */
   scrollback: 10_000,
   /** Default terminal dimensions. */

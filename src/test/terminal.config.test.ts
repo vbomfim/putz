@@ -7,7 +7,10 @@
  * Tags: [CONTRACT], [AC-6], [AC-7]
  */
 import { describe, it, expect } from "vitest";
-import { TERMINAL_CONFIG, DEFAULT_TERMINAL_THEME } from "../components/Terminal/types";
+import {
+  TERMINAL_CONFIG,
+  DEFAULT_TERMINAL_THEME,
+} from "../components/Terminal/types";
 
 describe("Terminal Configuration Contract", () => {
   /**
@@ -60,9 +63,22 @@ describe("Terminal Theme Contract", () => {
    */
   it("includes all 16 ANSI colors", () => {
     const colors = [
-      "black", "red", "green", "yellow", "blue", "magenta", "cyan", "white",
-      "brightBlack", "brightRed", "brightGreen", "brightYellow",
-      "brightBlue", "brightMagenta", "brightCyan", "brightWhite",
+      "black",
+      "red",
+      "green",
+      "yellow",
+      "blue",
+      "magenta",
+      "cyan",
+      "white",
+      "brightBlack",
+      "brightRed",
+      "brightGreen",
+      "brightYellow",
+      "brightBlue",
+      "brightMagenta",
+      "brightCyan",
+      "brightWhite",
     ] as const;
 
     for (const color of colors) {

@@ -1,15 +1,16 @@
 /**
- * Edge case tests for the App component.
+ * Edge case tests for the App component with tabbed UI.
  *
- * Tests error handling, session lifecycle, and UI state transitions
- * not covered by the core App.test.tsx or App.interaction.test.tsx.
+ * Tests empty state, multi-tab management, and UI state transitions
+ * specific to the tabbed architecture (Issue #5).
  *
- * Tags: [EDGE], [COVERAGE], [AC-1]
+ * Tags: [EDGE], [COVERAGE], [AC-1], [AC-2]
  */
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import App from "../App";
+import { useTabStore } from "../stores/tabStore";
 
 // --- Mock Tauri APIs ---
 
@@ -23,182 +24,87 @@ vi.mock("@tauri-apps/api/event", () => ({
   listen: (...args: unknown[]) => mockListen(...args),
 }));
 
-describe("App — Edge Cases", () => {
+// Mock allotment
+vi.mock("allotment", () => {
+  const AllotmentComponent = ({ children }: { children: React.ReactNode }) => (
+    <div data-testid="allotment-container">{children}</div>
+  );
+
+  AllotmentComponent.Pane = ({ children }: { children: React.ReactNode }) => (
+    <div>{children}</div>
+  );
+
+  return { Allotment: AllotmentComponent };
+});
+
+vi.mock("allotment/dist/style.css", () => ({}));
+
+describe("App — Edge Cases (Tabbed UI)", () => {
   beforeEach(() => {
     mockInvoke.mockReset().mockResolvedValue(undefined);
     mockListen.mockReset().mockResolvedValue(vi.fn());
-    // Reset document title
-    document.title = "Putz";
+    useTabStore.setState({ tabs: [], activeTabId: "", tabCounter: 0 });
   });
 
   /**
-   * [EDGE] Error message includes the actual error text from the backend.
-   * Helps users debug shell-not-found, permission denied, etc.
+   * [EDGE] App creates exactly one tab on mount.
    */
-  it("error message includes specific error text from invoke failure", async () => {
-    mockInvoke.mockRejectedValueOnce(
-      new Error("Failed to spawn PTY: /bin/nonexistent: No such file or directory"),
-    );
+  it("creates exactly one tab on initial mount", async () => {
+    mockInvoke.mockResolvedValueOnce("session-1");
 
     render(<App />);
 
     await waitFor(() => {
-      const errorEl = screen.getByTestId("app-error");
-      expect(errorEl).toHaveTextContent("No such file or directory");
+      const tabs = screen.getAllByRole("tab");
+      expect(tabs).toHaveLength(1);
     });
   });
 
   /**
-   * [EDGE] Multiple consecutive failures show the latest error message.
+   * [EDGE] Adding a new tab via the + button creates a second tab.
    */
-  it("shows latest error after multiple spawn failures", async () => {
+  it("adds a new tab when + button is clicked", async () => {
     const user = userEvent.setup();
-
     mockInvoke
-      .mockRejectedValueOnce(new Error("First error: timeout"))
-      .mockRejectedValueOnce(new Error("Second error: permission denied"));
-
-    render(<App />);
-
-    // Wait for first error
-    await waitFor(() => {
-      expect(screen.getByTestId("app-error")).toHaveTextContent("First error");
-    });
-
-    // Click retry
-    await user.click(screen.getByRole("button", { name: "Retry" }));
-
-    // Wait for second error
-    await waitFor(() => {
-      expect(screen.getByTestId("app-error")).toHaveTextContent("Second error");
-    });
-  });
-
-  /**
-   * [COVERAGE] [AC-1] Title change callback updates document.title.
-   * When a shell sets its title via escape sequence (\e]0;title\a),
-   * the window title should update to "title — Putz".
-   */
-  it("onTitleChange callback updates document.title", async () => {
-    // We can't directly trigger onTitleChange through the component,
-    // but we can verify the callback is set up by checking the
-    // document.title format after a spawn.
-    mockInvoke.mockResolvedValueOnce("title-test-session");
+      .mockResolvedValueOnce("session-1") // initial tab
+      .mockResolvedValueOnce("session-2"); // new tab
 
     render(<App />);
 
     await waitFor(() => {
-      expect(screen.getByTestId("terminal-wrapper")).toBeInTheDocument();
+      expect(screen.getByRole("tab")).toBeInTheDocument();
     });
 
-    // The handleTitleChange callback in App.tsx:
-    // title ? `${title} — Putz` : "Putz"
-    // Simulate what happens when title is empty (reset)
-    // We test the callback logic directly since we can't trigger xterm events
-    expect(document.title).toBe("Putz"); // Default, not yet changed
-  });
+    const addBtn = screen.getByLabelText("New tab");
+    await user.click(addBtn);
 
-  /**
-   * [EDGE] Loading state shows while pty_spawn is pending.
-   * Covers the window between mount and spawn resolution.
-   */
-  it("shows loading state with accessible text during spawn", () => {
-    // Never resolve — stay in loading forever
-    mockInvoke.mockReturnValue(new Promise(() => {}));
-
-    render(<App />);
-
-    const loading = screen.getByTestId("app-loading");
-    expect(loading).toBeInTheDocument();
-    expect(loading).toHaveTextContent("Starting terminal");
-    expect(loading).toBeVisible();
-  });
-
-  /**
-   * [EDGE] Retry resets state to loading before attempting new spawn.
-   */
-  it("shows loading state briefly during retry", async () => {
-    const user = userEvent.setup();
-
-    // First: fail. Second: never resolve (stays loading)
-    mockInvoke
-      .mockRejectedValueOnce(new Error("initial failure"))
-      .mockReturnValueOnce(new Promise(() => {}));
-
-    render(<App />);
-
-    // Wait for error
     await waitFor(() => {
-      expect(screen.getByTestId("app-error")).toBeInTheDocument();
-    });
-
-    // Click retry
-    await user.click(screen.getByRole("button", { name: "Retry" }));
-
-    // Should be back to loading (sessionId is null, error is null)
-    await waitFor(() => {
-      expect(screen.getByTestId("app-loading")).toBeInTheDocument();
+      const tabs = screen.getAllByRole("tab");
+      expect(tabs).toHaveLength(2);
     });
   });
 });
 
-describe("App — Session Management", () => {
+describe("App — Session Management (Tabbed UI)", () => {
   beforeEach(() => {
     mockInvoke.mockReset().mockResolvedValue(undefined);
     mockListen.mockReset().mockResolvedValue(vi.fn());
+    useTabStore.setState({ tabs: [], activeTabId: "", tabCounter: 0 });
   });
 
   /**
-   * [CONTRACT] [AC-1] pty_spawn returns a UUID session ID.
-   * The App stores this and passes it to TerminalView.
+   * [CONTRACT] [AC-1] pty_spawn is called for the initial tab.
    */
-  it("passes session ID from pty_spawn to TerminalView", async () => {
-    mockInvoke.mockResolvedValueOnce("550e8400-e29b-41d4-a716-446655440000");
-
-    render(<App />);
-
-    // Terminal should render (sessionId is truthy)
-    await waitFor(() => {
-      expect(screen.getByTestId("terminal-wrapper")).toBeInTheDocument();
-    });
-
-    // Listen should be called with the session-scoped event name
-    await waitFor(() => {
-      expect(mockListen).toHaveBeenCalledWith(
-        "pty-output-550e8400-e29b-41d4-a716-446655440000",
-        expect.any(Function),
-      );
-    });
-  });
-
-  /**
-   * [EDGE] [AC-1] Successful retry creates a new session with fresh ID.
-   */
-  it("creates new session with different ID on retry", async () => {
-    const user = userEvent.setup();
-
-    mockInvoke
-      .mockRejectedValueOnce(new Error("first failure"))
-      .mockResolvedValueOnce("new-session-after-retry");
+  it("calls pty_spawn for the initial tab", async () => {
+    mockInvoke.mockResolvedValueOnce("session-abc");
 
     render(<App />);
 
     await waitFor(() => {
-      expect(screen.getByTestId("app-error")).toBeInTheDocument();
-    });
-
-    await user.click(screen.getByRole("button", { name: "Retry" }));
-
-    await waitFor(() => {
-      expect(screen.getByTestId("terminal-wrapper")).toBeInTheDocument();
-    });
-
-    // Verify listen was called with the new session ID
-    await waitFor(() => {
-      expect(mockListen).toHaveBeenCalledWith(
-        "pty-output-new-session-after-retry",
-        expect.any(Function),
-      );
+      expect(mockInvoke).toHaveBeenCalledWith("pty_spawn", {
+        cols: 80,
+        rows: 24,
+      });
     });
   });
 });

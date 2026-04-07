@@ -67,7 +67,10 @@ export function TerminalView({
         data-testid="terminal-container"
       />
       {hasExited && onRestart && (
-        <div className="terminal-exit-overlay" data-testid="terminal-exit-overlay">
+        <div
+          className="terminal-exit-overlay"
+          data-testid="terminal-exit-overlay"
+        >
           <button
             className="terminal-restart-btn"
             onClick={onRestart}
