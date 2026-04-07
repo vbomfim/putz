@@ -32,6 +32,7 @@ russh = "0.46"
 russh-keys = "0.46"
 sha2 = "0.10"
 serialport = "4.9"
+regex = "1"
 
 [dev-dependencies]
 tempfile = "3"
