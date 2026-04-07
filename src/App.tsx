@@ -4,7 +4,9 @@
  * Renders a tabbed terminal interface with:
  * - SessionSidebar on the left for session management
  * - TabBar at the top for tab management
+ * - Toolbar (optional) for quick-access actions
  * - SplitContainer for the active tab's pane layout
+ * - ShortcutsPanel modal for keyboard shortcuts reference
  * - Empty state with "New Terminal" prompt when no tabs exist
  */
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -12,9 +14,12 @@ import { useTabStore } from "./stores/tabStore";
 import { useBroadcastStore } from "./stores/broadcastStore";
 import { TabBar } from "./components/TabBar";
 import { BroadcastBar } from "./components/BroadcastBar";
+import { Toolbar } from "./components/Toolbar";
+import { ShortcutsPanel } from "./components/Help";
 import { SplitContainer } from "./components/SplitPane";
 import { SessionSidebar } from "./components/SessionManager";
 import { UpdateChecker } from "./components/UpdateChecker";
+import { useMenuEvents } from "./utils/useMenuEvents";
 import type { SessionProfile } from "./components/SessionManager";
 import "./components/SessionManager/SessionManager.css";
 import "./styles/App.css";
@@ -27,6 +32,9 @@ function App() {
   const broadcastTargetIds = useBroadcastStore((s) => s.targetTabIds);
   const hasInitialized = useRef(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  // Listen for native menu events from the Tauri backend
+  useMenuEvents();
 
   // Create the first tab on mount
   useEffect(() => {
@@ -56,6 +64,8 @@ function App() {
       <main className="app-container" data-testid="app-root">
         <UpdateChecker />
         <TabBar />
+        <Toolbar />
+        <ShortcutsPanel />
         <div className="app-empty-state" data-testid="app-empty-state">
           <p>No open terminals</p>
           <button
@@ -94,7 +104,9 @@ function App() {
         </button>
       )}
       <TabBar />
+      <Toolbar />
       <BroadcastBar />
+      <ShortcutsPanel />
       <div className="app-content">
         {tabs.map((tab) => (
           <SplitContainer

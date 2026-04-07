@@ -3,6 +3,7 @@ mod highlight;
 mod ipc;
 mod keys;
 mod logging;
+mod menu;
 mod protocol;
 mod pty;
 mod scripting;
@@ -48,6 +49,14 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_process::init())
+        .setup(|app| {
+            let menu = menu::build_menu(app.handle())?;
+            app.set_menu(menu)?;
+            Ok(())
+        })
+        .on_menu_event(|app, event| {
+            menu::handle_menu_event(app, &event);
+        })
         .manage(PtyManager::new())
         .manage(SessionManager::new())
         .manage(ConnectionManager::new())

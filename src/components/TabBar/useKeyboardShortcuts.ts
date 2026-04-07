@@ -9,6 +9,7 @@
 import { useEffect, useCallback } from "react";
 import { useTabStore } from "../../stores/tabStore";
 import { useBroadcastStore } from "../../stores/broadcastStore";
+import { useSettingsStore } from "../../stores/settingsStore";
 
 /** Registers global keyboard shortcuts for tab and pane management. */
 export function useKeyboardShortcuts(): void {
@@ -21,6 +22,7 @@ export function useKeyboardShortcuts(): void {
   const toggleSearch = useTabStore((s) => s.toggleSearch);
   const toggleLogging = useTabStore((s) => s.toggleLogging);
   const toggleBroadcast = useBroadcastStore((s) => s.toggle);
+  const toggleShortcutsPanel = useSettingsStore((s) => s.toggleShortcutsPanel);
 
   const handleKeyDown = useCallback(
     (e: KeyboardEvent) => {
@@ -107,6 +109,20 @@ export function useKeyboardShortcuts(): void {
         );
         return;
       }
+
+      // Ctrl+Shift+? — Toggle keyboard shortcuts panel
+      if (e.key === "?" && e.shiftKey) {
+        e.preventDefault();
+        toggleShortcutsPanel();
+        return;
+      }
+
+      // Ctrl+Shift+H — Toggle highlighting (placeholder)
+      if (key === "h" && e.shiftKey) {
+        e.preventDefault();
+        // Placeholder — future highlighting toggle
+        return;
+      }
     },
     [
       addTab,
@@ -118,6 +134,7 @@ export function useKeyboardShortcuts(): void {
       toggleSearch,
       toggleLogging,
       toggleBroadcast,
+      toggleShortcutsPanel,
     ],
   );
 
