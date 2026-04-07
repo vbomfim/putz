@@ -117,7 +117,7 @@ export function SessionTree({
     (e: React.KeyboardEvent) => {
       if (!selectedId) return;
 
-      const flatNodes = flattenNodes(nodes);
+      const flatNodes = flattenNodes(nodes, expandedFolders);
       const currentIndex = flatNodes.findIndex((n) => n.id === selectedId);
 
       switch (e.key) {
@@ -425,13 +425,13 @@ function protocolIcon(protocol: string): string {
 /** Flattens visible tree nodes for keyboard navigation. */
 function flattenNodes(
   nodes: SessionNode[],
-  _expandedFolders?: Set<string>,
+  expandedFolders: Set<string>,
 ): SessionNode[] {
   const flat: SessionNode[] = [];
   for (const node of nodes) {
     flat.push(node);
-    if (node.type === "folder") {
-      flat.push(...flattenNodes(node.children, _expandedFolders));
+    if (node.type === "folder" && expandedFolders.has(node.id)) {
+      flat.push(...flattenNodes(node.children, expandedFolders));
     }
   }
   return flat;

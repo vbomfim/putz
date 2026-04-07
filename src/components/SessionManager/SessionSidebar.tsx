@@ -135,6 +135,9 @@ export function SessionSidebar({
   /** Deletes a session after confirmation. */
   const handleSessionDelete = useCallback(
     async (sessionId: string) => {
+      if (!window.confirm("Delete this session? This cannot be undone.")) {
+        return;
+      }
       try {
         await api.sessionDelete(sessionId);
         await loadTree();
@@ -177,9 +180,12 @@ export function SessionSidebar({
     [loadTree],
   );
 
-  /** Deletes a folder. */
+  /** Deletes a folder after confirmation. */
   const handleFolderDelete = useCallback(
     async (folderId: string) => {
+      if (!window.confirm("Delete this folder? This cannot be undone.")) {
+        return;
+      }
       try {
         await api.sessionDeleteFolder(folderId);
         await loadTree();

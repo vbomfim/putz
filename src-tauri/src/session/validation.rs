@@ -106,6 +106,70 @@ pub fn validate_uuid(id: &str) -> Result<(), SessionError> {
     Ok(())
 }
 
+/// Maximum length for username.
+const MAX_USERNAME_LENGTH: usize = 128;
+
+/// Maximum length for serial port path.
+const MAX_SERIAL_PORT_LENGTH: usize = 256;
+
+/// Validates a username field.
+///
+/// Rules:
+/// - Must not be empty or whitespace-only
+/// - Must not exceed 128 characters
+/// - Must not contain path separators or null bytes
+pub fn validate_username(username: &str) -> Result<(), SessionError> {
+    let trimmed = username.trim();
+    if trimmed.is_empty() {
+        return Err(SessionError::InvalidInput(
+            "Username cannot be empty".into(),
+        ));
+    }
+    if trimmed.len() > MAX_USERNAME_LENGTH {
+        return Err(SessionError::InvalidInput(format!(
+            "Username exceeds maximum length of {MAX_USERNAME_LENGTH} characters"
+        )));
+    }
+    if trimmed.contains('\0') {
+        return Err(SessionError::InvalidInput(
+            "Username cannot contain null bytes".into(),
+        ));
+    }
+    Ok(())
+}
+
+/// Validates a serial port path.
+///
+/// Rules:
+/// - Must not be empty or whitespace-only
+/// - Must not exceed 256 characters
+/// - Must not contain path traversal (`..`)
+/// - Must not contain null bytes
+pub fn validate_serial_port(serial_port: &str) -> Result<(), SessionError> {
+    let trimmed = serial_port.trim();
+    if trimmed.is_empty() {
+        return Err(SessionError::InvalidInput(
+            "Serial port cannot be empty".into(),
+        ));
+    }
+    if trimmed.len() > MAX_SERIAL_PORT_LENGTH {
+        return Err(SessionError::InvalidInput(format!(
+            "Serial port exceeds maximum length of {MAX_SERIAL_PORT_LENGTH} characters"
+        )));
+    }
+    if trimmed.contains("..") {
+        return Err(SessionError::InvalidInput(
+            "Serial port cannot contain '..' (path traversal)".into(),
+        ));
+    }
+    if trimmed.contains('\0') {
+        return Err(SessionError::InvalidInput(
+            "Serial port cannot contain null bytes".into(),
+        ));
+    }
+    Ok(())
+}
+
 /// Simple hostname/IPv4 validation.
 fn is_valid_hostname_or_ipv4(host: &str) -> bool {
     if host.is_empty() {
@@ -281,5 +345,69 @@ mod tests {
     #[test]
     fn uuid_without_hyphens_accepted() {
         assert!(validate_uuid("550e8400e29b41d4a716446655440000").is_ok());
+    }
+
+    // ─── Username validation ──────────────────────────────────
+
+    #[test]
+    fn valid_username() {
+        assert!(validate_username("admin").is_ok());
+        assert!(validate_username("root").is_ok());
+        assert!(validate_username("user@domain").is_ok());
+    }
+
+    #[test]
+    fn username_empty_rejected() {
+        assert!(validate_username("").is_err());
+        assert!(validate_username("   ").is_err());
+    }
+
+    #[test]
+    fn username_too_long_rejected() {
+        let long = "u".repeat(129);
+        assert!(validate_username(&long).is_err());
+    }
+
+    #[test]
+    fn username_at_max_length_accepted() {
+        let name = "u".repeat(128);
+        assert!(validate_username(&name).is_ok());
+    }
+
+    #[test]
+    fn username_with_null_byte_rejected() {
+        assert!(validate_username("user\0name").is_err());
+    }
+
+    // ─── Serial port validation ───────────────────────────────
+
+    #[test]
+    fn valid_serial_port() {
+        assert!(validate_serial_port("/dev/ttyUSB0").is_ok());
+        assert!(validate_serial_port("COM1").is_ok());
+        assert!(validate_serial_port("/dev/tty.usbserial-1234").is_ok());
+    }
+
+    #[test]
+    fn serial_port_empty_rejected() {
+        assert!(validate_serial_port("").is_err());
+        assert!(validate_serial_port("   ").is_err());
+    }
+
+    #[test]
+    fn serial_port_too_long_rejected() {
+        let long = "p".repeat(257);
+        assert!(validate_serial_port(&long).is_err());
+    }
+
+    #[test]
+    fn serial_port_path_traversal_rejected() {
+        assert!(validate_serial_port("../../etc/passwd").is_err());
+        assert!(validate_serial_port("/dev/../secret").is_err());
+    }
+
+    #[test]
+    fn serial_port_null_byte_rejected() {
+        assert!(validate_serial_port("/dev/tty\0USB0").is_err());
     }
 }

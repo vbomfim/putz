@@ -7,6 +7,5 @@ pub mod manager;
 pub mod models;
 pub mod validation;
 
-pub use error::SessionError;
 pub use manager::SessionManager;
 pub use models::*;

@@ -22,6 +22,10 @@ pub enum SessionError {
     FolderNotEmpty(String),
     /// Duplicate name within the same folder.
     DuplicateName(String),
+    /// Internal mutex was poisoned.
+    LockError(String),
+    /// Resource limit exceeded.
+    LimitExceeded(String),
 }
 
 impl fmt::Display for SessionError {
@@ -37,6 +41,10 @@ impl fmt::Display for SessionError {
             }
             Self::DuplicateName(name) => {
                 write!(f, "Duplicate name in folder: {name}")
+            }
+            Self::LockError(msg) => write!(f, "Lock error: {msg}"),
+            Self::LimitExceeded(msg) => {
+                write!(f, "Limit exceeded: {msg}")
             }
         }
     }
@@ -100,6 +108,18 @@ mod tests {
     fn display_duplicate_name() {
         let err = SessionError::DuplicateName("My Server".into());
         assert_eq!(err.to_string(), "Duplicate name in folder: My Server");
+    }
+
+    #[test]
+    fn display_lock_error() {
+        let err = SessionError::LockError("mutex poisoned".into());
+        assert_eq!(err.to_string(), "Lock error: mutex poisoned");
+    }
+
+    #[test]
+    fn display_limit_exceeded() {
+        let err = SessionError::LimitExceeded("too many sessions".into());
+        assert_eq!(err.to_string(), "Limit exceeded: too many sessions");
     }
 
     #[test]

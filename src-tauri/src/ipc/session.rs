@@ -128,7 +128,7 @@ pub fn session_delete_folder(
 
 #[cfg(test)]
 mod tests {
-    use crate::session::SessionError;
+    use crate::session::error::SessionError;
 
     #[test]
     fn session_error_to_string_format() {

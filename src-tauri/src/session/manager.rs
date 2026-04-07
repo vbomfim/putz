@@ -9,7 +9,7 @@
 /// Thread safety: Inner state is behind `Mutex<SessionStore>`.
 use std::fs;
 use std::path::{Path, PathBuf};
-use std::sync::Mutex;
+use std::sync::{Mutex, MutexGuard};
 
 use directories::ProjectDirs;
 
@@ -22,6 +22,15 @@ const MAX_BACKUPS: u32 = 5;
 
 /// Sessions file name.
 const SESSIONS_FILE: &str = "sessions.json";
+
+/// Maximum number of session profiles allowed.
+const MAX_SESSIONS: usize = 10_000;
+
+/// Maximum number of folders allowed.
+const MAX_FOLDERS: usize = 1_000;
+
+/// Maximum import payload size in bytes (10 MB).
+const MAX_IMPORT_SIZE: usize = 10 * 1024 * 1024;
 
 /// Session manager holding the in-memory store and config directory path.
 pub struct SessionManager {
@@ -61,6 +70,13 @@ impl SessionManager {
             // Fallback to current directory (should rarely happen)
             PathBuf::from(".")
         }
+    }
+
+    /// Acquires the internal mutex, returning a graceful error on poisoning.
+    fn lock_store(&self) -> Result<MutexGuard<'_, SessionStore>, SessionError> {
+        self.store.lock().map_err(|e| {
+            SessionError::LockError(format!("Session store mutex poisoned: {e}"))
+        })
     }
 
     /// Loads the session store from disk, with backup fallback.
@@ -150,37 +166,65 @@ impl SessionManager {
         if path.exists() {
             let backup_1 = self.config_dir.join("sessions.backup.1.json");
             let _ = fs::copy(&path, &backup_1);
+
+            // Set permissions on backup file (Unix only)
+            #[cfg(unix)]
+            {
+                use std::os::unix::fs::PermissionsExt;
+                let perms = fs::Permissions::from_mode(0o600);
+                let _ = fs::set_permissions(&backup_1, perms);
+            }
         }
 
         Ok(())
     }
 
-    /// Returns the current ISO 8601 timestamp.
+    /// Returns the current ISO 8601 / RFC 3339 timestamp.
     fn now_iso8601() -> String {
-        // Use std::time to avoid adding chrono dependency
-        let now = std::time::SystemTime::now();
-        let duration = now
-            .duration_since(std::time::UNIX_EPOCH)
-            .unwrap_or_default();
-        let secs = duration.as_secs();
-
-        // Convert to simple ISO 8601 format
-        // This is approximate but sufficient for ordering and display
-        let days = secs / 86400;
-        let remaining = secs % 86400;
-        let hours = remaining / 3600;
-        let minutes = (remaining % 3600) / 60;
-        let seconds = remaining % 60;
-
-        // Calculate year/month/day from days since epoch (1970-01-01)
-        let (year, month, day) = days_to_ymd(days);
-
-        format!(
-            "{year:04}-{month:02}-{day:02}T{hours:02}:{minutes:02}:{seconds:02}Z"
-        )
+        use time::format_description::well_known::Rfc3339;
+        time::OffsetDateTime::now_utc()
+            .format(&Rfc3339)
+            .unwrap_or_else(|_| "1970-01-01T00:00:00Z".to_string())
     }
 
     // ─── CRUD: Sessions ────────────────────────────────────────
+
+    /// Validates protocol-specific required fields.
+    ///
+    /// - SSH and Telnet require a host.
+    /// - Serial requires a serial_port.
+    fn validate_protocol_fields(
+        protocol: &Protocol,
+        host: &Option<String>,
+        serial_port: &Option<String>,
+    ) -> Result<(), SessionError> {
+        match protocol {
+            Protocol::Ssh | Protocol::Telnet => {
+                if host.as_ref().is_none_or(|h| h.trim().is_empty()) {
+                    return Err(SessionError::InvalidInput(format!(
+                        "{} sessions require a host",
+                        if matches!(protocol, Protocol::Ssh) {
+                            "SSH"
+                        } else {
+                            "Telnet"
+                        }
+                    )));
+                }
+            }
+            Protocol::Serial => {
+                if serial_port
+                    .as_ref()
+                    .is_none_or(|p| p.trim().is_empty())
+                {
+                    return Err(SessionError::InvalidInput(
+                        "Serial sessions require a serial port".into(),
+                    ));
+                }
+            }
+            Protocol::Local => {} // No required fields
+        }
+        Ok(())
+    }
 
     /// Creates a new session profile.
     pub fn create_session(
@@ -194,6 +238,17 @@ impl SessionManager {
         if let Some(port) = input.port {
             validation::validate_port(port)?;
         }
+        if let Some(ref username) = input.username {
+            validation::validate_username(username)?;
+        }
+        if let Some(ref serial_port) = input.serial_port {
+            validation::validate_serial_port(serial_port)?;
+        }
+        Self::validate_protocol_fields(
+            &input.protocol,
+            &input.host,
+            &input.serial_port,
+        )?;
 
         let id = uuid::Uuid::new_v4().to_string();
         let now = Self::now_iso8601();
@@ -216,7 +271,14 @@ impl SessionManager {
             updated_at: now,
         };
 
-        let mut store = self.store.lock().unwrap();
+        let mut store = self.lock_store()?;
+
+        // Enforce resource limit
+        if store.sessions.len() >= MAX_SESSIONS {
+            return Err(SessionError::LimitExceeded(format!(
+                "Maximum number of sessions ({MAX_SESSIONS}) reached"
+            )));
+        }
 
         // Verify folder exists (unless root)
         if profile.folder_id != "root"
@@ -234,7 +296,7 @@ impl SessionManager {
     /// Gets a session profile by ID.
     pub fn get_session(&self, id: &str) -> Result<SessionProfile, SessionError> {
         validation::validate_uuid(id)?;
-        let store = self.store.lock().unwrap();
+        let store = self.lock_store()?;
         store
             .sessions
             .iter()
@@ -260,8 +322,14 @@ impl SessionManager {
         if let Some(port) = input.port {
             validation::validate_port(port)?;
         }
+        if let Some(ref username) = input.username {
+            validation::validate_username(username)?;
+        }
+        if let Some(ref serial_port) = input.serial_port {
+            validation::validate_serial_port(serial_port)?;
+        }
 
-        let mut store = self.store.lock().unwrap();
+        let mut store = self.lock_store()?;
 
         // Verify target folder exists
         if let Some(ref folder_id) = input.folder_id {
@@ -315,6 +383,14 @@ impl SessionManager {
         if let Some(jump_host_id) = input.jump_host_id {
             session.jump_host_id = Some(jump_host_id);
         }
+
+        // Validate protocol-specific fields after merge
+        Self::validate_protocol_fields(
+            &session.protocol,
+            &session.host,
+            &session.serial_port,
+        )?;
+
         session.updated_at = Self::now_iso8601();
 
         self.save_to_disk(&store)?;
@@ -324,7 +400,7 @@ impl SessionManager {
     /// Deletes a session profile by ID.
     pub fn delete_session(&self, id: &str) -> Result<(), SessionError> {
         validation::validate_uuid(id)?;
-        let mut store = self.store.lock().unwrap();
+        let mut store = self.lock_store()?;
         let initial_len = store.sessions.len();
         store.sessions.retain(|s| s.id != id);
         if store.sessions.len() == initial_len {
@@ -337,7 +413,7 @@ impl SessionManager {
     /// Duplicates a session with a new ID and "(copy)" suffix.
     pub fn duplicate_session(&self, id: &str) -> Result<String, SessionError> {
         validation::validate_uuid(id)?;
-        let store = self.store.lock().unwrap();
+        let store = self.lock_store()?;
         let original = store
             .sessions
             .iter()
@@ -368,7 +444,7 @@ impl SessionManager {
     pub fn move_session(&self, input: MoveSessionInput) -> Result<(), SessionError> {
         validation::validate_uuid(&input.id)?;
 
-        let mut store = self.store.lock().unwrap();
+        let mut store = self.lock_store()?;
 
         // Verify target folder exists
         if input.target_folder_id != "root"
@@ -403,7 +479,14 @@ impl SessionManager {
         validation::validate_folder_name(name)?;
 
         let id = uuid::Uuid::new_v4().to_string();
-        let mut store = self.store.lock().unwrap();
+        let mut store = self.lock_store()?;
+
+        // Enforce resource limit
+        if store.folders.len() >= MAX_FOLDERS {
+            return Err(SessionError::LimitExceeded(format!(
+                "Maximum number of folders ({MAX_FOLDERS}) reached"
+            )));
+        }
 
         // Verify parent exists (unless root)
         if parent_id != "root"
@@ -438,7 +521,7 @@ impl SessionManager {
     /// Deletes a folder by ID. Fails if folder contains sessions or sub-folders.
     pub fn delete_folder(&self, id: &str) -> Result<(), SessionError> {
         validation::validate_uuid(id)?;
-        let mut store = self.store.lock().unwrap();
+        let mut store = self.lock_store()?;
 
         // Check for child sessions
         if store.sessions.iter().any(|s| s.folder_id == id) {
@@ -464,7 +547,10 @@ impl SessionManager {
 
     /// Builds a tree of SessionNodes for the frontend.
     pub fn list_tree(&self) -> Vec<SessionNode> {
-        let store = self.store.lock().unwrap();
+        let store = match self.lock_store() {
+            Ok(s) => s,
+            Err(_) => return Vec::new(),
+        };
         Self::build_children("root", &store)
     }
 
@@ -525,7 +611,10 @@ impl SessionManager {
             return Vec::new();
         }
 
-        let store = self.store.lock().unwrap();
+        let store = match self.lock_store() {
+            Ok(s) => s,
+            Err(_) => return Vec::new(),
+        };
         store
             .sessions
             .iter()
@@ -548,7 +637,7 @@ impl SessionManager {
 
     /// Exports the entire session store as a JSON string.
     pub fn export(&self) -> Result<String, SessionError> {
-        let store = self.store.lock().unwrap();
+        let store = self.lock_store()?;
         let json = serde_json::to_string_pretty(&*store)?;
         Ok(json)
     }
@@ -557,9 +646,34 @@ impl SessionManager {
     ///
     /// Merges imported data into the existing store. Imported sessions
     /// get new UUIDs to avoid conflicts. Name collisions get "(imported)" suffix.
+    /// Validates each imported item and enforces size/resource limits.
     pub fn import(&self, data: &str) -> Result<usize, SessionError> {
+        // Enforce import size limit
+        if data.len() > MAX_IMPORT_SIZE {
+            return Err(SessionError::LimitExceeded(format!(
+                "Import data exceeds maximum size of {} bytes",
+                MAX_IMPORT_SIZE
+            )));
+        }
+
         let imported_store: SessionStore = serde_json::from_str(data)?;
-        let mut store = self.store.lock().unwrap();
+        let mut store = self.lock_store()?;
+
+        // Check resource limits before importing
+        let total_sessions =
+            store.sessions.len() + imported_store.sessions.len();
+        if total_sessions > MAX_SESSIONS {
+            return Err(SessionError::LimitExceeded(format!(
+                "Import would exceed maximum sessions ({MAX_SESSIONS})"
+            )));
+        }
+        let total_folders =
+            store.folders.len() + imported_store.folders.len();
+        if total_folders > MAX_FOLDERS {
+            return Err(SessionError::LimitExceeded(format!(
+                "Import would exceed maximum folders ({MAX_FOLDERS})"
+            )));
+        }
 
         let mut count = 0;
 
@@ -569,6 +683,15 @@ impl SessionManager {
         folder_id_map.insert("root".into(), "root".into());
 
         for folder in &imported_store.folders {
+            // Validate each imported folder name
+            if let Err(e) = validation::validate_folder_name(&folder.name) {
+                eprintln!(
+                    "Warning: Skipping imported folder '{}': {e}",
+                    folder.name
+                );
+                continue;
+            }
+
             let new_id = uuid::Uuid::new_v4().to_string();
             folder_id_map.insert(folder.id.clone(), new_id.clone());
 
@@ -589,6 +712,52 @@ impl SessionManager {
         // Import sessions with new IDs
         let now = Self::now_iso8601();
         for session in &imported_store.sessions {
+            // Validate imported session fields
+            if let Err(e) = validation::validate_name(&session.name) {
+                eprintln!(
+                    "Warning: Skipping imported session '{}': {e}",
+                    session.name
+                );
+                continue;
+            }
+            if let Some(ref host) = session.host {
+                if let Err(e) = validation::validate_host(host) {
+                    eprintln!(
+                        "Warning: Skipping imported session '{}': {e}",
+                        session.name
+                    );
+                    continue;
+                }
+            }
+            if let Some(port) = session.port {
+                if let Err(e) = validation::validate_port(port) {
+                    eprintln!(
+                        "Warning: Skipping imported session '{}': {e}",
+                        session.name
+                    );
+                    continue;
+                }
+            }
+            if let Some(ref username) = session.username {
+                if let Err(e) = validation::validate_username(username) {
+                    eprintln!(
+                        "Warning: Skipping imported session '{}': {e}",
+                        session.name
+                    );
+                    continue;
+                }
+            }
+            if let Some(ref serial_port) = session.serial_port {
+                if let Err(e) = validation::validate_serial_port(serial_port)
+                {
+                    eprintln!(
+                        "Warning: Skipping imported session '{}': {e}",
+                        session.name
+                    );
+                    continue;
+                }
+            }
+
             let new_id = uuid::Uuid::new_v4().to_string();
 
             let folder_id = folder_id_map
@@ -630,22 +799,6 @@ impl SessionManager {
         self.save_to_disk(&store)?;
         Ok(count)
     }
-}
-
-/// Converts days since Unix epoch to (year, month, day).
-fn days_to_ymd(total_days: u64) -> (u64, u64, u64) {
-    // Algorithm from Howard Hinnant's date algorithms
-    let z = total_days + 719468;
-    let era = z / 146097;
-    let doe = z - era * 146097;
-    let yoe = (doe - doe / 1460 + doe / 36524 - doe / 146096) / 365;
-    let y = yoe + era * 400;
-    let doy = doe - (365 * yoe + yoe / 4 - yoe / 100);
-    let mp = (5 * doy + 2) / 153;
-    let d = doy - (153 * mp + 2) / 5 + 1;
-    let m = if mp < 10 { mp + 3 } else { mp - 9 };
-    let y = if m <= 2 { y + 1 } else { y };
-    (y, m, d)
 }
 
 #[cfg(test)]
@@ -1219,30 +1372,152 @@ mod tests {
     // ─── Timestamp ─────────────────────────────────────────────
 
     #[test]
-    fn now_iso8601_is_valid_format() {
+    fn now_iso8601_is_valid_rfc3339() {
         let ts = SessionManager::now_iso8601();
-        // Should match YYYY-MM-DDTHH:MM:SSZ pattern
+        // Should be valid RFC 3339 — ends with Z and contains T
         assert!(ts.ends_with('Z'));
-        assert_eq!(ts.len(), 20); // "2024-01-01T00:00:00Z"
+        assert!(ts.contains('T'));
         assert_eq!(&ts[4..5], "-");
         assert_eq!(&ts[7..8], "-");
-        assert_eq!(&ts[10..11], "T");
+        // Parse back with the time crate to verify
+        use time::format_description::well_known::Rfc3339;
+        assert!(
+            time::OffsetDateTime::parse(&ts, &Rfc3339).is_ok(),
+            "Timestamp '{}' should parse as RFC 3339",
+            ts
+        );
     }
 
-    // ─── days_to_ymd ───────────────────────────────────────────
+    // ─── Protocol-specific validation ─────────────────────────
 
     #[test]
-    fn days_to_ymd_epoch() {
-        // 1970-01-01
-        let (y, m, d) = days_to_ymd(0);
-        assert_eq!((y, m, d), (1970, 1, 1));
+    fn ssh_session_requires_host() {
+        let dir = temp_dir();
+        let mgr = SessionManager::with_config_dir(dir.clone());
+
+        let mut input = make_ssh_input("No Host SSH");
+        input.host = None;
+        let result = mgr.create_session(input);
+        assert!(matches!(result, Err(SessionError::InvalidInput(_))));
+
+        cleanup(&dir);
     }
 
     #[test]
-    fn days_to_ymd_known_date() {
-        // 2024-01-01 = 19723 days since epoch
-        let (y, m, d) = days_to_ymd(19723);
-        assert_eq!((y, m, d), (2024, 1, 1));
+    fn telnet_session_requires_host() {
+        let dir = temp_dir();
+        let mgr = SessionManager::with_config_dir(dir.clone());
+
+        let mut input = make_ssh_input("Telnet Server");
+        input.protocol = Protocol::Telnet;
+        input.host = None;
+        let result = mgr.create_session(input);
+        assert!(matches!(result, Err(SessionError::InvalidInput(_))));
+
+        cleanup(&dir);
+    }
+
+    #[test]
+    fn serial_session_requires_serial_port() {
+        let dir = temp_dir();
+        let mgr = SessionManager::with_config_dir(dir.clone());
+
+        let mut input = make_ssh_input("Serial Device");
+        input.protocol = Protocol::Serial;
+        input.host = None;
+        input.serial_port = None;
+        let result = mgr.create_session(input);
+        assert!(matches!(result, Err(SessionError::InvalidInput(_))));
+
+        cleanup(&dir);
+    }
+
+    #[test]
+    fn serial_session_with_port_succeeds() {
+        let dir = temp_dir();
+        let mgr = SessionManager::with_config_dir(dir.clone());
+
+        let mut input = make_ssh_input("Serial Device");
+        input.protocol = Protocol::Serial;
+        input.host = None;
+        input.serial_port = Some("/dev/ttyUSB0".into());
+        let result = mgr.create_session(input);
+        assert!(result.is_ok());
+
+        cleanup(&dir);
+    }
+
+    #[test]
+    fn local_session_needs_nothing() {
+        let dir = temp_dir();
+        let mgr = SessionManager::with_config_dir(dir.clone());
+
+        let mut input = make_ssh_input("Local Shell");
+        input.protocol = Protocol::Local;
+        input.host = None;
+        let result = mgr.create_session(input);
+        assert!(result.is_ok());
+
+        cleanup(&dir);
+    }
+
+    // ─── Resource limits ──────────────────────────────────────
+
+    #[test]
+    fn import_rejects_oversized_payload() {
+        let dir = temp_dir();
+        let mgr = SessionManager::with_config_dir(dir.clone());
+
+        let huge = "x".repeat(MAX_IMPORT_SIZE + 1);
+        let result = mgr.import(&huge);
+        assert!(matches!(result, Err(SessionError::LimitExceeded(_))));
+
+        cleanup(&dir);
+    }
+
+    #[test]
+    fn import_validates_session_names() {
+        let dir = temp_dir();
+        let mgr = SessionManager::with_config_dir(dir.clone());
+
+        // Import with an invalid session name (path traversal in name)
+        let bad_data = r#"{"version":1,"sessions":[{
+            "id":"abc","name":"../etc/passwd","folderId":"root",
+            "protocol":"ssh","host":"example.com","port":22,
+            "createdAt":"2024-01-01T00:00:00Z","updatedAt":"2024-01-01T00:00:00Z"
+        }],"folders":[]}"#;
+        let count = mgr.import(bad_data).unwrap();
+        // Session with path separator in name should be skipped
+        assert_eq!(count, 0);
+
+        cleanup(&dir);
+    }
+
+    // ─── Backup permissions ───────────────────────────────────
+
+    #[test]
+    fn backup_file_permissions_on_unix() {
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+
+            let dir = temp_dir();
+            let mgr = SessionManager::with_config_dir(dir.clone());
+            // Two writes to ensure backup.1 exists
+            mgr.create_session(make_ssh_input("First")).unwrap();
+            mgr.create_session(make_ssh_input("Second")).unwrap();
+
+            let backup_path = dir.join("sessions.backup.1.json");
+            assert!(backup_path.exists(), "backup.1 should exist");
+            let perms = fs::metadata(&backup_path).unwrap().permissions();
+            assert_eq!(
+                perms.mode() & 0o777,
+                0o600,
+                "backup file should have 0600 permissions"
+            );
+
+            cleanup(&dir);
+        }
     }
 
     // ─── Create session in folder ──────────────────────────────
