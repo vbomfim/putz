@@ -382,64 +382,90 @@ function App() {
       )}
 
       {/* Theme Editor overlay */}
-      {themeEditorOpen && (
-        <div
-          className="modal-overlay"
-          data-testid="theme-editor-overlay"
-          onClick={(e) => {
-            if (e.target === e.currentTarget) setThemeEditorOpen(false);
-          }}
-          role="dialog"
-          aria-modal="true"
-          aria-label="Theme Editor"
-        >
-          <div className="modal-panel modal-panel--wide" data-testid="theme-editor-panel">
-            <button
-              className="modal-close"
-              onClick={() => setThemeEditorOpen(false)}
-              aria-label="Close Theme Editor"
-            >
-              ✕
-            </button>
-            <ThemeEditor
-              themes={availableThemes}
-              editingTheme={null}
-              onSave={() => setThemeEditorOpen(false)}
-              onCancel={() => setThemeEditorOpen(false)}
-            />
-          </div>
-        </div>
-      )}
-
       {/* Font Config overlay */}
       {fontConfigOpen && (
-        <div
-          className="modal-overlay"
-          data-testid="font-config-overlay"
-          onClick={(e) => {
-            if (e.target === e.currentTarget) setFontConfigOpen(false);
-          }}
-          role="dialog"
-          aria-modal="true"
-          aria-label="Font Settings"
-        >
-          <div className="modal-panel" data-testid="font-config-panel">
-            <button
-              className="modal-close"
-              onClick={() => setFontConfigOpen(false)}
-              aria-label="Close Font Settings"
-            >
-              ✕
-            </button>
-            <FontConfig 
-              settings={useThemeStore.getState().fontSettings}
-              onChange={(s) => useThemeStore.getState().setFontSettings(s)}
-            />
-          </div>
-        </div>
+        <FontConfigOverlay onClose={() => setFontConfigOpen(false)} />
+      )}
+
+      {/* Theme Selector + Editor overlay */}
+      {themeEditorOpen && (
+        <ThemeOverlay 
+          themes={availableThemes}
+          onClose={() => setThemeEditorOpen(false)} 
+        />
       )}
     </main>
   );
 }
 
 export default App;
+
+/** Reactive Font Config overlay — reads from themeStore with hook */
+function FontConfigOverlay({ onClose }: { onClose: () => void }) {
+  const fontSettings = useThemeStore((s) => s.fontSettings);
+  const setFontSettings = useThemeStore((s) => s.setFontSettings);
+  return (
+    <div className="modal-overlay" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }} role="dialog" aria-modal="true" aria-label="Font Settings">
+      <div className="modal-panel">
+        <button className="modal-close" onClick={onClose} aria-label="Close">✕</button>
+        <FontConfig settings={fontSettings} onChange={setFontSettings} />
+      </div>
+    </div>
+  );
+}
+
+/** Theme selection + editor overlay */
+function ThemeOverlay({ themes, onClose }: { themes: Theme[]; onClose: () => void }) {
+  const activeThemeId = useThemeStore((s) => s.activeThemeId);
+  const setActiveTheme = useThemeStore((s) => s.setActiveTheme);
+  const [editing, setEditing] = useState(false);
+  
+  const handleSelectTheme = (theme: Theme) => {
+    setActiveTheme(theme.id, theme.colors);
+  };
+  
+  if (editing) {
+    return (
+      <div className="modal-overlay" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }} role="dialog" aria-modal="true" aria-label="Theme Editor">
+        <div className="modal-panel modal-panel--wide">
+          <button className="modal-close" onClick={() => setEditing(false)} aria-label="Back">←</button>
+          <ThemeEditor themes={themes} editingTheme={null} onSave={() => { setEditing(false); }} onCancel={() => setEditing(false)} />
+        </div>
+      </div>
+    );
+  }
+  
+  return (
+    <div className="modal-overlay" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }} role="dialog" aria-modal="true" aria-label="Theme Selector">
+      <div className="modal-panel">
+        <button className="modal-close" onClick={onClose} aria-label="Close">✕</button>
+        <h3 style={{ margin: "0 0 16px", color: "#cdd6f4" }}>Color Themes</h3>
+        <div style={{ display: "flex", flexDirection: "column", gap: "8px", maxHeight: "400px", overflowY: "auto" }}>
+          {themes.map((theme) => (
+            <button
+              key={theme.id}
+              onClick={() => handleSelectTheme(theme)}
+              style={{
+                display: "flex", alignItems: "center", gap: "12px",
+                padding: "10px 14px", border: theme.id === activeThemeId ? "2px solid #89b4fa" : "1px solid #45475a",
+                borderRadius: "6px", background: theme.colors.background || "#1e1e2e",
+                color: theme.colors.foreground || "#cdd6f4", cursor: "pointer", textAlign: "left",
+              }}
+            >
+              <div style={{ display: "flex", gap: "3px" }}>
+                {[theme.colors.red, theme.colors.green, theme.colors.blue, theme.colors.yellow, theme.colors.magenta, theme.colors.cyan].map((c, i) => (
+                  <div key={i} style={{ width: "14px", height: "14px", borderRadius: "50%", background: c }} />
+                ))}
+              </div>
+              <span style={{ fontWeight: theme.id === activeThemeId ? "bold" : "normal" }}>{theme.name}</span>
+              {theme.id === activeThemeId && <span style={{ marginLeft: "auto", fontSize: "12px", opacity: 0.7 }}>✓ Active</span>}
+            </button>
+          ))}
+        </div>
+        <button onClick={() => setEditing(true)} style={{ marginTop: "16px", padding: "8px 16px", background: "#89b4fa", color: "#1e1e2e", border: "none", borderRadius: "6px", cursor: "pointer", fontWeight: "bold" }}>
+          + Create Custom Theme
+        </button>
+      </div>
+    </div>
+  );
+}
