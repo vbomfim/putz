@@ -435,34 +435,46 @@ function ThemeOverlay({ themes, onClose }: { themes: Theme[]; onClose: () => voi
     );
   }
   
+  // Side panel — no dark overlay so user sees theme changes live
   return (
-    <div className="modal-overlay" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }} role="dialog" aria-modal="true" aria-label="Theme Selector">
-      <div className="modal-panel">
-        <button className="modal-close" onClick={onClose} aria-label="Close">✕</button>
-        <h3 style={{ margin: "0 0 16px", color: "#cdd6f4" }}>Color Themes</h3>
-        <div style={{ display: "flex", flexDirection: "column", gap: "8px", maxHeight: "400px", overflowY: "auto" }}>
-          {themes.map((theme) => (
-            <button
-              key={theme.id}
-              onClick={() => handleSelectTheme(theme)}
-              style={{
-                display: "flex", alignItems: "center", gap: "12px",
-                padding: "10px 14px", border: theme.id === activeThemeId ? "2px solid #89b4fa" : "1px solid #45475a",
-                borderRadius: "6px", background: theme.colors.background || "#1e1e2e",
-                color: theme.colors.foreground || "#cdd6f4", cursor: "pointer", textAlign: "left",
-              }}
-            >
-              <div style={{ display: "flex", gap: "3px" }}>
-                {[theme.colors.red, theme.colors.green, theme.colors.blue, theme.colors.yellow, theme.colors.magenta, theme.colors.cyan].map((c, i) => (
-                  <div key={i} style={{ width: "14px", height: "14px", borderRadius: "50%", background: c }} />
-                ))}
-              </div>
-              <span style={{ fontWeight: theme.id === activeThemeId ? "bold" : "normal" }}>{theme.name}</span>
-              {theme.id === activeThemeId && <span style={{ marginLeft: "auto", fontSize: "12px", opacity: 0.7 }}>✓ Active</span>}
-            </button>
-          ))}
-        </div>
-        <button onClick={() => setEditing(true)} style={{ marginTop: "16px", padding: "8px 16px", background: "#89b4fa", color: "#1e1e2e", border: "none", borderRadius: "6px", cursor: "pointer", fontWeight: "bold" }}>
+    <div style={{
+      position: "fixed", top: 0, right: 0, bottom: 0, width: "320px",
+      background: "#1e1e2e", borderLeft: "1px solid #45475a",
+      zIndex: 300, display: "flex", flexDirection: "column",
+      boxShadow: "-4px 0 20px rgba(0,0,0,0.5)",
+      animation: "slide-in-right 0.15s ease-out",
+    }} role="dialog" aria-label="Theme Selector">
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "16px", borderBottom: "1px solid #45475a" }}>
+        <h3 style={{ margin: 0, color: "#cdd6f4", fontSize: "16px" }}>🎨 Color Themes</h3>
+        <button onClick={onClose} style={{ background: "none", border: "none", color: "#cdd6f4", fontSize: "18px", cursor: "pointer" }} aria-label="Close">✕</button>
+      </div>
+      <div style={{ flex: 1, overflowY: "auto", padding: "12px", display: "flex", flexDirection: "column", gap: "6px" }}>
+        {themes.map((theme) => (
+          <button
+            key={theme.id}
+            onClick={() => handleSelectTheme(theme)}
+            style={{
+              display: "flex", alignItems: "center", gap: "10px",
+              padding: "10px 12px",
+              border: theme.id === activeThemeId ? "2px solid #89b4fa" : "1px solid transparent",
+              borderRadius: "6px",
+              background: theme.colors.background || "#1e1e2e",
+              color: theme.colors.foreground || "#cdd6f4",
+              cursor: "pointer", textAlign: "left", transition: "border-color 0.1s",
+            }}
+          >
+            <div style={{ display: "flex", gap: "2px", flexShrink: 0 }}>
+              {[theme.colors.red, theme.colors.green, theme.colors.blue, theme.colors.yellow, theme.colors.magenta, theme.colors.cyan].map((c, i) => (
+                <div key={i} style={{ width: "12px", height: "12px", borderRadius: "50%", background: c }} />
+              ))}
+            </div>
+            <span style={{ fontWeight: theme.id === activeThemeId ? "bold" : "normal", fontSize: "13px" }}>{theme.name}</span>
+            {theme.id === activeThemeId && <span style={{ marginLeft: "auto", fontSize: "11px", opacity: 0.6 }}>✓</span>}
+          </button>
+        ))}
+      </div>
+      <div style={{ padding: "12px", borderTop: "1px solid #45475a" }}>
+        <button onClick={() => setEditing(true)} style={{ width: "100%", padding: "8px", background: "#89b4fa", color: "#1e1e2e", border: "none", borderRadius: "6px", cursor: "pointer", fontWeight: "bold", fontSize: "13px" }}>
           + Create Custom Theme
         </button>
       </div>

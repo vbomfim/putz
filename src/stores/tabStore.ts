@@ -175,6 +175,10 @@ interface TabState {
   activeTabId: string;
   tabCounter: number;
 
+  // Pane focus — tracks which pane (by sessionId) was last focused
+  focusedPaneSessionId: string | null;
+  setFocusedPane: (sessionId: string) => void;
+
   // Search state
   isSearchOpen: boolean;
 
@@ -220,8 +224,13 @@ export const useTabStore = create<TabState>((set, get) => ({
   tabs: [],
   activeTabId: "",
   tabCounter: 0,
+  focusedPaneSessionId: null,
   isSearchOpen: false,
   loggingSessions: new Set<string>(),
+
+  setFocusedPane: (sessionId: string) => {
+    set({ focusedPaneSessionId: sessionId });
+  },
 
   addTab: async () => {
     let sessionId: string;
@@ -454,17 +463,13 @@ export const useTabStore = create<TabState>((set, get) => ({
   },
 
   splitActivePane: async (direction: "horizontal" | "vertical") => {
-    const { activeTabId, tabs, splitPane } = get();
+    const { activeTabId, tabs, splitPane, focusedPaneSessionId } = get();
     const activeTab = tabs.find((t) => t.id === activeTabId);
     if (!activeTab) return;
 
-    // TODO: Split currently always targets the first leaf pane in the active
-    // tab. For "horizontal split should reference the current pane selected",
-    // we need a `focusedPaneId` tracked in the tab store so that splits target
-    // the user's currently focused pane instead of the first leaf. This is a
-    // known limitation — deferred to a follow-up ticket.
-    const firstSession = getFirstLeafSessionId(activeTab.layout);
-    await splitPane(activeTabId, firstSession, direction);
+    // Use the focused pane if available, otherwise fall back to first leaf
+    const targetSession = focusedPaneSessionId || getFirstLeafSessionId(activeTab.layout);
+    await splitPane(activeTabId, targetSession, direction);
   },
 
   unsplitPane: (tabId: string, paneSessionId: string) => {

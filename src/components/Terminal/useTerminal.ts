@@ -21,6 +21,7 @@ import {
   type PtyExitPayload,
 } from "./types";
 import { useThemeStore } from "../../stores/themeStore";
+import { useTabStore } from "../../stores/tabStore";
 import { HighlightEngine } from "./HighlightEngine";
 import type { HighlightSet } from "./highlightTypes";
 import { broadcastWrite } from "../../utils/broadcastHelper";
@@ -246,6 +247,14 @@ export function useTerminal({
       pasteToTerminal(terminal, sessionId);
     };
     container.addEventListener("contextmenu", handleContextMenu);
+
+    // Track focused pane — when user clicks this terminal, update store
+    // so splitActivePane targets the correct pane
+    const handlePaneFocus = () => {
+      if (disposed) return;
+      useTabStore.getState().setFocusedPane(sessionId);
+    };
+    container.addEventListener("mousedown", handlePaneFocus);
 
     // Bridge: terminal keystrokes → PTY write (with change window guard)
     const dataDisposable = terminal.onData((data: string) => {
@@ -475,6 +484,7 @@ export function useTerminal({
       window.removeEventListener("resize", handleWindowResize);
       resizeObserver.disconnect();
       container.removeEventListener("contextmenu", handleContextMenu);
+      container.removeEventListener("mousedown", handlePaneFocus);
 
       // Dispose highlight engine
       highlightEngine.dispose();

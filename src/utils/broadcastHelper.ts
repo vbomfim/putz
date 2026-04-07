@@ -15,12 +15,6 @@ import { useBroadcastStore, collectSessionIds } from "../stores/broadcastStore";
  * Resolves a tab's first leaf session ID from its layout tree.
  * Used to map targetTabIds → sessionIds for IPC writes.
  */
-function getFirstLeafSessionId(
-  node: import("../types").PaneNode,
-): string {
-  if (node.type === "leaf") return node.terminalSessionId;
-  return getFirstLeafSessionId(node.children[0]);
-}
 
 /**
  * Broadcasts terminal input data to all target tabs' sessions.
@@ -55,25 +49,36 @@ export function broadcastWrite(
   // 3. Only broadcast from the active tab
   if (sourceTab.id !== tabState.activeTabId) return;
 
-  // 4. Write to each target tab's session(s)
+  // 4a. Send to other panes within the SAME tab (split panes)
+  const sourcePaneSessions = collectSessionIds(sourceTab.layout);
+  for (const siblingSessionId of sourcePaneSessions) {
+    if (siblingSessionId === sourceSessionId) continue;
+    const command = sourceTab.status === "connected" ? "connection_write" : "pty_write";
+    invoke(command, { sessionId: siblingSessionId, data }).catch(() => {});
+  }
+
+  // 4b. Send to ALL sessions in each target tab (other tabs)
   for (const targetTabId of broadcastState.targetTabIds) {
     const targetTab = tabState.tabs.find((t) => t.id === targetTabId);
     if (!targetTab) continue;
 
-    const targetSessionId = getFirstLeafSessionId(targetTab.layout);
+    // Get ALL leaf session IDs in this tab (handles split panes)
+    const targetSessionIds = collectSessionIds(targetTab.layout);
 
-    // Skip if it's the same session (shouldn't happen, but safety check)
-    if (targetSessionId === sourceSessionId) continue;
+    for (const targetSessionId of targetSessionIds) {
+      // Skip if it's the same session as the source
+      if (targetSessionId === sourceSessionId) continue;
 
-    // Use connection_write for remote sessions, pty_write for local
-    const command =
-      targetTab.status === "connected" ? "connection_write" : "pty_write";
+      // Use connection_write for remote sessions, pty_write for local
+      const command =
+        targetTab.status === "connected" ? "connection_write" : "pty_write";
 
-    invoke(command, {
-      sessionId: targetSessionId,
-      data,
-    }).catch(() => {
-      // Fire-and-forget — broadcast write failures are non-fatal
-    });
+      invoke(command, {
+        sessionId: targetSessionId,
+        data,
+      }).catch(() => {
+        // Fire-and-forget — broadcast write failures are non-fatal
+      });
+    }
   }
 }
