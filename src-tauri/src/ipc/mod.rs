@@ -1,7 +1,11 @@
 /// IPC module — Tauri command handlers for frontend–backend communication.
+pub mod connection;
 pub mod session;
 pub mod terminal;
 
+pub use connection::{
+    connection_close, connection_open, connection_resize, connection_write,
+};
 pub use session::{
     session_create, session_create_folder, session_delete, session_delete_folder,
     session_duplicate, session_export, session_get, session_import, session_list,
