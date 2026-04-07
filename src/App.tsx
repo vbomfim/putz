@@ -4,7 +4,9 @@
  * Renders a tabbed terminal interface with:
  * - SessionSidebar on the left for session management
  * - TabBar at the top for tab management
+ * - Toolbar (optional) for quick-access actions
  * - SplitContainer for the active tab's pane layout
+ * - ShortcutsPanel modal for keyboard shortcuts reference
  * - HistoryPanel (Ctrl+R) for cross-session command history search
  * - QuickConnect (Ctrl+K) for fast connection input
  * - Empty state with "New Terminal" prompt when no tabs exist
@@ -16,9 +18,12 @@ import { useTabStore } from "./stores/tabStore";
 import { useBroadcastStore } from "./stores/broadcastStore";
 import { TabBar } from "./components/TabBar";
 import { BroadcastBar } from "./components/BroadcastBar";
+import { Toolbar } from "./components/Toolbar";
+import { ShortcutsPanel } from "./components/Help";
 import { SplitContainer } from "./components/SplitPane";
 import { SessionSidebar } from "./components/SessionManager";
 import { UpdateChecker } from "./components/UpdateChecker";
+import { useMenuEvents } from "./utils/useMenuEvents";
 import { HistoryPanel } from "./components/History";
 import { QuickConnect } from "./components/QuickConnect";
 import { CredentialReminder } from "./components/Vault/CredentialReminder";
@@ -41,6 +46,9 @@ function App() {
   const [quickConnectOpen, setQuickConnectOpen] = useState(false);
   const [configDiffOpen, setConfigDiffOpen] = useState(false);
   const [templatePanelOpen, setTemplatePanelOpen] = useState(false);
+
+  // Listen for native menu events from the Tauri backend
+  useMenuEvents();
 
   // Create the first tab on mount
   useEffect(() => {
@@ -149,6 +157,8 @@ function App() {
       <main className="app-container" data-testid="app-root">
         <UpdateChecker />
         <TabBar />
+        <Toolbar />
+        <ShortcutsPanel />
         <HistoryPanel
           isOpen={historyOpen}
           onClose={() => setHistoryOpen(false)}
@@ -198,7 +208,9 @@ function App() {
         </button>
       )}
       <TabBar />
+      <Toolbar />
       <BroadcastBar />
+      <ShortcutsPanel />
       <HistoryPanel
         isOpen={historyOpen}
         onClose={() => setHistoryOpen(false)}

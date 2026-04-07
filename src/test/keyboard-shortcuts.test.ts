@@ -15,6 +15,8 @@ const mockActivateTabByIndex = vi.fn();
 const mockSplitActivePane = vi.fn();
 const mockToggleSearch = vi.fn();
 const mockToggleLogging = vi.fn();
+const mockToggleShortcutsPanel = vi.fn();
+const mockToggleToolbar = vi.fn();
 
 vi.mock("../stores/tabStore", () => ({
   useTabStore: Object.assign(
@@ -47,6 +49,25 @@ vi.mock("../stores/tabStore", () => ({
       }),
     },
   ),
+}));
+
+vi.mock("../stores/broadcastStore", () => ({
+  useBroadcastStore: vi.fn((selector: (state: unknown) => unknown) => {
+    const state = {
+      toggle: vi.fn(),
+    };
+    return selector(state);
+  }),
+}));
+
+vi.mock("../stores/settingsStore", () => ({
+  useSettingsStore: vi.fn((selector: (state: unknown) => unknown) => {
+    const state = {
+      toggleShortcutsPanel: mockToggleShortcutsPanel,
+      toggleToolbar: mockToggleToolbar,
+    };
+    return selector(state);
+  }),
 }));
 
 describe("useKeyboardShortcuts", () => {
@@ -149,5 +170,11 @@ describe("useKeyboardShortcuts", () => {
     renderHook(() => useKeyboardShortcuts());
     simulateKeyDown("t");
     expect(mockAddTab).not.toHaveBeenCalled();
+  });
+
+  it("Ctrl+Shift+? opens keyboard shortcuts panel", () => {
+    renderHook(() => useKeyboardShortcuts());
+    simulateKeyDown("?", { ctrlKey: true, shiftKey: true });
+    expect(mockToggleShortcutsPanel).toHaveBeenCalledTimes(1);
   });
 });
