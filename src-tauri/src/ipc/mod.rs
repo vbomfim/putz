@@ -2,6 +2,7 @@
 pub mod connection;
 pub mod forwarding;
 pub mod highlight;
+pub mod keys;
 pub mod logging;
 pub mod scripting;
 pub mod session;
@@ -21,6 +22,7 @@ pub use highlight::{
     highlight_create_set, highlight_delete_set, highlight_get_set, highlight_list_sets,
     highlight_update_set,
 };
+pub use keys::{key_delete, key_generate, key_get_public, key_import, key_list};
 pub use logging::{logging_start, logging_status, logging_stop};
 pub use scripting::{
     script_delete, script_get, script_list, script_record_start, script_record_stop, script_run,
