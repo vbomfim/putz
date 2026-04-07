@@ -25,5 +25,13 @@ export type {
   ConnectionProtocol,
   HostKeyPayload,
   AuthPromptPayload,
+  SerialPortInfo,
+  SerialDataBits,
+  SerialParity,
+  SerialStopBits,
+  SerialFlowControl,
+  SerialConfigValues,
 } from "./connectionTypes";
+export { DEFAULT_SERIAL_CONFIG } from "./connectionTypes";
 export { DEFAULT_TERMINAL_THEME, TERMINAL_CONFIG } from "./types";
+export { SerialConfig } from "./SerialConfig";
