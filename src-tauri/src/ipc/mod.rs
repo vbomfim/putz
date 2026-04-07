@@ -1,7 +1,9 @@
 /// IPC module — Tauri command handlers for frontend–backend communication.
+pub mod autologin;
 pub mod connection;
 pub mod forwarding;
 pub mod highlight;
+pub mod history;
 pub mod keys;
 pub mod logging;
 pub mod scripting;
@@ -11,6 +13,10 @@ pub mod terminal;
 pub mod theme;
 pub mod vault;
 
+pub use autologin::{
+    autologin_cancel, autologin_delete_profile, autologin_get_profile, autologin_process,
+    autologin_set_profile, autologin_start,
+};
 pub use connection::{
     connection_close, connection_open, connection_resize, connection_write, serial_list_ports,
     serial_send_break,
@@ -22,6 +28,7 @@ pub use highlight::{
     highlight_create_set, highlight_delete_set, highlight_get_set, highlight_list_sets,
     highlight_update_set,
 };
+pub use history::{history_add, history_clear, history_get_recent, history_search};
 pub use keys::{key_delete, key_generate, key_get_public, key_import, key_list};
 pub use logging::{logging_start, logging_status, logging_stop};
 pub use scripting::{

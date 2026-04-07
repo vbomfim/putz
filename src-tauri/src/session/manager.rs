@@ -271,6 +271,8 @@ impl SessionManager {
             color_scheme: input.color_scheme,
             auto_log: input.auto_log,
             jump_host_id: input.jump_host_id,
+            auto_login: input.auto_login,
+            auto_login_device_type: input.auto_login_device_type,
             created_at: now.clone(),
             updated_at: now,
         };
@@ -399,6 +401,12 @@ impl SessionManager {
         if let Some(jump_host_id) = input.jump_host_id {
             session.jump_host_id = Some(jump_host_id);
         }
+        if let Some(auto_login) = input.auto_login {
+            session.auto_login = Some(auto_login);
+        }
+        if let Some(auto_login_device_type) = input.auto_login_device_type {
+            session.auto_login_device_type = Some(auto_login_device_type);
+        }
 
         // Validate protocol-specific fields after merge
         Self::validate_protocol_fields(
@@ -455,6 +463,8 @@ impl SessionManager {
             color_scheme: original.color_scheme,
             auto_log: original.auto_log,
             jump_host_id: original.jump_host_id,
+            auto_login: original.auto_login,
+            auto_login_device_type: original.auto_login_device_type,
         };
 
         self.create_session(input)
@@ -814,6 +824,8 @@ impl SessionManager {
                 color_scheme: session.color_scheme.clone(),
                 auto_log: session.auto_log,
                 jump_host_id: session.jump_host_id.clone(),
+                auto_login: session.auto_login,
+                auto_login_device_type: session.auto_login_device_type.clone(),
                 created_at: session.created_at.clone(),
                 updated_at: now.clone(),
             });
@@ -863,6 +875,8 @@ mod tests {
             color_scheme: None,
             auto_log: None,
             jump_host_id: None,
+            auto_login: None,
+            auto_login_device_type: None,
         }
     }
 
@@ -971,6 +985,8 @@ mod tests {
                 color_scheme: None,
                 auto_log: None,
                 jump_host_id: None,
+                auto_login: None,
+                auto_login_device_type: None,
             },
         )
         .unwrap();
@@ -1008,6 +1024,8 @@ mod tests {
                 color_scheme: None,
                 auto_log: None,
                 jump_host_id: None,
+                auto_login: None,
+                auto_login_device_type: None,
             },
         );
         assert!(matches!(result, Err(SessionError::NotFound(_))));

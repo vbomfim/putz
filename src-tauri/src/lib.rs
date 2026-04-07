@@ -9,14 +9,19 @@ mod scripting;
 mod session;
 mod theme;
 mod vault;
+mod history;
+mod autologin;
 
 use commands::greet;
 use highlight::HighlightManager;
 use ipc::{
+    autologin_cancel, autologin_delete_profile, autologin_get_profile, autologin_process,
+    autologin_set_profile, autologin_start,
     connection_close, connection_open, connection_resize, connection_write,
     forwarding_add, forwarding_list, forwarding_remove, forwarding_status,
     highlight_create_set,
     highlight_delete_set, highlight_get_set, highlight_list_sets, highlight_update_set,
+    history_add, history_clear, history_get_recent, history_search,
     key_delete, key_generate, key_get_public, key_import, key_list,
     logging_start, logging_status, logging_stop, pty_close, pty_resize, pty_spawn, pty_write,
     script_delete, script_get, script_list, script_record_start, script_record_stop, script_run,
@@ -38,6 +43,8 @@ use scripting::ScriptManager;
 use session::SessionManager;
 use theme::ThemeManager;
 use vault::VaultManager;
+use history::CommandHistoryManager;
+use autologin::AutoLoginManager;
 
 // Needed for try_state() in on_window_event handler
 use tauri::Manager;
@@ -59,6 +66,8 @@ pub fn run() {
         .manage(ScriptManager::new())
         .manage(ThemeManager::new())
         .manage(ForwardingManager::new())
+        .manage(CommandHistoryManager::new().expect("Failed to initialize command history database"))
+        .manage(AutoLoginManager::new())
         .invoke_handler(tauri::generate_handler![
             greet,
             pty_spawn,
@@ -130,6 +139,16 @@ pub fn run() {
             theme_delete,
             theme_import,
             theme_export,
+            history_add,
+            history_search,
+            history_get_recent,
+            history_clear,
+            autologin_get_profile,
+            autologin_set_profile,
+            autologin_delete_profile,
+            autologin_start,
+            autologin_process,
+            autologin_cancel,
         ])
         // Fix 8: Graceful app exit — clean up PTY sessions and protocol connections
         .on_window_event(|window, event| {
