@@ -5,34 +5,46 @@ mod keys;
 mod logging;
 mod protocol;
 mod pty;
+mod scripting;
 mod session;
+mod theme;
 mod vault;
 
 use commands::greet;
 use highlight::HighlightManager;
 use ipc::{
-    connection_close, connection_open, connection_resize, connection_write, highlight_create_set,
+    connection_close, connection_open, connection_resize, connection_write,
+    forwarding_add, forwarding_list, forwarding_remove, forwarding_status,
+    highlight_create_set,
     highlight_delete_set, highlight_get_set, highlight_list_sets, highlight_update_set,
-    key_delete, key_generate, key_get_public, key_import, key_list, logging_start, logging_status,
-    logging_stop, pty_close, pty_resize, pty_spawn, pty_write, serial_list_ports,
+    key_delete, key_generate, key_get_public, key_import, key_list,
+    logging_start, logging_status, logging_stop, pty_close, pty_resize, pty_spawn, pty_write,
+    script_delete, script_get, script_list, script_record_start, script_record_stop, script_run,
+    script_run_multi, script_save, script_status, script_stop, serial_list_ports,
     serial_send_break, session_create, session_create_folder, session_delete,
     session_delete_folder, session_duplicate, session_export, session_get, session_import,
     session_list, session_move, session_search, session_update, sftp_close, sftp_delete,
     sftp_download, sftp_list, sftp_mkdir, sftp_open, sftp_rename, sftp_stat, sftp_upload,
+    theme_create, theme_delete, theme_export, theme_get, theme_import, theme_list, theme_update,
     vault_delete, vault_get, vault_list, vault_set,
 };
 use keys::KeyManager;
 use logging::LogManager;
 use protocol::connection_manager::ConnectionManager;
 use protocol::sftp::SftpManager;
+use protocol::ssh::forwarding::ForwardingManager;
 use pty::PtyManager;
+use scripting::ScriptManager;
 use session::SessionManager;
+use theme::ThemeManager;
 use vault::VaultManager;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_updater::Builder::new().build())
+        .plugin(tauri_plugin_process::init())
         .manage(PtyManager::new())
         .manage(SessionManager::new())
         .manage(ConnectionManager::new())
@@ -41,6 +53,9 @@ pub fn run() {
         .manage(LogManager::new())
         .manage(SftpManager::new())
         .manage(HighlightManager::new())
+        .manage(ScriptManager::new())
+        .manage(ThemeManager::new())
+        .manage(ForwardingManager::new())
         .invoke_handler(tauri::generate_handler![
             greet,
             pty_spawn,
@@ -53,6 +68,10 @@ pub fn run() {
             connection_close,
             serial_list_ports,
             serial_send_break,
+            forwarding_add,
+            forwarding_remove,
+            forwarding_list,
+            forwarding_status,
             session_list,
             session_get,
             session_create,
@@ -91,6 +110,23 @@ pub fn run() {
             key_import,
             key_delete,
             key_get_public,
+            script_list,
+            script_get,
+            script_save,
+            script_delete,
+            script_run,
+            script_run_multi,
+            script_status,
+            script_stop,
+            script_record_start,
+            script_record_stop,
+            theme_list,
+            theme_get,
+            theme_create,
+            theme_update,
+            theme_delete,
+            theme_import,
+            theme_export,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

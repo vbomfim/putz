@@ -49,6 +49,26 @@ export { MATCH_TYPE_LABELS, HIGHLIGHT_COLOR_PALETTE } from "./highlightTypes";
 export { DEFAULT_SERIAL_CONFIG } from "./connectionTypes";
 export { DEFAULT_TERMINAL_THEME, TERMINAL_CONFIG } from "./types";
 export { SerialConfig } from "./SerialConfig";
+export { ThemeEditor } from "./ThemeEditor";
+export { FontConfig } from "./FontConfig";
+export type {
+  ThemeColors,
+  Theme,
+  CreateThemeInput,
+  UpdateThemeInput,
+  ThemeExport,
+  FontSettings,
+  UiThemeMode,
+} from "./themeTypes";
+export {
+  THEME_COLOR_FIELDS,
+  DEFAULT_FONT_SETTINGS,
+  MONOSPACE_FONTS,
+  FONT_SIZE_MIN,
+  FONT_SIZE_MAX,
+  LINE_HEIGHT_MIN,
+  LINE_HEIGHT_MAX,
+} from "./themeTypes";
 export {
   highlightListSets,
   highlightGetSet,
@@ -56,3 +76,12 @@ export {
   highlightUpdateSet,
   highlightDeleteSet,
 } from "./highlightApi";
+export {
+  themeList,
+  themeGet,
+  themeCreate,
+  themeUpdate,
+  themeDelete,
+  themeImport,
+  themeExport,
+} from "./themeApi";

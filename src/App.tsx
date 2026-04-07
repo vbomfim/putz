@@ -14,6 +14,7 @@ import { TabBar } from "./components/TabBar";
 import { BroadcastBar } from "./components/BroadcastBar";
 import { SplitContainer } from "./components/SplitPane";
 import { SessionSidebar } from "./components/SessionManager";
+import { UpdateChecker } from "./components/UpdateChecker";
 import type { SessionProfile } from "./components/SessionManager";
 import "./components/SessionManager/SessionManager.css";
 import "./styles/App.css";
@@ -53,6 +54,7 @@ function App() {
   if (tabs.length === 0 && hasInitialized.current) {
     return (
       <main className="app-container" data-testid="app-root">
+        <UpdateChecker />
         <TabBar />
         <div className="app-empty-state" data-testid="app-empty-state">
           <p>No open terminals</p>
@@ -73,6 +75,7 @@ function App() {
 
   return (
     <main className="app-container" data-testid="app-root">
+      <UpdateChecker />
       <SessionSidebar
         isOpen={sidebarOpen}
         onToggle={handleSidebarToggle}
