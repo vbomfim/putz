@@ -16,6 +16,11 @@ import type {
   SessionProfile,
 } from "./types";
 import { PROTOCOL_DEFAULT_PORTS, PROTOCOL_LABELS } from "./types";
+import {
+  SerialConfig,
+  DEFAULT_SERIAL_CONFIG,
+} from "../Terminal/SerialConfig";
+import type { SerialConfigValues } from "../Terminal/SerialConfig";
 
 interface SessionEditorProps {
   /** Session to edit (undefined = create mode). */
@@ -35,6 +40,7 @@ interface FormErrors {
   name?: string;
   host?: string;
   port?: string;
+  serialPort?: string;
 }
 
 /** All protocol options. */
@@ -59,6 +65,14 @@ export function SessionEditor({
   );
   const [username, setUsername] = useState(session?.username ?? "");
   const [errors, setErrors] = useState<FormErrors>({});
+  const [serialConfig, setSerialConfig] = useState<SerialConfigValues>(() => ({
+    port: session?.serialPort ?? DEFAULT_SERIAL_CONFIG.port,
+    baudRate: session?.serialBaud ?? DEFAULT_SERIAL_CONFIG.baudRate,
+    dataBits: DEFAULT_SERIAL_CONFIG.dataBits,
+    parity: DEFAULT_SERIAL_CONFIG.parity,
+    stopBits: DEFAULT_SERIAL_CONFIG.stopBits,
+    flowControl: DEFAULT_SERIAL_CONFIG.flowControl,
+  }));
 
   // Auto-fill port when protocol changes (only in create mode)
   useEffect(() => {
@@ -85,6 +99,12 @@ export function SessionEditor({
       }
     }
 
+    if (protocol === "serial") {
+      if (!serialConfig.port.trim()) {
+        errs.serialPort = "Serial port is required";
+      }
+    }
+
     if (port.trim()) {
       const portNum = parseInt(port, 10);
       if (isNaN(portNum) || portNum < 1 || portNum > 65535) {
@@ -93,7 +113,7 @@ export function SessionEditor({
     }
 
     return errs;
-  }, [name, host, port, protocol]);
+  }, [name, host, port, protocol, serialConfig]);
 
   const handleSubmit = useCallback(
     (e: React.FormEvent) => {
@@ -114,6 +134,12 @@ export function SessionEditor({
           host: host.trim() || undefined,
           port: portNum,
           username: username.trim() || undefined,
+          ...(protocol === "serial"
+            ? {
+                serialPort: serialConfig.port,
+                serialBaud: serialConfig.baudRate,
+              }
+            : {}),
         };
         onSave(input);
       } else {
@@ -124,15 +150,23 @@ export function SessionEditor({
           host: host.trim() || undefined,
           port: portNum,
           username: username.trim() || undefined,
+          ...(protocol === "serial"
+            ? {
+                serialPort: serialConfig.port,
+                serialBaud: serialConfig.baudRate,
+              }
+            : {}),
         };
         onSave(input);
       }
     },
-    [name, protocol, host, port, username, folderId, isEdit, onSave, validate],
+    [name, protocol, host, port, username, folderId, isEdit, onSave, validate, serialConfig],
   );
 
   /** Whether the protocol needs host/port fields. */
   const needsHost = protocol === "ssh" || protocol === "telnet";
+  /** Whether the protocol needs serial config. */
+  const needsSerial = protocol === "serial";
 
   return (
     <div
@@ -189,6 +223,15 @@ export function SessionEditor({
             ))}
           </select>
         </div>
+
+        {/* Serial config — shown when protocol = serial */}
+        {needsSerial && (
+          <SerialConfig
+            values={serialConfig}
+            onChange={setSerialConfig}
+            errors={{ port: errors.serialPort }}
+          />
+        )}
 
         {/* Host */}
         {needsHost && (

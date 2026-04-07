@@ -5,10 +5,15 @@
 ///
 /// Mirrors the PTY IPC pattern in terminal.rs but for remote connections.
 /// Commands are async because protocol operations use tokio.
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, State};
 
 use crate::protocol::connection_manager::ConnectionManager;
+use crate::protocol::serial::config::{
+    SerialConfig, SerialDataBits, SerialFlowControl, SerialParity,
+    SerialStopBits,
+};
+use crate::protocol::serial::scanner;
 use crate::protocol::ProtocolType;
 
 /// Input DTO for the connection_open IPC command.
@@ -27,18 +32,52 @@ pub struct ConnectionOpenInput {
     pub cols: u16,
     /// Terminal height in rows.
     pub rows: u16,
+    // -- Serial-specific fields (only used when protocol = "serial") --
+    /// Baud rate for serial connections (default: 9600).
+    pub baud_rate: Option<u32>,
+    /// Data bits for serial connections (default: "eight").
+    pub data_bits: Option<SerialDataBits>,
+    /// Parity for serial connections (default: "none").
+    pub parity: Option<SerialParity>,
+    /// Stop bits for serial connections (default: "one").
+    pub stop_bits: Option<SerialStopBits>,
+    /// Flow control for serial connections (default: "none").
+    pub flow_control: Option<SerialFlowControl>,
 }
 
 /// Opens a new protocol connection.
 ///
 /// Returns the generated connection ID that identifies this connection
 /// for all subsequent operations (write, resize, close).
+///
+/// For serial connections, uses serial-specific fields from the input.
+/// For other protocols, uses host/port as before.
 #[tauri::command]
 pub async fn connection_open(
     app: AppHandle,
     state: State<'_, ConnectionManager>,
     input: ConnectionOpenInput,
 ) -> Result<String, String> {
+    if input.protocol == ProtocolType::Serial {
+        // Build SerialConfig from the input fields
+        let serial_port = input.host.unwrap_or_default();
+        let config = SerialConfig {
+            port: serial_port,
+            baud_rate: input.baud_rate.unwrap_or(9600),
+            data_bits: input.data_bits.unwrap_or(SerialDataBits::Eight),
+            parity: input.parity.unwrap_or(SerialParity::None),
+            stop_bits: input.stop_bits.unwrap_or(SerialStopBits::One),
+            flow_control: input
+                .flow_control
+                .unwrap_or(SerialFlowControl::None),
+        };
+
+        return state
+            .open_serial(config, app)
+            .await
+            .map_err(|e| e.to_string());
+    }
+
     let params = crate::protocol::ConnectionParams {
         host: input.host,
         port: input.port,
@@ -104,8 +143,35 @@ pub async fn connection_close(
         .map_err(|e| e.to_string())
 }
 
+/// Lists all available serial ports on the system.
+///
+/// Returns port info including name, description, manufacturer,
+/// serial number, and type (USB/PCI/Bluetooth).
+#[tauri::command]
+pub fn serial_list_ports() -> Result<Vec<scanner::SerialPortInfo>, String> {
+    Ok(scanner::list_serial_ports())
+}
+
+/// Sends a break signal on a serial connection.
+///
+/// A serial break is used by some equipment (Cisco routers) to
+/// enter ROM monitor mode. Only valid for serial connections.
+#[tauri::command]
+pub async fn serial_send_break(
+    state: State<'_, ConnectionManager>,
+    connection_id: String,
+) -> Result<(), String> {
+    state
+        .send_break(&connection_id)
+        .await
+        .map_err(|e| e.to_string())
+}
+
 #[cfg(test)]
 mod tests {
+    use crate::protocol::serial::config::{
+        SerialDataBits, SerialFlowControl, SerialParity, SerialStopBits,
+    };
     use crate::protocol::ProtocolError;
 
     #[test]
@@ -139,6 +205,9 @@ mod tests {
         assert_eq!(input.port, Some(23));
         assert_eq!(input.cols, 80);
         assert_eq!(input.rows, 24);
+        // Serial fields should be None for non-serial connections
+        assert_eq!(input.baud_rate, None);
+        assert_eq!(input.data_bits, None);
     }
 
     #[test]
@@ -170,6 +239,57 @@ mod tests {
         assert_eq!(input.username, Some("admin".into()));
         assert_eq!(input.cols, 132);
         assert_eq!(input.rows, 43);
+    }
+
+    #[test]
+    fn connection_open_input_serial_full() {
+        let json = r#"{
+            "host": "/dev/ttyUSB0",
+            "protocol": "serial",
+            "cols": 80,
+            "rows": 24,
+            "baudRate": 115200,
+            "dataBits": "seven",
+            "parity": "even",
+            "stopBits": "two",
+            "flowControl": "hardware"
+        }"#;
+        let input: super::ConnectionOpenInput =
+            serde_json::from_str(json).unwrap();
+        assert_eq!(input.host, Some("/dev/ttyUSB0".into()));
+        assert_eq!(input.baud_rate, Some(115200));
+        assert_eq!(input.data_bits, Some(SerialDataBits::Seven));
+        assert_eq!(input.parity, Some(SerialParity::Even));
+        assert_eq!(input.stop_bits, Some(SerialStopBits::Two));
+        assert_eq!(
+            input.flow_control,
+            Some(SerialFlowControl::Hardware)
+        );
+    }
+
+    #[test]
+    fn connection_open_input_serial_defaults() {
+        let json = r#"{
+            "host": "COM3",
+            "protocol": "serial",
+            "cols": 80,
+            "rows": 24
+        }"#;
+        let input: super::ConnectionOpenInput =
+            serde_json::from_str(json).unwrap();
+        assert_eq!(input.host, Some("COM3".into()));
+        // All serial-specific fields default to None (will use 9600/8/N/1)
+        assert_eq!(input.baud_rate, None);
+        assert_eq!(input.data_bits, None);
+        assert_eq!(input.parity, None);
+        assert_eq!(input.stop_bits, None);
+        assert_eq!(input.flow_control, None);
+    }
+
+    #[test]
+    fn serial_list_ports_returns_ok() {
+        let result = super::serial_list_ports();
+        assert!(result.is_ok());
     }
 
     #[test]

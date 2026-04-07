@@ -22,6 +22,43 @@ export interface ConnectionOpenInput {
   cols: number;
   /** Terminal height in rows. */
   rows: number;
+  // -- Serial-specific fields (only when protocol = "serial") --
+  /** Baud rate for serial connections (default: 9600). */
+  baudRate?: number;
+  /** Data bits: "five", "six", "seven", "eight" (default: "eight"). */
+  dataBits?: SerialDataBits;
+  /** Parity: "none", "even", "odd" (default: "none"). */
+  parity?: SerialParity;
+  /** Stop bits: "one", "two" (default: "one"). */
+  stopBits?: SerialStopBits;
+  /** Flow control: "none", "hardware", "software" (default: "none"). */
+  flowControl?: SerialFlowControl;
+}
+
+/** Serial data bits setting. */
+export type SerialDataBits = "five" | "six" | "seven" | "eight";
+
+/** Serial parity setting. */
+export type SerialParity = "none" | "even" | "odd";
+
+/** Serial stop bits setting. */
+export type SerialStopBits = "one" | "two";
+
+/** Serial flow control setting. */
+export type SerialFlowControl = "none" | "hardware" | "software";
+
+/** Information about an available serial port. */
+export interface SerialPortInfo {
+  /** System port name (e.g., "/dev/ttyUSB0", "COM3"). */
+  name: string;
+  /** Human-readable description of the port. */
+  description: string;
+  /** Manufacturer name (USB devices only). */
+  manufacturer?: string;
+  /** Device serial number (USB devices only). */
+  serialNumber?: string;
+  /** Port type: "USB", "PCI", "Bluetooth", or "Unknown". */
+  portType: string;
 }
 
 /** Arguments for the connection_write IPC command. */

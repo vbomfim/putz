@@ -21,5 +21,12 @@ export type {
   ConnectionStatusPayload,
   ConnectionStatusType,
   ConnectionProtocol,
+  SerialPortInfo,
+  SerialDataBits,
+  SerialParity,
+  SerialStopBits,
+  SerialFlowControl,
 } from "./connectionTypes";
 export { DEFAULT_TERMINAL_THEME, TERMINAL_CONFIG } from "./types";
+export { SerialConfig, DEFAULT_SERIAL_CONFIG } from "./SerialConfig";
+export type { SerialConfigValues } from "./SerialConfig";

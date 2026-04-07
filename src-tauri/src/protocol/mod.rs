@@ -8,6 +8,7 @@
 /// The trait is object-safe (`Send + Sync`) so it can be stored in a
 /// `HashMap<String, Box<dyn Protocol>>` behind a `tokio::sync::Mutex`.
 pub mod connection_manager;
+pub mod serial;
 pub mod telnet;
 
 #[cfg(test)]
