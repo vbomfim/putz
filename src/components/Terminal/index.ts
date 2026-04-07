@@ -77,6 +77,14 @@ export {
   highlightDeleteSet,
 } from "./highlightApi";
 export {
+  WORD_SEPARATOR,
+  FONT_SIZE_DEFAULT,
+  BELL_FLASH_CLASS,
+  BELL_FLASH_DURATION_MS,
+  WAKE_RECONNECT_GRACE_MS,
+  clampFontSize,
+} from "./terminalPolish";
+export {
   themeList,
   themeGet,
   themeCreate,

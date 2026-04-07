@@ -12,6 +12,7 @@ import { Terminal } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
 import { WebglAddon } from "@xterm/addon-webgl";
 import { Unicode11Addon } from "@xterm/addon-unicode11";
+import { WebLinksAddon } from "@xterm/addon-web-links";
 import { invoke } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import {
@@ -22,6 +23,11 @@ import {
 import { HighlightEngine } from "./HighlightEngine";
 import type { HighlightSet } from "./highlightTypes";
 import { broadcastWrite } from "../../utils/broadcastHelper";
+import {
+  WORD_SEPARATOR,
+  FONT_SIZE_DEFAULT,
+  clampFontSize,
+} from "./terminalPolish";
 
 interface UseTerminalOptions {
   /** UUID v4 session identifier from pty_spawn. */
@@ -32,6 +38,8 @@ interface UseTerminalOptions {
   onExit?: (code: number) => void;
   /** Optional highlight set ID to load and apply. */
   highlightSetId?: string;
+  /** Callback when a visual bell is triggered. */
+  onBell?: () => void;
 }
 
 interface UseTerminalReturn {
@@ -52,6 +60,26 @@ interface UseTerminalReturn {
 }
 
 /**
+ * Writes clipboard text to the terminal and PTY.
+ * Shared by right-click paste and Ctrl+Shift+V.
+ */
+async function pasteToTerminal(
+  terminal: Terminal,
+  sessionId: string,
+): Promise<void> {
+  try {
+    const text = await navigator.clipboard.readText();
+    if (!text) return;
+    terminal.paste(text);
+    const bytes = Array.from(new TextEncoder().encode(text));
+    broadcastWrite(sessionId, bytes);
+    await invoke("pty_write", { sessionId, data: bytes });
+  } catch {
+    // Clipboard read failed — permission denied or empty
+  }
+}
+
+/**
  * React hook that manages the full xterm.js terminal lifecycle.
  *
  * Handles: Terminal creation → addon loading → event binding →
@@ -62,6 +90,7 @@ export function useTerminal({
   onTitleChange,
   onExit,
   highlightSetId,
+  onBell,
 }: UseTerminalOptions): UseTerminalReturn {
   const terminalRef = useRef<HTMLDivElement | null>(null);
   const terminalInstanceRef = useRef<Terminal | null>(null);
@@ -78,6 +107,8 @@ export function useTerminal({
   onTitleChangeRef.current = onTitleChange;
   const onExitRef = useRef(onExit);
   onExitRef.current = onExit;
+  const onBellRef = useRef(onBell);
+  onBellRef.current = onBell;
 
   // Main effect: create terminal, bind events, set up I/O bridge
   useEffect(() => {
@@ -96,6 +127,8 @@ export function useTerminal({
       cursorStyle: "block",
       allowProposedApi: true,
       screenReaderMode: true,
+      // Fix 5: Better word separators for double-click selection
+      wordSeparator: WORD_SEPARATOR,
     });
 
     terminalInstanceRef.current = terminal;
@@ -108,6 +141,16 @@ export function useTerminal({
     const unicodeAddon = new Unicode11Addon();
     terminal.loadAddon(unicodeAddon);
     terminal.unicode.activeVersion = "11";
+
+    // Fix 6: Load clickable URL addon — opens links in default browser
+    try {
+      const webLinksAddon = new WebLinksAddon((_event, uri) => {
+        window.open(uri, "_blank");
+      });
+      terminal.loadAddon(webLinksAddon);
+    } catch {
+      // WebLinksAddon not critical — URLs just won't be clickable
+    }
 
     // Open terminal in the DOM container
     terminal.open(container);
@@ -134,6 +177,19 @@ export function useTerminal({
     // Initialize highlight engine
     const highlightEngine = new HighlightEngine(terminal);
     highlightEngineRef.current = highlightEngine;
+
+    // Fix 3: Visual bell — notify parent via callback
+    const bellDisposable = terminal.onBell(() => {
+      onBellRef.current?.();
+    });
+
+    // Fix 1: Right-click paste — read clipboard and write to terminal + PTY
+    const handleContextMenu = (e: MouseEvent) => {
+      e.preventDefault();
+      if (disposed) return;
+      pasteToTerminal(terminal, sessionId);
+    };
+    container.addEventListener("contextmenu", handleContextMenu);
 
     // Bridge: terminal keystrokes → PTY write
     const dataDisposable = terminal.onData((data: string) => {
@@ -169,19 +225,57 @@ export function useTerminal({
       onTitleChangeRef.current?.(title);
     });
 
-    // Keyboard shortcut: Ctrl+Shift+H to toggle highlighting
-    const keyHandler = terminal.attachCustomKeyEventHandler(
+    // Keyboard shortcuts: Ctrl+Shift+H (highlight), Ctrl+Shift+C/V (copy/paste),
+    // Ctrl+Plus/Minus/0 (font zoom)
+    terminal.attachCustomKeyEventHandler(
       (event: KeyboardEvent) => {
-        if (
-          event.type === "keydown" &&
-          event.ctrlKey &&
-          event.shiftKey &&
-          event.key === "H"
-        ) {
+        if (event.type !== "keydown") return true;
+
+        // Fix 2: Ctrl+Shift+C — copy selection to clipboard
+        if (event.ctrlKey && event.shiftKey && event.key === "C") {
+          const selection = terminal.getSelection();
+          if (selection) {
+            navigator.clipboard.writeText(selection).catch(() => {});
+          }
+          return false;
+        }
+
+        // Fix 2: Ctrl+Shift+V — paste from clipboard
+        if (event.ctrlKey && event.shiftKey && event.key === "V") {
+          pasteToTerminal(terminal, sessionId);
+          return false;
+        }
+
+        // Ctrl+Shift+H — toggle highlighting (existing)
+        if (event.ctrlKey && event.shiftKey && event.key === "H") {
           const newState = highlightEngine.toggle();
           setHighlightEnabled(newState);
-          return false; // Prevent default terminal handling
+          return false;
         }
+
+        // Fix 7: Ctrl+= or Ctrl+Plus — increase font size
+        if (event.ctrlKey && !event.shiftKey && (event.key === "=" || event.key === "+")) {
+          const current = terminal.options.fontSize ?? FONT_SIZE_DEFAULT;
+          terminal.options.fontSize = clampFontSize(current + 1);
+          try { fitAddon.fit(); } catch { /* ignore */ }
+          return false;
+        }
+
+        // Fix 7: Ctrl+- — decrease font size
+        if (event.ctrlKey && !event.shiftKey && event.key === "-") {
+          const current = terminal.options.fontSize ?? FONT_SIZE_DEFAULT;
+          terminal.options.fontSize = clampFontSize(current - 1);
+          try { fitAddon.fit(); } catch { /* ignore */ }
+          return false;
+        }
+
+        // Fix 7: Ctrl+0 — reset font size to default
+        if (event.ctrlKey && !event.shiftKey && event.key === "0") {
+          terminal.options.fontSize = FONT_SIZE_DEFAULT;
+          try { fitAddon.fit(); } catch { /* ignore */ }
+          return false;
+        }
+
         return true; // Allow normal key processing
       },
     );
@@ -267,6 +361,7 @@ export function useTerminal({
         clearTimeout(resizeDebounceTimer);
       }
       window.removeEventListener("resize", handleWindowResize);
+      container.removeEventListener("contextmenu", handleContextMenu);
 
       // Dispose highlight engine
       highlightEngine.dispose();
@@ -276,8 +371,7 @@ export function useTerminal({
       binaryDisposable.dispose();
       resizeDisposable.dispose();
       titleDisposable.dispose();
-      keyHandler.dispose();
-
+      bellDisposable.dispose();
       for (const unlisten of unlisteners) {
         unlisten();
       }

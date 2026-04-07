@@ -30,6 +30,7 @@ vi.mock("@xterm/xterm", () => {
       (size: { cols: number; rows: number }) => void
     > = [];
     private _onTitleChangeHandlers: Array<(title: string) => void> = [];
+    private _onBellHandlers: Array<() => void> = [];
     private _onWriteParsedHandlers: Array<() => void> = [];
 
     constructor(options: Record<string, unknown> = {}) {
@@ -51,6 +52,8 @@ vi.mock("@xterm/xterm", () => {
       onRender: vi.fn(),
     });
     attachCustomKeyEventHandler = vi.fn().mockReturnValue(createDisposable());
+    getSelection = vi.fn().mockReturnValue("");
+    paste = vi.fn();
 
     onData(handler: (data: string) => void) {
       this._onDataHandlers.push(handler);
@@ -66,6 +69,10 @@ vi.mock("@xterm/xterm", () => {
     }
     onTitleChange(handler: (title: string) => void) {
       this._onTitleChangeHandlers.push(handler);
+      return createDisposable();
+    }
+    onBell(handler: () => void) {
+      this._onBellHandlers.push(handler);
       return createDisposable();
     }
     onWriteParsed(handler: () => void) {
@@ -92,6 +99,12 @@ vi.mock("@xterm/addon-webgl", () => ({
 
 vi.mock("@xterm/addon-unicode11", () => ({
   Unicode11Addon: vi.fn().mockImplementation(() => ({
+    dispose: vi.fn(),
+  })),
+}));
+
+vi.mock("@xterm/addon-web-links", () => ({
+  WebLinksAddon: vi.fn().mockImplementation(() => ({
     dispose: vi.fn(),
   })),
 }));

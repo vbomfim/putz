@@ -167,6 +167,7 @@ export function Tab({
       aria-selected={isActive}
       tabIndex={isActive ? 0 : -1}
       draggable={!isEditing}
+      data-tab-id={tab.id}
       onClick={handleClick}
       onDoubleClick={handleDoubleClick}
       onDragStart={handleDragStart}
