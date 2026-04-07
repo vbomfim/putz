@@ -1,4 +1,5 @@
 /// IPC module — Tauri command handlers for frontend–backend communication.
+pub mod compliance;
 pub mod connection;
 pub mod forwarding;
 pub mod highlight;
@@ -41,4 +42,8 @@ pub use terminal::{pty_close, pty_resize, pty_spawn, pty_write};
 pub use theme::{
     theme_create, theme_delete, theme_export, theme_get, theme_import, theme_list, theme_update,
 };
-pub use vault::{vault_delete, vault_get, vault_list, vault_set};
+pub use vault::{vault_check_expiring, vault_delete, vault_get, vault_list, vault_set};
+pub use compliance::{
+    change_window_active, change_window_check, change_window_delete, change_window_list,
+    change_window_set,
+};

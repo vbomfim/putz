@@ -313,6 +313,8 @@ impl VaultManager {
             meta.username = input.username.clone();
             meta.credential_type = input.credential_type.clone();
             meta.updated_at = now;
+            meta.expires_at = input.expires_at.clone();
+            meta.rotation_days = input.rotation_days;
         } else {
             let meta = CredentialMeta {
                 id: id.clone(),
@@ -322,6 +324,8 @@ impl VaultManager {
                 last_used: None,
                 created_at: now.clone(),
                 updated_at: now,
+                expires_at: input.expires_at.clone(),
+                rotation_days: input.rotation_days,
             };
             index.credentials.push(meta);
         }
@@ -356,6 +360,33 @@ impl VaultManager {
 
         Ok(())
     }
+
+    /// Returns credentials that expire within the given number of days.
+    ///
+    /// Checks `expires_at` field against the current UTC time plus `days_ahead`.
+    /// Credentials without an `expires_at` value are excluded.
+    pub fn check_expiring(&self, days_ahead: u32) -> Result<Vec<CredentialMeta>, VaultError> {
+        let index = self.lock_index()?;
+        let now = chrono::Utc::now();
+        let threshold = now + chrono::Duration::days(days_ahead as i64);
+
+        let expiring: Vec<CredentialMeta> = index
+            .credentials
+            .iter()
+            .filter(|c| {
+                if let Some(ref expires_at) = c.expires_at {
+                    // Parse ISO 8601 timestamp
+                    if let Ok(expires) = chrono::DateTime::parse_from_rfc3339(expires_at) {
+                        return expires <= threshold;
+                    }
+                }
+                false
+            })
+            .cloned()
+            .collect();
+
+        Ok(expiring)
+    }
 }
 
 #[cfg(test)]
@@ -380,6 +411,8 @@ mod tests {
             username: "admin".into(),
             secret: "hunter2".into(),
             credential_type: CredentialType::Password,
+            expires_at: None,
+            rotation_days: None,
         }
     }
 
@@ -493,6 +526,8 @@ mod tests {
             username: "new_user".into(),
             secret: "new_secret".into(),
             credential_type: CredentialType::KeyPassphrase,
+            expires_at: None,
+            rotation_days: None,
         };
         let returned_id = mgr.set(update).unwrap();
         assert_eq!(returned_id, id);
@@ -513,6 +548,8 @@ mod tests {
             username: "user".into(),
             secret: "pass".into(),
             credential_type: CredentialType::Password,
+            expires_at: None,
+            rotation_days: None,
         };
         let result = mgr.set(update);
         assert!(matches!(result.unwrap_err(), VaultError::NotFound(_)));
@@ -692,6 +729,8 @@ mod tests {
                     last_used: None,
                     created_at: "2024-01-01T00:00:00Z".into(),
                     updated_at: "2024-01-01T00:00:00Z".into(),
+                    expires_at: None,
+                    rotation_days: None,
                 });
             }
         }
