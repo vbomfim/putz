@@ -1,6 +1,7 @@
 mod commands;
 mod highlight;
 mod ipc;
+mod keys;
 mod logging;
 mod protocol;
 mod pty;
@@ -12,13 +13,15 @@ use highlight::HighlightManager;
 use ipc::{
     connection_close, connection_open, connection_resize, connection_write, highlight_create_set,
     highlight_delete_set, highlight_get_set, highlight_list_sets, highlight_update_set,
-    logging_start, logging_status, logging_stop, pty_close, pty_resize, pty_spawn, pty_write,
-    serial_list_ports, serial_send_break, session_create, session_create_folder, session_delete,
+    key_delete, key_generate, key_get_public, key_import, key_list, logging_start, logging_status,
+    logging_stop, pty_close, pty_resize, pty_spawn, pty_write, serial_list_ports,
+    serial_send_break, session_create, session_create_folder, session_delete,
     session_delete_folder, session_duplicate, session_export, session_get, session_import,
     session_list, session_move, session_search, session_update, sftp_close, sftp_delete,
     sftp_download, sftp_list, sftp_mkdir, sftp_open, sftp_rename, sftp_stat, sftp_upload,
     vault_delete, vault_get, vault_list, vault_set,
 };
+use keys::KeyManager;
 use logging::LogManager;
 use protocol::connection_manager::ConnectionManager;
 use protocol::sftp::SftpManager;
@@ -34,6 +37,7 @@ pub fn run() {
         .manage(SessionManager::new())
         .manage(ConnectionManager::new())
         .manage(VaultManager::new())
+        .manage(KeyManager::new())
         .manage(LogManager::new())
         .manage(SftpManager::new())
         .manage(HighlightManager::new())
@@ -82,6 +86,11 @@ pub fn run() {
             highlight_create_set,
             highlight_update_set,
             highlight_delete_set,
+            key_list,
+            key_generate,
+            key_import,
+            key_delete,
+            key_get_public,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
