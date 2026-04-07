@@ -199,6 +199,12 @@ export function useTerminal({
       // Container may not be visible yet
     }
 
+    // Delayed re-fit — Allotment may not have settled dimensions yet
+    // This ensures split panes render correctly
+    const fitTimer = setTimeout(() => {
+      try { fitAddon.fit(); } catch { /* ignore */ }
+    }, 150);
+
     // Initialize highlight engine
     const highlightEngine = new HighlightEngine(terminal);
     highlightEngineRef.current = highlightEngine;
@@ -412,6 +418,13 @@ export function useTerminal({
     };
     window.addEventListener("resize", handleWindowResize);
 
+    // ResizeObserver — re-fit when container size changes (e.g., Allotment split resize)
+    const resizeObserver = new ResizeObserver(() => {
+      if (disposed) return;
+      try { fitAddon.fit(); } catch { /* ignore */ }
+    });
+    resizeObserver.observe(container);
+
     // Sync initial PTY size after a short delay (DOM needs to settle)
     const initialSizeTimeout = setTimeout(() => {
       if (disposed) return;
@@ -430,10 +443,12 @@ export function useTerminal({
     return () => {
       disposed = true;
       clearTimeout(initialSizeTimeout);
+      clearTimeout(fitTimer);
       if (resizeDebounceTimer !== null) {
         clearTimeout(resizeDebounceTimer);
       }
       window.removeEventListener("resize", handleWindowResize);
+      resizeObserver.disconnect();
       container.removeEventListener("contextmenu", handleContextMenu);
 
       // Dispose highlight engine

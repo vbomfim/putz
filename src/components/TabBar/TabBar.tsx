@@ -122,7 +122,13 @@ export function TabBar() {
 
   return (
     <div className="tabbar">
-      <div className="tabbar__tabs" role="tablist" aria-label="Terminal tabs">
+      <div
+        className="tabbar__tabs"
+        role="tablist"
+        aria-label="Terminal tabs"
+        onDragOver={(e) => e.preventDefault()}
+        onDrop={(e) => e.preventDefault()}
+      >
         {tabs.map((tab, index) => (
           <Tab
             key={tab.id}

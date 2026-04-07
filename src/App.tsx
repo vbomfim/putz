@@ -6,6 +6,8 @@
  * - TabBar at the top for tab management
  * - SplitContainer for the active tab's pane layout
  * - Empty state with "New Terminal" prompt when no tabs exist
+ * - Config Diff Viewer (Ctrl+Shift+K)
+ * - Command Templates panel (Ctrl+Shift+T)
  */
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useTabStore } from "./stores/tabStore";
@@ -16,6 +18,8 @@ import { SplitContainer } from "./components/SplitPane";
 import { SessionSidebar } from "./components/SessionManager";
 import { UpdateChecker } from "./components/UpdateChecker";
 import { CredentialReminder } from "./components/Vault/CredentialReminder";
+import { ConfigDiff } from "./components/ConfigDiff";
+import { TemplatePanel } from "./components/Templates";
 import type { SessionProfile } from "./components/SessionManager";
 import "./components/SessionManager/SessionManager.css";
 import "./styles/App.css";
@@ -28,6 +32,8 @@ function App() {
   const broadcastTargetIds = useBroadcastStore((s) => s.targetTabIds);
   const hasInitialized = useRef(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [configDiffOpen, setConfigDiffOpen] = useState(false);
+  const [templatePanelOpen, setTemplatePanelOpen] = useState(false);
 
   // Create the first tab on mount
   useEffect(() => {
@@ -43,6 +49,42 @@ function App() {
   const handleSidebarToggle = useCallback(() => {
     setSidebarOpen((prev) => !prev);
   }, []);
+
+  /** Toggles the Config Diff Viewer overlay. */
+  const handleToggleConfigDiff = useCallback(() => {
+    setConfigDiffOpen((prev) => !prev);
+  }, []);
+
+  /** Toggles the Command Templates panel. */
+  const handleToggleTemplates = useCallback(() => {
+    setTemplatePanelOpen((prev) => !prev);
+  }, []);
+
+  /** Global keyboard shortcut for panels not managed by TabBar's hook. */
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      const modifier = e.ctrlKey || e.metaKey;
+      if (!modifier || !e.shiftKey) return;
+
+      const key = e.key.toLowerCase();
+
+      // Ctrl+Shift+K — Config Diff Viewer
+      if (key === "k") {
+        e.preventDefault();
+        handleToggleConfigDiff();
+        return;
+      }
+
+      // Ctrl+Shift+T — Command Templates
+      if (key === "t") {
+        e.preventDefault();
+        handleToggleTemplates();
+        return;
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [handleToggleConfigDiff, handleToggleTemplates]);
 
   /** Called when a session is opened from the sidebar. */
   const handleSessionOpen = useCallback((_session: SessionProfile) => {
@@ -110,6 +152,14 @@ function App() {
           />
         ))}
       </div>
+      <ConfigDiff
+        isOpen={configDiffOpen}
+        onClose={() => setConfigDiffOpen(false)}
+      />
+      <TemplatePanel
+        isOpen={templatePanelOpen}
+        onClose={() => setTemplatePanelOpen(false)}
+      />
     </main>
   );
 }
