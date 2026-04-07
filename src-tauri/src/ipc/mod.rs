@@ -3,6 +3,7 @@ pub mod connection;
 pub mod forwarding;
 pub mod highlight;
 pub mod logging;
+pub mod scripting;
 pub mod session;
 pub mod sftp;
 pub mod terminal;
@@ -21,6 +22,10 @@ pub use highlight::{
     highlight_update_set,
 };
 pub use logging::{logging_start, logging_status, logging_stop};
+pub use scripting::{
+    script_delete, script_get, script_list, script_record_start, script_record_stop, script_run,
+    script_run_multi, script_save, script_status, script_stop,
+};
 pub use session::{
     session_create, session_create_folder, session_delete, session_delete_folder,
     session_duplicate, session_export, session_get, session_import, session_list, session_move,
