@@ -17,6 +17,7 @@ import { BroadcastBar } from "./components/BroadcastBar";
 import { SplitContainer } from "./components/SplitPane";
 import { SessionSidebar } from "./components/SessionManager";
 import { UpdateChecker } from "./components/UpdateChecker";
+import { CredentialReminder } from "./components/Vault/CredentialReminder";
 import { ConfigDiff } from "./components/ConfigDiff";
 import { TemplatePanel } from "./components/Templates";
 import type { SessionProfile } from "./components/SessionManager";
@@ -118,6 +119,7 @@ function App() {
   return (
     <main className="app-container" data-testid="app-root">
       <UpdateChecker />
+      <CredentialReminder />
       <SessionSidebar
         isOpen={sidebarOpen}
         onToggle={handleSidebarToggle}

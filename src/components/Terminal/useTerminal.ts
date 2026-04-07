@@ -28,6 +28,7 @@ import {
   FONT_SIZE_DEFAULT,
   clampFontSize,
 } from "./terminalPolish";
+import { changeWindowCheck } from "../Compliance/complianceApi";
 
 interface UseTerminalOptions {
   /** UUID v4 session identifier from pty_spawn. */
@@ -40,6 +41,8 @@ interface UseTerminalOptions {
   highlightSetId?: string;
   /** Callback when a visual bell is triggered. */
   onBell?: () => void;
+  /** Whether change window enforcement is enabled. */
+  changeWindowEnabled?: boolean;
 }
 
 interface UseTerminalReturn {
@@ -57,6 +60,16 @@ interface UseTerminalReturn {
   terminalInstance: Terminal | null;
   /** Whether keyword highlighting is currently enabled. */
   highlightEnabled: boolean;
+  /** Change window guard state — pending warning for dangerous commands. */
+  changeWindowWarning: {
+    show: boolean;
+    command: string;
+    reason: string;
+  };
+  /** Called when user clicks "Proceed Anyway" on change window warning. */
+  onChangeWindowProceed: () => void;
+  /** Called when user clicks "Cancel" on change window warning. */
+  onChangeWindowCancel: () => void;
 }
 
 /**
@@ -91,6 +104,7 @@ export function useTerminal({
   onExit,
   highlightSetId,
   onBell,
+  changeWindowEnabled = false,
 }: UseTerminalOptions): UseTerminalReturn {
   const terminalRef = useRef<HTMLDivElement | null>(null);
   const terminalInstanceRef = useRef<Terminal | null>(null);
@@ -101,6 +115,17 @@ export function useTerminal({
   const [hasExited, setHasExited] = useState(false);
   const [exitCode, setExitCode] = useState<number | null>(null);
   const [highlightEnabled, setHighlightEnabled] = useState(false);
+
+  // Change window guard state
+  const lineBufferRef = useRef<string>("");
+  const pendingDataRef = useRef<string>("");
+  const [cwWarning, setCwWarning] = useState({
+    show: false,
+    command: "",
+    reason: "",
+  });
+  const changeWindowEnabledRef = useRef(changeWindowEnabled);
+  changeWindowEnabledRef.current = changeWindowEnabled;
 
   // Store callbacks in refs to avoid effect re-runs
   const onTitleChangeRef = useRef(onTitleChange);
@@ -197,9 +222,57 @@ export function useTerminal({
     };
     container.addEventListener("contextmenu", handleContextMenu);
 
-    // Bridge: terminal keystrokes → PTY write
+    // Bridge: terminal keystrokes → PTY write (with change window guard)
     const dataDisposable = terminal.onData((data: string) => {
       if (disposed) return;
+
+      // Change window guard: buffer and check on Enter
+      if (changeWindowEnabledRef.current && (data.includes("\r") || data.includes("\n"))) {
+        const command = lineBufferRef.current.trim();
+        lineBufferRef.current = "";
+
+        if (command) {
+          // Check command asynchronously — hold back Enter key
+          pendingDataRef.current = data;
+          changeWindowCheck(command)
+            .then((result) => {
+              if (disposed) return;
+              if (result.allowed) {
+                // Command allowed — forward the data
+                const bytes = Array.from(new TextEncoder().encode(data));
+                broadcastWrite(sessionId, bytes);
+                invoke("pty_write", { sessionId, data: bytes }).catch(() => {});
+              } else {
+                // Command blocked — show warning
+                setCwWarning({
+                  show: true,
+                  command,
+                  reason: result.reason,
+                });
+              }
+            })
+            .catch(() => {
+              // Backend error — fail open, forward data
+              if (disposed) return;
+              const bytes = Array.from(new TextEncoder().encode(data));
+              broadcastWrite(sessionId, bytes);
+              invoke("pty_write", { sessionId, data: bytes }).catch(() => {});
+            });
+          return; // Don't forward yet — wait for check result
+        }
+      }
+
+      // Buffer characters for change window guard
+      if (changeWindowEnabledRef.current) {
+        for (const ch of data) {
+          if (ch === "\x7f" || ch === "\b") {
+            lineBufferRef.current = lineBufferRef.current.slice(0, -1);
+          } else if (ch.charCodeAt(0) >= 32) {
+            lineBufferRef.current += ch;
+          }
+        }
+      }
+
       const bytes = Array.from(new TextEncoder().encode(data));
       broadcastWrite(sessionId, bytes);
       invoke("pty_write", { sessionId, data: bytes }).catch(() => {
@@ -431,6 +504,26 @@ export function useTerminal({
     };
   }, [highlightSetId]);
 
+  // Change window guard — Proceed and Cancel handlers
+  const handleChangeWindowProceed = useCallback(() => {
+    // User chose "Proceed Anyway" — forward the held-back data
+    const data = pendingDataRef.current;
+    pendingDataRef.current = "";
+    setCwWarning({ show: false, command: "", reason: "" });
+
+    if (data) {
+      const bytes = Array.from(new TextEncoder().encode(data));
+      broadcastWrite(sessionId, bytes);
+      invoke("pty_write", { sessionId, data: bytes }).catch(() => {});
+    }
+  }, [sessionId]);
+
+  const handleChangeWindowCancel = useCallback(() => {
+    // User cancelled — discard the held-back data
+    pendingDataRef.current = "";
+    setCwWarning({ show: false, command: "", reason: "" });
+  }, []);
+
   return {
     terminalRef,
     isReady,
@@ -439,6 +532,9 @@ export function useTerminal({
     exitCode,
     terminalInstance: terminalInstanceRef.current,
     highlightEnabled,
+    changeWindowWarning: cwWarning,
+    onChangeWindowProceed: handleChangeWindowProceed,
+    onChangeWindowCancel: handleChangeWindowCancel,
   };
 }
 

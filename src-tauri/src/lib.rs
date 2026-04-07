@@ -1,4 +1,5 @@
 mod commands;
+mod compliance;
 mod highlight;
 mod ipc;
 mod keys;
@@ -13,8 +14,11 @@ mod theme;
 mod vault;
 
 use commands::greet;
+use compliance::ChangeWindowManager;
 use highlight::HighlightManager;
 use ipc::{
+    change_window_active, change_window_check, change_window_delete, change_window_list,
+    change_window_set,
     connection_close, connection_open, connection_resize, connection_write,
     forwarding_add, forwarding_list, forwarding_remove, forwarding_status,
     highlight_create_set,
@@ -31,7 +35,7 @@ use ipc::{
     sftp_download, sftp_list, sftp_mkdir, sftp_open, sftp_rename, sftp_stat, sftp_upload,
     template_create, template_delete, template_execute, template_get, template_list,
     theme_create, theme_delete, theme_export, theme_get, theme_import, theme_list, theme_update,
-    vault_delete, vault_get, vault_list, vault_set,
+    vault_check_expiring, vault_delete, vault_get, vault_list, vault_set,
 };
 use keys::KeyManager;
 use logging::LogManager;
@@ -60,6 +64,7 @@ pub fn run() {
         .manage(ConnectionManager::new())
         .manage(VaultManager::new())
         .manage(KeyManager::new())
+        .manage(ChangeWindowManager::new())
         .manage(LogManager::new())
         .manage(SftpManager::new())
         .manage(HighlightManager::new())
@@ -109,6 +114,12 @@ pub fn run() {
             vault_get,
             vault_set,
             vault_delete,
+            vault_check_expiring,
+            change_window_check,
+            change_window_list,
+            change_window_set,
+            change_window_delete,
+            change_window_active,
             logging_start,
             logging_stop,
             logging_status,

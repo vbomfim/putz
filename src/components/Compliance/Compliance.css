@@ -1,0 +1,232 @@
+/**
+ * Compliance component styles — dark terminal theme.
+ *
+ * Styles for change window warning modal and indicator.
+ * Uses CSS custom properties from global.css.
+ */
+
+/* ─── Change Window Warning Modal ──────────────────────────── */
+
+.change-window-warning-overlay {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: rgba(0, 0, 0, 0.6);
+  z-index: 2000;
+}
+
+.change-window-warning {
+  background-color: var(--bg-secondary);
+  border: 1px solid rgba(255, 85, 85, 0.3);
+  border-radius: 8px;
+  padding: 24px;
+  max-width: 480px;
+  width: 90%;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+}
+
+.change-window-warning__header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.change-window-warning__icon {
+  font-size: 1.5rem;
+}
+
+.change-window-warning__title {
+  margin: 0;
+  color: #ff5555;
+  font-size: 1.125rem;
+}
+
+.change-window-warning__reason {
+  color: var(--text-secondary);
+  margin: 0 0 16px;
+  font-size: 0.875rem;
+  line-height: 1.5;
+}
+
+.change-window-warning__command {
+  background-color: rgba(0, 0, 0, 0.3);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 4px;
+  padding: 10px 14px;
+  margin-bottom: 20px;
+}
+
+.change-window-warning__command code {
+  color: #f1fa8c;
+  font-family: var(--font-mono, "Cascadia Code", "Fira Code", monospace);
+  font-size: 0.875rem;
+}
+
+.change-window-warning__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.change-window-warning__btn {
+  padding: 8px 16px;
+  border-radius: 4px;
+  border: none;
+  font-size: 0.8125rem;
+  cursor: pointer;
+  font-weight: 500;
+}
+
+.change-window-warning__btn--cancel {
+  background-color: rgba(255, 255, 255, 0.1);
+  color: var(--text-primary);
+}
+
+.change-window-warning__btn--cancel:hover {
+  background-color: rgba(255, 255, 255, 0.15);
+}
+
+.change-window-warning__btn--proceed {
+  background-color: rgba(255, 85, 85, 0.2);
+  color: #ff5555;
+  border: 1px solid rgba(255, 85, 85, 0.3);
+}
+
+.change-window-warning__btn--proceed:hover {
+  background-color: rgba(255, 85, 85, 0.3);
+}
+
+/* ─── Change Window Indicator ──────────────────────────────── */
+
+.change-window-indicator {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  margin: 0 4px;
+  font-size: 0.875rem;
+  cursor: default;
+  border-radius: 4px;
+  flex-shrink: 0;
+}
+
+.change-window-indicator--active {
+  opacity: 0.9;
+}
+
+.change-window-indicator--inactive {
+  opacity: 0.7;
+  animation: pulse-lock 3s ease-in-out infinite;
+}
+
+@keyframes pulse-lock {
+  0%,
+  100% {
+    opacity: 0.7;
+  }
+  50% {
+    opacity: 0.4;
+  }
+}
+
+/* ─── Credential Reminder ──────────────────────────────────── */
+
+.credential-reminder {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 14px;
+  background-color: rgba(241, 250, 140, 0.1);
+  border-bottom: 1px solid rgba(241, 250, 140, 0.2);
+  font-size: 0.8125rem;
+  color: #f1fa8c;
+}
+
+.credential-reminder__icon {
+  flex-shrink: 0;
+}
+
+.credential-reminder__message {
+  flex: 1;
+}
+
+.credential-reminder__link {
+  background: none;
+  border: none;
+  color: #8be9fd;
+  cursor: pointer;
+  text-decoration: underline;
+  font-size: 0.8125rem;
+  padding: 0;
+}
+
+.credential-reminder__link:hover {
+  color: #6cd0e4;
+}
+
+.credential-reminder__dismiss {
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-size: 1rem;
+  padding: 0 4px;
+  line-height: 1;
+}
+
+.credential-reminder__dismiss:hover {
+  color: var(--text-primary);
+}
+
+/* Credential reminder list (expanded view) */
+.credential-reminder-list {
+  padding: 12px 14px;
+  background-color: rgba(241, 250, 140, 0.05);
+  border-bottom: 1px solid rgba(241, 250, 140, 0.1);
+}
+
+.credential-reminder-list__items {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.credential-reminder-list__item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+  font-size: 0.8125rem;
+}
+
+.credential-reminder-list__item:last-child {
+  border-bottom: none;
+}
+
+.credential-reminder-list__name {
+  color: var(--text-primary);
+}
+
+.credential-reminder-list__expires {
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+}
+
+.credential-reminder-list__update {
+  background-color: rgba(139, 233, 253, 0.15);
+  border: 1px solid rgba(139, 233, 253, 0.3);
+  border-radius: 3px;
+  color: #8be9fd;
+  cursor: pointer;
+  font-size: 0.75rem;
+  padding: 3px 10px;
+}
+
+.credential-reminder-list__update:hover {
+  background-color: rgba(139, 233, 253, 0.25);
+}
