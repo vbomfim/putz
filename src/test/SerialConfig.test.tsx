@@ -8,8 +8,9 @@
  */
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
-import { SerialConfig, DEFAULT_SERIAL_CONFIG } from "../components/Terminal/SerialConfig";
-import type { SerialConfigValues } from "../components/Terminal/SerialConfig";
+import { SerialConfig } from "../components/Terminal/SerialConfig";
+import { DEFAULT_SERIAL_CONFIG } from "../components/Terminal/connectionTypes";
+import type { SerialConfigValues } from "../components/Terminal/connectionTypes";
 
 // Mock the Tauri invoke API
 vi.mock("@tauri-apps/api/core", () => ({
@@ -38,12 +39,25 @@ describe("SerialConfig", () => {
     );
   }
 
+  /** Renders and waits for the initial port scan to complete. */
+  async function renderConfigAsync(
+    overrides: Partial<SerialConfigValues> = {},
+    onChange = defaultOnChange,
+  ) {
+    const result = renderConfig(overrides, onChange);
+    // Wait for the initial serial_list_ports IPC call to settle
+    await waitFor(() => {
+      expect(mockInvoke).toHaveBeenCalledWith("serial_list_ports");
+    });
+    return result;
+  }
+
   // =====================================================================
   // Rendering tests
   // =====================================================================
 
-  it("renders all configuration fields", () => {
-    renderConfig();
+  it("renders all configuration fields", async () => {
+    await renderConfigAsync();
     expect(screen.getByTestId("serial-config")).toBeInTheDocument();
     expect(screen.getByTestId("serial-port-select")).toBeInTheDocument();
     expect(screen.getByTestId("serial-baud-select")).toBeInTheDocument();
@@ -53,37 +67,37 @@ describe("SerialConfig", () => {
     expect(screen.getByTestId("serial-flow-control")).toBeInTheDocument();
   });
 
-  it("renders refresh button", () => {
-    renderConfig();
+  it("renders refresh button", async () => {
+    await renderConfigAsync();
     expect(screen.getByTestId("serial-refresh-btn")).toBeInTheDocument();
   });
 
-  it("shows default baud rate of 9600", () => {
-    renderConfig();
+  it("shows default baud rate of 9600", async () => {
+    await renderConfigAsync();
     const select = screen.getByTestId("serial-baud-select") as HTMLSelectElement;
     expect(select.value).toBe("9600");
   });
 
-  it("shows default data bits of eight", () => {
-    renderConfig();
+  it("shows default data bits of eight", async () => {
+    await renderConfigAsync();
     const select = screen.getByTestId("serial-data-bits") as HTMLSelectElement;
     expect(select.value).toBe("eight");
   });
 
-  it("shows default parity of none", () => {
-    renderConfig();
+  it("shows default parity of none", async () => {
+    await renderConfigAsync();
     const select = screen.getByTestId("serial-parity") as HTMLSelectElement;
     expect(select.value).toBe("none");
   });
 
-  it("shows default stop bits of one", () => {
-    renderConfig();
+  it("shows default stop bits of one", async () => {
+    await renderConfigAsync();
     const select = screen.getByTestId("serial-stop-bits") as HTMLSelectElement;
     expect(select.value).toBe("one");
   });
 
-  it("shows default flow control of none", () => {
-    renderConfig();
+  it("shows default flow control of none", async () => {
+    await renderConfigAsync();
     const select = screen.getByTestId("serial-flow-control") as HTMLSelectElement;
     expect(select.value).toBe("none");
   });
@@ -150,9 +164,9 @@ describe("SerialConfig", () => {
   // Value change tests [AC-3]
   // =====================================================================
 
-  it("calls onChange when baud rate changes", () => {
+  it("calls onChange when baud rate changes", async () => {
     const onChange = vi.fn();
-    renderConfig({}, onChange);
+    await renderConfigAsync({}, onChange);
     fireEvent.change(screen.getByTestId("serial-baud-select"), {
       target: { value: "115200" },
     });
@@ -161,9 +175,9 @@ describe("SerialConfig", () => {
     );
   });
 
-  it("calls onChange when data bits change", () => {
+  it("calls onChange when data bits change", async () => {
     const onChange = vi.fn();
-    renderConfig({}, onChange);
+    await renderConfigAsync({}, onChange);
     fireEvent.change(screen.getByTestId("serial-data-bits"), {
       target: { value: "seven" },
     });
@@ -172,9 +186,9 @@ describe("SerialConfig", () => {
     );
   });
 
-  it("calls onChange when parity changes", () => {
+  it("calls onChange when parity changes", async () => {
     const onChange = vi.fn();
-    renderConfig({}, onChange);
+    await renderConfigAsync({}, onChange);
     fireEvent.change(screen.getByTestId("serial-parity"), {
       target: { value: "even" },
     });
@@ -183,9 +197,9 @@ describe("SerialConfig", () => {
     );
   });
 
-  it("calls onChange when stop bits change", () => {
+  it("calls onChange when stop bits change", async () => {
     const onChange = vi.fn();
-    renderConfig({}, onChange);
+    await renderConfigAsync({}, onChange);
     fireEvent.change(screen.getByTestId("serial-stop-bits"), {
       target: { value: "two" },
     });
@@ -194,9 +208,9 @@ describe("SerialConfig", () => {
     );
   });
 
-  it("calls onChange when flow control changes", () => {
+  it("calls onChange when flow control changes", async () => {
     const onChange = vi.fn();
-    renderConfig({}, onChange);
+    await renderConfigAsync({}, onChange);
     fireEvent.change(screen.getByTestId("serial-flow-control"), {
       target: { value: "hardware" },
     });
@@ -209,16 +223,16 @@ describe("SerialConfig", () => {
   // Custom baud rate tests
   // =====================================================================
 
-  it("switches to custom baud input when 'Custom' selected", () => {
-    renderConfig();
+  it("switches to custom baud input when 'Custom' selected", async () => {
+    await renderConfigAsync();
     fireEvent.change(screen.getByTestId("serial-baud-select"), {
       target: { value: "custom" },
     });
     expect(screen.getByTestId("serial-baud-input")).toBeInTheDocument();
   });
 
-  it("switches back to standard from custom", () => {
-    renderConfig();
+  it("switches back to standard from custom", async () => {
+    await renderConfigAsync();
     // Switch to custom
     fireEvent.change(screen.getByTestId("serial-baud-select"), {
       target: { value: "custom" },
@@ -234,7 +248,7 @@ describe("SerialConfig", () => {
   // Error display tests
   // =====================================================================
 
-  it("shows port error when provided", () => {
+  it("shows port error when provided", async () => {
     render(
       <SerialConfig
         values={DEFAULT_SERIAL_CONFIG}
@@ -242,6 +256,9 @@ describe("SerialConfig", () => {
         errors={{ port: "Serial port is required" }}
       />,
     );
+    await waitFor(() => {
+      expect(mockInvoke).toHaveBeenCalledWith("serial_list_ports");
+    });
     expect(screen.getByTestId("serial-port-error")).toHaveTextContent(
       "Serial port is required",
     );

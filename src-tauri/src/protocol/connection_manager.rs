@@ -68,10 +68,24 @@ impl ProtocolConnection {
         }
     }
 
-    /// Sends a serial break signal (serial connections only).
-    fn send_break(&self) -> Result<(), ProtocolError> {
+    /// Returns a clone of the serial writer handle (serial connections only).
+    ///
+    /// Used by ConnectionManager to run blocking operations (send_break)
+    /// on a separate thread via tokio::task::spawn_blocking.
+    fn serial_writer_handle(
+        &self,
+    ) -> Result<
+        Arc<std::sync::Mutex<Box<dyn serialport::SerialPort>>>,
+        ProtocolError,
+    > {
         match self {
-            Self::Serial(conn) => conn.send_break(),
+            Self::Serial(conn) => {
+                conn.writer_handle().ok_or_else(|| {
+                    ProtocolError::ChannelClosed(
+                        "Not connected".into(),
+                    )
+                })
+            }
             _ => Err(ProtocolError::InvalidParams(
                 "Break signal is only supported for serial connections"
                     .into(),
@@ -292,18 +306,56 @@ impl ConnectionManager {
     /// Sends a serial break signal to a connection.
     ///
     /// Only valid for serial connections — returns an error for other types.
+    /// Uses `spawn_blocking` to avoid blocking the tokio runtime
+    /// during the 300ms break duration.
     pub async fn send_break(
         &self,
         connection_id: &str,
     ) -> Result<(), ProtocolError> {
-        let conns = self.connections.lock().await;
-        let conn = conns.get(connection_id).ok_or_else(|| {
-            ProtocolError::ChannelClosed(format!(
-                "Connection not found: {connection_id}"
-            ))
-        })?;
+        // Get the writer handle and drop the CM lock before blocking
+        let writer = {
+            let conns = self.connections.lock().await;
+            let conn = conns.get(connection_id).ok_or_else(|| {
+                ProtocolError::ChannelClosed(format!(
+                    "Connection not found: {connection_id}"
+                ))
+            })?;
+            conn.serial_writer_handle()?
+        };
+        // CM lock is dropped here — safe to block
 
-        conn.send_break()
+        tokio::task::spawn_blocking(move || {
+            use std::time::Duration;
+
+            let port = writer.lock().map_err(|e| {
+                ProtocolError::IoError(format!(
+                    "Lock poisoned: {e}"
+                ))
+            })?;
+
+            port.set_break().map_err(|e| {
+                ProtocolError::IoError(format!(
+                    "Failed to set break: {e}"
+                ))
+            })?;
+
+            // Hold break for ~300ms (standard break duration)
+            std::thread::sleep(Duration::from_millis(300));
+
+            port.clear_break().map_err(|e| {
+                ProtocolError::IoError(format!(
+                    "Failed to clear break: {e}"
+                ))
+            })?;
+
+            Ok(())
+        })
+        .await
+        .map_err(|e| {
+            ProtocolError::IoError(format!(
+                "Break task failed: {e}"
+            ))
+        })?
     }
 
     /// Returns whether a connection exists and is active.
@@ -642,5 +694,241 @@ mod tests {
         let result =
             mgr.open_serial_with_emitter(config, emitter).await;
         assert!(result.is_err());
+    }
+
+    // ── QA Guardian — Integration & edge case tests ─────────────────
+
+    /// [EDGE] Double close on same connection returns error.
+    #[tokio::test]
+    async fn double_close_returns_error() {
+        use tokio::io::AsyncWriteExt;
+
+        let listener =
+            tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let port = listener.local_addr().unwrap().port();
+
+        let server = tokio::spawn(async move {
+            let (mut stream, _) = listener.accept().await.unwrap();
+            stream.write_all(b"OK\r\n").await.unwrap();
+            tokio::time::sleep(tokio::time::Duration::from_millis(200))
+                .await;
+        });
+
+        let mgr = ConnectionManager::new();
+        let emitter = Arc::new(MockEmitter::new());
+        let params = ConnectionParams {
+            host: Some("127.0.0.1".into()),
+            port: Some(port),
+            username: None,
+            cols: 80,
+            rows: 24,
+        };
+
+        let conn_id = mgr
+            .open_with_emitter(params, ProtocolType::Telnet, emitter)
+            .await
+            .unwrap();
+
+        // First close succeeds
+        assert!(mgr.close(&conn_id).await.is_ok());
+
+        // Second close should fail — connection already removed
+        let result = mgr.close(&conn_id).await;
+        assert!(result.is_err());
+        match result.unwrap_err() {
+            ProtocolError::ChannelClosed(msg) => {
+                assert!(msg.contains("not found"));
+            }
+            other => panic!("Expected ChannelClosed, got: {other:?}"),
+        }
+
+        server.await.unwrap();
+    }
+
+    /// [EDGE] write to closed connection returns error.
+    #[tokio::test]
+    async fn write_to_closed_connection_returns_error() {
+        use tokio::io::AsyncWriteExt;
+
+        let listener =
+            tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let port = listener.local_addr().unwrap().port();
+
+        let server = tokio::spawn(async move {
+            let (mut stream, _) = listener.accept().await.unwrap();
+            stream.write_all(b"OK\r\n").await.unwrap();
+            tokio::time::sleep(tokio::time::Duration::from_millis(200))
+                .await;
+        });
+
+        let mgr = ConnectionManager::new();
+        let emitter = Arc::new(MockEmitter::new());
+        let params = ConnectionParams {
+            host: Some("127.0.0.1".into()),
+            port: Some(port),
+            username: None,
+            cols: 80,
+            rows: 24,
+        };
+
+        let conn_id = mgr
+            .open_with_emitter(params, ProtocolType::Telnet, emitter)
+            .await
+            .unwrap();
+
+        mgr.close(&conn_id).await.unwrap();
+
+        let result = mgr.write(&conn_id, b"data").await;
+        assert!(result.is_err());
+
+        server.await.unwrap();
+    }
+
+    /// [EDGE] build_serial_config with max u16 port casts to u32.
+    #[test]
+    fn build_serial_config_max_port_cast() {
+        let params = ConnectionParams {
+            host: Some("COM3".into()),
+            port: Some(u16::MAX),
+            username: None,
+            cols: 80,
+            rows: 24,
+        };
+        let config = build_serial_config(&params).unwrap();
+        assert_eq!(config.baud_rate, u16::MAX as u32);
+    }
+
+    /// [EDGE] build_serial_config with port=0 maps to baud=0.
+    #[test]
+    fn build_serial_config_zero_port_maps_to_zero_baud() {
+        let params = ConnectionParams {
+            host: Some("COM3".into()),
+            port: Some(0),
+            username: None,
+            cols: 80,
+            rows: 24,
+        };
+        let config = build_serial_config(&params).unwrap();
+        // Port 0 maps to baud 0 — validation will catch this later
+        assert_eq!(config.baud_rate, 0);
+    }
+
+    /// [EDGE] send_break on nonexistent connection returns proper error.
+    #[tokio::test]
+    async fn send_break_nonexistent_error_message() {
+        let mgr = ConnectionManager::new();
+        let result = mgr.send_break("ghost-id-123").await;
+        match result.unwrap_err() {
+            ProtocolError::ChannelClosed(msg) => {
+                assert!(msg.contains("not found"));
+            }
+            other => panic!("Expected ChannelClosed, got: {other:?}"),
+        }
+    }
+
+    /// [INTEGRATION] send_break on a telnet connection returns InvalidParams.
+    #[tokio::test]
+    async fn send_break_on_telnet_returns_invalid_params() {
+        use tokio::io::AsyncWriteExt;
+
+        let listener =
+            tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let port = listener.local_addr().unwrap().port();
+
+        let server = tokio::spawn(async move {
+            let (mut stream, _) = listener.accept().await.unwrap();
+            stream.write_all(b"OK\r\n").await.unwrap();
+            tokio::time::sleep(tokio::time::Duration::from_millis(500))
+                .await;
+        });
+
+        let mgr = ConnectionManager::new();
+        let emitter = Arc::new(MockEmitter::new());
+        let params = ConnectionParams {
+            host: Some("127.0.0.1".into()),
+            port: Some(port),
+            username: None,
+            cols: 80,
+            rows: 24,
+        };
+
+        let conn_id = mgr
+            .open_with_emitter(params, ProtocolType::Telnet, emitter)
+            .await
+            .unwrap();
+
+        let result = mgr.send_break(&conn_id).await;
+        assert!(result.is_err());
+        match result.unwrap_err() {
+            ProtocolError::InvalidParams(msg) => {
+                assert!(msg.contains("serial"));
+            }
+            other => {
+                panic!("Expected InvalidParams, got: {other:?}")
+            }
+        }
+
+        mgr.close(&conn_id).await.unwrap();
+        server.await.unwrap();
+    }
+
+    /// [EDGE] connection count tracks correctly after failed opens.
+    #[tokio::test]
+    async fn count_unchanged_after_failed_open() {
+        let mgr = ConnectionManager::new();
+        let emitter = Arc::new(MockEmitter::new());
+
+        assert_eq!(mgr.count().await, 0);
+
+        // Attempt to open a nonexistent serial port — should fail
+        let config = SerialConfig {
+            port: "/dev/ttyNONEXISTENT_COUNT".into(),
+            ..SerialConfig::default()
+        };
+        let _ = mgr.open_serial_with_emitter(config, emitter).await;
+
+        // Count should still be 0 after failed open
+        assert_eq!(mgr.count().await, 0);
+    }
+
+    /// [EDGE] is_connected returns false after close.
+    #[tokio::test]
+    async fn is_connected_false_after_close() {
+        use tokio::io::AsyncWriteExt;
+
+        let listener =
+            tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let port = listener.local_addr().unwrap().port();
+
+        let server = tokio::spawn(async move {
+            let (mut stream, _) = listener.accept().await.unwrap();
+            stream.write_all(b"OK\r\n").await.unwrap();
+            tokio::time::sleep(tokio::time::Duration::from_millis(200))
+                .await;
+        });
+
+        let mgr = ConnectionManager::new();
+        let emitter = Arc::new(MockEmitter::new());
+        let params = ConnectionParams {
+            host: Some("127.0.0.1".into()),
+            port: Some(port),
+            username: None,
+            cols: 80,
+            rows: 24,
+        };
+
+        let conn_id = mgr
+            .open_with_emitter(params, ProtocolType::Telnet, emitter)
+            .await
+            .unwrap();
+
+        assert!(mgr.is_connected(&conn_id).await);
+
+        mgr.close(&conn_id).await.unwrap();
+
+        // Should be false — connection removed
+        assert!(!mgr.is_connected(&conn_id).await);
+
+        server.await.unwrap();
     }
 }

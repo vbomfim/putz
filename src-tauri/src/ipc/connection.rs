@@ -5,7 +5,7 @@
 ///
 /// Mirrors the PTY IPC pattern in terminal.rs but for remote connections.
 /// Commands are async because protocol operations use tokio.
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 use tauri::{AppHandle, State};
 
 use crate::protocol::connection_manager::ConnectionManager;
@@ -15,6 +15,70 @@ use crate::protocol::serial::config::{
 };
 use crate::protocol::serial::scanner;
 use crate::protocol::ProtocolType;
+
+/// Validates a serial port path against OS-specific allowlists.
+///
+/// Prevents path traversal and arbitrary file access by restricting
+/// serial port paths to known device patterns.
+fn validate_serial_port_path(path: &str) -> Result<(), String> {
+    if path.is_empty() {
+        return Err("Serial port path is required".into());
+    }
+
+    #[cfg(target_os = "linux")]
+    {
+        // Linux: /dev/ttyS*, /dev/ttyUSB*, /dev/ttyACM*, /dev/ttyAMA*,
+        //        /dev/serial/*
+        let valid = path.starts_with("/dev/ttyS")
+            || path.starts_with("/dev/ttyUSB")
+            || path.starts_with("/dev/ttyACM")
+            || path.starts_with("/dev/ttyAMA")
+            || path.starts_with("/dev/serial/");
+        if !valid {
+            return Err(format!(
+                "Invalid serial port path: {path}. \
+                 Expected /dev/tty{{S,USB,ACM,AMA}}* or /dev/serial/*"
+            ));
+        }
+    }
+
+    #[cfg(target_os = "macos")]
+    {
+        // macOS: /dev/tty.* or /dev/cu.*
+        let valid =
+            path.starts_with("/dev/tty.") || path.starts_with("/dev/cu.");
+        if !valid {
+            return Err(format!(
+                "Invalid serial port path: {path}. \
+                 Expected /dev/tty.* or /dev/cu.*"
+            ));
+        }
+    }
+
+    #[cfg(target_os = "windows")]
+    {
+        // Windows: COM1..COM256 (case-insensitive)
+        let upper = path.to_uppercase();
+        let valid = upper.starts_with("COM")
+            && upper[3..].parse::<u16>().is_ok();
+        if !valid {
+            return Err(format!(
+                "Invalid serial port path: {path}. \
+                 Expected COM1..COM256"
+            ));
+        }
+    }
+
+    // Reject path traversal regardless of OS
+    if path.contains("..") {
+        return Err(format!(
+            "Invalid serial port path: {path}. \
+             Path traversal is not allowed."
+        ));
+    }
+
+    Ok(())
+}
 
 /// Input DTO for the connection_open IPC command.
 #[derive(Debug, Clone, Deserialize)]
@@ -61,6 +125,10 @@ pub async fn connection_open(
     if input.protocol == ProtocolType::Serial {
         // Build SerialConfig from the input fields
         let serial_port = input.host.unwrap_or_default();
+
+        // Validate port path against OS-specific allowlist
+        validate_serial_port_path(&serial_port)?;
+
         let config = SerialConfig {
             port: serial_port,
             baud_rate: input.baud_rate.unwrap_or(9600),
@@ -149,7 +217,7 @@ pub async fn connection_close(
 /// serial number, and type (USB/PCI/Bluetooth).
 #[tauri::command]
 pub fn serial_list_ports() -> Result<Vec<scanner::SerialPortInfo>, String> {
-    Ok(scanner::list_serial_ports())
+    scanner::list_serial_ports()
 }
 
 /// Sends a break signal on a serial connection.
@@ -292,6 +360,96 @@ mod tests {
         assert!(result.is_ok());
     }
 
+    // ── Serial port path validation tests ──────────────────────────
+
+    #[test]
+    fn validate_rejects_empty_path() {
+        assert!(super::validate_serial_port_path("").is_err());
+    }
+
+    #[test]
+    fn validate_rejects_path_traversal() {
+        assert!(
+            super::validate_serial_port_path("/dev/../etc/passwd")
+                .is_err()
+        );
+    }
+
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn validate_accepts_linux_ttyusb() {
+        assert!(
+            super::validate_serial_port_path("/dev/ttyUSB0").is_ok()
+        );
+    }
+
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn validate_accepts_linux_ttyacm() {
+        assert!(
+            super::validate_serial_port_path("/dev/ttyACM0").is_ok()
+        );
+    }
+
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn validate_accepts_linux_serial() {
+        assert!(super::validate_serial_port_path(
+            "/dev/serial/by-id/usb-FTDI"
+        )
+        .is_ok());
+    }
+
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn validate_rejects_arbitrary_linux_path() {
+        assert!(
+            super::validate_serial_port_path("/dev/sda1").is_err()
+        );
+    }
+
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn validate_accepts_macos_cu() {
+        assert!(
+            super::validate_serial_port_path("/dev/cu.usbserial-1420")
+                .is_ok()
+        );
+    }
+
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn validate_accepts_macos_tty() {
+        assert!(
+            super::validate_serial_port_path("/dev/tty.usbserial-1420")
+                .is_ok()
+        );
+    }
+
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn validate_rejects_arbitrary_macos_path() {
+        assert!(
+            super::validate_serial_port_path("/dev/disk0").is_err()
+        );
+    }
+
+    #[cfg(target_os = "windows")]
+    #[test]
+    fn validate_accepts_windows_com() {
+        assert!(super::validate_serial_port_path("COM3").is_ok());
+        assert!(super::validate_serial_port_path("com10").is_ok());
+    }
+
+    #[cfg(target_os = "windows")]
+    #[test]
+    fn validate_rejects_non_com_windows() {
+        assert!(
+            super::validate_serial_port_path("C:\\Windows\\system32")
+                .is_err()
+        );
+    }
+
     #[test]
     fn base64_decode_valid_data() {
         use base64::Engine;
@@ -310,5 +468,105 @@ mod tests {
         let result = base64::engine::general_purpose::STANDARD
             .decode("not-valid-base64!!!");
         assert!(result.is_err());
+    }
+
+    // ── QA Guardian — IPC deserialization edge case tests ────────────
+
+    /// [EDGE] ConnectionOpenInput with serial partial fields.
+    #[test]
+    fn connection_open_input_serial_partial() {
+        let json = r#"{
+            "host": "/dev/ttyUSB0",
+            "protocol": "serial",
+            "cols": 80,
+            "rows": 24,
+            "baudRate": 115200
+        }"#;
+        let input: super::ConnectionOpenInput =
+            serde_json::from_str(json).unwrap();
+        assert_eq!(input.baud_rate, Some(115200));
+        // Other serial fields default to None
+        assert_eq!(input.data_bits, None);
+        assert_eq!(input.parity, None);
+        assert_eq!(input.stop_bits, None);
+        assert_eq!(input.flow_control, None);
+    }
+
+    /// [EDGE] ConnectionOpenInput with all serial enum variants.
+    #[test]
+    fn connection_open_input_serial_all_enum_combos() {
+        // Test odd parity + software flow control (less common combo)
+        let json = r#"{
+            "host": "COM5",
+            "protocol": "serial",
+            "cols": 80,
+            "rows": 24,
+            "baudRate": 38400,
+            "dataBits": "five",
+            "parity": "odd",
+            "stopBits": "one",
+            "flowControl": "software"
+        }"#;
+        let input: super::ConnectionOpenInput =
+            serde_json::from_str(json).unwrap();
+        assert_eq!(input.data_bits, Some(SerialDataBits::Five));
+        assert_eq!(input.parity, Some(SerialParity::Odd));
+        assert_eq!(input.stop_bits, Some(SerialStopBits::One));
+        assert_eq!(
+            input.flow_control,
+            Some(SerialFlowControl::Software)
+        );
+    }
+
+    /// [EDGE] ConnectionOpenInput with invalid serial enum variant
+    /// in baud_rate field type.
+    #[test]
+    fn connection_open_input_invalid_baud_type() {
+        let json = r#"{
+            "host": "COM3",
+            "protocol": "serial",
+            "cols": 80,
+            "rows": 24,
+            "baudRate": "fast"
+        }"#;
+        let result =
+            serde_json::from_str::<super::ConnectionOpenInput>(json);
+        assert!(
+            result.is_err(),
+            "Should reject string baud rate"
+        );
+    }
+
+    /// [EDGE] ConnectionOpenInput with invalid protocol variant.
+    #[test]
+    fn connection_open_input_invalid_protocol() {
+        let json = r#"{
+            "protocol": "bluetooth",
+            "cols": 80,
+            "rows": 24
+        }"#;
+        let result =
+            serde_json::from_str::<super::ConnectionOpenInput>(json);
+        assert!(
+            result.is_err(),
+            "Should reject unknown protocol"
+        );
+    }
+
+    /// [CONTRACT] All ProtocolError variants produce non-empty strings.
+    #[test]
+    fn all_protocol_error_variants_have_display() {
+        let errors = vec![
+            ProtocolError::ConnectionRefused("refused".into()),
+            ProtocolError::AuthFailed("auth".into()),
+            ProtocolError::Timeout("timeout".into()),
+            ProtocolError::ChannelClosed("closed".into()),
+            ProtocolError::IoError("io".into()),
+            ProtocolError::InvalidParams("params".into()),
+        ];
+        for err in errors {
+            let msg = err.to_string();
+            assert!(!msg.is_empty(), "Display should not be empty");
+        }
     }
 }

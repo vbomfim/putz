@@ -20,6 +20,10 @@ export interface SessionProfile {
   credentialId?: string;
   serialPort?: string;
   serialBaud?: number;
+  serialDataBits?: string;
+  serialParity?: string;
+  serialStopBits?: string;
+  serialFlowControl?: string;
   colorScheme?: string;
   autoLog?: boolean;
   jumpHostId?: string;
@@ -72,6 +76,10 @@ export interface CreateSessionInput {
   credentialId?: string;
   serialPort?: string;
   serialBaud?: number;
+  serialDataBits?: string;
+  serialParity?: string;
+  serialStopBits?: string;
+  serialFlowControl?: string;
   colorScheme?: string;
   autoLog?: boolean;
   jumpHostId?: string;
@@ -88,6 +96,10 @@ export interface UpdateSessionInput {
   credentialId?: string;
   serialPort?: string;
   serialBaud?: number;
+  serialDataBits?: string;
+  serialParity?: string;
+  serialStopBits?: string;
+  serialFlowControl?: string;
   colorScheme?: string;
   autoLog?: boolean;
   jumpHostId?: string;

@@ -85,6 +85,26 @@ export interface ConnectionCloseArgs {
   connectionId: string;
 }
 
+/** All serial config values for the configuration panel. */
+export interface SerialConfigValues {
+  port: string;
+  baudRate: number;
+  dataBits: SerialDataBits;
+  parity: SerialParity;
+  stopBits: SerialStopBits;
+  flowControl: SerialFlowControl;
+}
+
+/** Default serial configuration (9600/8/N/1 — standard Cisco console). */
+export const DEFAULT_SERIAL_CONFIG: SerialConfigValues = {
+  port: "",
+  baudRate: 9600,
+  dataBits: "eight",
+  parity: "none",
+  stopBits: "one",
+  flowControl: "none",
+};
+
 /** Connection status values emitted by the backend. */
 export type ConnectionStatusType =
   | "connecting"

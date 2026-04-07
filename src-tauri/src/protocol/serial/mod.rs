@@ -48,19 +48,12 @@ pub struct SerialConnection {
     /// Whether the connection is currently active.
     connected: Arc<AtomicBool>,
     /// Handle to the read thread (for cleanup on disconnect).
-    read_thread: Option<std::thread::JoinHandle<()>>,
+    /// Wrapped in Arc<StdMutex> so SerialConnection is naturally
+    /// Send + Sync without unsafe impls.
+    read_thread: Arc<StdMutex<Option<std::thread::JoinHandle<()>>>>,
     /// Serial configuration used for this connection.
     config: SerialConfig,
 }
-
-// Safety: SerialConnection is Send + Sync because:
-// - writer is behind Arc<StdMutex> (Send + Sync)
-// - connected is Arc<AtomicBool> (Send + Sync)
-// - read_thread JoinHandle is Send
-// - config is Clone + Send
-// The Box<dyn SerialPort> itself is Send (serialport guarantees this).
-unsafe impl Send for SerialConnection {}
-unsafe impl Sync for SerialConnection {}
 
 impl SerialConnection {
     /// Creates a new disconnected SerialConnection.
@@ -68,7 +61,7 @@ impl SerialConnection {
         Self {
             writer: None,
             connected: Arc::new(AtomicBool::new(false)),
-            read_thread: None,
+            read_thread: Arc::new(StdMutex::new(None)),
             config: SerialConfig::default(),
         }
     }
@@ -85,7 +78,7 @@ impl SerialConnection {
     ) -> Result<(), ProtocolError> {
         config
             .validate()
-            .map_err(|e| ProtocolError::InvalidParams(e))?;
+            .map_err(ProtocolError::InvalidParams)?;
 
         self.config = config.clone();
 
@@ -144,7 +137,7 @@ impl SerialConnection {
                 ))
             })?;
 
-        self.read_thread = Some(read_thread);
+        self.read_thread.lock().unwrap().replace(read_thread);
         Ok(())
     }
 
@@ -152,6 +145,7 @@ impl SerialConnection {
     ///
     /// A serial break is a sustained low-level signal used by some
     /// equipment (Cisco routers) to enter ROM monitor mode.
+    #[allow(dead_code)]
     pub fn send_break(&self) -> Result<(), ProtocolError> {
         let writer = self.writer.as_ref().ok_or_else(|| {
             ProtocolError::ChannelClosed("Not connected".into())
@@ -177,7 +171,18 @@ impl SerialConnection {
         Ok(())
     }
 
+    /// Returns a clone of the writer handle for external use.
+    ///
+    /// Used by ConnectionManager to run blocking send_break on
+    /// a tokio spawn_blocking thread.
+    pub fn writer_handle(
+        &self,
+    ) -> Option<Arc<StdMutex<Box<dyn serialport::SerialPort>>>> {
+        self.writer.clone()
+    }
+
     /// Returns the serial configuration.
+    #[allow(dead_code)]
     pub fn serial_config(&self) -> &SerialConfig {
         &self.config
     }
@@ -232,7 +237,9 @@ impl Protocol for SerialConnection {
         self.writer.take();
 
         // Wait for the read thread to finish
-        if let Some(handle) = self.read_thread.take() {
+        if let Some(handle) =
+            self.read_thread.lock().unwrap().take()
+        {
             // The read thread should exit quickly once connected is false
             // and the port is closed
             let _ = handle.join();
@@ -585,6 +592,166 @@ mod tests {
                 std::io::ErrorKind::Other,
             ),
             description: "something failed".into(),
+        };
+        let result = map_serial_error("/dev/ttyS0", err);
+        match result {
+            ProtocolError::IoError(msg) => {
+                assert!(msg.contains("/dev/ttyS0"));
+            }
+            other => panic!("Expected IoError, got: {other:?}"),
+        }
+    }
+
+    // ====================================================================
+    // QA Guardian — Edge case & integration tests
+    // ====================================================================
+
+    /// [EDGE] Protocol::connect() returns informative error directing
+    /// users to connect_with_emitter().
+    #[tokio::test]
+    async fn protocol_connect_returns_informative_error() {
+        let mut conn = SerialConnection::new();
+        let params = ConnectionParams {
+            host: Some("/dev/ttyUSB0".into()),
+            port: None,
+            username: None,
+            cols: 80,
+            rows: 24,
+        };
+        let result = conn.connect(params).await;
+        assert!(result.is_err());
+        match result.unwrap_err() {
+            ProtocolError::InvalidParams(msg) => {
+                assert!(
+                    msg.contains("connect_with_emitter"),
+                    "Error should mention the correct method"
+                );
+            }
+            other => panic!("Expected InvalidParams, got: {other:?}"),
+        }
+    }
+
+    /// [EDGE] Disconnect when already disconnected is idempotent.
+    #[tokio::test]
+    async fn disconnect_idempotent() {
+        let mut conn = SerialConnection::new();
+        // Disconnect twice — should not panic or error
+        assert!(conn.disconnect().await.is_ok());
+        assert!(conn.disconnect().await.is_ok());
+        assert!(!conn.is_connected());
+    }
+
+    /// [EDGE] Write after disconnect returns ChannelClosed.
+    #[tokio::test]
+    async fn write_after_disconnect_returns_channel_closed() {
+        let mut conn = SerialConnection::new();
+        let _ = conn.disconnect().await;
+        let result = conn.write(b"test").await;
+        assert!(result.is_err());
+        match result.unwrap_err() {
+            ProtocolError::ChannelClosed(_) => {}
+            other => {
+                panic!("Expected ChannelClosed, got: {other:?}")
+            }
+        }
+    }
+
+    /// [EDGE] Resize when disconnected still succeeds (no-op).
+    #[tokio::test]
+    async fn resize_when_disconnected_succeeds() {
+        let mut conn = SerialConnection::new();
+        assert!(conn.resize(200, 50).await.is_ok());
+    }
+
+    /// [EDGE] Resize with extreme values succeeds (serial is no-op).
+    #[tokio::test]
+    async fn resize_with_extreme_values_succeeds() {
+        let mut conn = SerialConnection::new();
+        assert!(conn.resize(u16::MAX, u16::MAX).await.is_ok());
+        assert!(conn.resize(0, 0).await.is_ok());
+    }
+
+    /// [EDGE] Send break with empty data returns not connected error.
+    #[test]
+    fn send_break_error_message_includes_not_connected() {
+        let conn = SerialConnection::new();
+        let result = conn.send_break();
+        match result.unwrap_err() {
+            ProtocolError::ChannelClosed(msg) => {
+                assert!(msg.contains("Not connected"));
+            }
+            other => {
+                panic!("Expected ChannelClosed, got: {other:?}")
+            }
+        }
+    }
+
+    /// [CONTRACT] serial_config() returns the default config for new connections.
+    #[test]
+    fn serial_config_returns_default_for_new() {
+        let conn = SerialConnection::new();
+        let config = conn.serial_config();
+        assert_eq!(config.baud_rate, 9600);
+        assert_eq!(config.data_bits, config::SerialDataBits::Eight);
+        assert_eq!(config.parity, config::SerialParity::None);
+        assert_eq!(config.stop_bits, config::SerialStopBits::One);
+        assert_eq!(config.flow_control, config::SerialFlowControl::None);
+    }
+
+    /// [EDGE] connect_with_emitter emits Connecting status before failing.
+    #[test]
+    fn connect_emits_connecting_before_port_error() {
+        let mut conn = SerialConnection::new();
+        let emitter = Arc::new(MockEmitter::new());
+        let config = config::SerialConfig {
+            port: "/dev/ttyNONEXISTENT_QA".into(),
+            ..Default::default()
+        };
+        let _ = conn.connect_with_emitter(
+            config,
+            "qa-test-id".into(),
+            emitter.clone(),
+        );
+
+        let statuses = emitter.statuses.lock().unwrap();
+        assert!(!statuses.is_empty());
+        assert_eq!(
+            statuses[0].1.status,
+            ConnectionStatus::Connecting
+        );
+        // Should include port name in the connecting message
+        if let Some(ref msg) = statuses[0].1.message {
+            assert!(msg.contains("NONEXISTENT_QA"));
+        }
+    }
+
+    /// [EDGE] map_serial_error for AddrInUse io error.
+    #[test]
+    fn map_error_addr_in_use() {
+        let err = serialport::Error {
+            kind: serialport::ErrorKind::Io(
+                std::io::ErrorKind::AddrInUse,
+            ),
+            description: "address in use".into(),
+        };
+        let result = map_serial_error("COM1", err);
+        match result {
+            ProtocolError::ConnectionRefused(msg) => {
+                assert!(msg.contains("already in use"));
+                assert!(msg.contains("COM1"));
+            }
+            other => {
+                panic!("Expected ConnectionRefused, got: {other:?}")
+            }
+        }
+    }
+
+    /// [EDGE] map_serial_error for catch-all error kind.
+    #[test]
+    fn map_error_unknown_kind() {
+        let err = serialport::Error {
+            kind: serialport::ErrorKind::Unknown,
+            description: "mystery error".into(),
         };
         let result = map_serial_error("/dev/ttyS0", err);
         match result {

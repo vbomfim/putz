@@ -25,11 +25,16 @@ pub struct SerialPortInfo {
 
 /// Lists all available serial ports on the system.
 ///
-/// Returns an empty vec if no ports are found or if enumeration fails.
-pub fn list_serial_ports() -> Vec<SerialPortInfo> {
+/// Returns the list of ports, or an error message if enumeration fails.
+pub fn list_serial_ports() -> Result<Vec<SerialPortInfo>, String> {
     match serialport::available_ports() {
-        Ok(ports) => ports.into_iter().map(map_port_info).collect(),
-        Err(_) => Vec::new(),
+        Ok(ports) => {
+            Ok(ports.into_iter().map(map_port_info).collect())
+        }
+        Err(e) => {
+            eprintln!("Failed to enumerate serial ports: {e}");
+            Err(format!("Failed to enumerate serial ports: {e}"))
+        }
     }
 }
 
@@ -135,8 +140,6 @@ mod tests {
                     serial_number: Some("A12345".into()),
                     manufacturer: Some("FTDI".into()),
                     product: Some("FT232R".into()),
-                    #[cfg(feature = "usbportinfo-interface")]
-                    interface: None,
                 },
             ),
         };
@@ -159,8 +162,6 @@ mod tests {
                     serial_number: None,
                     manufacturer: None,
                     product: None,
-                    #[cfg(feature = "usbportinfo-interface")]
-                    interface: None,
                 },
             ),
         };
@@ -206,11 +207,91 @@ mod tests {
     // ====================================================================
 
     #[test]
-    fn list_serial_ports_returns_vec() {
+    fn list_serial_ports_returns_ok() {
         // This test just verifies the function runs without panicking.
         // On CI, there are typically no serial ports, so an empty vec is OK.
-        let ports = list_serial_ports();
-        // We can't assert specific ports, but we can verify the return type
+        let result = list_serial_ports();
+        assert!(result.is_ok());
+        let ports = result.unwrap();
         assert!(ports.len() <= 256, "Suspiciously many ports");
+    }
+
+    // ====================================================================
+    // QA Guardian — Edge case & contract tests
+    // ====================================================================
+
+    /// [EDGE] SerialPortInfo with unicode characters in fields.
+    #[test]
+    fn port_info_with_unicode_roundtrip() {
+        let info = SerialPortInfo {
+            name: "/dev/ttyUSB0".into(),
+            description: "USB→シリアル変換器".into(),
+            manufacturer: Some("日本メーカー".into()),
+            serial_number: Some("SN-日本語-001".into()),
+            port_type: "USB".into(),
+        };
+        let json = serde_json::to_string(&info).unwrap();
+        let restored: SerialPortInfo = serde_json::from_str(&json).unwrap();
+        assert_eq!(info, restored);
+    }
+
+    /// [EDGE] SerialPortInfo with empty strings.
+    #[test]
+    fn port_info_with_empty_strings() {
+        let info = SerialPortInfo {
+            name: "".into(),
+            description: "".into(),
+            manufacturer: Some("".into()),
+            serial_number: Some("".into()),
+            port_type: "".into(),
+        };
+        let json = serde_json::to_string(&info).unwrap();
+        let restored: SerialPortInfo = serde_json::from_str(&json).unwrap();
+        assert_eq!(info, restored);
+    }
+
+    /// [CONTRACT] SerialPortInfo deserialization from camelCase JSON.
+    #[test]
+    fn port_info_deserialization_from_camel_case() {
+        let json = r#"{
+            "name": "COM3",
+            "description": "USB Serial Device",
+            "manufacturer": "FTDI",
+            "serialNumber": "A12345",
+            "portType": "USB"
+        }"#;
+        let info: SerialPortInfo = serde_json::from_str(json).unwrap();
+        assert_eq!(info.name, "COM3");
+        assert_eq!(info.manufacturer, Some("FTDI".into()));
+        assert_eq!(info.serial_number, Some("A12345".into()));
+        assert_eq!(info.port_type, "USB");
+    }
+
+    /// [CONTRACT] SerialPortInfo deserialization without optional fields.
+    #[test]
+    fn port_info_deserialization_without_optionals() {
+        let json = r#"{
+            "name": "COM1",
+            "description": "PCI Serial Port",
+            "portType": "PCI"
+        }"#;
+        let info: SerialPortInfo = serde_json::from_str(json).unwrap();
+        assert_eq!(info.manufacturer, None);
+        assert_eq!(info.serial_number, None);
+    }
+
+    /// [EDGE] Port names with long paths (macOS style).
+    #[test]
+    fn port_info_long_macos_path() {
+        let info = SerialPortInfo {
+            name: "/dev/cu.usbserial-FTDI_FT232R_USB_UART_A12345".into(),
+            description: "FTDI FT232R USB UART".into(),
+            manufacturer: None,
+            serial_number: None,
+            port_type: "USB".into(),
+        };
+        let json = serde_json::to_string(&info).unwrap();
+        let restored: SerialPortInfo = serde_json::from_str(&json).unwrap();
+        assert_eq!(info, restored);
     }
 }

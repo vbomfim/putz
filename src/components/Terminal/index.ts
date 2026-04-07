@@ -26,7 +26,8 @@ export type {
   SerialParity,
   SerialStopBits,
   SerialFlowControl,
+  SerialConfigValues,
 } from "./connectionTypes";
+export { DEFAULT_SERIAL_CONFIG } from "./connectionTypes";
 export { DEFAULT_TERMINAL_THEME, TERMINAL_CONFIG } from "./types";
-export { SerialConfig, DEFAULT_SERIAL_CONFIG } from "./SerialConfig";
-export type { SerialConfigValues } from "./SerialConfig";
+export { SerialConfig } from "./SerialConfig";

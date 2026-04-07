@@ -18,7 +18,9 @@ import type {
   SerialParity,
   SerialStopBits,
   SerialFlowControl,
+  SerialConfigValues,
 } from "./connectionTypes";
+import { DEFAULT_SERIAL_CONFIG } from "./connectionTypes";
 
 /** Standard baud rates shown in the dropdown. */
 const STANDARD_BAUD_RATES = [
@@ -54,15 +56,6 @@ const FLOW_CONTROL_OPTIONS: { value: SerialFlowControl; label: string }[] = [
   { value: "software", label: "Software (XON/XOFF)" },
 ];
 
-export interface SerialConfigValues {
-  port: string;
-  baudRate: number;
-  dataBits: SerialDataBits;
-  parity: SerialParity;
-  stopBits: SerialStopBits;
-  flowControl: SerialFlowControl;
-}
-
 interface SerialConfigProps {
   /** Current serial configuration values. */
   values: SerialConfigValues;
@@ -72,15 +65,9 @@ interface SerialConfigProps {
   errors?: { port?: string };
 }
 
-/** Default serial configuration (9600/8/N/1). */
-export const DEFAULT_SERIAL_CONFIG: SerialConfigValues = {
-  port: "",
-  baudRate: 9600,
-  dataBits: "eight",
-  parity: "none",
-  stopBits: "one",
-  flowControl: "none",
-};
+// Re-export for backward compatibility
+export { DEFAULT_SERIAL_CONFIG };
+export type { SerialConfigValues };
 
 export function SerialConfig({ values, onChange, errors }: SerialConfigProps) {
   const [ports, setPorts] = useState<SerialPortInfo[]>([]);

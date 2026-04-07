@@ -18,9 +18,9 @@ import type {
 import { PROTOCOL_DEFAULT_PORTS, PROTOCOL_LABELS } from "./types";
 import {
   SerialConfig,
-  DEFAULT_SERIAL_CONFIG,
 } from "../Terminal/SerialConfig";
-import type { SerialConfigValues } from "../Terminal/SerialConfig";
+import { DEFAULT_SERIAL_CONFIG } from "../Terminal/connectionTypes";
+import type { SerialConfigValues } from "../Terminal/connectionTypes";
 
 interface SessionEditorProps {
   /** Session to edit (undefined = create mode). */
@@ -68,10 +68,10 @@ export function SessionEditor({
   const [serialConfig, setSerialConfig] = useState<SerialConfigValues>(() => ({
     port: session?.serialPort ?? DEFAULT_SERIAL_CONFIG.port,
     baudRate: session?.serialBaud ?? DEFAULT_SERIAL_CONFIG.baudRate,
-    dataBits: DEFAULT_SERIAL_CONFIG.dataBits,
-    parity: DEFAULT_SERIAL_CONFIG.parity,
-    stopBits: DEFAULT_SERIAL_CONFIG.stopBits,
-    flowControl: DEFAULT_SERIAL_CONFIG.flowControl,
+    dataBits: (session?.serialDataBits as SerialConfigValues["dataBits"]) ?? DEFAULT_SERIAL_CONFIG.dataBits,
+    parity: (session?.serialParity as SerialConfigValues["parity"]) ?? DEFAULT_SERIAL_CONFIG.parity,
+    stopBits: (session?.serialStopBits as SerialConfigValues["stopBits"]) ?? DEFAULT_SERIAL_CONFIG.stopBits,
+    flowControl: (session?.serialFlowControl as SerialConfigValues["flowControl"]) ?? DEFAULT_SERIAL_CONFIG.flowControl,
   }));
 
   // Auto-fill port when protocol changes (only in create mode)
@@ -138,6 +138,10 @@ export function SessionEditor({
             ? {
                 serialPort: serialConfig.port,
                 serialBaud: serialConfig.baudRate,
+                serialDataBits: serialConfig.dataBits,
+                serialParity: serialConfig.parity,
+                serialStopBits: serialConfig.stopBits,
+                serialFlowControl: serialConfig.flowControl,
               }
             : {}),
         };
@@ -154,6 +158,10 @@ export function SessionEditor({
             ? {
                 serialPort: serialConfig.port,
                 serialBaud: serialConfig.baudRate,
+                serialDataBits: serialConfig.dataBits,
+                serialParity: serialConfig.parity,
+                serialStopBits: serialConfig.stopBits,
+                serialFlowControl: serialConfig.flowControl,
               }
             : {}),
         };
