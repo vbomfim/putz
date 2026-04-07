@@ -18,6 +18,30 @@ interface MenuEventPayload {
   id: string;
 }
 
+/** Callback type for vault/key-manager panel toggles. */
+export interface MenuEventCallbacks {
+  onToggleVault?: () => void;
+  onToggleKeyManager?: () => void;
+}
+
+// Module-level callbacks — set by App.tsx via setMenuEventCallbacks
+let menuCallbacks: MenuEventCallbacks = {};
+
+/** Registers callbacks for menu events that need to toggle App-level state. */
+export function setMenuEventCallbacks(callbacks: MenuEventCallbacks): void {
+  menuCallbacks = callbacks;
+}
+
+/**
+ * Checks whether the active tab is a local terminal.
+ * Returns true if there's no active tab or its status is "local".
+ */
+function isActiveTabLocal(): boolean {
+  const { activeTabId, tabs } = useTabStore.getState();
+  const activeTab = tabs.find((t) => t.id === activeTabId);
+  return !activeTab || activeTab.status === "local";
+}
+
 /**
  * Maps a menu event ID string to the corresponding store action.
  *
@@ -89,6 +113,27 @@ export function useMenuEvents(): void {
         }
 
         // ─── Session ───────────────────────────────────────
+        case "menu-connect":
+        case "menu-disconnect":
+        case "menu-reconnect":
+          if (isActiveTabLocal()) {
+            console.warn(
+              `[menuEvents] ${id} ignored — active tab is a local terminal`,
+            );
+          } else {
+            // Future: implement actual connect/disconnect/reconnect
+            console.debug(`[menuEvents] ${id} — remote session action`);
+          }
+          break;
+
+        case "menu-credential-vault":
+          menuCallbacks.onToggleVault?.();
+          break;
+
+        case "menu-ssh-key-manager":
+          menuCallbacks.onToggleKeyManager?.();
+          break;
+
         case "menu-start-logging":
         case "menu-stop-logging":
           toggleLogging();

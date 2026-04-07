@@ -2,6 +2,22 @@ import "@testing-library/jest-dom/vitest";
 import { vi } from "vitest";
 
 /**
+ * Polyfill ResizeObserver for jsdom — required by useTerminal.ts
+ * which uses ResizeObserver to re-fit terminals on container resize.
+ */
+if (typeof globalThis.ResizeObserver === "undefined") {
+  globalThis.ResizeObserver = class ResizeObserver {
+    private callback: ResizeObserverCallback;
+    constructor(callback: ResizeObserverCallback) {
+      this.callback = callback;
+    }
+    observe() {}
+    unobserve() {}
+    disconnect() {}
+  };
+}
+
+/**
  * Mock @xterm/xterm — provides a minimal Terminal class for tests.
  * jsdom does not support canvas, so xterm.js cannot render.
  */
