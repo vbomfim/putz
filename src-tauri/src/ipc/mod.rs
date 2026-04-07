@@ -6,6 +6,7 @@ pub mod vault;
 
 pub use connection::{
     connection_close, connection_open, connection_resize, connection_write,
+    serial_list_ports, serial_send_break,
 };
 pub use session::{
     session_create, session_create_folder, session_delete, session_delete_folder,

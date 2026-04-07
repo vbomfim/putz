@@ -264,6 +264,10 @@ impl SessionManager {
             credential_id: input.credential_id,
             serial_port: input.serial_port,
             serial_baud: input.serial_baud,
+            serial_data_bits: input.serial_data_bits,
+            serial_parity: input.serial_parity,
+            serial_stop_bits: input.serial_stop_bits,
+            serial_flow_control: input.serial_flow_control,
             color_scheme: input.color_scheme,
             auto_log: input.auto_log,
             jump_host_id: input.jump_host_id,
@@ -374,6 +378,18 @@ impl SessionManager {
         if let Some(serial_baud) = input.serial_baud {
             session.serial_baud = Some(serial_baud);
         }
+        if let Some(serial_data_bits) = input.serial_data_bits {
+            session.serial_data_bits = Some(serial_data_bits);
+        }
+        if let Some(serial_parity) = input.serial_parity {
+            session.serial_parity = Some(serial_parity);
+        }
+        if let Some(serial_stop_bits) = input.serial_stop_bits {
+            session.serial_stop_bits = Some(serial_stop_bits);
+        }
+        if let Some(serial_flow_control) = input.serial_flow_control {
+            session.serial_flow_control = Some(serial_flow_control);
+        }
         if let Some(color_scheme) = input.color_scheme {
             session.color_scheme = Some(color_scheme);
         }
@@ -432,6 +448,10 @@ impl SessionManager {
             credential_id: original.credential_id,
             serial_port: original.serial_port,
             serial_baud: original.serial_baud,
+            serial_data_bits: original.serial_data_bits,
+            serial_parity: original.serial_parity,
+            serial_stop_bits: original.serial_stop_bits,
+            serial_flow_control: original.serial_flow_control,
             color_scheme: original.color_scheme,
             auto_log: original.auto_log,
             jump_host_id: original.jump_host_id,
@@ -787,6 +807,10 @@ impl SessionManager {
                 credential_id: session.credential_id.clone(),
                 serial_port: session.serial_port.clone(),
                 serial_baud: session.serial_baud,
+                serial_data_bits: session.serial_data_bits.clone(),
+                serial_parity: session.serial_parity.clone(),
+                serial_stop_bits: session.serial_stop_bits.clone(),
+                serial_flow_control: session.serial_flow_control.clone(),
                 color_scheme: session.color_scheme.clone(),
                 auto_log: session.auto_log,
                 jump_host_id: session.jump_host_id.clone(),
@@ -832,6 +856,10 @@ mod tests {
             credential_id: None,
             serial_port: None,
             serial_baud: None,
+            serial_data_bits: None,
+            serial_parity: None,
+            serial_stop_bits: None,
+            serial_flow_control: None,
             color_scheme: None,
             auto_log: None,
             jump_host_id: None,
@@ -936,6 +964,10 @@ mod tests {
                 credential_id: None,
                 serial_port: None,
                 serial_baud: None,
+                serial_data_bits: None,
+                serial_parity: None,
+                serial_stop_bits: None,
+                serial_flow_control: None,
                 color_scheme: None,
                 auto_log: None,
                 jump_host_id: None,
@@ -969,6 +1001,10 @@ mod tests {
                 credential_id: None,
                 serial_port: None,
                 serial_baud: None,
+                serial_data_bits: None,
+                serial_parity: None,
+                serial_stop_bits: None,
+                serial_flow_control: None,
                 color_scheme: None,
                 auto_log: None,
                 jump_host_id: None,
