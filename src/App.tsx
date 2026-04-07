@@ -9,7 +9,9 @@
  */
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useTabStore } from "./stores/tabStore";
+import { useBroadcastStore } from "./stores/broadcastStore";
 import { TabBar } from "./components/TabBar";
+import { BroadcastBar } from "./components/BroadcastBar";
 import { SplitContainer } from "./components/SplitPane";
 import { SessionSidebar } from "./components/SessionManager";
 import { UpdateChecker } from "./components/UpdateChecker";
@@ -21,6 +23,8 @@ function App() {
   const tabs = useTabStore((s) => s.tabs);
   const activeTabId = useTabStore((s) => s.activeTabId);
   const addTab = useTabStore((s) => s.addTab);
+  const isBroadcastActive = useBroadcastStore((s) => s.isActive);
+  const broadcastTargetIds = useBroadcastStore((s) => s.targetTabIds);
   const hasInitialized = useRef(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
@@ -90,6 +94,7 @@ function App() {
         </button>
       )}
       <TabBar />
+      <BroadcastBar />
       <div className="app-content">
         {tabs.map((tab) => (
           <SplitContainer
@@ -97,6 +102,9 @@ function App() {
             layout={tab.layout}
             tabId={tab.id}
             isActive={tab.id === activeTabId}
+            isBroadcastTarget={
+              isBroadcastActive && broadcastTargetIds.has(tab.id)
+            }
           />
         ))}
       </div>
