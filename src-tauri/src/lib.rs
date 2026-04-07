@@ -3,6 +3,7 @@ mod highlight;
 mod ipc;
 mod keys;
 mod logging;
+mod nettools;
 mod protocol;
 mod pty;
 mod scripting;
@@ -19,7 +20,9 @@ use ipc::{
     highlight_create_set,
     highlight_delete_set, highlight_get_set, highlight_list_sets, highlight_update_set,
     key_delete, key_generate, key_get_public, key_import, key_list,
-    logging_start, logging_status, logging_stop, pty_close, pty_resize, pty_spawn, pty_write,
+    logging_start, logging_status, logging_stop,
+    ping_start, ping_stop, save_backup,
+    pty_close, pty_resize, pty_spawn, pty_write,
     script_delete, script_get, script_list, script_record_start, script_record_stop, script_run,
     script_run_multi, script_save, script_status, script_stop, serial_list_ports,
     serial_send_break, session_create, session_create_folder, session_delete,
@@ -32,6 +35,7 @@ use ipc::{
 };
 use keys::KeyManager;
 use logging::LogManager;
+use nettools::ping::PingManager;
 use protocol::connection_manager::ConnectionManager;
 use protocol::sftp::SftpManager;
 use protocol::ssh::forwarding::ForwardingManager;
@@ -62,6 +66,7 @@ pub fn run() {
         .manage(ScriptManager::new())
         .manage(ThemeManager::new())
         .manage(ForwardingManager::new())
+        .manage(PingManager::new())
         .manage(TemplateManager::new())
         .invoke_handler(tauri::generate_handler![
             greet,
@@ -134,11 +139,14 @@ pub fn run() {
             theme_delete,
             theme_import,
             theme_export,
+        .manage(PingManager::new())
+        .manage(TemplateManager::new())
             template_list,
             template_get,
             template_create,
             template_delete,
             template_execute,
+>>>>>>> origin/main
         ])
         // Fix 8: Graceful app exit — clean up PTY sessions and protocol connections
         .on_window_event(|window, event| {

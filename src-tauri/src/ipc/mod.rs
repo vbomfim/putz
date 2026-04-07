@@ -4,6 +4,7 @@ pub mod forwarding;
 pub mod highlight;
 pub mod keys;
 pub mod logging;
+pub mod nettools;
 pub mod scripting;
 pub mod session;
 pub mod sftp;
@@ -24,6 +25,7 @@ pub use highlight::{
 };
 pub use keys::{key_delete, key_generate, key_get_public, key_import, key_list};
 pub use logging::{logging_start, logging_status, logging_stop};
+pub use nettools::{ping_start, ping_stop, save_backup};
 pub use scripting::{
     script_delete, script_get, script_list, script_record_start, script_record_stop, script_run,
     script_run_multi, script_save, script_status, script_stop,
