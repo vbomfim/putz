@@ -10,7 +10,7 @@
  */
 import { useState, useCallback, useRef, useEffect } from "react";
 import { useLayoutStore, MAX_TITLE_LENGTH } from "../../stores/layoutStore";
-import type { RegionTab } from "../../types";
+import type { RegionTab, TabPosition } from "../../types";
 
 interface RegionTabBarProps {
   /** The region ID this tab bar belongs to. */
@@ -21,6 +21,8 @@ interface RegionTabBarProps {
   activeTabId: string;
   /** Whether this region is focused. */
   isFocused: boolean;
+  /** Tab bar position: "top" (horizontal) or "side" (vertical). */
+  tabPosition: TabPosition;
 }
 
 /** Context menu state. */
@@ -154,12 +156,14 @@ export function RegionTabBar({
   tabs,
   activeTabId,
   isFocused,
+  tabPosition,
 }: RegionTabBarProps) {
   const addTerminalTab = useLayoutStore((s) => s.addTerminalTab);
   const addBrowserTab = useLayoutStore((s) => s.addBrowserTab);
   const closeTab = useLayoutStore((s) => s.closeTab);
   const renameTab = useLayoutStore((s) => s.renameTab);
   const setFocusedRegion = useLayoutStore((s) => s.setFocusedRegion);
+  const toggleTabPosition = useLayoutStore((s) => s.toggleTabPosition);
 
   const [contextMenu, setContextMenu] = useState<ContextMenu | null>(null);
   const contextMenuRef = useRef<HTMLDivElement>(null);
@@ -220,9 +224,12 @@ export function RegionTabBar({
         case "newBrowser":
           addBrowserTab(regionId, "");
           break;
+        case "toggleTabPosition":
+          toggleTabPosition(regionId);
+          break;
       }
     },
-    [contextMenu, regionId, tabs, closeTab, addBrowserTab],
+    [contextMenu, regionId, tabs, closeTab, addBrowserTab, toggleTabPosition],
   );
 
   const handleAddClick = useCallback(() => {
@@ -237,11 +244,20 @@ export function RegionTabBar({
     [regionId, renameTab],
   );
 
+  const isSide = tabPosition === "side";
+  const tabBarClass = [
+    "region-tabbar",
+    isFocused ? "region-tabbar--focused" : "",
+    isSide ? "region-tabbar--side" : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
+
   // Only show tab bar when there are multiple tabs (single tab = cleaner look)
   // Actually — always show for discoverability and consistency
   return (
     <div
-      className={`region-tabbar ${isFocused ? "region-tabbar--focused" : ""}`}
+      className={tabBarClass}
       data-testid={`region-tabbar-${regionId}`}
       onContextMenu={handleContextMenu}
     >
@@ -302,6 +318,15 @@ export function RegionTabBar({
             type="button"
           >
             New Browser Tab
+          </button>
+          <div className="region-tabbar__context-separator" />
+          <button
+            className="region-tabbar__context-item"
+            onClick={() => handleContextAction("toggleTabPosition")}
+            role="menuitem"
+            type="button"
+          >
+            {isSide ? "Tabs on Top" : "Tabs on Side"}
           </button>
         </div>
       )}

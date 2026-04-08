@@ -123,7 +123,7 @@ function restoreLayoutState(snapshot: WorkspaceLayout | null): void {
     const regionId = generateId();
     useLayoutStore.setState({
       layout: { type: "region", regionId },
-      regions: { [regionId]: { id: regionId, tabs: [], activeTabId: "" } },
+      regions: { [regionId]: { id: regionId, tabs: [], activeTabId: "", tabPosition: "top" as const } },
       focusedRegionId: regionId,
     });
   }

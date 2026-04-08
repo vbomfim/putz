@@ -15,7 +15,7 @@
  */
 import { create } from "zustand";
 import { invoke } from "@tauri-apps/api/core";
-import type { Region, RegionTab, LayoutNode } from "../types";
+import type { Region, RegionTab, LayoutNode, TabPosition } from "../types";
 import { BROWSER_SESSION_PREFIX } from "../types";
 import { TERMINAL_CONFIG } from "../components/Terminal";
 
@@ -135,7 +135,7 @@ function createInitialRegion(): { region: Region; regionId: string } {
   const regionId = generateId();
   return {
     regionId,
-    region: { id: regionId, tabs: [], activeTabId: "" },
+    region: { id: regionId, tabs: [], activeTabId: "", tabPosition: "top" as TabPosition },
   };
 }
 
@@ -194,6 +194,14 @@ interface LayoutState {
 
   /** Navigate to previous tab in focused region. */
   prevTab: (regionId?: string) => void;
+
+  // ─── Tab Position ────────────────────────────────────────────────
+
+  /** Sets the tab bar position for a region. */
+  setTabPosition: (regionId: string, position: TabPosition) => void;
+
+  /** Toggles the tab bar position between "top" and "side". */
+  toggleTabPosition: (regionId: string) => void;
 
   // ─── Search ───────────────────────────────────────────────────────
 
@@ -458,6 +466,7 @@ export const useLayoutStore = create<LayoutState>((set, get) => ({
       id: newRegionId,
       tabs: [newTab],
       activeTabId: newTab.id,
+      tabPosition: "top",
     };
 
     // Build the split node replacing the focused region's leaf
@@ -562,6 +571,31 @@ export const useLayoutStore = create<LayoutState>((set, get) => ({
     const prevIndex =
       (currentIndex - 1 + region.tabs.length) % region.tabs.length;
     get().activateTab(targetRegionId, region.tabs[prevIndex].id);
+  },
+
+  // ─── Tab Position ────────────────────────────────────────────────
+
+  setTabPosition: (regionId: string, position: TabPosition) => {
+    const region = get().regions[regionId];
+    if (!region) return;
+
+    set((state) => ({
+      regions: {
+        ...state.regions,
+        [regionId]: {
+          ...state.regions[regionId],
+          tabPosition: position,
+        },
+      },
+    }));
+  },
+
+  toggleTabPosition: (regionId: string) => {
+    const region = get().regions[regionId];
+    if (!region) return;
+
+    const newPosition: TabPosition = region.tabPosition === "top" ? "side" : "top";
+    get().setTabPosition(regionId, newPosition);
   },
 
   // ─── Search ───────────────────────────────────────────────────────

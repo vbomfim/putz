@@ -35,6 +35,7 @@ function resetStore(): void {
         id: initialRegionId,
         tabs: [],
         activeTabId: "",
+        tabPosition: "top" as const,
       },
     },
     focusedRegionId: initialRegionId,
@@ -636,6 +637,111 @@ describe("layoutStore", () => {
       });
 
       expect(useLayoutStore.getState().regions[regionId].tabs[0].title).toBe(originalTitle);
+    });
+  });
+
+  // ─── Tab Position ────────────────────────────────────────────────
+
+  describe("tabPosition", () => {
+    it("defaults tabPosition to 'top' on initial region", () => {
+      const state = useLayoutStore.getState();
+      const region = state.regions[state.focusedRegionId];
+      expect(region.tabPosition).toBe("top");
+    });
+
+    it("sets tabPosition to 'side' via setTabPosition", () => {
+      const state = useLayoutStore.getState();
+      const regionId = state.focusedRegionId;
+
+      act(() => {
+        useLayoutStore.getState().setTabPosition(regionId, "side");
+      });
+
+      const updated = useLayoutStore.getState();
+      expect(updated.regions[regionId].tabPosition).toBe("side");
+    });
+
+    it("sets tabPosition back to 'top' from 'side'", () => {
+      const state = useLayoutStore.getState();
+      const regionId = state.focusedRegionId;
+
+      act(() => {
+        useLayoutStore.getState().setTabPosition(regionId, "side");
+      });
+      act(() => {
+        useLayoutStore.getState().setTabPosition(regionId, "top");
+      });
+
+      const updated = useLayoutStore.getState();
+      expect(updated.regions[regionId].tabPosition).toBe("top");
+    });
+
+    it("ignores setTabPosition for non-existent region", () => {
+      act(() => {
+        useLayoutStore.getState().setTabPosition("nonexistent-region", "side");
+      });
+
+      // Should not throw, and state should remain unchanged
+      const state = useLayoutStore.getState();
+      const region = state.regions[state.focusedRegionId];
+      expect(region.tabPosition).toBe("top");
+    });
+
+    it("preserves tabPosition: 'top' when splitting a region", async () => {
+      mockInvoke.mockResolvedValueOnce("session-1");
+      await act(async () => {
+        await useLayoutStore.getState().addTerminalTab();
+      });
+
+      mockInvoke.mockResolvedValueOnce("session-split");
+      await act(async () => {
+        await useLayoutStore.getState().splitRegion("horizontal");
+      });
+
+      const state = useLayoutStore.getState();
+      // New region should default to "top"
+      const newRegion = state.regions[state.focusedRegionId];
+      expect(newRegion.tabPosition).toBe("top");
+    });
+
+    it("per-region: each region can have different tabPosition", async () => {
+      mockInvoke.mockResolvedValueOnce("session-1");
+      await act(async () => {
+        await useLayoutStore.getState().addTerminalTab();
+      });
+
+      const originalRegionId = useLayoutStore.getState().focusedRegionId;
+
+      mockInvoke.mockResolvedValueOnce("session-split");
+      await act(async () => {
+        await useLayoutStore.getState().splitRegion("vertical");
+      });
+
+      const newRegionId = useLayoutStore.getState().focusedRegionId;
+      expect(newRegionId).not.toBe(originalRegionId);
+
+      // Set side tabs on original region, leave new region at top
+      act(() => {
+        useLayoutStore.getState().setTabPosition(originalRegionId, "side");
+      });
+
+      const state = useLayoutStore.getState();
+      expect(state.regions[originalRegionId].tabPosition).toBe("side");
+      expect(state.regions[newRegionId].tabPosition).toBe("top");
+    });
+
+    it("toggles tabPosition via toggleTabPosition (top → side → top)", () => {
+      const regionId = useLayoutStore.getState().focusedRegionId;
+
+      act(() => {
+        useLayoutStore.getState().toggleTabPosition(regionId);
+      });
+      expect(useLayoutStore.getState().regions[regionId].tabPosition).toBe("side");
+
+      act(() => {
+        useLayoutStore.getState().toggleTabPosition(regionId);
+      });
+      expect(useLayoutStore.getState().regions[regionId].tabPosition).toBe("top");
     });
   });
 });

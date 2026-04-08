@@ -235,3 +235,67 @@
   background-color: rgba(255, 255, 255, 0.08);
   margin: 3px 0;
 }
+
+/* ─── Side Tab Bar (vertical) ──────────────────────────────────── */
+
+.region-view--side-tabs {
+  flex-direction: row;
+}
+
+.region-tabbar--side {
+  flex-direction: column;
+  align-items: stretch;
+  width: 36px;
+  min-width: 36px;
+  height: 100%;
+  border-bottom: none;
+  border-right: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.region-tabbar--side.region-tabbar--focused {
+  border-bottom-color: transparent;
+  border-right-color: rgba(255, 255, 255, 0.1);
+}
+
+.region-tabbar--side .region-tabbar__tabs {
+  flex-direction: column;
+  overflow-x: hidden;
+  overflow-y: auto;
+  scrollbar-width: thin;
+}
+
+.region-tabbar--side .region-tabbar__tabs::-webkit-scrollbar {
+  width: 2px;
+  height: auto;
+}
+
+.region-tabbar--side .region-tab {
+  writing-mode: vertical-rl;
+  text-orientation: mixed;
+  min-width: unset;
+  max-width: unset;
+  width: 36px;
+  min-height: 60px;
+  max-height: 120px;
+  height: auto;
+  padding: 8px 0;
+  justify-content: center;
+  border-right: none;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+.region-tabbar--side .region-tab__title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.region-tabbar--side .region-tab__close {
+  margin-top: 2px;
+}
+
+.region-tabbar--side .region-tabbar__add {
+  width: 36px;
+  height: 28px;
+  margin: 2px 0;
+}

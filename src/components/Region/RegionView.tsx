@@ -50,10 +50,11 @@ export function RegionView({ region, isFocused }: RegionViewProps) {
   );
 
   const activeTab = region.tabs.find((t) => t.id === region.activeTabId);
+  const isSideTabs = region.tabPosition === "side";
 
   return (
     <div
-      className={`region-view ${isFocused ? "region-view--focused" : ""}`}
+      className={`region-view ${isFocused ? "region-view--focused" : ""} ${isSideTabs ? "region-view--side-tabs" : ""}`}
       data-testid={`region-${region.id}`}
       data-region-id={region.id}
       onClick={handleFocus}
@@ -64,6 +65,7 @@ export function RegionView({ region, isFocused }: RegionViewProps) {
         tabs={region.tabs}
         activeTabId={region.activeTabId}
         isFocused={isFocused}
+        tabPosition={region.tabPosition}
       />
 
       <div className="region-view__content">
