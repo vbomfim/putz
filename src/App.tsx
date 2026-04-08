@@ -19,7 +19,6 @@ import { useTabStore } from "./stores/tabStore";
 import { useBroadcastStore, collectSessionIds } from "./stores/broadcastStore";
 import { TabBar } from "./components/TabBar";
 import { BroadcastBar } from "./components/BroadcastBar";
-import { Toolbar } from "./components/Toolbar";
 import { ShortcutsPanel } from "./components/Help";
 import { SplitContainer } from "./components/SplitPane";
 import { SessionSidebar } from "./components/SessionManager";
