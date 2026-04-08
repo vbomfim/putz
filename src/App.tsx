@@ -248,15 +248,6 @@ function App() {
       <main className="app-container" data-testid="app-root">
         <UpdateChecker />
         <TabBar />
-        <Toolbar
-          onOpenHistory={() => setHistoryOpen(true)}
-          onOpenTemplates={() => setTemplatePanelOpen(true)}
-          onOpenConfigDiff={() => setConfigDiffOpen(true)}
-          onOpenVault={() => setVaultOpen(true)}
-          onOpenKeyManager={() => setKeyManagerOpen(true)}
-          onOpenThemeEditor={() => setThemeEditorOpen(true)}
-          onOpenFontConfig={() => setFontConfigOpen(true)}
-        />
         <ShortcutsPanel />
         <HistoryPanel
           isOpen={historyOpen}
@@ -307,15 +298,6 @@ function App() {
         </button>
       )}
       <TabBar />
-      <Toolbar
-        onOpenHistory={() => setHistoryOpen(true)}
-        onOpenTemplates={() => setTemplatePanelOpen(true)}
-        onOpenConfigDiff={() => setConfigDiffOpen(true)}
-        onOpenVault={() => setVaultOpen(true)}
-        onOpenKeyManager={() => setKeyManagerOpen(true)}
-        onOpenThemeEditor={() => setThemeEditorOpen(true)}
-        onOpenFontConfig={() => setFontConfigOpen(true)}
-      />
       <BroadcastBar />
       <ShortcutsPanel />
       <HistoryPanel
