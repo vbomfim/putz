@@ -9,7 +9,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import App from "../App";
-import { useTabStore } from "../stores/tabStore";
+import { useLayoutStore } from "../stores/layoutStore";
 
 // Mock Tauri APIs
 const mockInvoke = vi.fn().mockResolvedValue(undefined);
@@ -41,7 +41,14 @@ describe("App — Accessibility", () => {
   beforeEach(() => {
     mockInvoke.mockReset().mockResolvedValue(undefined);
     mockListen.mockReset().mockResolvedValue(vi.fn());
-    useTabStore.setState({ tabs: [], activeTabId: "", tabCounter: 0 });
+    // Reset layoutStore to empty region
+    useLayoutStore.setState({
+      layout: { type: "region", regionId: "region-1" },
+      regions: {
+        "region-1": { id: "region-1", tabs: [], activeTabId: "" },
+      },
+      focusedRegionId: "region-1",
+    });
   });
 
   /**

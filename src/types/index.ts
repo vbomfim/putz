@@ -53,3 +53,49 @@ export const MIN_PANE_SIZE_PX = 200;
 
 /** Prefix for browser tab session IDs (used to distinguish from PTY sessions). */
 export const BROWSER_SESSION_PREFIX = "browser-";
+
+// ─── Region-based Layout Types ───────────────────────────────────────
+
+/** A tab within a region — terminal or browser. */
+export interface RegionTab {
+  /** Unique tab identifier (UUID v4). */
+  id: string;
+  /** Display title shown in the region tab bar. */
+  title: string;
+  /** Content type for this tab. */
+  type: TabContentType;
+  /** PTY session ID or browser session ID. */
+  sessionId: string;
+  /** URL for browser tabs (only when type is "browser"). */
+  browserUrl?: string;
+  /** Connection status of the tab. */
+  status: TabStatus;
+}
+
+/** A region is a container with its own tab bar and tabs. */
+export interface Region {
+  /** Unique region identifier (UUID v4). */
+  id: string;
+  /** Tabs owned by this region. */
+  tabs: RegionTab[];
+  /** ID of the currently active tab in this region. */
+  activeTabId: string;
+}
+
+/**
+ * Recursive tree structure representing the window layout.
+ *
+ * A region leaf holds a reference to a Region (by ID).
+ * A split node divides the area into two children with a draggable ratio.
+ */
+export type LayoutNode =
+  | { type: "region"; regionId: string }
+  | {
+      type: "split";
+      direction: "horizontal" | "vertical";
+      children: [LayoutNode, LayoutNode];
+      ratio: number;
+    };
+
+/** Minimum region pane size in pixels. */
+export const MIN_REGION_SIZE_PX = 200;

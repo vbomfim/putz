@@ -10,7 +10,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import App from "../App";
-import { useTabStore } from "../stores/tabStore";
+import { useLayoutStore } from "../stores/layoutStore";
 
 // Mock module — re-declared per file so each test file is independent
 const mockInvoke = vi.fn().mockResolvedValue(undefined);
@@ -42,7 +42,7 @@ describe("App — User Interaction Flow (Tabbed UI)", () => {
   beforeEach(() => {
     mockInvoke.mockReset().mockResolvedValue(undefined);
     mockListen.mockReset().mockResolvedValue(vi.fn());
-    useTabStore.setState({ tabs: [], activeTabId: "", tabCounter: 0 });
+    useLayoutStore.setState({ layout: { type: "region", regionId: "region-1" }, regions: { "region-1": { id: "region-1", tabs: [], activeTabId: "" } }, focusedRegionId: "region-1" });
   });
 
   /**

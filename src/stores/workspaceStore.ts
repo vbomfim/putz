@@ -1,8 +1,8 @@
 /**
  * Workspace state management using Zustand.
  *
- * Manages named workspace collections. Each workspace owns a set of tabs.
- * Uses Approach A: saves/restores tabStore state on workspace switch.
+ * Manages named workspace collections. Each workspace owns a layout state.
+ * Uses Approach A: saves/restores layoutStore state on workspace switch.
  *
  * Persisted to localStorage.
  *
@@ -10,8 +10,8 @@
  */
 import { create } from "zustand";
 import { invoke } from "@tauri-apps/api/core";
-import { useTabStore } from "./tabStore";
-import type { Tab } from "../types";
+import { useLayoutStore } from "./layoutStore";
+import type { Region, LayoutNode } from "../types";
 
 /** Preset workspace accent colors (Catppuccin palette). */
 export const WORKSPACE_COLORS = [
@@ -28,13 +28,20 @@ export const WORKSPACE_COLORS = [
 /** localStorage key for persisting workspace state. */
 const STORAGE_KEY = "putz-workspaces";
 
-/** A named collection of tabs. */
+/** Saved layout snapshot for a workspace. */
+interface WorkspaceLayout {
+  layout: LayoutNode;
+  regions: Record<string, Region>;
+  focusedRegionId: string;
+}
+
+/** A named collection of tabs (now region-based). */
 export interface Workspace {
   id: string;
   name: string;
   color: string;
-  tabs: Tab[];
-  activeTabId: string;
+  /** Saved layout state for this workspace. */
+  savedLayout: WorkspaceLayout | null;
   createdAt: number;
 }
 
@@ -49,12 +56,6 @@ function generateId(): string {
   return crypto.randomUUID();
 }
 
-/**
- * Rebuilds a PaneNode layout with fresh session IDs.
- * Terminal leaves get new UUIDs (PTYs will be spawned later).
- * Browser leaves keep their session IDs (will re-create webview on mount).
- * Returns the new layout and a list of terminal sessionIds that need PTY spawning.
- */
 /** Loads persisted workspace state from localStorage. */
 function loadPersistedState(): PersistedWorkspaceState {
   try {
@@ -63,11 +64,10 @@ function loadPersistedState(): PersistedWorkspaceState {
       const parsed = JSON.parse(raw) as Partial<PersistedWorkspaceState>;
       if (parsed.workspaces && parsed.workspaces.length > 0) {
         return {
-          // Keep workspace names/colors, clear tabs (PTY sessions die on restart)
+          // Keep workspace names/colors, clear layouts (PTY sessions die on restart)
           workspaces: parsed.workspaces.map((w) => ({
             ...w,
-            tabs: [],
-            activeTabId: "",
+            savedLayout: null,
           })),
           activeWorkspaceId: parsed.activeWorkspaceId || parsed.workspaces[0].id,
         };
@@ -87,8 +87,7 @@ function createDefaultState(): PersistedWorkspaceState {
         id: "default",
         name: "Default",
         color: "#89b4fa",
-        tabs: [],
-        activeTabId: "",
+        savedLayout: null,
         createdAt: Date.now(),
       },
     ],
@@ -102,6 +101,31 @@ function persistState(state: PersistedWorkspaceState): void {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
   } catch {
     // Storage full or unavailable — silent fail
+  }
+}
+
+/** Captures the current layoutStore state as a workspace snapshot. */
+function captureLayoutState(): WorkspaceLayout {
+  const { layout, regions, focusedRegionId } = useLayoutStore.getState();
+  return { layout, regions, focusedRegionId };
+}
+
+/** Restores a workspace's layout into layoutStore. */
+function restoreLayoutState(snapshot: WorkspaceLayout | null): void {
+  if (snapshot) {
+    useLayoutStore.setState({
+      layout: snapshot.layout,
+      regions: snapshot.regions,
+      focusedRegionId: snapshot.focusedRegionId,
+    });
+  } else {
+    // Empty workspace — create a fresh single-region layout
+    const regionId = generateId();
+    useLayoutStore.setState({
+      layout: { type: "region", regionId },
+      regions: { [regionId]: { id: regionId, tabs: [], activeTabId: "" } },
+      focusedRegionId: regionId,
+    });
   }
 }
 
@@ -125,7 +149,7 @@ interface WorkspaceState {
 
   /**
    * Switches to a different workspace.
-   * Saves current tabStore state → loads target workspace tabs.
+   * Saves current layout → loads target workspace layout.
    */
   switchWorkspace: (id: string) => void;
 
@@ -145,8 +169,7 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => {
         id: generateId(),
         name: name.trim() || "Untitled",
         color: color || WORKSPACE_COLORS[get().workspaces.length % WORKSPACE_COLORS.length],
-        tabs: [],
-        activeTabId: "",
+        savedLayout: null,
         createdAt: Date.now(),
       };
 
@@ -159,7 +182,7 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => {
         return updated;
       });
 
-      // Switch to the new workspace — App.tsx auto-creates a tab when tabs are empty
+      // Switch to the new workspace — App.tsx auto-creates a tab when empty
       get().switchWorkspace(newWorkspace.id);
     },
 
@@ -179,10 +202,7 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => {
       // If we're deleting the active workspace, switch to the first remaining
       if (activeWorkspaceId === id) {
         const target = remaining[0];
-        useTabStore.setState({
-          tabs: target.tabs,
-          activeTabId: target.activeTabId,
-        });
+        restoreLayoutState(target.savedLayout);
       }
 
       const updated = {
@@ -229,30 +249,32 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => {
       if (id === activeWorkspaceId) return;
       if (!workspaces.some((w) => w.id === id)) return;
 
-      // 1. Save current tabStore state into current workspace
-      const tabState = useTabStore.getState();
-      const currentTabs = tabState.tabs;
-      const currentActiveTabId = tabState.activeTabId;
+      // 1. Save current layout into current workspace
+      const currentLayout = captureLayoutState();
 
-      // 2. Hide all browser webviews from current workspace tabs
-      for (const tab of currentTabs) {
-        if (tab.contentType === "browser") {
-          invoke("browser_set_visible", { tabId: tab.id, visible: false }).catch(() => {});
+      // 2. Hide browser webviews in current regions
+      const currentRegions = useLayoutStore.getState().regions;
+      for (const region of Object.values(currentRegions)) {
+        for (const tab of region.tabs) {
+          if (tab.type === "browser") {
+            invoke("browser_set_visible", { tabId: tab.sessionId, visible: false }).catch(() => {});
+          }
         }
       }
 
-      // 3. Load target workspace tabs into tabStore
+      // 3. Restore target workspace layout
       const targetWorkspace = workspaces.find((w) => w.id === id)!;
+      restoreLayoutState(targetWorkspace.savedLayout);
 
-      useTabStore.setState({
-        tabs: targetWorkspace.tabs,
-        activeTabId: targetWorkspace.activeTabId,
-      });
-
-      // 4. Show browser webviews in the new active tab (if any)
-      const newActiveTab = targetWorkspace.tabs.find((t) => t.id === targetWorkspace.activeTabId);
-      if (newActiveTab?.contentType === "browser") {
-        invoke("browser_set_visible", { tabId: newActiveTab.id, visible: true }).catch(() => {});
+      // 4. Show browser webviews in the new active region
+      const newRegions = useLayoutStore.getState().regions;
+      const newFocusedId = useLayoutStore.getState().focusedRegionId;
+      const newFocusedRegion = newRegions[newFocusedId];
+      if (newFocusedRegion) {
+        const activeTab = newFocusedRegion.tabs.find((t) => t.id === newFocusedRegion.activeTabId);
+        if (activeTab?.type === "browser") {
+          invoke("browser_set_visible", { tabId: activeTab.sessionId, visible: true }).catch(() => {});
+        }
       }
 
       // 5. Update workspace store
@@ -260,7 +282,7 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => {
         const updated = {
           workspaces: state.workspaces.map((w) => {
             if (w.id === activeWorkspaceId) {
-              return { ...w, tabs: currentTabs, activeTabId: currentActiveTabId };
+              return { ...w, savedLayout: currentLayout };
             }
             return w;
           }),

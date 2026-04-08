@@ -39,21 +39,21 @@ describe("BrowserView", () => {
   describe("rendering", () => {
     it("renders the browser view container", () => {
       render(
-        <BrowserView tabId="tab-1" initialUrl="https://example.com" isActive={true} />,
+        <BrowserView browserId="tab-1" initialUrl="https://example.com" isActive={true} />,
       );
       expect(screen.getByTestId("browser-view")).toBeInTheDocument();
     });
 
     it("renders the URL toolbar", () => {
       render(
-        <BrowserView tabId="tab-1" initialUrl="https://example.com" isActive={true} />,
+        <BrowserView browserId="tab-1" initialUrl="https://example.com" isActive={true} />,
       );
       expect(screen.getByTestId("browser-toolbar")).toBeInTheDocument();
     });
 
     it("renders the URL input with initial URL", () => {
       render(
-        <BrowserView tabId="tab-1" initialUrl="https://example.com" isActive={true} />,
+        <BrowserView browserId="tab-1" initialUrl="https://example.com" isActive={true} />,
       );
       const input = screen.getByTestId("browser-url-input") as HTMLInputElement;
       expect(input.value).toBe("https://example.com");
@@ -61,7 +61,7 @@ describe("BrowserView", () => {
 
     it("renders refresh and go buttons", () => {
       render(
-        <BrowserView tabId="tab-1" initialUrl="https://example.com" isActive={true} />,
+        <BrowserView browserId="tab-1" initialUrl="https://example.com" isActive={true} />,
       );
       expect(screen.getByTestId("browser-refresh-btn")).toBeInTheDocument();
       expect(screen.getByTestId("browser-go-btn")).toBeInTheDocument();
@@ -69,14 +69,14 @@ describe("BrowserView", () => {
 
     it("renders the webview content area", () => {
       render(
-        <BrowserView tabId="tab-1" initialUrl="https://example.com" isActive={true} />,
+        <BrowserView browserId="tab-1" initialUrl="https://example.com" isActive={true} />,
       );
       expect(screen.getByTestId("browser-content")).toBeInTheDocument();
     });
 
     it("sets data-tab-id attribute", () => {
       render(
-        <BrowserView tabId="tab-42" initialUrl="https://example.com" isActive={true} />,
+        <BrowserView browserId="tab-42" initialUrl="https://example.com" isActive={true} />,
       );
       expect(screen.getByTestId("browser-view")).toHaveAttribute(
         "data-tab-id",
@@ -89,7 +89,7 @@ describe("BrowserView", () => {
     it("calls browser_open on mount with position and size", async () => {
       await act(async () => {
         render(
-          <BrowserView tabId="tab-1" initialUrl="https://example.com" isActive={true} />,
+          <BrowserView browserId="tab-1" initialUrl="https://example.com" isActive={true} />,
         );
       });
 
@@ -107,7 +107,7 @@ describe("BrowserView", () => {
       let unmount: () => void;
       await act(async () => {
         const result = render(
-          <BrowserView tabId="tab-1" initialUrl="https://example.com" isActive={true} />,
+          <BrowserView browserId="tab-1" initialUrl="https://example.com" isActive={true} />,
         );
         unmount = result.unmount;
       });
@@ -125,14 +125,14 @@ describe("BrowserView", () => {
 
     it("calls browser_set_visible when isActive changes", async () => {
       const { rerender } = render(
-        <BrowserView tabId="tab-1" initialUrl="https://example.com" isActive={true} />,
+        <BrowserView browserId="tab-1" initialUrl="https://example.com" isActive={true} />,
       );
 
       mockInvoke.mockClear();
 
       await act(async () => {
         rerender(
-          <BrowserView tabId="tab-1" initialUrl="https://example.com" isActive={false} />,
+          <BrowserView browserId="tab-1" initialUrl="https://example.com" isActive={false} />,
         );
       });
 
@@ -147,7 +147,7 @@ describe("BrowserView", () => {
     it("navigates when form is submitted", async () => {
       await act(async () => {
         render(
-          <BrowserView tabId="tab-1" initialUrl="https://example.com" isActive={true} />,
+          <BrowserView browserId="tab-1" initialUrl="https://example.com" isActive={true} />,
         );
       });
 
@@ -166,7 +166,7 @@ describe("BrowserView", () => {
     it("auto-prepends https:// if no protocol specified", async () => {
       await act(async () => {
         render(
-          <BrowserView tabId="tab-1" initialUrl="https://example.com" isActive={true} />,
+          <BrowserView browserId="tab-1" initialUrl="https://example.com" isActive={true} />,
         );
       });
 
@@ -185,7 +185,7 @@ describe("BrowserView", () => {
     it("does not navigate with empty URL", async () => {
       await act(async () => {
         render(
-          <BrowserView tabId="tab-1" initialUrl="https://example.com" isActive={true} />,
+          <BrowserView browserId="tab-1" initialUrl="https://example.com" isActive={true} />,
         );
       });
 
@@ -204,7 +204,7 @@ describe("BrowserView", () => {
     it("refresh button re-navigates to current URL", async () => {
       await act(async () => {
         render(
-          <BrowserView tabId="tab-1" initialUrl="https://example.com" isActive={true} />,
+          <BrowserView browserId="tab-1" initialUrl="https://example.com" isActive={true} />,
         );
       });
 
@@ -221,7 +221,7 @@ describe("BrowserView", () => {
     it("Escape key in URL input reverts to current URL", async () => {
       await act(async () => {
         render(
-          <BrowserView tabId="tab-1" initialUrl="https://example.com" isActive={true} />,
+          <BrowserView browserId="tab-1" initialUrl="https://example.com" isActive={true} />,
         );
       });
 
@@ -240,7 +240,7 @@ describe("BrowserView", () => {
 
       await act(async () => {
         render(
-          <BrowserView tabId="tab-1" initialUrl="https://example.com" isActive={true} />,
+          <BrowserView browserId="tab-1" initialUrl="https://example.com" isActive={true} />,
         );
       });
 

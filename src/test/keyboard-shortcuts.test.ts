@@ -7,65 +7,53 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { renderHook } from "@testing-library/react";
 import { useKeyboardShortcuts } from "../components/TabBar/useKeyboardShortcuts";
 
-const mockAddTab = vi.fn();
-const mockRemoveTab = vi.fn();
-const mockActivateNextTab = vi.fn();
-const mockActivatePreviousTab = vi.fn();
-const mockActivateTabByIndex = vi.fn();
-const mockSplitActivePane = vi.fn();
+const mockAddTerminalTab = vi.fn();
+const mockAddBrowserTab = vi.fn();
+const mockCloseTab = vi.fn();
+const mockNextTab = vi.fn();
+const mockPrevTab = vi.fn();
+const mockSplitRegion = vi.fn();
 const mockToggleSearch = vi.fn();
 const mockToggleLogging = vi.fn();
+const mockToggleBroadcast = vi.fn();
 const mockToggleShortcutsPanel = vi.fn();
-const mockToggleToolbar = vi.fn();
 
-vi.mock("../stores/tabStore", () => ({
-  useTabStore: Object.assign(
-    vi.fn((selector: (state: unknown) => unknown) => {
-      const state = {
-        activeTabId: "tab-1",
-        addTab: mockAddTab,
-        removeTab: mockRemoveTab,
-        activateNextTab: mockActivateNextTab,
-        activatePreviousTab: mockActivatePreviousTab,
-        activateTabByIndex: mockActivateTabByIndex,
-        splitActivePane: mockSplitActivePane,
-        toggleSearch: mockToggleSearch,
-        toggleLogging: mockToggleLogging,
-      };
-      return selector(state);
-    }),
-    {
-      getState: () => ({
-        activeTabId: "tab-1",
-        tabs: [
-          { id: "tab-1", layout: { type: "leaf", terminalSessionId: "s-1" } },
-        ],
-        addTab: mockAddTab,
-        removeTab: mockRemoveTab,
-        activateNextTab: mockActivateNextTab,
-        activatePreviousTab: mockActivatePreviousTab,
-        activateTabByIndex: mockActivateTabByIndex,
-        splitActivePane: mockSplitActivePane,
-      }),
+const mockLayoutState = {
+  focusedRegionId: "region-1",
+  regions: {
+    "region-1": {
+      id: "region-1",
+      tabs: [{ id: "tab-1", type: "terminal" as const, title: "Terminal", sessionId: "s-1", isSearchOpen: false }],
+      activeTabId: "tab-1",
     },
+  },
+  addTerminalTab: mockAddTerminalTab,
+  addBrowserTab: mockAddBrowserTab,
+  closeTab: mockCloseTab,
+  nextTab: mockNextTab,
+  prevTab: mockPrevTab,
+  splitRegion: mockSplitRegion,
+  toggleSearch: mockToggleSearch,
+  toggleLogging: mockToggleLogging,
+};
+
+vi.mock("../stores/layoutStore", () => ({
+  useLayoutStore: Object.assign(
+    vi.fn((selector: (state: unknown) => unknown) => selector(mockLayoutState)),
+    { getState: () => mockLayoutState },
   ),
 }));
 
 vi.mock("../stores/broadcastStore", () => ({
   useBroadcastStore: vi.fn((selector: (state: unknown) => unknown) => {
-    const state = {
-      toggle: vi.fn(),
-    };
+    const state = { toggle: mockToggleBroadcast };
     return selector(state);
   }),
 }));
 
 vi.mock("../stores/settingsStore", () => ({
   useSettingsStore: vi.fn((selector: (state: unknown) => unknown) => {
-    const state = {
-      toggleShortcutsPanel: mockToggleShortcutsPanel,
-      toggleToolbar: mockToggleToolbar,
-    };
+    const state = { toggleShortcutsPanel: mockToggleShortcutsPanel };
     return selector(state);
   }),
 }));
@@ -105,76 +93,72 @@ describe("useKeyboardShortcuts", () => {
   it("Ctrl+T creates a new tab", () => {
     renderHook(() => useKeyboardShortcuts());
     simulateKeyDown("t", { ctrlKey: true });
-    expect(mockAddTab).toHaveBeenCalledTimes(1);
+    expect(mockAddTerminalTab).toHaveBeenCalledTimes(1);
   });
 
   it("Meta+T creates a new tab (macOS)", () => {
     renderHook(() => useKeyboardShortcuts());
     simulateKeyDown("t", { metaKey: true });
-    expect(mockAddTab).toHaveBeenCalledTimes(1);
+    expect(mockAddTerminalTab).toHaveBeenCalledTimes(1);
   });
 
-  it("Ctrl+Shift+W closes active tab", () => {
+  it("Ctrl+Shift+W closes active tab in focused region", () => {
     renderHook(() => useKeyboardShortcuts());
     simulateKeyDown("w", { ctrlKey: true, shiftKey: true });
-    expect(mockRemoveTab).toHaveBeenCalledWith("tab-1");
+    expect(mockCloseTab).toHaveBeenCalledWith("region-1", "tab-1");
   });
 
   it("Ctrl+W does NOT close active tab (reserved for shell)", () => {
     renderHook(() => useKeyboardShortcuts());
     simulateKeyDown("w", { ctrlKey: true });
-    expect(mockRemoveTab).not.toHaveBeenCalled();
+    expect(mockCloseTab).not.toHaveBeenCalled();
   });
 
   it("Ctrl+Tab cycles to next tab", () => {
     renderHook(() => useKeyboardShortcuts());
     simulateKeyDown("Tab", { ctrlKey: true });
-    expect(mockActivateNextTab).toHaveBeenCalledTimes(1);
+    expect(mockNextTab).toHaveBeenCalledTimes(1);
   });
 
   it("Ctrl+Shift+Tab cycles to previous tab", () => {
     renderHook(() => useKeyboardShortcuts());
     simulateKeyDown("Tab", { ctrlKey: true, shiftKey: true });
-    expect(mockActivatePreviousTab).toHaveBeenCalledTimes(1);
+    expect(mockPrevTab).toHaveBeenCalledTimes(1);
   });
 
-  it("Ctrl+1-9 activates tab by index", () => {
-    renderHook(() => useKeyboardShortcuts());
-
-    for (let i = 1; i <= 9; i++) {
-      mockActivateTabByIndex.mockClear();
-      simulateKeyDown(String(i), { ctrlKey: true });
-      expect(mockActivateTabByIndex).toHaveBeenCalledWith(i - 1);
-    }
-  });
-
-  it("Ctrl+Shift+E splits vertical", () => {
+  it("Ctrl+Shift+E splits region vertically", () => {
     renderHook(() => useKeyboardShortcuts());
     simulateKeyDown("e", { ctrlKey: true, shiftKey: true });
-    expect(mockSplitActivePane).toHaveBeenCalledWith("vertical");
+    expect(mockSplitRegion).toHaveBeenCalledWith("vertical");
   });
 
   it("Ctrl+D does NOT trigger split (reserved for shell EOF)", () => {
     renderHook(() => useKeyboardShortcuts());
     simulateKeyDown("d", { ctrlKey: true });
-    expect(mockSplitActivePane).not.toHaveBeenCalled();
+    expect(mockSplitRegion).not.toHaveBeenCalled();
   });
 
-  it("Ctrl+Shift+D splits horizontal", () => {
+  it("Ctrl+Shift+D splits region horizontally", () => {
     renderHook(() => useKeyboardShortcuts());
     simulateKeyDown("d", { ctrlKey: true, shiftKey: true });
-    expect(mockSplitActivePane).toHaveBeenCalledWith("horizontal");
+    expect(mockSplitRegion).toHaveBeenCalledWith("horizontal");
   });
 
   it("ignores shortcuts without modifier keys", () => {
     renderHook(() => useKeyboardShortcuts());
     simulateKeyDown("t");
-    expect(mockAddTab).not.toHaveBeenCalled();
+    expect(mockAddTerminalTab).not.toHaveBeenCalled();
   });
 
   it("Ctrl+Shift+? opens keyboard shortcuts panel", () => {
     renderHook(() => useKeyboardShortcuts());
     simulateKeyDown("?", { ctrlKey: true, shiftKey: true });
     expect(mockToggleShortcutsPanel).toHaveBeenCalledTimes(1);
+  });
+
+  it("Ctrl+Shift+B opens new browser tab", () => {
+    renderHook(() => useKeyboardShortcuts());
+    simulateKeyDown("b", { ctrlKey: true, shiftKey: true });
+    expect(mockAddBrowserTab).toHaveBeenCalledWith(undefined, "");
   });
 });

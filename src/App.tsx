@@ -1,11 +1,9 @@
 /**
  * Application shell — entry point for the Putz terminal emulator.
  *
- * Renders a tabbed terminal interface with:
+ * Renders a region-based terminal interface with:
  * - SessionSidebar on the left for session management
- * - TabBar at the top for tab management
- * - Toolbar (optional) for quick-access actions
- * - SplitContainer for the active tab's pane layout
+ * - RegionContainer for the window layout (regions with tab bars)
  * - ShortcutsPanel modal for keyboard shortcuts reference
  * - HistoryPanel (Ctrl+R) for cross-session command history search
  * - QuickConnect (Ctrl+K) for fast connection input
@@ -15,15 +13,14 @@
  */
 import { useCallback, useEffect, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { useTabStore } from "./stores/tabStore";
-import { useBroadcastStore, collectSessionIds } from "./stores/broadcastStore";
-import { TabBar } from "./components/TabBar";
+import { useLayoutStore } from "./stores/layoutStore";
+import { RegionContainer } from "./components/Region";
 import { BroadcastBar } from "./components/BroadcastBar";
 import { ShortcutsPanel } from "./components/Help";
-import { SplitContainer } from "./components/SplitPane";
 import { SessionSidebar } from "./components/SessionManager";
 import { UpdateChecker } from "./components/UpdateChecker";
 import { useMenuEvents, setMenuEventCallbacks } from "./utils/useMenuEvents";
+import { useKeyboardShortcuts } from "./components/TabBar/useKeyboardShortcuts";
 import { HistoryPanel } from "./components/History";
 import { QuickConnect } from "./components/QuickConnect";
 import { CredentialReminder } from "./components/Vault/CredentialReminder";
@@ -48,12 +45,9 @@ import "./components/SessionManager/SessionManager.css";
 import "./styles/App.css";
 
 function App() {
-  const tabs = useTabStore((s) => s.tabs);
-  const activeTabId = useTabStore((s) => s.activeTabId);
-  const addTab = useTabStore((s) => s.addTab);
-  const addBrowserTab = useTabStore((s) => s.addBrowserTab);
-  const isBroadcastActive = useBroadcastStore((s) => s.isActive);
-  const broadcastTargetIds = useBroadcastStore((s) => s.targetTabIds);
+  const regions = useLayoutStore((s) => s.regions);
+  const addTerminalTab = useLayoutStore((s) => s.addTerminalTab);
+  const addBrowserTab = useLayoutStore((s) => s.addBrowserTab);
   const workspaceBarVisible = useSettingsStore((s) => s.workspaceBarVisible);
   const toggleWorkspaceBar = useSettingsStore((s) => s.toggleWorkspaceBar);
   const hasInitialized = useRef(false);
@@ -75,6 +69,9 @@ function App() {
 
   // Listen for native menu events from the Tauri backend
   useMenuEvents();
+
+  // Register keyboard shortcuts (now uses layoutStore)
+  useKeyboardShortcuts();
 
   // Load available themes from the backend when the theme editor opens
   useEffect(() => {
@@ -106,24 +103,25 @@ function App() {
       onToggleScript: () => setScriptOpen((prev) => !prev),
       onToggleInterfaceStatus: () => setInterfaceStatusOpen((prev) => !prev),
       onToggleMacArp: () => setMacArpOpen((prev) => !prev),
-      onNewBrowserTab: () => addBrowserTab(""),
+      onNewBrowserTab: () => addBrowserTab(undefined, ""),
       onToggleWorkspaceBar: () => toggleWorkspaceBar(),
     });
     return () => setMenuEventCallbacks({});
   }, [addBrowserTab, toggleWorkspaceBar]);
 
-  // Create the first tab on mount, or when switching to an empty workspace
+  // Create the first tab on mount
   useEffect(() => {
     if (!hasInitialized.current) {
       hasInitialized.current = true;
-      addTab();
+      addTerminalTab();
       return;
     }
-    // Auto-create a tab if we land on an empty workspace
-    if (tabs.length === 0) {
-      addTab();
+    // Auto-create a tab if all regions are empty
+    const allEmpty = Object.values(regions).every((r) => r.tabs.length === 0);
+    if (allEmpty) {
+      addTerminalTab();
     }
-  }, [addTab, tabs.length]);
+  }, [addTerminalTab, regions]);
 
   // Global keyboard shortcuts for History (Ctrl+R) and QuickConnect (Ctrl+K)
   useEffect(() => {
@@ -184,8 +182,8 @@ function App() {
   }, [vaultOpen, keyManagerOpen, themeEditorOpen, fontConfigOpen]);
 
   const handleNewTerminal = useCallback(() => {
-    addTab();
-  }, [addTab]);
+    addTerminalTab();
+  }, [addTerminalTab]);
 
   const handleSidebarToggle = useCallback(() => {
     setSidebarOpen((prev) => !prev);
@@ -231,18 +229,19 @@ function App() {
   const handleSessionOpen = useCallback((_session: SessionProfile) => {
     // Future: spawn a connection for this session profile.
     // For now, just open a new local terminal tab.
-    addTab();
-  }, [addTab]);
+    addTerminalTab();
+  }, [addTerminalTab]);
 
   /** Called when a command is selected from the history panel. */
   const handleHistorySelect = useCallback((command: string) => {
-    const state = useTabStore.getState();
-    const activeTab = state.tabs.find((t) => t.id === state.activeTabId);
-    if (!activeTab) return;
-    const sessionId = state.focusedPaneSessionId || collectSessionIds(activeTab.layout)[0];
+    const state = useLayoutStore.getState();
+    const sessionId = state.getActiveSessionId();
     if (!sessionId) return;
     const bytes = Array.from(new TextEncoder().encode(command));
-    const cmd = activeTab.status === "connected" ? "connection_write" : "pty_write";
+    // Determine if the active tab is a connected session
+    const region = state.getFocusedRegion();
+    const activeTab = region?.tabs.find((t) => t.id === region.activeTabId);
+    const cmd = activeTab?.status === "connected" ? "connection_write" : "pty_write";
     invoke(cmd, { sessionId, data: bytes }).catch(() => {});
     setHistoryOpen(false);
   }, []);
@@ -251,27 +250,24 @@ function App() {
   const handleQuickConnect = useCallback((connection: ParsedConnection) => {
     // Check if this is a browser URL (http:// or https://)
     if (connection.protocol === "ssh" && connection.host.startsWith("http")) {
-      // parseConnection defaults to SSH for unknown input — check if the raw
-      // host looks like a URL (happens when user types "https://grafana.local")
       const url = connection.host.includes("://")
         ? connection.host
         : `https://${connection.host}`;
-      addBrowserTab(url);
+      addBrowserTab(undefined, url);
       return;
     }
-    // Future: open a connection with the parsed details (protocol, host, port, username).
-    // For now, just open a new local terminal tab as a placeholder.
-    addTab();
-  }, [addTab, addBrowserTab]);
+    // Future: open a connection with the parsed details.
+    addTerminalTab();
+  }, [addTerminalTab, addBrowserTab]);
 
-  // Empty state — all tabs closed
-  if (tabs.length === 0 && hasInitialized.current) {
+  // Empty state — all regions are empty
+  const allRegionsEmpty = Object.values(regions).every((r) => r.tabs.length === 0);
+  if (allRegionsEmpty && hasInitialized.current) {
     return (
       <div className="app-shell" data-testid="app-root">
         {workspaceBarVisible && <WorkspaceBar />}
         <main className="app-container">
           <UpdateChecker />
-          <TabBar />
           <ShortcutsPanel />
           <HistoryPanel
             isOpen={historyOpen}
@@ -326,7 +322,6 @@ function App() {
             ▶
           </button>
         )}
-      <TabBar />
       <BroadcastBar />
       <ShortcutsPanel />
       <HistoryPanel
@@ -340,17 +335,7 @@ function App() {
         onConnect={handleQuickConnect}
       />
       <div className="app-content">
-        {tabs.map((tab) => (
-          <SplitContainer
-            key={tab.id}
-            layout={tab.layout}
-            tabId={tab.id}
-            isActive={tab.id === activeTabId}
-            isBroadcastTarget={
-              isBroadcastActive && broadcastTargetIds.has(tab.id)
-            }
-          />
-        ))}
+        <RegionContainer />
       </div>
       <ConfigDiff
         isOpen={configDiffOpen}
@@ -360,13 +345,13 @@ function App() {
         isOpen={templatePanelOpen}
         onClose={() => setTemplatePanelOpen(false)}
         onSendToTerminal={(text) => {
-          const state = useTabStore.getState();
-          const activeTab = state.tabs.find((t) => t.id === state.activeTabId);
-          if (!activeTab) { console.error("No active tab"); return; }
-          const sessionId = state.focusedPaneSessionId || collectSessionIds(activeTab.layout)[0];
-          if (!sessionId) { console.error("No session ID"); return; }
+          const state = useLayoutStore.getState();
+          const sessionId = state.getActiveSessionId();
+          if (!sessionId) { console.error("No active session"); return; }
+          const region = state.getFocusedRegion();
+          const activeTab = region?.tabs.find((t) => t.id === region.activeTabId);
           const bytes = Array.from(new TextEncoder().encode(text + "\n"));
-          const command = activeTab.status === "connected" ? "connection_write" : "pty_write";
+          const command = activeTab?.status === "connected" ? "connection_write" : "pty_write";
           console.log("[template-send]", command, sessionId, text.substring(0, 50));
           invoke(command, { sessionId, data: bytes }).catch((err) => {
             console.error("[template-send] failed:", err);

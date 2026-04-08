@@ -212,19 +212,19 @@ describe("useMenuEvents", () => {
     expect(onToggleConfigDiff).toHaveBeenCalledTimes(1);
   });
 
-  it("menu-templates calls onToggleTemplates callback", () => {
+  it("menu-command-templates calls onToggleTemplates callback", () => {
     const onToggleTemplates = vi.fn();
     setMenuEventCallbacks({ onToggleTemplates });
     renderHook(() => useMenuEvents());
-    emitMenuEvent("menu-templates");
+    emitMenuEvent("menu-command-templates");
     expect(onToggleTemplates).toHaveBeenCalledTimes(1);
   });
 
-  it("menu-history calls onToggleHistory callback", () => {
+  it("menu-command-history calls onToggleHistory callback", () => {
     const onToggleHistory = vi.fn();
     setMenuEventCallbacks({ onToggleHistory });
     renderHook(() => useMenuEvents());
-    emitMenuEvent("menu-history");
+    emitMenuEvent("menu-command-history");
     expect(onToggleHistory).toHaveBeenCalledTimes(1);
   });
 
@@ -236,19 +236,19 @@ describe("useMenuEvents", () => {
     expect(onToggleSftp).toHaveBeenCalledTimes(1);
   });
 
-  it("menu-ping calls onTogglePing callback", () => {
+  it("menu-ping-dashboard calls onTogglePing callback", () => {
     const onTogglePing = vi.fn();
     setMenuEventCallbacks({ onTogglePing });
     renderHook(() => useMenuEvents());
-    emitMenuEvent("menu-ping");
+    emitMenuEvent("menu-ping-dashboard");
     expect(onTogglePing).toHaveBeenCalledTimes(1);
   });
 
-  it("menu-script calls onToggleScript callback", () => {
+  it("menu-script-editor calls onToggleScript callback", () => {
     const onToggleScript = vi.fn();
     setMenuEventCallbacks({ onToggleScript });
     renderHook(() => useMenuEvents());
-    emitMenuEvent("menu-script");
+    emitMenuEvent("menu-script-editor");
     expect(onToggleScript).toHaveBeenCalledTimes(1);
   });
 

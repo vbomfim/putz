@@ -130,7 +130,7 @@ function PaneRenderer({
       const browserView = (
         <BrowserView
           key={node.terminalSessionId}
-          tabId={tabId}
+          browserId={node.terminalSessionId}
           initialUrl={browserUrl}
           isActive={isActive}
           onClose={isInsideSplit ? () => onClosePane(node.terminalSessionId) : undefined}

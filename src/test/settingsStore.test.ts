@@ -21,9 +21,9 @@ describe("settingsStore", () => {
     vi.restoreAllMocks();
   });
 
-  it("defaults toolbarVisible to true when no persisted state", () => {
+  it("defaults toolbarVisible to false when no persisted state", () => {
     const state = useSettingsStore.getState();
-    expect(state.toolbarVisible).toBe(true);
+    expect(state.toolbarVisible).toBe(false);
   });
 
   it("defaults shortcutsPanelOpen to false", () => {
@@ -33,16 +33,16 @@ describe("settingsStore", () => {
 
   it("toggleToolbar flips visibility", () => {
     useSettingsStore.getState().toggleToolbar();
-    expect(useSettingsStore.getState().toolbarVisible).toBe(false);
+    expect(useSettingsStore.getState().toolbarVisible).toBe(true);
 
     useSettingsStore.getState().toggleToolbar();
-    expect(useSettingsStore.getState().toolbarVisible).toBe(true);
+    expect(useSettingsStore.getState().toolbarVisible).toBe(false);
   });
 
   it("toggleToolbar persists to localStorage", () => {
     useSettingsStore.getState().toggleToolbar();
     const stored = JSON.parse(localStorage.getItem("putz-settings") || "{}");
-    expect(stored.toolbarVisible).toBe(false);
+    expect(stored.toolbarVisible).toBe(true);
   });
 
   it("setToolbarVisible sets and persists", () => {
@@ -67,7 +67,7 @@ describe("settingsStore", () => {
     localStorage.setItem("putz-settings", "not-json{{{");
     vi.resetModules();
     const mod = await import("../stores/settingsStore");
-    expect(mod.useSettingsStore.getState().toolbarVisible).toBe(true);
+    expect(mod.useSettingsStore.getState().toolbarVisible).toBe(false);
   });
 
   it("toggleShortcutsPanel flips open state", () => {

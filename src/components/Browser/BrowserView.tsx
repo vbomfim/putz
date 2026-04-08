@@ -18,8 +18,8 @@ import { invoke } from "@tauri-apps/api/core";
 import "./BrowserView.css";
 
 interface BrowserViewProps {
-  /** Tab ID — used as the webview identifier. */
-  tabId: string;
+  /** Unique browser session ID — used as the webview identifier. */
+  browserId: string;
   /** Initial URL to load. */
   initialUrl: string;
   /** Whether this tab is currently visible (active). */
@@ -38,7 +38,7 @@ const MAX_URL_LENGTH = 2048;
  * ResizeObserver tracks the placeholder's position and size to keep
  * the native webview aligned.
  */
-export function BrowserView({ tabId, initialUrl, isActive, onClose }: BrowserViewProps) {
+export function BrowserView({ browserId, initialUrl, isActive, onClose }: BrowserViewProps) {
   const [currentUrl, setCurrentUrl] = useState(initialUrl);
   const [urlInput, setUrlInput] = useState(initialUrl);
   const [isLoading, setIsLoading] = useState(false);
@@ -64,7 +64,7 @@ export function BrowserView({ tabId, initialUrl, isActive, onClose }: BrowserVie
     setIsLoading(true);
 
     invoke("browser_open", {
-      tabId,
+      tabId: browserId,
       url: initialUrl,
       x: Math.round(rect.left),
       y: Math.round(rect.top),
@@ -86,13 +86,13 @@ export function BrowserView({ tabId, initialUrl, isActive, onClose }: BrowserVie
     // Cleanup: close webview on unmount
     return () => {
       if (webviewCreated.current) {
-        invoke("browser_close", { tabId }).catch(() => {
+        invoke("browser_close", { tabId: browserId }).catch(() => {
           // Ignore — webview may already be closed
         });
         webviewCreated.current = false;
       }
     };
-  }, [tabId, initialUrl]);
+  }, [browserId, initialUrl]);
 
   // Track container size changes with ResizeObserver
   useEffect(() => {
@@ -103,7 +103,7 @@ export function BrowserView({ tabId, initialUrl, isActive, onClose }: BrowserVie
       if (!webviewCreated.current) return;
       const rect = container.getBoundingClientRect();
       invoke("browser_resize", {
-        tabId,
+        tabId: browserId,
         x: Math.round(rect.left),
         y: Math.round(rect.top),
         width: Math.round(rect.width),
@@ -115,15 +115,15 @@ export function BrowserView({ tabId, initialUrl, isActive, onClose }: BrowserVie
 
     observer.observe(container);
     return () => observer.disconnect();
-  }, [tabId]);
+  }, [browserId]);
 
   // Show/hide webview when tab becomes active/inactive
   useEffect(() => {
     if (!webviewCreated.current) return;
-    invoke("browser_set_visible", { tabId, visible: isActive }).catch(() => {
+    invoke("browser_set_visible", { tabId: browserId, visible: isActive }).catch(() => {
       // Ignore visibility errors
     });
-  }, [tabId, isActive]);
+  }, [browserId, isActive]);
 
   /** Navigate to a new URL via the URL bar. */
   const handleNavigate = useCallback(
@@ -150,7 +150,7 @@ export function BrowserView({ tabId, initialUrl, isActive, onClose }: BrowserVie
         webviewCreated.current = true;
         setIsLoading(true);
         invoke("browser_open", {
-          tabId,
+          tabId: browserId,
           url,
           x: Math.round(rect.left),
           y: Math.round(rect.top),
@@ -166,20 +166,20 @@ export function BrowserView({ tabId, initialUrl, isActive, onClose }: BrowserVie
           });
       } else {
         // Webview exists — just navigate
-        invoke("browser_navigate", { tabId, url }).catch((err) => {
+        invoke("browser_navigate", { tabId: browserId, url }).catch((err) => {
           setError(typeof err === "string" ? err : "Navigation failed");
         });
       }
     },
-    [tabId, urlInput],
+    [browserId, urlInput],
   );
 
   /** Refresh the current page. */
   const handleRefresh = useCallback(() => {
-    invoke("browser_navigate", { tabId, url: currentUrl }).catch(() => {
+    invoke("browser_navigate", { tabId: browserId, url: currentUrl }).catch(() => {
       // Ignore
     });
-  }, [tabId, currentUrl]);
+  }, [browserId, currentUrl]);
 
   /** Handle URL input key events. */
   const handleKeyDown = useCallback(
@@ -195,7 +195,7 @@ export function BrowserView({ tabId, initialUrl, isActive, onClose }: BrowserVie
     <div
       className="browser-view"
       data-testid="browser-view"
-      data-tab-id={tabId}
+      data-tab-id={browserId}
     >
       {/* URL bar */}
       <div className="browser-toolbar" data-testid="browser-toolbar">

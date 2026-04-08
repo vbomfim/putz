@@ -1,26 +1,26 @@
 /**
  * useKeyboardShortcuts — Global keyboard shortcut handler for tab management.
  *
- * Registers window-level keydown listeners for tab and pane operations.
+ * Registers window-level keydown listeners for tab and region operations.
  * Uses modifier keys (Ctrl/Cmd) to avoid conflicting with terminal input.
  *
  * @module useKeyboardShortcuts
  */
 import { useEffect, useCallback } from "react";
-import { useTabStore } from "../../stores/tabStore";
+import { useLayoutStore } from "../../stores/layoutStore";
 import { useBroadcastStore } from "../../stores/broadcastStore";
 import { useSettingsStore } from "../../stores/settingsStore";
 
-/** Registers global keyboard shortcuts for tab and pane management. */
+/** Registers global keyboard shortcuts for tab and region management. */
 export function useKeyboardShortcuts(): void {
-  const addTab = useTabStore((s) => s.addTab);
-  const removeTab = useTabStore((s) => s.removeTab);
-  const activateNextTab = useTabStore((s) => s.activateNextTab);
-  const activatePreviousTab = useTabStore((s) => s.activatePreviousTab);
-  const activateTabByIndex = useTabStore((s) => s.activateTabByIndex);
-  const splitActivePane = useTabStore((s) => s.splitActivePane);
-  const toggleSearch = useTabStore((s) => s.toggleSearch);
-  const toggleLogging = useTabStore((s) => s.toggleLogging);
+  const addTerminalTab = useLayoutStore((s) => s.addTerminalTab);
+  const addBrowserTab = useLayoutStore((s) => s.addBrowserTab);
+  const closeTab = useLayoutStore((s) => s.closeTab);
+  const nextTab = useLayoutStore((s) => s.nextTab);
+  const prevTab = useLayoutStore((s) => s.prevTab);
+  const splitRegion = useLayoutStore((s) => s.splitRegion);
+  const toggleSearch = useLayoutStore((s) => s.toggleSearch);
+  const toggleLogging = useLayoutStore((s) => s.toggleLogging);
   const toggleBroadcast = useBroadcastStore((s) => s.toggle);
   const toggleShortcutsPanel = useSettingsStore((s) => s.toggleShortcutsPanel);
 
@@ -31,57 +31,56 @@ export function useKeyboardShortcuts(): void {
 
       const key = e.key.toLowerCase();
 
-      // Ctrl+T / Cmd+T — New tab
+      // Ctrl+T / Cmd+T — New terminal tab in focused region
       if (key === "t" && !e.shiftKey) {
         e.preventDefault();
-        addTab();
+        addTerminalTab();
         return;
       }
 
-      // Ctrl+Shift+W / Cmd+Shift+W — Close active tab
-      // (Ctrl+W conflicts with backward-kill-word in terminal shells)
+      // Ctrl+Shift+B — New browser tab in focused region
+      if (key === "b" && e.shiftKey) {
+        e.preventDefault();
+        addBrowserTab(undefined, "");
+        return;
+      }
+
+      // Ctrl+Shift+W — Close active tab in focused region
       if (key === "w" && e.shiftKey) {
         e.preventDefault();
-        const { activeTabId } = useTabStore.getState();
-        if (activeTabId) {
-          removeTab(activeTabId);
+        const state = useLayoutStore.getState();
+        const region = state.regions[state.focusedRegionId];
+        if (region && region.activeTabId) {
+          closeTab(state.focusedRegionId, region.activeTabId);
         }
         return;
       }
 
-      // Ctrl+Tab — Next tab
+      // Ctrl+Tab — Next tab in focused region
       if (e.key === "Tab" && e.ctrlKey && !e.shiftKey) {
         e.preventDefault();
-        activateNextTab();
+        nextTab();
         return;
       }
 
-      // Ctrl+Shift+Tab — Previous tab
+      // Ctrl+Shift+Tab — Previous tab in focused region
       if (e.key === "Tab" && e.ctrlKey && e.shiftKey) {
         e.preventDefault();
-        activatePreviousTab();
+        prevTab();
         return;
       }
 
-      // Ctrl+1-9 — Activate tab by index
-      if (key >= "1" && key <= "9" && !e.shiftKey) {
-        e.preventDefault();
-        activateTabByIndex(parseInt(key, 10) - 1);
-        return;
-      }
-
-      // Ctrl+Shift+D — Split horizontal
+      // Ctrl+Shift+D — Split focused region horizontally (top/bottom)
       if (key === "d" && e.shiftKey) {
         e.preventDefault();
-        splitActivePane("horizontal");
+        splitRegion("horizontal");
         return;
       }
 
-      // Ctrl+Shift+E — Split vertical
-      // (Ctrl+D conflicts with shell EOF signal)
+      // Ctrl+Shift+E — Split focused region vertically (side by side)
       if (key === "e" && e.shiftKey) {
         e.preventDefault();
-        splitActivePane("vertical");
+        splitRegion("vertical");
         return;
       }
 
@@ -102,11 +101,9 @@ export function useKeyboardShortcuts(): void {
       // Ctrl+Shift+A — Toggle broadcast mode
       if (key === "a" && e.shiftKey) {
         e.preventDefault();
-        const { tabs, activeTabId } = useTabStore.getState();
-        toggleBroadcast(
-          tabs.map((t) => t.id),
-          activeTabId,
-        );
+        const state = useLayoutStore.getState();
+        const allRegionIds = Object.keys(state.regions);
+        toggleBroadcast(allRegionIds, state.focusedRegionId);
         return;
       }
 
@@ -120,17 +117,16 @@ export function useKeyboardShortcuts(): void {
       // Ctrl+Shift+H — Toggle highlighting (placeholder)
       if (key === "h" && e.shiftKey) {
         e.preventDefault();
-        // Placeholder — future highlighting toggle
         return;
       }
     },
     [
-      addTab,
-      removeTab,
-      activateNextTab,
-      activatePreviousTab,
-      activateTabByIndex,
-      splitActivePane,
+      addTerminalTab,
+      addBrowserTab,
+      closeTab,
+      nextTab,
+      prevTab,
+      splitRegion,
       toggleSearch,
       toggleLogging,
       toggleBroadcast,
