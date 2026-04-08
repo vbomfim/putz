@@ -83,13 +83,10 @@ export function BrowserView({ browserId, initialUrl, isActive, onClose }: Browse
         console.error("[BrowserView] browser_open failed:", err);
       });
 
-    // Cleanup: close webview on unmount
+    // Cleanup: hide webview on unmount (don't destroy — tab may still exist)
     return () => {
       if (webviewCreated.current) {
-        invoke("browser_close", { tabId: browserId }).catch(() => {
-          // Ignore — webview may already be closed
-        });
-        webviewCreated.current = false;
+        invoke("browser_set_visible", { tabId: browserId, visible: false }).catch(() => {});
       }
     };
   }, [browserId, initialUrl]);

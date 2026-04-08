@@ -49,7 +49,6 @@ export function RegionView({ region, isFocused }: RegionViewProps) {
     [region.id, region.activeTabId, region.tabs, renameTab],
   );
 
-  const activeTab = region.tabs.find((t) => t.id === region.activeTabId);
 
   /** Map tab position to the CSS class that sets the correct flex-direction. */
   const positionClass: Record<string, string> = {
@@ -77,22 +76,31 @@ export function RegionView({ region, isFocused }: RegionViewProps) {
       />
 
       <div className="region-view__content">
-        {activeTab ? (
-          activeTab.type === "browser" ? (
-            <BrowserView
-              browserId={activeTab.sessionId}
-              initialUrl={activeTab.browserUrl || "about:blank"}
-              isActive={isFocused}
-            />
-          ) : (
-            <TerminalView
-              sessionId={activeTab.sessionId}
-              onTitleChange={handleTitleChange}
-              isSearchOpen={isFocused && isSearchOpen}
-              onSearchClose={closeSearch}
-            />
-          )
-        ) : (
+        {region.tabs.map((tab) => {
+          const isTabActive = tab.id === region.activeTabId;
+          if (tab.type === "browser") {
+            return (
+              <div key={tab.id} style={{ display: isTabActive ? "flex" : "none", flex: 1, flexDirection: "column" }}>
+                <BrowserView
+                  browserId={tab.sessionId}
+                  initialUrl={tab.browserUrl || ""}
+                  isActive={isTabActive && isFocused}
+                />
+              </div>
+            );
+          }
+          return (
+            <div key={tab.id} style={{ display: isTabActive ? "flex" : "none", flex: 1, flexDirection: "column" }}>
+              <TerminalView
+                sessionId={tab.sessionId}
+                onTitleChange={handleTitleChange}
+                isSearchOpen={isTabActive && isFocused && isSearchOpen}
+                onSearchClose={closeSearch}
+              />
+            </div>
+          );
+        })}
+        {region.tabs.length === 0 && (
           <div className="region-view__empty">
             <p>No open tabs</p>
           </div>

@@ -44,7 +44,7 @@ function closePtySession(sessionId: string): void {
 
 /** Closes a browser webview via Tauri IPC (fire-and-forget). */
 function closeBrowserSession(browserId: string): void {
-  invoke("browser_close", { browserId }).catch(() => {
+  invoke("browser_close", { tabId: browserId }).catch(() => {
     // Ignore — webview may already be closed
   });
 }
