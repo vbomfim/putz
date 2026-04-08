@@ -44,10 +44,18 @@ export function BrowserView({ tabId, initialUrl, isActive }: BrowserViewProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const webviewCreated = useRef(false);
 
-  // Open the native webview on mount
+  // Open the native webview on mount — only if we have a real URL
   useEffect(() => {
     const container = containerRef.current;
     if (!container || webviewCreated.current) return;
+
+    // Skip webview creation if URL is empty or incomplete
+    const isValidUrl = initialUrl.startsWith("http://") || initialUrl.startsWith("https://");
+    const hasHost = isValidUrl && initialUrl.length > 10; // more than just "https://"
+    if (!hasHost) {
+      // Just show the URL bar — user will type a URL and press Enter
+      return;
+    }
 
     const rect = container.getBoundingClientRect();
     webviewCreated.current = true;
@@ -66,8 +74,9 @@ export function BrowserView({ tabId, initialUrl, isActive }: BrowserViewProps) {
       })
       .catch((err) => {
         setIsLoading(false);
+        webviewCreated.current = false;
         setError(
-          err instanceof Error ? err.message : "Failed to open browser",
+          typeof err === "string" ? err : err instanceof Error ? err.message : "Failed to open browser",
         );
         console.error("[BrowserView] browser_open failed:", err);
       });
@@ -131,11 +140,34 @@ export function BrowserView({ tabId, initialUrl, isActive }: BrowserViewProps) {
       setUrlInput(url);
       setError(null);
 
-      invoke("browser_navigate", { tabId, url }).catch((err) => {
-        setError(
-          err instanceof Error ? err.message : "Navigation failed",
-        );
-      });
+      if (!webviewCreated.current) {
+        // First navigation — create the webview
+        const container = containerRef.current;
+        if (!container) return;
+        const rect = container.getBoundingClientRect();
+        webviewCreated.current = true;
+        setIsLoading(true);
+        invoke("browser_open", {
+          tabId,
+          url,
+          x: Math.round(rect.left),
+          y: Math.round(rect.top),
+          width: Math.round(rect.width),
+          height: Math.round(rect.height),
+        })
+          .then(() => setIsLoading(false))
+          .catch((err) => {
+            setIsLoading(false);
+            webviewCreated.current = false;
+            setError(typeof err === "string" ? err : "Failed to open browser");
+            console.error("[BrowserView] browser_open failed:", err);
+          });
+      } else {
+        // Webview exists — just navigate
+        invoke("browser_navigate", { tabId, url }).catch((err) => {
+          setError(typeof err === "string" ? err : "Navigation failed");
+        });
+      }
     },
     [tabId, urlInput],
   );

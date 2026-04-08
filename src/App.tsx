@@ -102,7 +102,7 @@ function App() {
       onToggleScript: () => setScriptOpen((prev) => !prev),
       onToggleInterfaceStatus: () => setInterfaceStatusOpen((prev) => !prev),
       onToggleMacArp: () => setMacArpOpen((prev) => !prev),
-      onNewBrowserTab: () => addBrowserTab("https://"),
+      onNewBrowserTab: () => addBrowserTab(""),
     });
     return () => setMenuEventCallbacks({});
   }, [addBrowserTab]);
