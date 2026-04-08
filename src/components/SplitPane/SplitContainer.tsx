@@ -133,27 +133,12 @@ function PaneRenderer({
           tabId={tabId}
           initialUrl={browserUrl}
           isActive={isActive}
+          onClose={isInsideSplit ? () => onClosePane(node.terminalSessionId) : undefined}
         />
       );
 
-      if (!isInsideSplit) {
-        return browserView;
-      }
-
-      return (
-        <div className="pane-leaf-wrapper">
-          {browserView}
-          <button
-            className="pane-close-btn"
-            data-testid="pane-close-btn"
-            aria-label="Close pane"
-            type="button"
-            onClick={() => onClosePane(node.terminalSessionId)}
-          >
-            ×
-          </button>
-        </div>
-      );
+      // No extra wrapper needed — close button is in the URL bar
+      return browserView;
     }
 
     const terminalView = (

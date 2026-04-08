@@ -24,6 +24,8 @@ interface BrowserViewProps {
   initialUrl: string;
   /** Whether this tab is currently visible (active). */
   isActive: boolean;
+  /** Callback to close this pane (when inside a split). */
+  onClose?: () => void;
 }
 
 /** Maximum URL length to prevent abuse. */
@@ -36,7 +38,7 @@ const MAX_URL_LENGTH = 2048;
  * ResizeObserver tracks the placeholder's position and size to keep
  * the native webview aligned.
  */
-export function BrowserView({ tabId, initialUrl, isActive }: BrowserViewProps) {
+export function BrowserView({ tabId, initialUrl, isActive, onClose }: BrowserViewProps) {
   const [currentUrl, setCurrentUrl] = useState(initialUrl);
   const [urlInput, setUrlInput] = useState(initialUrl);
   const [isLoading, setIsLoading] = useState(false);
@@ -229,6 +231,18 @@ export function BrowserView({ tabId, initialUrl, isActive }: BrowserViewProps) {
           >
             →
           </button>
+          {onClose && (
+            <button
+              className="browser-nav-btn browser-close-pane-btn"
+              onClick={onClose}
+              type="button"
+              title="Close this pane"
+              aria-label="Close browser pane"
+              style={{ color: "#f38ba8", marginLeft: "4px" }}
+            >
+              ✕
+            </button>
+          )}
         </form>
       </div>
 

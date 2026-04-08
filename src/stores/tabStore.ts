@@ -32,9 +32,13 @@ async function spawnPtySession(): Promise<string> {
   });
 }
 
-/** Closes a PTY session via Tauri IPC (fire-and-forget). Skips browser sessions. */
+/** Closes a PTY session via Tauri IPC (fire-and-forget). For browser sessions, closes the webview. */
 function closePtySession(sessionId: string): void {
-  if (sessionId.startsWith(BROWSER_SESSION_PREFIX)) return;
+  if (sessionId.startsWith(BROWSER_SESSION_PREFIX)) {
+    // Close the browser webview — use the tab ID from the session ID
+    invoke("browser_close", { tabId: sessionId }).catch(() => {});
+    return;
+  }
   invoke("pty_close", { sessionId }).catch(() => {
     // Ignore — session may already be closed
   });
