@@ -143,7 +143,25 @@ export function BrowserView({ browserId, initialUrl, isActive, onClose }: Browse
         // First navigation — create the webview
         const container = containerRef.current;
         if (!container) return;
-        const rect = container.getBoundingClientRect();
+        let rect = container.getBoundingClientRect();
+        // If container has zero dimensions (display:none), wait for layout
+        if (rect.width === 0 || rect.height === 0) {
+          requestAnimationFrame(() => {
+            rect = container.getBoundingClientRect();
+            if (rect.width === 0 || rect.height === 0) return;
+            webviewCreated.current = true;
+            setIsLoading(true);
+            invoke("browser_open", {
+              tabId: browserId, url,
+              x: Math.round(rect.left), y: Math.round(rect.top),
+              width: Math.round(rect.width), height: Math.round(rect.height),
+            }).then(() => setIsLoading(false)).catch((err) => {
+              setIsLoading(false); webviewCreated.current = false;
+              setError(typeof err === "string" ? err : "Failed to open browser");
+            });
+          });
+          return;
+        }
         webviewCreated.current = true;
         setIsLoading(true);
         invoke("browser_open", {

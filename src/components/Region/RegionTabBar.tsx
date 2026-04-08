@@ -164,6 +164,7 @@ export function RegionTabBar({
   const renameTab = useLayoutStore((s) => s.renameTab);
   const setFocusedRegion = useLayoutStore((s) => s.setFocusedRegion);
   const setTabPosition = useLayoutStore((s) => s.setTabPosition);
+  const splitRegion = useLayoutStore((s) => s.splitRegion);
 
   const [contextMenu, setContextMenu] = useState<ContextMenu | null>(null);
   const contextMenuRef = useRef<HTMLDivElement>(null);
@@ -288,15 +289,45 @@ export function RegionTabBar({
         ))}
       </div>
 
-      <button
-        className="region-tabbar__add"
-        onClick={handleAddClick}
-        aria-label="New tab"
-        type="button"
-        title="New Tab (Ctrl+T)"
-      >
-        +
-      </button>
+      {/* Right-aligned action icons — like cmux */}
+      <div className="region-tabbar__actions">
+        <button
+          className="region-tabbar__action"
+          onClick={handleAddClick}
+          aria-label="New Terminal"
+          type="button"
+          title="New Terminal"
+        >
+          ⌨
+        </button>
+        <button
+          className="region-tabbar__action"
+          onClick={() => { setFocusedRegion(regionId); addBrowserTab(regionId, ""); }}
+          aria-label="New Browser"
+          type="button"
+          title="New Browser Tab"
+        >
+          🌐
+        </button>
+        <button
+          className="region-tabbar__action"
+          onClick={() => { setFocusedRegion(regionId); splitRegion("vertical"); }}
+          aria-label="Split Vertical"
+          type="button"
+          title="Split Vertical"
+        >
+          ◫
+        </button>
+        <button
+          className="region-tabbar__action"
+          onClick={() => { setFocusedRegion(regionId); splitRegion("horizontal"); }}
+          aria-label="Split Horizontal"
+          type="button"
+          title="Split Horizontal"
+        >
+          ⬒
+        </button>
+      </div>
 
       {contextMenu && (
         <div

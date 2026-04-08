@@ -335,3 +335,43 @@
   border-bottom-color: transparent;
   border-top-color: rgba(255, 255, 255, 0.1);
 }
+
+/* ─── Tab Bar Action Icons (right-aligned) ───────────────── */
+
+.region-tabbar__actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  margin-left: auto;
+  padding: 0 4px;
+  flex-shrink: 0;
+}
+
+.region-tabbar__action {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border: none;
+  background: transparent;
+  color: rgba(205, 214, 244, 0.5);
+  font-size: 13px;
+  cursor: pointer;
+  border-radius: 4px;
+  padding: 0;
+  transition: background-color 0.1s, color 0.1s;
+}
+
+.region-tabbar__action:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #cdd6f4;
+}
+
+/* Vertical tab bar: stack actions at the bottom */
+.region-tabbar--vertical .region-tabbar__actions {
+  flex-direction: column;
+  margin-left: 0;
+  margin-top: auto;
+  padding: 4px 0;
+}
