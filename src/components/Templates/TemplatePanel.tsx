@@ -148,7 +148,7 @@ export function TemplatePanel({ isOpen, onClose, onSendToTerminal }: TemplatePan
         variables: variableValues,
       });
       onSendToTerminal?.(rendered);
-      onClose();
+      // Don't close — keep panel open for repeated sends
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err);
       setError(message);

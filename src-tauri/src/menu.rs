@@ -8,7 +8,7 @@
 //! File | Edit | View | Session | Tools | Window | Help
 
 use tauri::menu::{
-    AboutMetadataBuilder, CheckMenuItemBuilder, MenuBuilder, MenuItemBuilder,
+    AboutMetadataBuilder, MenuBuilder, MenuItemBuilder,
     PredefinedMenuItem, SubmenuBuilder,
 };
 use tauri::{AppHandle, Emitter, Wry};
@@ -60,14 +60,8 @@ pub fn build_menu(app: &AppHandle<Wry>) -> Result<tauri::menu::Menu<Wry>, tauri:
         .item(&menu_item!(app, "menu-preferences", "Preferences...", "CmdOrCtrl+,"))
         .build()?;
 
-    let toggle_toolbar = CheckMenuItemBuilder::new("Toggle Toolbar")
-        .id("menu-toggle-toolbar")
-        .checked(true)
-        .build(app)?;
-
     let view_menu = SubmenuBuilder::new(app, "View")
         .item(&menu_item!(app, "menu-toggle-sidebar", "Toggle Sidebar", "CmdOrCtrl+B"))
-        .item(&toggle_toolbar)
         .separator()
         .item(&menu_item!(app, "menu-split-vertical", "Split Vertical", "CmdOrCtrl+Shift+E"))
         .item(&menu_item!(app, "menu-split-horizontal", "Split Horizontal", "CmdOrCtrl+Shift+D"))

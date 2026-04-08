@@ -203,7 +203,10 @@ export function useTerminal({
      * Safely fits the terminal to its container.
      * Guards against zero-dimension containers (e.g., during Allotment animation)
      * and syncs the PTY size after a successful fit.
+     * Only sends pty_resize if dimensions actually changed.
      */
+    let lastCols = 0;
+    let lastRows = 0;
     const safeFit = () => {
       if (disposed) return;
       const el = terminalRef.current;
@@ -211,7 +214,9 @@ export function useTerminal({
       try {
         fitAddon.fit();
         const { cols, rows } = terminal;
-        if (cols > 0 && rows > 0) {
+        if (cols > 0 && rows > 0 && (cols !== lastCols || rows !== lastRows)) {
+          lastCols = cols;
+          lastRows = rows;
           invoke("pty_resize", { sessionId, cols, rows }).catch(() => {});
         }
       } catch {
