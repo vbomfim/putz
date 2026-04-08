@@ -256,7 +256,14 @@ export const useTabStore = create<TabState>((set, get) => ({
       tabs: [...state.tabs, tab],
       activeTabId: tab.id,
       tabCounter: nextCounter,
+      focusedPaneSessionId: sessionId,
     }));
+
+    // Auto-focus the new terminal
+    setTimeout(() => {
+      const el = document.querySelector(`[data-session-id="${sessionId}"] .xterm-helper-textarea`) as HTMLElement;
+      el?.focus();
+    }, 100);
   },
 
   removeTab: (id: string) => {
@@ -297,8 +304,15 @@ export const useTabStore = create<TabState>((set, get) => ({
 
   activateTab: (id: string) => {
     const { tabs } = get();
-    if (tabs.some((t) => t.id === id)) {
-      set({ activeTabId: id });
+    const tab = tabs.find((t) => t.id === id);
+    if (tab) {
+      const sessionId = getFirstLeafSessionId(tab.layout);
+      set({ activeTabId: id, focusedPaneSessionId: sessionId });
+      // Auto-focus the terminal element after React renders
+      setTimeout(() => {
+        const el = document.querySelector(`[data-session-id="${sessionId}"] .xterm-helper-textarea`) as HTMLElement;
+        el?.focus();
+      }, 50);
     }
   },
 
@@ -396,25 +410,25 @@ export const useTabStore = create<TabState>((set, get) => ({
   },
 
   activateNextTab: () => {
-    const { tabs, activeTabId } = get();
+    const { tabs, activeTabId, activateTab } = get();
     if (tabs.length <= 1) return;
     const currentIndex = tabs.findIndex((t) => t.id === activeTabId);
     const nextIndex = (currentIndex + 1) % tabs.length;
-    set({ activeTabId: tabs[nextIndex].id });
+    activateTab(tabs[nextIndex].id);
   },
 
   activatePreviousTab: () => {
-    const { tabs, activeTabId } = get();
+    const { tabs, activeTabId, activateTab } = get();
     if (tabs.length <= 1) return;
     const currentIndex = tabs.findIndex((t) => t.id === activeTabId);
     const prevIndex = (currentIndex - 1 + tabs.length) % tabs.length;
-    set({ activeTabId: tabs[prevIndex].id });
+    activateTab(tabs[prevIndex].id);
   },
 
   activateTabByIndex: (index: number) => {
-    const { tabs } = get();
+    const { tabs, activateTab } = get();
     if (index >= 0 && index < tabs.length) {
-      set({ activeTabId: tabs[index].id });
+      activateTab(tabs[index].id);
     }
   },
 
