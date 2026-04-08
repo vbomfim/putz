@@ -22,7 +22,7 @@
       }
     ],
     "security": {
-      "csp": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'self' https://github.com https://api.github.com https://objects.githubusercontent.com"
+      "csp": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'self' https://github.com https://api.github.com https://objects.githubusercontent.com; frame-src https: http:"
     }
   },
   "bundle": {

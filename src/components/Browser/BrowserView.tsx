@@ -1,201 +1,67 @@
 /**
- * BrowserView — Renders a native Tauri webview overlay for browsing.
- *
- * Displays a URL bar at the top with navigation controls and a placeholder
- * div whose position is used to overlay a native Tauri webview. The webview
- * floats above the React DOM and is managed via Tauri IPC commands.
- *
- * Lifecycle:
- * - On mount: calls browser_open to create the native webview
- * - On resize: calls browser_resize to reposition the webview
- * - On unmount: calls browser_close to destroy the webview
- * - On tab switch: calls browser_set_visible to show/hide
- *
- * @module BrowserView
+ * BrowserView — Renders a web page inside the tab using an iframe.
+ * "Pop Out" button opens the page in a separate native Tauri window.
  */
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import "./BrowserView.css";
 
 interface BrowserViewProps {
-  /** Unique browser session ID — used as the webview identifier. */
   browserId: string;
-  /** Initial URL to load. */
   initialUrl: string;
-  /** Whether this tab is currently visible (active). */
   isActive: boolean;
-  /** Callback to close this pane (when inside a split). */
   onClose?: () => void;
 }
 
-/** Maximum URL length to prevent abuse. */
 const MAX_URL_LENGTH = 2048;
 
-/**
- * BrowserView component — renders a URL bar and manages a native webview.
- *
- * The webview is a native overlay positioned over a placeholder div.
- * ResizeObserver tracks the placeholder's position and size to keep
- * the native webview aligned.
- */
 export function BrowserView({ browserId, initialUrl, isActive, onClose }: BrowserViewProps) {
-  const [currentUrl, setCurrentUrl] = useState(initialUrl);
-  const [urlInput, setUrlInput] = useState(initialUrl);
-  const [isLoading, setIsLoading] = useState(false);
+  const [urlInput, setUrlInput] = useState(initialUrl || "");
+  const [currentUrl, setCurrentUrl] = useState(initialUrl || "");
   const [error, setError] = useState<string | null>(null);
-  const containerRef = useRef<HTMLDivElement | null>(null);
-  const webviewCreated = useRef(false);
 
-  // Open the native webview on mount — only if we have a real URL
-  useEffect(() => {
-    const container = containerRef.current;
-    if (!container || webviewCreated.current) return;
+  const normalizeUrl = (input: string): string => {
+    const trimmed = input.trim();
+    if (!trimmed) return "";
+    if (trimmed.startsWith("http://") || trimmed.startsWith("https://")) return trimmed;
+    return `https://${trimmed}`;
+  };
 
-    // Skip webview creation if URL is empty or incomplete
-    const isValidUrl = initialUrl.startsWith("http://") || initialUrl.startsWith("https://");
-    const hasHost = isValidUrl && initialUrl.length > 10; // more than just "https://"
-    if (!hasHost) {
-      // Just show the URL bar — user will type a URL and press Enter
-      return;
-    }
-
-    const rect = container.getBoundingClientRect();
-    webviewCreated.current = true;
-    setIsLoading(true);
-
-    invoke("browser_open", {
-      tabId: browserId,
-      url: initialUrl,
-      x: Math.round(rect.left),
-      y: Math.round(rect.top),
-      width: Math.round(rect.width),
-      height: Math.round(rect.height),
-    })
-      .then(() => {
-        setIsLoading(false);
-      })
-      .catch((err) => {
-        setIsLoading(false);
-        webviewCreated.current = false;
-        setError(
-          typeof err === "string" ? err : err instanceof Error ? err.message : "Failed to open browser",
-        );
-        console.error("[BrowserView] browser_open failed:", err);
-      });
-
-    // Cleanup: hide webview on unmount (don't destroy — tab may still exist)
-    return () => {
-      if (webviewCreated.current) {
-        invoke("browser_set_visible", { tabId: browserId, visible: false }).catch(() => {});
-      }
-    };
-  }, [browserId, initialUrl]);
-
-  // Track container size changes with ResizeObserver
-  useEffect(() => {
-    const container = containerRef.current;
-    if (!container) return;
-
-    const observer = new ResizeObserver(() => {
-      if (!webviewCreated.current) return;
-      const rect = container.getBoundingClientRect();
-      invoke("browser_resize", {
-        tabId: browserId,
-        x: Math.round(rect.left),
-        y: Math.round(rect.top),
-        width: Math.round(rect.width),
-        height: Math.round(rect.height),
-      }).catch(() => {
-        // Ignore resize errors
-      });
-    });
-
-    observer.observe(container);
-    return () => observer.disconnect();
-  }, [browserId]);
-
-  // Show/hide webview when tab becomes active/inactive
-  useEffect(() => {
-    if (!webviewCreated.current) return;
-    invoke("browser_set_visible", { tabId: browserId, visible: isActive }).catch(() => {
-      // Ignore visibility errors
-    });
-  }, [browserId, isActive]);
-
-  /** Navigate to a new URL via the URL bar. */
-  /** Core navigation — called from Enter key or Go button. */
   const doNavigate = useCallback(() => {
-    const trimmed = urlInput.trim();
-    if (!trimmed || trimmed.length > MAX_URL_LENGTH) return;
-
-    const url =
-      trimmed.startsWith("http://") || trimmed.startsWith("https://")
-        ? trimmed
-        : `https://${trimmed}`;
-
+    const url = normalizeUrl(urlInput);
+    if (!url || url.length > MAX_URL_LENGTH) return;
     setCurrentUrl(url);
     setUrlInput(url);
     setError(null);
+  }, [urlInput]);
 
-    if (!webviewCreated.current) {
-      const container = containerRef.current;
-      if (!container) return;
-      const rect = container.getBoundingClientRect();
-      webviewCreated.current = true;
-      setIsLoading(true);
-      invoke("browser_open", {
-        tabId: browserId, url,
-        x: Math.round(rect.left || 0), y: Math.round(rect.top || 0),
-        width: Math.round(rect.width || 900), height: Math.round(rect.height || 600),
-      }).then(() => setIsLoading(false)).catch((err) => {
-        setIsLoading(false); webviewCreated.current = false;
-        setError(typeof err === "string" ? err : "Failed to open browser");
-      });
-    } else {
-      invoke("browser_navigate", { tabId: browserId, url }).catch((err) => {
-        setError(typeof err === "string" ? err : "Navigation failed");
-      });
+  const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      e.stopPropagation();
+      doNavigate();
     }
-  }, [browserId, urlInput]);
+    if (e.key === "Escape") {
+      setUrlInput(currentUrl);
+    }
+  }, [doNavigate, currentUrl]);
 
-  /** Handle URL input key events. */
-  /** Refresh the current page. */
-  const handleRefresh = useCallback(() => {
-    invoke("browser_navigate", { tabId: browserId, url: currentUrl }).catch(() => {});
-  }, [browserId, currentUrl]);
-
-  const handleKeyDown = useCallback(
-    (e: React.KeyboardEvent) => {
-      if (e.key === "Escape") {
-        setUrlInput(currentUrl);
-      }
-      if (e.key === "Enter") {
-        e.preventDefault();
-        e.stopPropagation();
-        doNavigate();
-      }
-    },
-    [currentUrl, doNavigate],
-  );
+  const handlePopOut = useCallback(() => {
+    const url = currentUrl || normalizeUrl(urlInput);
+    if (!url) return;
+    invoke("browser_open", {
+      tabId: browserId, url,
+      x: 0, y: 0, width: 900, height: 700,
+    }).catch((err) => {
+      setError(typeof err === "string" ? err : "Failed to open browser window");
+    });
+  }, [browserId, currentUrl, urlInput]);
 
   return (
-    <div
-      className="browser-view"
-      data-testid="browser-view"
-      data-tab-id={browserId}
-    >
-      {/* URL bar — no form, direct handlers */}
-      <div className="browser-toolbar" data-testid="browser-toolbar">
-        <button
-          className="browser-nav-btn"
-          onClick={handleRefresh}
-          aria-label="Refresh"
-          title="Refresh"
-          type="button"
-          data-testid="browser-refresh-btn"
-        >
-          ↻
-        </button>
+    <div className="browser-view" data-testid="browser-view" style={{ display: isActive ? "flex" : "none", flex: 1, flexDirection: "column" }}>
+      {/* URL bar */}
+      <div className="browser-toolbar">
+        <button className="browser-nav-btn" onClick={doNavigate} type="button" title="Go / Refresh">↻</button>
         <div className="browser-url-form">
           <input
             className="browser-url-input"
@@ -205,57 +71,31 @@ export function BrowserView({ browserId, initialUrl, isActive, onClose }: Browse
             onKeyDown={handleKeyDown}
             placeholder="Enter URL and press Enter..."
             aria-label="URL"
-            data-testid="browser-url-input"
           />
-          <button
-            className="browser-go-btn"
-            type="button"
-            onClick={doNavigate}
-            aria-label="Go"
-            data-testid="browser-go-btn"
-          >
-            →
-          </button>
+          <button className="browser-go-btn" type="button" onClick={doNavigate} title="Go">→</button>
+          <button className="browser-nav-btn" type="button" onClick={handlePopOut} title="Pop out to native window" style={{ fontSize: "11px" }}>⇱</button>
           {onClose && (
-            <button
-              className="browser-nav-btn browser-close-pane-btn"
-              onClick={onClose}
-              type="button"
-              title="Close this pane"
-              aria-label="Close browser pane"
-              style={{ color: "#f38ba8", marginLeft: "4px" }}
-            >
-              ✕
-            </button>
+            <button className="browser-nav-btn browser-close-pane-btn" onClick={onClose} type="button" title="Close" style={{ color: "#f38ba8" }}>✕</button>
           )}
         </div>
       </div>
 
-      {/* Webview placeholder — native webview overlays this area */}
-      <div
-        ref={containerRef}
-        className="browser-content"
-        data-testid="browser-content"
-      >
-        {isLoading && (
-          <div className="browser-loading" data-testid="browser-loading">
-            Loading...
-          </div>
-        )}
-        {error && (
-          <div className="browser-error" data-testid="browser-error">
-            <p>{error}</p>
-            <button onClick={handleRefresh} type="button">
-              Retry
-            </button>
-          </div>
-        )}
-        {!isLoading && !error && (
-          <div className="browser-placeholder" data-testid="browser-placeholder">
-            {/* Native webview renders on top of this area */}
-          </div>
-        )}
-      </div>
+      {/* Content: iframe or empty state */}
+      {error && <div className="browser-error">{error}</div>}
+      {currentUrl ? (
+        <iframe
+          src={currentUrl}
+          className="browser-iframe"
+          sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox"
+          allow="clipboard-read; clipboard-write"
+          title="Browser"
+          style={{ flex: 1, border: "none", width: "100%", background: "#fff" }}
+        />
+      ) : (
+        <div className="browser-empty">
+          <p style={{ color: "rgba(205,214,244,0.5)", fontSize: "14px" }}>Type a URL above and press Enter</p>
+        </div>
+      )}
     </div>
   );
 }
