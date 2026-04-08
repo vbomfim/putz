@@ -39,10 +39,14 @@ pub fn browser_open(
     // Generate a unique webview label from the tab ID
     let label = format!("browser-{}", tab_id);
 
-    // Get the main window (Window, not WebviewWindow — required for add_child)
+    // Get the main window — try both Tauri 2.0 window access methods
     let window = app
         .get_window("main")
-        .ok_or_else(|| "Main window not found".to_string())?;
+        .or_else(|| {
+            // Fallback: get the first available window
+            app.windows().into_values().next()
+        })
+        .ok_or_else(|| "No window found".to_string())?;
 
     // Create a child webview positioned over the placeholder div
     let webview_url = WebviewUrl::External(parsed_url);
