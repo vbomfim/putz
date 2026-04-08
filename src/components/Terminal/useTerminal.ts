@@ -425,16 +425,6 @@ export function useTerminal({
 
       if (!disposed) {
         setIsReady(true);
-
-        // After listeners are active, send Ctrl+L (form feed) to the PTY.
-        // This tells the shell to clear and redraw the screen, which is
-        // essential when the terminal is remounted after a split (the
-        // original output was sent before listeners were registered).
-        // Ctrl+L = 0x0C, universally supported by bash/zsh/fish.
-        setTimeout(() => {
-          if (disposed) return;
-          invoke("pty_write", { sessionId, data: [12] }).catch(() => {});
-        }, 300);
       }
     };
 

@@ -288,10 +288,12 @@ function App() {
         <button
           className="sidebar-toggle"
           onClick={handleSidebarToggle}
+          onMouseDown={(e) => e.preventDefault()}
           type="button"
           aria-label="Open session manager"
           data-testid="sidebar-toggle"
           title="Toggle Session Manager (Ctrl+B)"
+          tabIndex={-1}
         >
           ▶
         </button>
