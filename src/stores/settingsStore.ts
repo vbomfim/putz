@@ -23,13 +23,13 @@ function loadPersistedSettings(): PersistedSettings {
     if (raw) {
       const parsed = JSON.parse(raw) as Partial<PersistedSettings>;
       return {
-        toolbarVisible: parsed.toolbarVisible ?? true,
+        toolbarVisible: parsed.toolbarVisible ?? false,
       };
     }
   } catch {
     // Corrupted localStorage — fall through to defaults
   }
-  return { toolbarVisible: true };
+  return { toolbarVisible: false };
 }
 
 /** Saves settings to localStorage. */
