@@ -63,6 +63,7 @@ export function useMenuEvents(): void {
   const removeTab = useTabStore((s) => s.removeTab);
   const closeAllTabs = useTabStore((s) => s.closeAllTabs);
   const splitActivePane = useTabStore((s) => s.splitActivePane);
+  const splitActivePaneWithBrowser = useTabStore((s) => s.splitActivePaneWithBrowser);
   const toggleSearch = useTabStore((s) => s.toggleSearch);
   const toggleLogging = useTabStore((s) => s.toggleLogging);
   const activateNextTab = useTabStore((s) => s.activateNextTab);
@@ -113,6 +114,12 @@ export function useMenuEvents(): void {
           break;
         case "menu-split-horizontal":
           splitActivePane("horizontal");
+          break;
+        case "menu-split-vertical-browser":
+          splitActivePaneWithBrowser("vertical");
+          break;
+        case "menu-split-horizontal-browser":
+          splitActivePaneWithBrowser("horizontal");
           break;
         case "menu-toggle-highlighting":
           // Placeholder — future highlighting toggle
@@ -219,6 +226,7 @@ export function useMenuEvents(): void {
       removeTab,
       closeAllTabs,
       splitActivePane,
+      splitActivePaneWithBrowser,
       toggleSearch,
       toggleLogging,
       toggleBroadcast,

@@ -66,6 +66,8 @@ pub fn build_menu(app: &AppHandle<Wry>) -> Result<tauri::menu::Menu<Wry>, tauri:
         .separator()
         .item(&menu_item!(app, "menu-split-vertical", "Split Vertical", "CmdOrCtrl+Shift+E"))
         .item(&menu_item!(app, "menu-split-horizontal", "Split Horizontal", "CmdOrCtrl+Shift+D"))
+        .item(&menu_item!(app, "menu-split-vertical-browser", "Split with Browser ↔"))
+        .item(&menu_item!(app, "menu-split-horizontal-browser", "Split with Browser ↕"))
         .item(&menu_item!(app, "menu-unsplit-pane", "Unsplit Pane"))
         .separator()
         .item(&menu_item!(app, "menu-toggle-highlighting", "Toggle Highlighting", "CmdOrCtrl+Shift+H"))
