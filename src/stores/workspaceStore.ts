@@ -9,6 +9,7 @@
  * @module workspaceStore
  */
 import { create } from "zustand";
+import { invoke } from "@tauri-apps/api/core";
 import { useTabStore } from "./tabStore";
 import type { Tab } from "../types";
 
@@ -219,7 +220,14 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => {
       const currentTabs = tabState.tabs;
       const currentActiveTabId = tabState.activeTabId;
 
-      // 2. Load target workspace tabs into tabStore
+      // 2. Hide all browser webviews from current workspace tabs
+      for (const tab of currentTabs) {
+        if (tab.contentType === "browser") {
+          invoke("browser_set_visible", { tabId: tab.id, visible: false }).catch(() => {});
+        }
+      }
+
+      // 3. Load target workspace tabs into tabStore
       const targetWorkspace = workspaces.find((w) => w.id === id)!;
 
       useTabStore.setState({
@@ -227,7 +235,13 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => {
         activeTabId: targetWorkspace.activeTabId,
       });
 
-      // 3. Update workspace store
+      // 4. Show browser webviews in the new active tab (if any)
+      const newActiveTab = targetWorkspace.tabs.find((t) => t.id === targetWorkspace.activeTabId);
+      if (newActiveTab?.contentType === "browser") {
+        invoke("browser_set_visible", { tabId: newActiveTab.id, visible: true }).catch(() => {});
+      }
+
+      // 5. Update workspace store
       set((state) => {
         const updated = {
           workspaces: state.workspaces.map((w) => {
