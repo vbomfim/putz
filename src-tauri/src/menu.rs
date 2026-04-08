@@ -78,6 +78,11 @@ pub fn build_menu(app: &AppHandle<Wry>) -> Result<tauri::menu::Menu<Wry>, tauri:
         .item(&menu_item!(app, "menu-reset-zoom", "Reset Zoom", "CmdOrCtrl+0"))
         .separator()
         .item(&menu_item!(app, "menu-full-screen", "Full Screen", "F11"))
+        .separator()
+        .item(&menu_item!(app, "menu-theme-editor", "Color Theme..."))
+        .item(&menu_item!(app, "menu-font-config", "Font Settings..."))
+        .separator()
+        .item(&menu_item!(app, "menu-toggle-workspace-bar", "Toggle Workspace Bar"))
         .build()?;
 
     let session_menu = SubmenuBuilder::new(app, "Session")

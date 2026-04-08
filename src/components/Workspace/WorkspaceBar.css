@@ -1,0 +1,185 @@
+/* WorkspaceBar styles
+ *
+ * Vertical bar on the left edge of the window.
+ * Shows colored circles for each workspace (like VS Code's activity bar).
+ */
+
+/* ─── Bar Layout ─────────────────────────────────────────── */
+
+.workspace-bar {
+  display: flex;
+  flex-direction: column;
+  width: 48px;
+  background: #11111b;
+  border-right: 1px solid #45475a;
+  padding: 8px 0;
+  gap: 4px;
+  align-items: center;
+  flex-shrink: 0;
+  height: 100%;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+/* ─── Workspace Item ─────────────────────────────────────── */
+
+.workspace-item-wrapper {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.workspace-item {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  font-weight: bold;
+  color: white;
+  transition: border-radius 0.2s, box-shadow 0.2s, opacity 0.15s;
+  opacity: 0.7;
+  padding: 0;
+}
+
+.workspace-item:hover {
+  border-radius: 12px;
+  opacity: 1;
+}
+
+.workspace-item--active {
+  border-radius: 12px;
+  opacity: 1;
+  box-shadow: 0 0 0 2px #89b4fa;
+}
+
+.workspace-item:focus-visible {
+  outline: 2px solid #89b4fa;
+  outline-offset: 2px;
+}
+
+/* ─── Add Button ─────────────────────────────────────────── */
+
+.workspace-add {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  border: 2px dashed #585b70;
+  background: transparent;
+  color: #585b70;
+  font-size: 18px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 4px;
+  transition: border-color 0.2s, color 0.2s, border-radius 0.2s;
+  padding: 0;
+}
+
+.workspace-add:hover {
+  border-color: #89b4fa;
+  color: #89b4fa;
+  border-radius: 12px;
+}
+
+.workspace-add:focus-visible {
+  outline: 2px solid #89b4fa;
+  outline-offset: 2px;
+}
+
+/* ─── Context Menu ───────────────────────────────────────── */
+
+.workspace-context-menu {
+  position: fixed;
+  z-index: 400;
+  background: #1e1e2e;
+  border: 1px solid #45475a;
+  border-radius: 6px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+  padding: 4px 0;
+  min-width: 140px;
+}
+
+.workspace-context-item {
+  display: block;
+  width: 100%;
+  padding: 6px 12px;
+  background: none;
+  border: none;
+  color: #cdd6f4;
+  font-size: 13px;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color 0.1s;
+}
+
+.workspace-context-item:hover {
+  background-color: #313244;
+}
+
+.workspace-context-item--danger:hover {
+  background-color: #f38ba8;
+  color: #11111b;
+}
+
+/* ─── Color Picker ───────────────────────────────────────── */
+
+.workspace-color-picker {
+  position: fixed;
+  z-index: 400;
+  background: #1e1e2e;
+  border: 1px solid #45475a;
+  border-radius: 8px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+  padding: 8px;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px;
+  top: 50%;
+  left: 56px;
+  transform: translateY(-50%);
+}
+
+.workspace-color-swatch {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  cursor: pointer;
+  transition: border-color 0.15s, transform 0.1s;
+  padding: 0;
+}
+
+.workspace-color-swatch:hover {
+  border-color: #cdd6f4;
+  transform: scale(1.15);
+}
+
+.workspace-color-swatch:focus-visible {
+  outline: 2px solid #89b4fa;
+  outline-offset: 2px;
+}
+
+/* ─── Rename Input ───────────────────────────────────────── */
+
+.workspace-rename-input {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  border: 2px solid #89b4fa;
+  background: #1e1e2e;
+  color: #cdd6f4;
+  font-size: 12px;
+  text-align: center;
+  padding: 2px;
+}
+
+.workspace-rename-input:focus {
+  outline: none;
+  border-color: #b4befe;
+}

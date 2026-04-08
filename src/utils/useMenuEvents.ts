@@ -33,6 +33,7 @@ export interface MenuEventCallbacks {
   onToggleInterfaceStatus?: () => void;
   onToggleMacArp?: () => void;
   onNewBrowserTab?: () => void;
+  onToggleWorkspaceBar?: () => void;
 }
 
 // Module-level callbacks — set by App.tsx via setMenuEventCallbacks
@@ -132,6 +133,9 @@ export function useMenuEvents(): void {
           );
           break;
         }
+        case "menu-toggle-workspace-bar":
+          menuCallbacks.onToggleWorkspaceBar?.();
+          break;
 
         // ─── Session ───────────────────────────────────────
         case "menu-connect":

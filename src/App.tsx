@@ -38,7 +38,9 @@ import { MacArpViewer } from "./components/MacArpViewer/MacArpViewer";
 import { ScriptEditor } from "./components/Scripting";
 import { ThemeEditor } from "./components/Terminal/ThemeEditor";
 import { FontConfig } from "./components/Terminal/FontConfig";
+import { WorkspaceBar } from "./components/Workspace";
 import { useThemeStore } from "./stores/themeStore";
+import { useSettingsStore } from "./stores/settingsStore";
 import type { Theme } from "./components/Terminal/themeTypes";
 import type { SessionProfile } from "./components/SessionManager";
 import type { ParsedConnection } from "./components/QuickConnect";
@@ -52,6 +54,8 @@ function App() {
   const addBrowserTab = useTabStore((s) => s.addBrowserTab);
   const isBroadcastActive = useBroadcastStore((s) => s.isActive);
   const broadcastTargetIds = useBroadcastStore((s) => s.targetTabIds);
+  const workspaceBarVisible = useSettingsStore((s) => s.workspaceBarVisible);
+  const toggleWorkspaceBar = useSettingsStore((s) => s.toggleWorkspaceBar);
   const hasInitialized = useRef(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
@@ -103,9 +107,10 @@ function App() {
       onToggleInterfaceStatus: () => setInterfaceStatusOpen((prev) => !prev),
       onToggleMacArp: () => setMacArpOpen((prev) => !prev),
       onNewBrowserTab: () => addBrowserTab(""),
+      onToggleWorkspaceBar: () => toggleWorkspaceBar(),
     });
     return () => setMenuEventCallbacks({});
-  }, [addBrowserTab]);
+  }, [addBrowserTab, toggleWorkspaceBar]);
 
   // Create the first tab on mount
   useEffect(() => {
@@ -256,60 +261,65 @@ function App() {
   // Empty state — all tabs closed
   if (tabs.length === 0 && hasInitialized.current) {
     return (
-      <main className="app-container" data-testid="app-root">
-        <UpdateChecker />
-        <TabBar />
-        <ShortcutsPanel />
-        <HistoryPanel
-          isOpen={historyOpen}
-          onClose={() => setHistoryOpen(false)}
-          onSelect={handleHistorySelect}
-        />
-        <QuickConnect
-          isOpen={quickConnectOpen}
-          onClose={() => setQuickConnectOpen(false)}
-          onConnect={handleQuickConnect}
-        />
-        <div className="app-empty-state" data-testid="app-empty-state">
-          <p>No open terminals</p>
-          <button
-            className="app-new-terminal-btn"
-            onClick={handleNewTerminal}
-            type="button"
-          >
-            New Terminal
-          </button>
-          <p className="app-empty-hint">
-            or press <kbd>Ctrl+T</kbd>
-          </p>
-        </div>
-      </main>
+      <div className="app-shell" data-testid="app-root">
+        {workspaceBarVisible && <WorkspaceBar />}
+        <main className="app-container">
+          <UpdateChecker />
+          <TabBar />
+          <ShortcutsPanel />
+          <HistoryPanel
+            isOpen={historyOpen}
+            onClose={() => setHistoryOpen(false)}
+            onSelect={handleHistorySelect}
+          />
+          <QuickConnect
+            isOpen={quickConnectOpen}
+            onClose={() => setQuickConnectOpen(false)}
+            onConnect={handleQuickConnect}
+          />
+          <div className="app-empty-state" data-testid="app-empty-state">
+            <p>No open terminals</p>
+            <button
+              className="app-new-terminal-btn"
+              onClick={handleNewTerminal}
+              type="button"
+            >
+              New Terminal
+            </button>
+            <p className="app-empty-hint">
+              or press <kbd>Ctrl+T</kbd>
+            </p>
+          </div>
+        </main>
+      </div>
     );
   }
 
   return (
-    <main className="app-container" data-testid="app-root">
-      <UpdateChecker />
-      <CredentialReminder />
-      <SessionSidebar
-        isOpen={sidebarOpen}
-        onToggle={handleSidebarToggle}
-        onSessionOpen={handleSessionOpen}
-      />
-      {!sidebarOpen && (
-        <button
-          className="sidebar-toggle"
-          onClick={handleSidebarToggle}
-          onMouseDown={(e) => e.preventDefault()}
-          type="button"
-          aria-label="Open session manager"
-          data-testid="sidebar-toggle"
-          title="Toggle Session Manager (Ctrl+B)"
-          tabIndex={-1}
-        >
-          ▶
-        </button>
-      )}
+    <div className="app-shell" data-testid="app-root">
+      {workspaceBarVisible && <WorkspaceBar />}
+      <main className="app-container">
+        <UpdateChecker />
+        <CredentialReminder />
+        <SessionSidebar
+          isOpen={sidebarOpen}
+          onToggle={handleSidebarToggle}
+          onSessionOpen={handleSessionOpen}
+        />
+        {!sidebarOpen && (
+          <button
+            className="sidebar-toggle"
+            onClick={handleSidebarToggle}
+            onMouseDown={(e) => e.preventDefault()}
+            type="button"
+            aria-label="Open session manager"
+            data-testid="sidebar-toggle"
+            title="Toggle Session Manager (Ctrl+B)"
+            tabIndex={-1}
+          >
+            ▶
+          </button>
+        )}
       <TabBar />
       <BroadcastBar />
       <ShortcutsPanel />
@@ -459,6 +469,7 @@ function App() {
         </div>
       )}
     </main>
+    </div>
   );
 }
 
