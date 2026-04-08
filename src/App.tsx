@@ -358,7 +358,6 @@ function App() {
           const bytes = Array.from(new TextEncoder().encode(text + "\n"));
           const command = activeTab.status === "connected" ? "connection_write" : "pty_write";
           invoke(command, { sessionId, data: bytes }).catch(() => {});
-          setTemplatePanelOpen(false);
         }}
       />
 
