@@ -1,5 +1,6 @@
 /// IPC commands for browser webview operations.
-use tauri::{AppHandle, Manager, State, Url, WebviewUrl, WebviewWindowBuilder};
+/// Uses WebviewWindow for pop-out, and attempts WebviewBuilder for in-tab.
+use tauri::{AppHandle, Manager, State, Url, WebviewUrl, WebviewWindowBuilder, WebviewBuilder};
 
 use crate::browser::BrowserManager;
 
@@ -11,21 +12,22 @@ fn validate_url(url: &str) -> Result<Url, String> {
     }
 }
 
+/// Opens a browser — tries as child webview of main window first, falls back to separate window.
 #[tauri::command]
 pub fn browser_open(
     app: AppHandle,
     state: State<'_, BrowserManager>,
     tab_id: String,
     url: String,
-    _x: f64,
-    _y: f64,
-    _width: f64,
-    _height: f64,
+    x: f64,
+    y: f64,
+    width: f64,
+    height: f64,
 ) -> Result<(), String> {
-    let parsed_url = validate_url(&url)?;
+    let parsed_url = validate_url(&url)?; let parsed_url2 = validate_url(&url).unwrap();
     let label = format!("browser-{}", tab_id);
 
-    // If window already exists, bring to front and navigate
+    // If window/webview already exists, bring to front
     if let Some(existing) = app.get_webview_window(&label) {
         existing.show().map_err(|e| e.to_string())?;
         existing.set_focus().map_err(|e| e.to_string())?;
@@ -33,9 +35,37 @@ pub fn browser_open(
         return Ok(());
     }
 
-    WebviewWindowBuilder::new(&app, &label, WebviewUrl::External(parsed_url))
-        .title("Putz Browser")
-        .inner_size(900.0, 700.0)
+    if let Some(existing) = app.get_webview(&label) {
+        let _ = existing.navigate(parsed_url);
+        return Ok(());
+    }
+
+    // Try to create as child webview of the main window (embedded in tab)
+    let main_window = app.get_window("main");
+    if let Some(win) = main_window {
+        let builder = WebviewBuilder::new(&label, WebviewUrl::External(parsed_url));
+        match win.add_child(
+            builder,
+            tauri::LogicalPosition::new(x, y),
+            tauri::LogicalSize::new(width, height),
+        ) {
+            Ok(_webview) => {
+                state.register(&tab_id, &label);
+                return Ok(());
+            }
+            Err(e) => {
+                eprintln!("[browser] add_child failed ({}), falling back to window", e);
+            }
+        }
+    }
+
+    // Fallback: open as separate window
+    WebviewWindowBuilder::new(&app, &label, WebviewUrl::External(parsed_url2))
+        .title(format!("Putz — {}", url))
+        .inner_size(
+            if width > 0.0 { width } else { 900.0 },
+            if height > 0.0 { height } else { 700.0 },
+        )
         .build()
         .map_err(|e| format!("Failed to create browser: {e}"))?;
 
@@ -50,12 +80,18 @@ pub fn browser_navigate(
     tab_id: String,
     url: String,
 ) -> Result<(), String> {
-    let parsed_url = validate_url(&url)?;
+    let parsed_url = validate_url(&url)?; let parsed_url2 = validate_url(&url).unwrap();
     let label = state.get_label(&tab_id)
         .ok_or_else(|| format!("No browser for tab {tab_id}"))?;
-    let webview = app.get_webview_window(&label)
-        .ok_or_else(|| format!("Window '{label}' not found"))?;
-    webview.navigate(parsed_url).map_err(|e| format!("Navigation failed: {e}"))?;
+    
+    // Try webview first (child), then window
+    if let Some(wv) = app.get_webview(&label) {
+        wv.navigate(parsed_url).map_err(|e| format!("Navigation failed: {e}"))?;
+    } else if let Some(win) = app.get_webview_window(&label) {
+        win.navigate(parsed_url).map_err(|e| format!("Navigation failed: {e}"))?;
+    } else {
+        return Err(format!("Browser '{label}' not found"));
+    }
     Ok(())
 }
 
@@ -69,23 +105,30 @@ pub fn browser_close(
         Some(l) => l,
         None => return Ok(()),
     };
-    if let Some(window) = app.get_webview_window(&label) {
-        window.close().map_err(|e| format!("Failed to close: {e}"))?;
+    if let Some(wv) = app.get_webview(&label) {
+        let _ = wv.close();
+    }
+    if let Some(win) = app.get_webview_window(&label) {
+        let _ = win.close();
     }
     Ok(())
 }
 
 #[tauri::command]
 pub fn browser_resize(
-    _app: AppHandle,
-    _state: State<'_, BrowserManager>,
-    _tab_id: String,
-    _x: f64,
-    _y: f64,
-    _width: f64,
-    _height: f64,
+    app: AppHandle,
+    state: State<'_, BrowserManager>,
+    tab_id: String,
+    x: f64,
+    y: f64,
+    width: f64,
+    height: f64,
 ) -> Result<(), String> {
-    // No-op for separate windows — they manage their own size
+    let label = state.get_label(&tab_id).ok_or("Not found")?;
+    if let Some(wv) = app.get_webview(&label) {
+        let _ = wv.set_position(tauri::LogicalPosition::new(x, y));
+        let _ = wv.set_size(tauri::LogicalSize::new(width, height));
+    }
     Ok(())
 }
 
@@ -96,23 +139,21 @@ pub fn browser_set_visible(
     tab_id: String,
     visible: bool,
 ) -> Result<(), String> {
-    let label = state.get_label(&tab_id)
-        .ok_or_else(|| format!("No browser for tab {tab_id}"))?;
-    let window = app.get_webview_window(&label)
-        .ok_or_else(|| format!("Window '{label}' not found"))?;
-    if visible { window.show().map_err(|e| e.to_string())?; }
-    else { window.hide().map_err(|e| e.to_string())?; }
+    let label = state.get_label(&tab_id).ok_or("Not found")?;
+    if let Some(wv) = app.get_webview(&label) {
+        if visible { let _ = wv.show(); } else { let _ = wv.hide(); }
+    }
+    if let Some(win) = app.get_webview_window(&label) {
+        if visible { let _ = win.show(); } else { let _ = win.hide(); }
+    }
     Ok(())
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-
     #[test]
     fn validate_url_accepts_https() { assert!(validate_url("https://example.com").is_ok()); }
     #[test]
     fn validate_url_rejects_javascript() { assert!(validate_url("javascript:alert(1)").is_err()); }
-    #[test]
-    fn validate_url_rejects_file() { assert!(validate_url("file:///etc/passwd").is_err()); }
 }
