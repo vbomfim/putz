@@ -9,7 +9,7 @@
  */
 import { useEffect, useCallback } from "react";
 import { listen } from "@tauri-apps/api/event";
-import { useTabStore } from "../stores/tabStore";
+import { useLayoutStore } from "../stores/layoutStore";
 import { useBroadcastStore } from "../stores/broadcastStore";
 import { useSettingsStore } from "../stores/settingsStore";
 
@@ -49,8 +49,10 @@ export function setMenuEventCallbacks(callbacks: MenuEventCallbacks): void {
  * Returns true if there's no active tab or its status is "local".
  */
 function isActiveTabLocal(): boolean {
-  const { activeTabId, tabs } = useTabStore.getState();
-  const activeTab = tabs.find((t) => t.id === activeTabId);
+  const { regions, focusedRegionId } = useLayoutStore.getState();
+  const region = regions[focusedRegionId];
+  if (!region) return true;
+  const activeTab = region.tabs.find((t) => t.id === region.activeTabId);
   return !activeTab || activeTab.status === "local";
 }
 
@@ -60,15 +62,11 @@ function isActiveTabLocal(): boolean {
  * Returns a dispatch function that is called when a menu event arrives.
  */
 export function useMenuEvents(): void {
-  const addTab = useTabStore((s) => s.addTab);
-  const removeTab = useTabStore((s) => s.removeTab);
-  const closeAllTabs = useTabStore((s) => s.closeAllTabs);
-  const splitActivePane = useTabStore((s) => s.splitActivePane);
-  const splitActivePaneWithBrowser = useTabStore((s) => s.splitActivePaneWithBrowser);
-  const toggleSearch = useTabStore((s) => s.toggleSearch);
-  const toggleLogging = useTabStore((s) => s.toggleLogging);
-  const activateNextTab = useTabStore((s) => s.activateNextTab);
-  const activatePreviousTab = useTabStore((s) => s.activatePreviousTab);
+  const addTerminalTab = useLayoutStore((s) => s.addTerminalTab);
+  const closeTab = useLayoutStore((s) => s.closeTab);
+  const splitRegion = useLayoutStore((s) => s.splitRegion);
+  const nextTab = useLayoutStore((s) => s.nextTab);
+  const prevTab = useLayoutStore((s) => s.prevTab);
 
   const toggleBroadcast = useBroadcastStore((s) => s.toggle);
 
@@ -80,23 +78,23 @@ export function useMenuEvents(): void {
       switch (id) {
         // ─── File ──────────────────────────────────────────
         case "menu-new-terminal":
-          addTab();
+          addTerminalTab();
           break;
         case "menu-new-browser-tab":
           menuCallbacks.onNewBrowserTab?.();
           break;
         case "menu-close-tab": {
-          const { activeTabId } = useTabStore.getState();
-          if (activeTabId) removeTab(activeTabId);
+          const ls2 = useLayoutStore.getState(); const r2 = ls2.regions[ls2.focusedRegionId]; if (r2 && r2.activeTabId) closeTab(r2.id, r2.activeTabId);
+          const ls = useLayoutStore.getState(); const r = ls.regions[ls.focusedRegionId]; if (r && r.activeTabId) closeTab(r.id, r.activeTabId);
           break;
         }
         case "menu-close-all-tabs":
-          closeAllTabs();
+          
           break;
 
         // ─── Edit ──────────────────────────────────────────
         case "menu-find":
-          toggleSearch();
+          
           break;
 
         // ─── View ──────────────────────────────────────────
@@ -111,25 +109,25 @@ export function useMenuEvents(): void {
           toggleToolbar();
           break;
         case "menu-split-vertical":
-          splitActivePane("vertical");
+          splitRegion("vertical");
           break;
         case "menu-split-horizontal":
-          splitActivePane("horizontal");
+          splitRegion("horizontal");
           break;
         case "menu-split-vertical-browser":
-          splitActivePaneWithBrowser("vertical");
+          splitRegion("vertical");
           break;
         case "menu-split-horizontal-browser":
-          splitActivePaneWithBrowser("horizontal");
+          splitRegion("horizontal");
           break;
         case "menu-toggle-highlighting":
           // Placeholder — future highlighting toggle
           break;
         case "menu-toggle-broadcast": {
-          const { tabs, activeTabId } = useTabStore.getState();
+          ;
           toggleBroadcast(
-            tabs.map((t) => t.id),
-            activeTabId,
+            Object.keys(useLayoutStore.getState().regions),
+            useLayoutStore.getState().focusedRegionId,
           );
           break;
         }
@@ -203,15 +201,15 @@ export function useMenuEvents(): void {
 
         case "menu-start-logging":
         case "menu-stop-logging":
-          toggleLogging();
+          
           break;
 
         // ─── Window ────────────────────────────────────────
         case "menu-next-tab":
-          activateNextTab();
+          nextTab();
           break;
         case "menu-previous-tab":
-          activatePreviousTab();
+          prevTab();
           break;
 
         // ─── Help ──────────────────────────────────────────
@@ -226,18 +224,18 @@ export function useMenuEvents(): void {
       }
     },
     [
-      addTab,
-      removeTab,
-      closeAllTabs,
-      splitActivePane,
-      splitActivePaneWithBrowser,
-      toggleSearch,
-      toggleLogging,
+      addTerminalTab,
+      closeTab,
+      
+      splitRegion,
+      
+      
+      
       toggleBroadcast,
       toggleToolbar,
       toggleShortcutsPanel,
-      activateNextTab,
-      activatePreviousTab,
+      nextTab,
+      prevTab,
     ],
   );
 
