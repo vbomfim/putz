@@ -123,81 +123,47 @@ export function BrowserView({ browserId, initialUrl, isActive, onClose }: Browse
   }, [browserId, isActive]);
 
   /** Navigate to a new URL via the URL bar. */
-  const handleNavigate = useCallback(
-    (e: React.FormEvent) => {
-      e.preventDefault();
-      console.log("[BrowserView] handleNavigate called, urlInput:", urlInput);
-      const trimmed = urlInput.trim();
-      if (!trimmed || trimmed.length > MAX_URL_LENGTH) return;
+  /** Core navigation — called from Enter key or Go button. */
+  const doNavigate = useCallback(() => {
+    const trimmed = urlInput.trim();
+    if (!trimmed || trimmed.length > MAX_URL_LENGTH) return;
 
-      // Auto-prepend https:// if no protocol specified
-      const url =
-        trimmed.startsWith("http://") || trimmed.startsWith("https://")
-          ? trimmed
-          : `https://${trimmed}`;
+    const url =
+      trimmed.startsWith("http://") || trimmed.startsWith("https://")
+        ? trimmed
+        : `https://${trimmed}`;
 
-      setCurrentUrl(url);
-      setUrlInput(url);
-      setError(null);
+    setCurrentUrl(url);
+    setUrlInput(url);
+    setError(null);
 
-      if (!webviewCreated.current) {
-        // First navigation — create the webview
-        const container = containerRef.current;
-        if (!container) return;
-        let rect = container.getBoundingClientRect();
-        // If container has zero dimensions (display:none), wait for layout
-        if (rect.width === 0 || rect.height === 0) {
-          requestAnimationFrame(() => {
-            rect = container.getBoundingClientRect();
-            if (rect.width === 0 || rect.height === 0) return;
-            webviewCreated.current = true;
-            setIsLoading(true);
-            invoke("browser_open", {
-              tabId: browserId, url,
-              x: Math.round(rect.left), y: Math.round(rect.top),
-              width: Math.round(rect.width), height: Math.round(rect.height),
-            }).then(() => setIsLoading(false)).catch((err) => {
-              setIsLoading(false); webviewCreated.current = false;
-              setError(typeof err === "string" ? err : "Failed to open browser");
-            });
-          });
-          return;
-        }
-        webviewCreated.current = true;
-        setIsLoading(true);
-        invoke("browser_open", {
-          tabId: browserId,
-          url,
-          x: Math.round(rect.left),
-          y: Math.round(rect.top),
-          width: Math.round(rect.width),
-          height: Math.round(rect.height),
-        })
-          .then(() => setIsLoading(false))
-          .catch((err) => {
-            setIsLoading(false);
-            webviewCreated.current = false;
-            setError(typeof err === "string" ? err : "Failed to open browser");
-            console.error("[BrowserView] browser_open failed:", err);
-          });
-      } else {
-        // Webview exists — just navigate
-        invoke("browser_navigate", { tabId: browserId, url }).catch((err) => {
-          setError(typeof err === "string" ? err : "Navigation failed");
-        });
-      }
-    },
-    [browserId, urlInput],
-  );
-
-  /** Refresh the current page. */
-  const handleRefresh = useCallback(() => {
-    invoke("browser_navigate", { tabId: browserId, url: currentUrl }).catch(() => {
-      // Ignore
-    });
-  }, [browserId, currentUrl]);
+    if (!webviewCreated.current) {
+      const container = containerRef.current;
+      if (!container) return;
+      const rect = container.getBoundingClientRect();
+      webviewCreated.current = true;
+      setIsLoading(true);
+      invoke("browser_open", {
+        tabId: browserId, url,
+        x: Math.round(rect.left || 0), y: Math.round(rect.top || 0),
+        width: Math.round(rect.width || 900), height: Math.round(rect.height || 600),
+      }).then(() => setIsLoading(false)).catch((err) => {
+        setIsLoading(false); webviewCreated.current = false;
+        setError(typeof err === "string" ? err : "Failed to open browser");
+      });
+    } else {
+      invoke("browser_navigate", { tabId: browserId, url }).catch((err) => {
+        setError(typeof err === "string" ? err : "Navigation failed");
+      });
+    }
+  }, [browserId, urlInput]);
 
   /** Handle URL input key events. */
+  /** Refresh the current page. */
+  const handleRefresh = useCallback(() => {
+    invoke("browser_navigate", { tabId: browserId, url: currentUrl }).catch(() => {});
+  }, [browserId, currentUrl]);
+
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
       if (e.key === "Escape") {
@@ -205,12 +171,11 @@ export function BrowserView({ browserId, initialUrl, isActive, onClose }: Browse
       }
       if (e.key === "Enter") {
         e.preventDefault();
-        // Directly trigger navigation on Enter
-        const form = (e.target as HTMLElement).closest("form");
-        if (form) form.requestSubmit();
+        e.stopPropagation();
+        doNavigate();
       }
     },
-    [currentUrl],
+    [currentUrl, doNavigate],
   );
 
   return (
@@ -219,7 +184,7 @@ export function BrowserView({ browserId, initialUrl, isActive, onClose }: Browse
       data-testid="browser-view"
       data-tab-id={browserId}
     >
-      {/* URL bar */}
+      {/* URL bar — no form, direct handlers */}
       <div className="browser-toolbar" data-testid="browser-toolbar">
         <button
           className="browser-nav-btn"
@@ -231,23 +196,21 @@ export function BrowserView({ browserId, initialUrl, isActive, onClose }: Browse
         >
           ↻
         </button>
-        <form
-          className="browser-url-form"
-          onSubmit={handleNavigate}
-        >
+        <div className="browser-url-form">
           <input
             className="browser-url-input"
             type="text"
             value={urlInput}
             onChange={(e) => setUrlInput(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder="Enter URL..."
+            placeholder="Enter URL and press Enter..."
             aria-label="URL"
             data-testid="browser-url-input"
           />
           <button
             className="browser-go-btn"
-            type="submit"
+            type="button"
+            onClick={doNavigate}
             aria-label="Go"
             data-testid="browser-go-btn"
           >
@@ -265,7 +228,7 @@ export function BrowserView({ browserId, initialUrl, isActive, onClose }: Browse
               ✕
             </button>
           )}
-        </form>
+        </div>
       </div>
 
       {/* Webview placeholder — native webview overlays this area */}
