@@ -50,11 +50,19 @@ export function RegionView({ region, isFocused }: RegionViewProps) {
   );
 
   const activeTab = region.tabs.find((t) => t.id === region.activeTabId);
-  const isSideTabs = region.tabPosition === "side";
+
+  /** Map tab position to the CSS class that sets the correct flex-direction. */
+  const positionClass: Record<string, string> = {
+    top: "",
+    bottom: "region-view--bottom-tabs",
+    left: "region-view--left-tabs",
+    right: "region-view--right-tabs",
+  };
+  const viewPositionClass = positionClass[region.tabPosition] || "";
 
   return (
     <div
-      className={`region-view ${isFocused ? "region-view--focused" : ""} ${isSideTabs ? "region-view--side-tabs" : ""}`}
+      className={`region-view ${isFocused ? "region-view--focused" : ""} ${viewPositionClass}`}
       data-testid={`region-${region.id}`}
       data-region-id={region.id}
       onClick={handleFocus}

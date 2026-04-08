@@ -200,7 +200,7 @@ interface LayoutState {
   /** Sets the tab bar position for a region. */
   setTabPosition: (regionId: string, position: TabPosition) => void;
 
-  /** Toggles the tab bar position between "top" and "side". */
+  /** Toggles the tab bar position: top → bottom → left → right → top. */
   toggleTabPosition: (regionId: string) => void;
 
   // ─── Search ───────────────────────────────────────────────────────
@@ -594,8 +594,10 @@ export const useLayoutStore = create<LayoutState>((set, get) => ({
     const region = get().regions[regionId];
     if (!region) return;
 
-    const newPosition: TabPosition = region.tabPosition === "top" ? "side" : "top";
-    get().setTabPosition(regionId, newPosition);
+    const cycle: TabPosition[] = ["top", "bottom", "left", "right"];
+    const currentIndex = cycle.indexOf(region.tabPosition);
+    const nextIndex = (currentIndex + 1) % cycle.length;
+    get().setTabPosition(regionId, cycle[nextIndex]);
   },
 
   // ─── Search ───────────────────────────────────────────────────────

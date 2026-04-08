@@ -236,13 +236,25 @@
   margin: 3px 0;
 }
 
-/* ─── Side Tab Bar (vertical) ──────────────────────────────────── */
+/* ─── Vertical Tab Bar (left / right) ──────────────────────────── */
 
-.region-view--side-tabs {
+.region-view--left-tabs {
   flex-direction: row;
 }
 
-.region-tabbar--side {
+.region-view--right-tabs {
+  flex-direction: row-reverse;
+}
+
+/* ─── Bottom Tab Bar ───────────────────────────────────────────── */
+
+.region-view--bottom-tabs {
+  flex-direction: column-reverse;
+}
+
+/* ─── Vertical tab bar shared styles (left & right) ────────────── */
+
+.region-tabbar--vertical {
   flex-direction: column;
   align-items: stretch;
   width: 36px;
@@ -252,24 +264,24 @@
   border-right: 1px solid rgba(255, 255, 255, 0.06);
 }
 
-.region-tabbar--side.region-tabbar--focused {
+.region-tabbar--vertical.region-tabbar--focused {
   border-bottom-color: transparent;
   border-right-color: rgba(255, 255, 255, 0.1);
 }
 
-.region-tabbar--side .region-tabbar__tabs {
+.region-tabbar--vertical .region-tabbar__tabs {
   flex-direction: column;
   overflow-x: hidden;
   overflow-y: auto;
   scrollbar-width: thin;
 }
 
-.region-tabbar--side .region-tabbar__tabs::-webkit-scrollbar {
+.region-tabbar--vertical .region-tabbar__tabs::-webkit-scrollbar {
   width: 2px;
   height: auto;
 }
 
-.region-tabbar--side .region-tab {
+.region-tabbar--vertical .region-tab {
   writing-mode: vertical-rl;
   text-orientation: mixed;
   min-width: unset;
@@ -284,18 +296,42 @@
   border-bottom: 1px solid rgba(255, 255, 255, 0.04);
 }
 
-.region-tabbar--side .region-tab__title {
+.region-tabbar--vertical .region-tab__title {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.region-tabbar--side .region-tab__close {
+.region-tabbar--vertical .region-tab__close {
   margin-top: 2px;
 }
 
-.region-tabbar--side .region-tabbar__add {
+.region-tabbar--vertical .region-tabbar__add {
   width: 36px;
   height: 28px;
   margin: 2px 0;
+}
+
+/* ─── Right tab bar overrides ──────────────────────────────────── */
+
+.region-tabbar--right {
+  border-right: none;
+  border-left: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.region-tabbar--right.region-tabbar--focused {
+  border-right-color: transparent;
+  border-left-color: rgba(255, 255, 255, 0.1);
+}
+
+/* ─── Bottom tab bar overrides ─────────────────────────────────── */
+
+.region-tabbar--bottom {
+  border-bottom: none;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.region-tabbar--bottom.region-tabbar--focused {
+  border-bottom-color: transparent;
+  border-top-color: rgba(255, 255, 255, 0.1);
 }

@@ -21,7 +21,7 @@ interface RegionTabBarProps {
   activeTabId: string;
   /** Whether this region is focused. */
   isFocused: boolean;
-  /** Tab bar position: "top" (horizontal) or "side" (vertical). */
+  /** Tab bar position: "top" | "bottom" | "left" | "right". */
   tabPosition: TabPosition;
 }
 
@@ -163,7 +163,7 @@ export function RegionTabBar({
   const closeTab = useLayoutStore((s) => s.closeTab);
   const renameTab = useLayoutStore((s) => s.renameTab);
   const setFocusedRegion = useLayoutStore((s) => s.setFocusedRegion);
-  const toggleTabPosition = useLayoutStore((s) => s.toggleTabPosition);
+  const setTabPosition = useLayoutStore((s) => s.setTabPosition);
 
   const [contextMenu, setContextMenu] = useState<ContextMenu | null>(null);
   const contextMenuRef = useRef<HTMLDivElement>(null);
@@ -224,12 +224,21 @@ export function RegionTabBar({
         case "newBrowser":
           addBrowserTab(regionId, "");
           break;
-        case "toggleTabPosition":
-          toggleTabPosition(regionId);
+        case "tabsTop":
+          setTabPosition(regionId, "top");
+          break;
+        case "tabsBottom":
+          setTabPosition(regionId, "bottom");
+          break;
+        case "tabsLeft":
+          setTabPosition(regionId, "left");
+          break;
+        case "tabsRight":
+          setTabPosition(regionId, "right");
           break;
       }
     },
-    [contextMenu, regionId, tabs, closeTab, addBrowserTab, toggleTabPosition],
+    [contextMenu, regionId, tabs, closeTab, addBrowserTab, setTabPosition],
   );
 
   const handleAddClick = useCallback(() => {
@@ -244,11 +253,13 @@ export function RegionTabBar({
     [regionId, renameTab],
   );
 
-  const isSide = tabPosition === "side";
+  const isVertical = tabPosition === "left" || tabPosition === "right";
   const tabBarClass = [
     "region-tabbar",
     isFocused ? "region-tabbar--focused" : "",
-    isSide ? "region-tabbar--side" : "",
+    isVertical ? "region-tabbar--vertical" : "",
+    tabPosition === "bottom" ? "region-tabbar--bottom" : "",
+    tabPosition === "right" ? "region-tabbar--right" : "",
   ]
     .filter(Boolean)
     .join(" ");
@@ -322,11 +333,35 @@ export function RegionTabBar({
           <div className="region-tabbar__context-separator" />
           <button
             className="region-tabbar__context-item"
-            onClick={() => handleContextAction("toggleTabPosition")}
+            onClick={() => handleContextAction("tabsTop")}
             role="menuitem"
             type="button"
           >
-            {isSide ? "Tabs on Top" : "Tabs on Side"}
+            {tabPosition === "top" ? "✓ " : ""}Tabs on Top
+          </button>
+          <button
+            className="region-tabbar__context-item"
+            onClick={() => handleContextAction("tabsBottom")}
+            role="menuitem"
+            type="button"
+          >
+            {tabPosition === "bottom" ? "✓ " : ""}Tabs on Bottom
+          </button>
+          <button
+            className="region-tabbar__context-item"
+            onClick={() => handleContextAction("tabsLeft")}
+            role="menuitem"
+            type="button"
+          >
+            {tabPosition === "left" ? "✓ " : ""}Tabs on Left
+          </button>
+          <button
+            className="region-tabbar__context-item"
+            onClick={() => handleContextAction("tabsRight")}
+            role="menuitem"
+            type="button"
+          >
+            {tabPosition === "right" ? "✓ " : ""}Tabs on Right
           </button>
         </div>
       )}

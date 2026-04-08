@@ -649,36 +649,61 @@ describe("layoutStore", () => {
       expect(region.tabPosition).toBe("top");
     });
 
-    it("sets tabPosition to 'side' via setTabPosition", () => {
+    it("sets tabPosition to 'left' via setTabPosition", () => {
       const state = useLayoutStore.getState();
       const regionId = state.focusedRegionId;
 
       act(() => {
-        useLayoutStore.getState().setTabPosition(regionId, "side");
+        useLayoutStore.getState().setTabPosition(regionId, "left");
       });
 
       const updated = useLayoutStore.getState();
-      expect(updated.regions[regionId].tabPosition).toBe("side");
+      expect(updated.regions[regionId].tabPosition).toBe("left");
     });
 
-    it("sets tabPosition back to 'top' from 'side'", () => {
+    it("sets tabPosition to 'bottom' via setTabPosition", () => {
       const state = useLayoutStore.getState();
       const regionId = state.focusedRegionId;
 
       act(() => {
-        useLayoutStore.getState().setTabPosition(regionId, "side");
-      });
-      act(() => {
-        useLayoutStore.getState().setTabPosition(regionId, "top");
+        useLayoutStore.getState().setTabPosition(regionId, "bottom");
       });
 
       const updated = useLayoutStore.getState();
-      expect(updated.regions[regionId].tabPosition).toBe("top");
+      expect(updated.regions[regionId].tabPosition).toBe("bottom");
+    });
+
+    it("sets tabPosition to 'right' via setTabPosition", () => {
+      const state = useLayoutStore.getState();
+      const regionId = state.focusedRegionId;
+
+      act(() => {
+        useLayoutStore.getState().setTabPosition(regionId, "right");
+      });
+
+      const updated = useLayoutStore.getState();
+      expect(updated.regions[regionId].tabPosition).toBe("right");
+    });
+
+    it("sets tabPosition back to 'top' from any position", () => {
+      const state = useLayoutStore.getState();
+      const regionId = state.focusedRegionId;
+
+      for (const pos of ["bottom", "left", "right"] as const) {
+        act(() => {
+          useLayoutStore.getState().setTabPosition(regionId, pos);
+        });
+        act(() => {
+          useLayoutStore.getState().setTabPosition(regionId, "top");
+        });
+        const updated = useLayoutStore.getState();
+        expect(updated.regions[regionId].tabPosition).toBe("top");
+      }
     });
 
     it("ignores setTabPosition for non-existent region", () => {
       act(() => {
-        useLayoutStore.getState().setTabPosition("nonexistent-region", "side");
+        useLayoutStore.getState().setTabPosition("nonexistent-region", "left");
       });
 
       // Should not throw, and state should remain unchanged
@@ -720,28 +745,52 @@ describe("layoutStore", () => {
       const newRegionId = useLayoutStore.getState().focusedRegionId;
       expect(newRegionId).not.toBe(originalRegionId);
 
-      // Set side tabs on original region, leave new region at top
+      // Set left tabs on original region, right on new, verify independence
       act(() => {
-        useLayoutStore.getState().setTabPosition(originalRegionId, "side");
+        useLayoutStore.getState().setTabPosition(originalRegionId, "left");
+      });
+      act(() => {
+        useLayoutStore.getState().setTabPosition(newRegionId, "right");
       });
 
       const state = useLayoutStore.getState();
-      expect(state.regions[originalRegionId].tabPosition).toBe("side");
-      expect(state.regions[newRegionId].tabPosition).toBe("top");
+      expect(state.regions[originalRegionId].tabPosition).toBe("left");
+      expect(state.regions[newRegionId].tabPosition).toBe("right");
     });
 
-    it("toggles tabPosition via toggleTabPosition (top → side → top)", () => {
+    it("toggles tabPosition in cycle: top → bottom → left → right → top", () => {
       const regionId = useLayoutStore.getState().focusedRegionId;
 
       act(() => {
         useLayoutStore.getState().toggleTabPosition(regionId);
       });
-      expect(useLayoutStore.getState().regions[regionId].tabPosition).toBe("side");
+      expect(useLayoutStore.getState().regions[regionId].tabPosition).toBe("bottom");
+
+      act(() => {
+        useLayoutStore.getState().toggleTabPosition(regionId);
+      });
+      expect(useLayoutStore.getState().regions[regionId].tabPosition).toBe("left");
+
+      act(() => {
+        useLayoutStore.getState().toggleTabPosition(regionId);
+      });
+      expect(useLayoutStore.getState().regions[regionId].tabPosition).toBe("right");
 
       act(() => {
         useLayoutStore.getState().toggleTabPosition(regionId);
       });
       expect(useLayoutStore.getState().regions[regionId].tabPosition).toBe("top");
+    });
+
+    it("ignores toggleTabPosition for non-existent region", () => {
+      act(() => {
+        useLayoutStore.getState().toggleTabPosition("nonexistent-region");
+      });
+
+      // Should not throw
+      const state = useLayoutStore.getState();
+      const region = state.regions[state.focusedRegionId];
+      expect(region.tabPosition).toBe("top");
     });
   });
 });

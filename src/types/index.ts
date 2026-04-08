@@ -73,7 +73,7 @@ export interface RegionTab {
 }
 
 /** Position of the tab bar within a region. */
-export type TabPosition = "top" | "side";
+export type TabPosition = "top" | "bottom" | "left" | "right";
 
 /** A region is a container with its own tab bar and tabs. */
 export interface Region {
@@ -83,7 +83,7 @@ export interface Region {
   tabs: RegionTab[];
   /** ID of the currently active tab in this region. */
   activeTabId: string;
-  /** Position of the tab bar: "top" (horizontal, default) or "side" (vertical). */
+  /** Position of the tab bar: "top" | "bottom" | "left" | "right". */
   tabPosition: TabPosition;
 }
 
