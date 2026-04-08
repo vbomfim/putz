@@ -150,7 +150,10 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => {
 
       // Switch to the new workspace and create a terminal tab
       get().switchWorkspace(newWorkspace.id);
-      useTabStore.getState().addTab();
+      // Delay tab creation to let React settle after workspace switch
+      setTimeout(() => {
+        useTabStore.getState().addTab();
+      }, 100);
     },
 
     removeWorkspace: (id: string) => {
