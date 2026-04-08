@@ -40,22 +40,39 @@ export function BrowserView({ browserId, initialUrl, isActive, onClose }: Browse
     setError(null);
 
     if (!webviewCreated.current) {
-      // First navigation — create the webview
-      const container = containerRef.current;
-      const rect = container?.getBoundingClientRect();
+      // First navigation — create the webview after a brief layout settle
       webviewCreated.current = true;
       setIsLoading(true);
-      invoke("browser_open", {
-        tabId: browserId,
-        url,
-        x: rect ? Math.round(rect.left) : 0,
-        y: rect ? Math.round(rect.top) : 0,
-        width: rect ? Math.round(rect.width) : 900,
-        height: rect ? Math.round(rect.height) : 600,
-      }).then(() => setIsLoading(false)).catch((err) => {
-        setIsLoading(false);
-        webviewCreated.current = false;
-        setError(typeof err === "string" ? err : "Failed to open browser");
+      
+      // Use requestAnimationFrame to ensure the content container has laid out
+      requestAnimationFrame(() => {
+        const container = containerRef.current;
+        const rect = container?.getBoundingClientRect();
+        invoke("browser_open", {
+          tabId: browserId,
+          url,
+          x: rect && rect.width > 0 ? Math.round(rect.left) : 60,
+          y: rect && rect.height > 0 ? Math.round(rect.top) : 80,
+          width: rect && rect.width > 0 ? Math.round(rect.width) : 900,
+          height: rect && rect.height > 0 ? Math.round(rect.height) : 600,
+        }).then(() => {
+          setIsLoading(false);
+          // Immediately resize to correct position after creation
+          requestAnimationFrame(() => {
+            const r = containerRef.current?.getBoundingClientRect();
+            if (r && r.width > 0 && r.height > 0) {
+              invoke("browser_resize", {
+                tabId: browserId,
+                x: Math.round(r.left), y: Math.round(r.top),
+                width: Math.round(r.width), height: Math.round(r.height),
+              }).catch(() => {});
+            }
+          });
+        }).catch((err) => {
+          setIsLoading(false);
+          webviewCreated.current = false;
+          setError(typeof err === "string" ? err : "Failed to open browser");
+        });
       });
     } else {
       invoke("browser_navigate", { tabId: browserId, url }).catch((err) => {
