@@ -14,14 +14,21 @@
   color: #cdd6f4;
   font-family: "JetBrains Mono", "Cascadia Code", "Fira Code", monospace;
   font-size: 13px;
-  height: 100%;
   overflow: hidden;
-  position: absolute;
+  position: fixed;
   top: 0;
-  left: 0;
   right: 0;
   bottom: 0;
-  z-index: 100;
+  width: 380px;
+  z-index: 300;
+  border-left: 1px solid #45475a;
+  box-shadow: -4px 0 20px rgba(0, 0, 0, 0.5);
+  animation: slide-in-right 0.15s ease-out;
+}
+
+@keyframes slide-in-right {
+  from { transform: translateX(100%); }
+  to { transform: translateX(0); }
 }
 
 /* ── Header ───────────────────────────────────────────────── */
