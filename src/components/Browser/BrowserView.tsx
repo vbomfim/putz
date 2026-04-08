@@ -126,6 +126,7 @@ export function BrowserView({ browserId, initialUrl, isActive, onClose }: Browse
   const handleNavigate = useCallback(
     (e: React.FormEvent) => {
       e.preventDefault();
+      console.log("[BrowserView] handleNavigate called, urlInput:", urlInput);
       const trimmed = urlInput.trim();
       if (!trimmed || trimmed.length > MAX_URL_LENGTH) return;
 
