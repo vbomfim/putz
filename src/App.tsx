@@ -332,15 +332,17 @@ function App() {
         isOpen={templatePanelOpen}
         onClose={() => setTemplatePanelOpen(false)}
         onSendToTerminal={(text) => {
-          // Send the rendered template text to the active terminal's PTY
           const state = useTabStore.getState();
           const activeTab = state.tabs.find((t) => t.id === state.activeTabId);
-          if (!activeTab) return;
+          if (!activeTab) { console.error("No active tab"); return; }
           const sessionId = state.focusedPaneSessionId || collectSessionIds(activeTab.layout)[0];
-          if (!sessionId) return;
+          if (!sessionId) { console.error("No session ID"); return; }
           const bytes = Array.from(new TextEncoder().encode(text + "\n"));
           const command = activeTab.status === "connected" ? "connection_write" : "pty_write";
-          invoke(command, { sessionId, data: bytes }).catch(() => {});
+          console.log("[template-send]", command, sessionId, text.substring(0, 50));
+          invoke(command, { sessionId, data: bytes }).catch((err) => {
+            console.error("[template-send] failed:", err);
+          });
         }}
       />
 
