@@ -34,6 +34,8 @@ export interface Tab {
   status: TabStatus;
   /** Timestamp (ms since epoch) when this tab was created. */
   createdAt: number;
+  /** Session ID of the last focused pane in this tab. */
+  focusedSessionId?: string;
 }
 
 /** Maximum allowed depth for nested splits. */

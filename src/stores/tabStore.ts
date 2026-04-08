@@ -229,7 +229,15 @@ export const useTabStore = create<TabState>((set, get) => ({
   loggingSessions: new Set<string>(),
 
   setFocusedPane: (sessionId: string) => {
-    set({ focusedPaneSessionId: sessionId });
+    // Store focus both globally and on the tab that owns this session
+    const { tabs } = get();
+    const ownerTab = tabs.find((t) => collectSessionIds(t.layout).includes(sessionId));
+    set({
+      focusedPaneSessionId: sessionId,
+      tabs: ownerTab
+        ? tabs.map((t) => t.id === ownerTab.id ? { ...t, focusedSessionId: sessionId } : t)
+        : tabs,
+    });
   },
 
   addTab: async () => {
@@ -306,7 +314,8 @@ export const useTabStore = create<TabState>((set, get) => ({
     const { tabs } = get();
     const tab = tabs.find((t) => t.id === id);
     if (tab) {
-      const sessionId = getFirstLeafSessionId(tab.layout);
+      // Use the tab's remembered focused pane, or fall back to first leaf
+      const sessionId = tab.focusedSessionId || getFirstLeafSessionId(tab.layout);
       set({ activeTabId: id, focusedPaneSessionId: sessionId });
       // Auto-focus the terminal element after React renders
       setTimeout(() => {
