@@ -148,12 +148,8 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => {
         return updated;
       });
 
-      // Switch to the new workspace and create a terminal tab
+      // Switch to the new workspace — App.tsx auto-creates a tab when tabs are empty
       get().switchWorkspace(newWorkspace.id);
-      // Delay tab creation to let React settle after workspace switch
-      setTimeout(() => {
-        useTabStore.getState().addTab();
-      }, 100);
     },
 
     removeWorkspace: (id: string) => {

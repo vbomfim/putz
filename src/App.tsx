@@ -112,12 +112,18 @@ function App() {
     return () => setMenuEventCallbacks({});
   }, [addBrowserTab, toggleWorkspaceBar]);
 
-  // Create the first tab on mount
+  // Create the first tab on mount, or when switching to an empty workspace
   useEffect(() => {
-    if (hasInitialized.current) return;
-    hasInitialized.current = true;
-    addTab();
-  }, [addTab]);
+    if (!hasInitialized.current) {
+      hasInitialized.current = true;
+      addTab();
+      return;
+    }
+    // Auto-create a tab if we land on an empty workspace
+    if (tabs.length === 0) {
+      addTab();
+    }
+  }, [addTab, tabs.length]);
 
   // Global keyboard shortcuts for History (Ctrl+R) and QuickConnect (Ctrl+K)
   useEffect(() => {
