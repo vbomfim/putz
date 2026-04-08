@@ -49,6 +49,12 @@ function generateId(): string {
   return crypto.randomUUID();
 }
 
+/**
+ * Rebuilds a PaneNode layout with fresh session IDs.
+ * Terminal leaves get new UUIDs (PTYs will be spawned later).
+ * Browser leaves keep their session IDs (will re-create webview on mount).
+ * Returns the new layout and a list of terminal sessionIds that need PTY spawning.
+ */
 /** Loads persisted workspace state from localStorage. */
 function loadPersistedState(): PersistedWorkspaceState {
   try {
@@ -57,7 +63,7 @@ function loadPersistedState(): PersistedWorkspaceState {
       const parsed = JSON.parse(raw) as Partial<PersistedWorkspaceState>;
       if (parsed.workspaces && parsed.workspaces.length > 0) {
         return {
-          // Keep workspace names/colors but clear tabs — PTY sessions are dead after restart
+          // Keep workspace names/colors, clear tabs (PTY sessions die on restart)
           workspaces: parsed.workspaces.map((w) => ({
             ...w,
             tabs: [],
