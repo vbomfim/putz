@@ -25,7 +25,13 @@ pub fn browser_open(
     let parsed_url = validate_url(&url)?;
     let label = format!("browser-{}", tab_id);
 
-    eprintln!("[browser] Creating window '{}' url={}", label, parsed_url);
+    // If window already exists, bring to front and navigate
+    if let Some(existing) = app.get_webview_window(&label) {
+        existing.show().map_err(|e| e.to_string())?;
+        existing.set_focus().map_err(|e| e.to_string())?;
+        existing.navigate(parsed_url).map_err(|e| format!("Navigation failed: {e}"))?;
+        return Ok(());
+    }
 
     WebviewWindowBuilder::new(&app, &label, WebviewUrl::External(parsed_url))
         .title("Putz Browser")
