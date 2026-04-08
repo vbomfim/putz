@@ -203,6 +203,12 @@ export function BrowserView({ browserId, initialUrl, isActive, onClose }: Browse
       if (e.key === "Escape") {
         setUrlInput(currentUrl);
       }
+      if (e.key === "Enter") {
+        e.preventDefault();
+        // Directly trigger navigation on Enter
+        const form = (e.target as HTMLElement).closest("form");
+        if (form) form.requestSubmit();
+      }
     },
     [currentUrl],
   );
