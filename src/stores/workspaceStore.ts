@@ -57,7 +57,12 @@ function loadPersistedState(): PersistedWorkspaceState {
       const parsed = JSON.parse(raw) as Partial<PersistedWorkspaceState>;
       if (parsed.workspaces && parsed.workspaces.length > 0) {
         return {
-          workspaces: parsed.workspaces,
+          // Keep workspace names/colors but clear tabs — PTY sessions are dead after restart
+          workspaces: parsed.workspaces.map((w) => ({
+            ...w,
+            tabs: [],
+            activeTabId: "",
+          })),
           activeWorkspaceId: parsed.activeWorkspaceId || parsed.workspaces[0].id,
         };
       }
