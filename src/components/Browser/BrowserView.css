@@ -1,0 +1,145 @@
+/**
+ * BrowserView styles — URL bar and webview placeholder.
+ */
+
+.browser-view {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  background-color: var(--bg-primary, #1e1e2e);
+}
+
+/* ─── URL Toolbar ──────────────────────────────────── */
+
+.browser-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 8px;
+  background-color: var(--bg-secondary, #181825);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  flex-shrink: 0;
+}
+
+.browser-nav-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--text-secondary, #a6adc8);
+  font-size: 16px;
+  cursor: pointer;
+  transition: background-color 0.15s, color 0.15s;
+}
+
+.browser-nav-btn:hover {
+  background-color: rgba(255, 255, 255, 0.08);
+  color: var(--text-primary, #cdd6f4);
+}
+
+.browser-nav-btn:focus-visible {
+  outline: 2px solid var(--accent, #89b4fa);
+  outline-offset: 1px;
+}
+
+.browser-url-form {
+  display: flex;
+  flex: 1;
+  gap: 4px;
+}
+
+.browser-url-input {
+  flex: 1;
+  padding: 4px 10px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 4px;
+  background-color: rgba(255, 255, 255, 0.05);
+  color: var(--text-primary, #cdd6f4);
+  font-family: var(--font-family, monospace);
+  font-size: 12px;
+  outline: none;
+  transition: border-color 0.15s;
+}
+
+.browser-url-input:focus {
+  border-color: var(--accent, #89b4fa);
+}
+
+.browser-url-input::placeholder {
+  color: var(--text-secondary, #a6adc8);
+  opacity: 0.5;
+}
+
+.browser-go-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: none;
+  border-radius: 4px;
+  background-color: var(--accent, #89b4fa);
+  color: var(--bg-primary, #1e1e2e);
+  font-size: 14px;
+  font-weight: bold;
+  cursor: pointer;
+  transition: background-color 0.15s;
+}
+
+.browser-go-btn:hover {
+  background-color: var(--accent-hover, #74c7ec);
+}
+
+.browser-go-btn:focus-visible {
+  outline: 2px solid var(--accent-hover, #74c7ec);
+  outline-offset: 1px;
+}
+
+/* ─── Webview Content Area ─────────────────────────── */
+
+.browser-content {
+  flex: 1;
+  position: relative;
+  overflow: hidden;
+}
+
+.browser-loading,
+.browser-error {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: var(--text-secondary, #a6adc8);
+  font-size: 14px;
+  gap: 12px;
+}
+
+.browser-error p {
+  color: #ff5555;
+  margin: 0;
+}
+
+.browser-error button {
+  padding: 6px 16px;
+  border: 1px solid var(--accent, #89b4fa);
+  border-radius: 4px;
+  background-color: var(--accent, #89b4fa);
+  color: var(--bg-primary, #1e1e2e);
+  cursor: pointer;
+  font-size: 13px;
+}
+
+.browser-error button:hover {
+  background-color: var(--accent-hover, #74c7ec);
+}
+
+.browser-placeholder {
+  width: 100%;
+  height: 100%;
+}

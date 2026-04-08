@@ -15,6 +15,7 @@ mod theme;
 mod vault;
 mod history;
 mod autologin;
+mod browser;
 
 use commands::greet;
 use compliance::ChangeWindowManager;
@@ -22,6 +23,7 @@ use highlight::HighlightManager;
 use ipc::{
     autologin_cancel, autologin_delete_profile, autologin_get_profile, autologin_process,
     autologin_set_profile, autologin_start,
+    browser_close, browser_navigate, browser_open, browser_resize, browser_set_visible,
     change_window_active, change_window_check, change_window_delete, change_window_list,
     change_window_set,
     connection_close, connection_open, connection_resize, connection_write,
@@ -57,6 +59,7 @@ use templates::TemplateManager;
 use vault::VaultManager;
 use history::CommandHistoryManager;
 use autologin::AutoLoginManager;
+use browser::BrowserManager;
 
 // Needed for try_state() in on_window_event handler
 use tauri::Manager;
@@ -91,6 +94,7 @@ pub fn run() {
         .manage(AutoLoginManager::new())
         .manage(PingManager::new())
         .manage(TemplateManager::new())
+        .manage(BrowserManager::new())
         .invoke_handler(tauri::generate_handler![
             greet,
             pty_spawn,
@@ -186,6 +190,11 @@ pub fn run() {
             template_create,
             template_delete,
             template_execute,
+            browser_open,
+            browser_navigate,
+            browser_close,
+            browser_resize,
+            browser_set_visible,
         ])
         // Fix 8: Graceful app exit — clean up PTY sessions and protocol connections
         .on_window_event(|window, event| {
@@ -197,6 +206,9 @@ pub fn run() {
                 let conn_mgr: tauri::State<'_, ConnectionManager> = window.state();
                 // Block briefly on async close — app is exiting anyway
                 tauri::async_runtime::block_on(conn_mgr.close_all());
+                // Close all browser webviews
+                let browser_mgr: tauri::State<'_, BrowserManager> = window.state();
+                browser_mgr.close_all();
             }
         })
         .run(tauri::generate_context!())

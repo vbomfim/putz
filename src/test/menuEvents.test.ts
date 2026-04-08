@@ -268,6 +268,14 @@ describe("useMenuEvents", () => {
     expect(onToggleKeyManager).toHaveBeenCalledTimes(1);
   });
 
+  it("menu-new-browser-tab calls onNewBrowserTab callback", () => {
+    const onNewBrowserTab = vi.fn();
+    setMenuEventCallbacks({ onNewBrowserTab });
+    renderHook(() => useMenuEvents());
+    emitMenuEvent("menu-new-browser-tab");
+    expect(onNewBrowserTab).toHaveBeenCalledTimes(1);
+  });
+
   // ─── Unknown events ───────────────────────────────────────────
 
   it("unknown menu event does not throw", () => {

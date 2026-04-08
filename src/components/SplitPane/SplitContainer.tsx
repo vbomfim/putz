@@ -13,9 +13,10 @@ import { useCallback } from "react";
 import { Allotment } from "allotment";
 import "allotment/dist/style.css";
 import { TerminalView } from "../Terminal";
+import { BrowserView } from "../Browser";
 import { useTabStore } from "../../stores/tabStore";
 import type { PaneNode } from "../../types";
-import { MIN_PANE_SIZE_PX } from "../../types";
+import { MIN_PANE_SIZE_PX, BROWSER_SESSION_PREFIX } from "../../types";
 import "./SplitContainer.css";
 
 interface SplitContainerProps {
@@ -75,6 +76,7 @@ export function SplitContainer({
         isSearchOpen={isActive && isSearchOpen}
         onSearchClose={closeSearch}
         isBroadcastTarget={isBroadcastTarget}
+        isActive={isActive}
       />
     </div>
   );
@@ -88,6 +90,8 @@ interface PaneRendererProps {
   isSearchOpen: boolean;
   onSearchClose: () => void;
   isBroadcastTarget?: boolean;
+  /** Whether the parent tab is currently active (for browser visibility). */
+  isActive: boolean;
   /** Whether this pane is inside a split (shows close button). */
   isInsideSplit?: boolean;
 }
@@ -101,8 +105,11 @@ function PaneRenderer({
   isSearchOpen,
   onSearchClose,
   isBroadcastTarget,
+  isActive,
   isInsideSplit = false,
 }: PaneRendererProps) {
+  const tabs = useTabStore((s) => s.tabs);
+
   // Stable no-op callback for Allotment's onChange.
   // The ResizeObserver in each terminal's useTerminal hook handles
   // actual re-fitting; this is required before the early return to
@@ -112,6 +119,43 @@ function PaneRenderer({
   }, []);
 
   if (node.type === "leaf") {
+    // Check if this leaf is a browser tab (session ID starts with "browser-")
+    const isBrowser = node.terminalSessionId?.startsWith(BROWSER_SESSION_PREFIX) ?? false;
+
+    if (isBrowser) {
+      // Find the owning tab to get the browser URL
+      const ownerTab = tabs.find((t) => t.id === tabId);
+      const browserUrl = ownerTab?.browserUrl || "about:blank";
+
+      const browserView = (
+        <BrowserView
+          key={node.terminalSessionId}
+          tabId={tabId}
+          initialUrl={browserUrl}
+          isActive={isActive}
+        />
+      );
+
+      if (!isInsideSplit) {
+        return browserView;
+      }
+
+      return (
+        <div className="pane-leaf-wrapper">
+          {browserView}
+          <button
+            className="pane-close-btn"
+            data-testid="pane-close-btn"
+            aria-label="Close pane"
+            type="button"
+            onClick={() => onClosePane(node.terminalSessionId)}
+          >
+            ×
+          </button>
+        </div>
+      );
+    }
+
     const terminalView = (
       <TerminalView
         key={node.terminalSessionId}
@@ -167,6 +211,7 @@ function PaneRenderer({
           isSearchOpen={isSearchOpen}
           onSearchClose={onSearchClose}
           isBroadcastTarget={isBroadcastTarget}
+          isActive={isActive}
           isInsideSplit
         />
       </Allotment.Pane>
@@ -179,6 +224,7 @@ function PaneRenderer({
           isSearchOpen={isSearchOpen}
           onSearchClose={onSearchClose}
           isBroadcastTarget={isBroadcastTarget}
+          isActive={isActive}
           isInsideSplit
         />
       </Allotment.Pane>

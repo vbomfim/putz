@@ -32,6 +32,7 @@ export interface MenuEventCallbacks {
   onToggleScript?: () => void;
   onToggleInterfaceStatus?: () => void;
   onToggleMacArp?: () => void;
+  onNewBrowserTab?: () => void;
 }
 
 // Module-level callbacks — set by App.tsx via setMenuEventCallbacks
@@ -78,6 +79,9 @@ export function useMenuEvents(): void {
         // ─── File ──────────────────────────────────────────
         case "menu-new-terminal":
           addTab();
+          break;
+        case "menu-new-browser-tab":
+          menuCallbacks.onNewBrowserTab?.();
           break;
         case "menu-close-tab": {
           const { activeTabId } = useTabStore.getState();

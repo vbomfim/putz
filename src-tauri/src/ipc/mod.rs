@@ -1,5 +1,6 @@
 /// IPC module — Tauri command handlers for frontend–backend communication.
 pub mod autologin;
+pub mod browser;
 pub mod compliance;
 pub mod connection;
 pub mod forwarding;
@@ -59,4 +60,7 @@ pub use vault::{vault_check_expiring, vault_delete, vault_get, vault_list, vault
 pub use compliance::{
     change_window_active, change_window_check, change_window_delete, change_window_list,
     change_window_set,
+};
+pub use browser::{
+    browser_close, browser_navigate, browser_open, browser_resize, browser_set_visible,
 };

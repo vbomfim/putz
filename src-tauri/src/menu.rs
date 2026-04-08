@@ -38,6 +38,7 @@ macro_rules! menu_item {
 pub fn build_menu(app: &AppHandle<Wry>) -> Result<tauri::menu::Menu<Wry>, tauri::Error> {
     let file_menu = SubmenuBuilder::new(app, "File")
         .item(&menu_item!(app, "menu-new-terminal", "New Terminal", "CmdOrCtrl+T"))
+        .item(&menu_item!(app, "menu-new-browser-tab", "New Browser Tab", "CmdOrCtrl+Shift+B"))
         .item(&menu_item!(app, "menu-new-connection", "New Connection...", "CmdOrCtrl+N"))
         .item(&menu_item!(app, "menu-quick-connect", "Quick Connect", "CmdOrCtrl+K"))
         .separator()

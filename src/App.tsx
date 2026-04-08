@@ -49,6 +49,7 @@ function App() {
   const tabs = useTabStore((s) => s.tabs);
   const activeTabId = useTabStore((s) => s.activeTabId);
   const addTab = useTabStore((s) => s.addTab);
+  const addBrowserTab = useTabStore((s) => s.addBrowserTab);
   const isBroadcastActive = useBroadcastStore((s) => s.isActive);
   const broadcastTargetIds = useBroadcastStore((s) => s.targetTabIds);
   const hasInitialized = useRef(false);
@@ -101,9 +102,10 @@ function App() {
       onToggleScript: () => setScriptOpen((prev) => !prev),
       onToggleInterfaceStatus: () => setInterfaceStatusOpen((prev) => !prev),
       onToggleMacArp: () => setMacArpOpen((prev) => !prev),
+      onNewBrowserTab: () => addBrowserTab("https://"),
     });
     return () => setMenuEventCallbacks({});
-  }, []);
+  }, [addBrowserTab]);
 
   // Create the first tab on mount
   useEffect(() => {
@@ -235,11 +237,21 @@ function App() {
   }, []);
 
   /** Called when a connection is submitted from the quick connect bar. */
-  const handleQuickConnect = useCallback((_connection: ParsedConnection) => {
+  const handleQuickConnect = useCallback((connection: ParsedConnection) => {
+    // Check if this is a browser URL (http:// or https://)
+    if (connection.protocol === "ssh" && connection.host.startsWith("http")) {
+      // parseConnection defaults to SSH for unknown input — check if the raw
+      // host looks like a URL (happens when user types "https://grafana.local")
+      const url = connection.host.includes("://")
+        ? connection.host
+        : `https://${connection.host}`;
+      addBrowserTab(url);
+      return;
+    }
     // Future: open a connection with the parsed details (protocol, host, port, username).
     // For now, just open a new local terminal tab as a placeholder.
     addTab();
-  }, [addTab]);
+  }, [addTab, addBrowserTab]);
 
   // Empty state — all tabs closed
   if (tabs.length === 0 && hasInitialized.current) {
