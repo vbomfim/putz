@@ -147,6 +147,10 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => {
         persistState(updated);
         return updated;
       });
+
+      // Switch to the new workspace and create a terminal tab
+      get().switchWorkspace(newWorkspace.id);
+      useTabStore.getState().addTab();
     },
 
     removeWorkspace: (id: string) => {
