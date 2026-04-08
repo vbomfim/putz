@@ -32,6 +32,11 @@ import { CredentialManager } from "./components/Vault";
 import { KeyManager } from "./components/Keys";
 import { ConfigDiff } from "./components/ConfigDiff";
 import { TemplatePanel } from "./components/Templates";
+import { SFTPPanel } from "./components/SFTP";
+import { PingDashboard } from "./components/Ping/PingDashboard";
+import { InterfaceStatus } from "./components/InterfaceStatus/InterfaceStatus";
+import { MacArpViewer } from "./components/MacArpViewer/MacArpViewer";
+import { ScriptEditor } from "./components/Scripting";
 import { ThemeEditor } from "./components/Terminal/ThemeEditor";
 import { FontConfig } from "./components/Terminal/FontConfig";
 import { useThemeStore } from "./stores/themeStore";
@@ -57,6 +62,11 @@ function App() {
   const [keyManagerOpen, setKeyManagerOpen] = useState(false);
   const [themeEditorOpen, setThemeEditorOpen] = useState(false);
   const [fontConfigOpen, setFontConfigOpen] = useState(false);
+  const [sftpOpen, setSftpOpen] = useState(false);
+  const [pingOpen, setPingOpen] = useState(false);
+  const [scriptOpen, setScriptOpen] = useState(false);
+  const [interfaceStatusOpen, setInterfaceStatusOpen] = useState(false);
+  const [macArpOpen, setMacArpOpen] = useState(false);
   const [availableThemes, setAvailableThemes] = useState<Theme[]>([]);
 
   // Listen for native menu events from the Tauri backend
@@ -87,6 +97,11 @@ function App() {
       onToggleConfigDiff: () => setConfigDiffOpen((prev) => !prev),
       onToggleTemplates: () => setTemplatePanelOpen((prev) => !prev),
       onToggleHistory: () => setHistoryOpen((prev) => !prev),
+      onToggleSftp: () => setSftpOpen((prev) => !prev),
+      onTogglePing: () => setPingOpen((prev) => !prev),
+      onToggleScript: () => setScriptOpen((prev) => !prev),
+      onToggleInterfaceStatus: () => setInterfaceStatusOpen((prev) => !prev),
+      onToggleMacArp: () => setMacArpOpen((prev) => !prev),
     });
     return () => setMenuEventCallbacks({});
   }, []);
@@ -393,6 +408,41 @@ function App() {
           themes={availableThemes}
           onClose={() => setThemeEditorOpen(false)} 
         />
+      )}
+
+      {/* SFTP Panel */}
+      {sftpOpen && (
+        <div className="modal-overlay" onClick={(e) => { if (e.target === e.currentTarget) setSftpOpen(false); }} role="dialog" aria-modal="true">
+          <div className="modal-panel modal-panel--wide"><button className="modal-close" onClick={() => setSftpOpen(false)}>✕</button><SFTPPanel connectionId="" onClose={() => setSftpOpen(false)} /></div>
+        </div>
+      )}
+
+      {/* Ping Dashboard */}
+      {pingOpen && (
+        <div className="modal-overlay" onClick={(e) => { if (e.target === e.currentTarget) setPingOpen(false); }} role="dialog" aria-modal="true">
+          <div className="modal-panel modal-panel--wide"><button className="modal-close" onClick={() => setPingOpen(false)}>✕</button><PingDashboard /></div>
+        </div>
+      )}
+
+      {/* Interface Status */}
+      {interfaceStatusOpen && (
+        <div className="modal-overlay" onClick={(e) => { if (e.target === e.currentTarget) setInterfaceStatusOpen(false); }} role="dialog" aria-modal="true">
+          <div className="modal-panel modal-panel--wide"><button className="modal-close" onClick={() => setInterfaceStatusOpen(false)}>✕</button><InterfaceStatus /></div>
+        </div>
+      )}
+
+      {/* MAC/ARP Viewer */}
+      {macArpOpen && (
+        <div className="modal-overlay" onClick={(e) => { if (e.target === e.currentTarget) setMacArpOpen(false); }} role="dialog" aria-modal="true">
+          <div className="modal-panel modal-panel--wide"><button className="modal-close" onClick={() => setMacArpOpen(false)}>✕</button><MacArpViewer /></div>
+        </div>
+      )}
+
+      {/* Script Editor */}
+      {scriptOpen && (
+        <div className="modal-overlay" onClick={(e) => { if (e.target === e.currentTarget) setScriptOpen(false); }} role="dialog" aria-modal="true">
+          <div className="modal-panel modal-panel--wide"><button className="modal-close" onClick={() => setScriptOpen(false)}>✕</button><ScriptEditor onSave={() => setScriptOpen(false)} onRun={() => {}} onStop={() => {}} onRecordStart={() => {}} onRecordStop={() => {}} /></div>
+        </div>
       )}
     </main>
   );

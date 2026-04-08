@@ -30,6 +30,8 @@ export interface MenuEventCallbacks {
   onToggleSftp?: () => void;
   onTogglePing?: () => void;
   onToggleScript?: () => void;
+  onToggleInterfaceStatus?: () => void;
+  onToggleMacArp?: () => void;
 }
 
 // Module-level callbacks — set by App.tsx via setMenuEventCallbacks
@@ -154,11 +156,11 @@ export function useMenuEvents(): void {
           menuCallbacks.onToggleConfigDiff?.();
           break;
 
-        case "menu-templates":
+        case "menu-command-templates":
           menuCallbacks.onToggleTemplates?.();
           break;
 
-        case "menu-history":
+        case "menu-command-history":
           menuCallbacks.onToggleHistory?.();
           break;
 
@@ -166,11 +168,21 @@ export function useMenuEvents(): void {
           menuCallbacks.onToggleSftp?.();
           break;
 
-        case "menu-ping":
+        case "menu-interface-status":
+          menuCallbacks.onToggleInterfaceStatus?.();
+          break;
+
+        case "menu-mac-arp-viewer":
+          menuCallbacks.onToggleMacArp?.();
+          break;
+
+        case "menu-ping-dashboard":
           menuCallbacks.onTogglePing?.();
           break;
 
-        case "menu-script":
+        case "menu-script-editor":
+        case "menu-run-script":
+        case "menu-record-script":
           menuCallbacks.onToggleScript?.();
           break;
 
