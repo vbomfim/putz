@@ -480,9 +480,16 @@ export const useTabStore = create<TabState>((set, get) => ({
 
     set((state) => ({
       tabs: state.tabs.map((t) =>
-        t.id === tabId ? { ...t, layout: newLayout } : t,
+        t.id === tabId ? { ...t, layout: newLayout, focusedSessionId: newSessionId } : t,
       ),
+      focusedPaneSessionId: newSessionId,
     }));
+
+    // Auto-focus the new pane after React re-renders
+    setTimeout(() => {
+      const el = document.querySelector(`[data-session-id="${newSessionId}"] .xterm-helper-textarea`) as HTMLElement;
+      el?.focus();
+    }, 200);
   },
 
   splitActivePane: async (direction: "horizontal" | "vertical") => {
