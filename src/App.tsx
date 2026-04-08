@@ -16,7 +16,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { useTabStore } from "./stores/tabStore";
-import { useBroadcastStore } from "./stores/broadcastStore";
+import { useBroadcastStore, collectSessionIds } from "./stores/broadcastStore";
 import { TabBar } from "./components/TabBar";
 import { BroadcastBar } from "./components/BroadcastBar";
 import { Toolbar } from "./components/Toolbar";
@@ -223,10 +223,16 @@ function App() {
   }, [addTab]);
 
   /** Called when a command is selected from the history panel. */
-  const handleHistorySelect = useCallback((_command: string) => {
-    // Future: insert the command into the active terminal's input.
-    // For now, just close the panel — the terminal write integration
-    // depends on exposing a write method from the active pane.
+  const handleHistorySelect = useCallback((command: string) => {
+    const state = useTabStore.getState();
+    const activeTab = state.tabs.find((t) => t.id === state.activeTabId);
+    if (!activeTab) return;
+    const sessionId = state.focusedPaneSessionId || collectSessionIds(activeTab.layout)[0];
+    if (!sessionId) return;
+    const bytes = Array.from(new TextEncoder().encode(command));
+    const cmd = activeTab.status === "connected" ? "connection_write" : "pty_write";
+    invoke(cmd, { sessionId, data: bytes }).catch(() => {});
+    setHistoryOpen(false);
   }, []);
 
   /** Called when a connection is submitted from the quick connect bar. */
@@ -342,6 +348,18 @@ function App() {
       <TemplatePanel
         isOpen={templatePanelOpen}
         onClose={() => setTemplatePanelOpen(false)}
+        onSendToTerminal={(text) => {
+          // Send the rendered template text to the active terminal's PTY
+          const state = useTabStore.getState();
+          const activeTab = state.tabs.find((t) => t.id === state.activeTabId);
+          if (!activeTab) return;
+          const sessionId = state.focusedPaneSessionId || collectSessionIds(activeTab.layout)[0];
+          if (!sessionId) return;
+          const bytes = Array.from(new TextEncoder().encode(text + "\n"));
+          const command = activeTab.status === "connected" ? "connection_write" : "pty_write";
+          invoke(command, { sessionId, data: bytes }).catch(() => {});
+          setTemplatePanelOpen(false);
+        }}
       />
 
       {/* Credential Vault overlay */}
