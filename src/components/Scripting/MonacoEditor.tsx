@@ -10,12 +10,16 @@
  * @module MonacoEditor
  */
 import { useCallback, useEffect, useRef } from "react";
-import Editor, { type OnMount } from "@monaco-editor/react";
+import Editor, { type OnMount, loader } from "@monaco-editor/react";
 import type * as monaco from "monaco-editor";
+import * as monacoEditor from "monaco-editor";
 import { registerCiscoIosLanguage, CISCO_IOS_LANGUAGE_ID } from "./languages/ciscoIos";
 import { registerCiscoCompletions } from "./languages/ciscoCompletions";
 import { registerPutzCompletions } from "./languages/putzCompletions";
 import { useThemeStore } from "../../stores/themeStore";
+
+// Use locally bundled Monaco instead of CDN (required for Tauri/offline)
+loader.config({ monaco: monacoEditor });
 
 export type EditorLanguage = "javascript" | "cisco-ios";
 

@@ -484,9 +484,9 @@ fn get_process_cwd(pid: u32) -> Result<String, PtyError> {
 
     #[cfg(target_os = "macos")]
     {
-        // On macOS, use lsof to find the CWD
+        // On macOS, use lsof to find the CWD (-a = AND the filters)
         let output = std::process::Command::new("lsof")
-            .args(["-p", &pid.to_string(), "-Fn", "-d", "cwd"])
+            .args(["-a", "-p", &pid.to_string(), "-d", "cwd", "-Fn"])
             .output()
             .map_err(|e| PtyError::WriteFailed(format!("lsof failed: {}", e)))?;
 
