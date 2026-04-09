@@ -81,15 +81,13 @@ interface UseTerminalReturn {
  */
 async function pasteToTerminal(
   terminal: Terminal,
-  sessionId: string,
+  _sessionId: string,
 ): Promise<void> {
   try {
     const text = await navigator.clipboard.readText();
     if (!text) return;
+    // terminal.paste() triggers onData which calls pty_write — no need to write again
     terminal.paste(text);
-    const bytes = Array.from(new TextEncoder().encode(text));
-    broadcastWrite(sessionId, bytes);
-    await invoke("pty_write", { sessionId, data: bytes });
   } catch {
     // Clipboard read failed — permission denied or empty
   }
