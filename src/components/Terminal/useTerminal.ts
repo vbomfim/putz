@@ -94,6 +94,29 @@ async function pasteToTerminal(
   }
 }
 
+// ─── Terminal Instance Cache ─────────────────────────────────────────
+// Survives React unmounts (splits, workspace switches) so terminals
+// preserve scrollback, listeners, and PTY connections.
+interface CachedTerminal {
+  terminal: Terminal;
+  fitAddon: FitAddon;
+  highlightEngine: HighlightEngine;
+  unlisteners: UnlistenFn[];
+  disposed: { current: boolean }; // mutable flag shared with event handlers
+}
+const terminalCache = new Map<string, CachedTerminal>();
+
+/** Destroy a cached terminal (call when tab is closed). */
+export function destroyTerminal(sessionId: string): void {
+  const cached = terminalCache.get(sessionId);
+  if (cached) {
+    for (const unlisten of cached.unlisteners) unlisten();
+    cached.highlightEngine.dispose();
+    cached.terminal.dispose();
+    terminalCache.delete(sessionId);
+  }
+}
+
 /**
  * React hook that manages the full xterm.js terminal lifecycle.
  *
@@ -138,12 +161,53 @@ export function useTerminal({
   onBellRef.current = onBell;
 
   // Main effect: create terminal, bind events, set up I/O bridge
+  // Uses cache to survive React remounts (splits, workspace switches)
   useEffect(() => {
     if (!terminalRef.current || !sessionId) return;
 
     const container = terminalRef.current;
+
+    // ─── Cache hit: re-attach existing terminal ──────────────────
+    const cached = terminalCache.get(sessionId);
+    if (cached) {
+      const { terminal, fitAddon, highlightEngine } = cached;
+      // Re-enable event handlers (were disabled when unmounted)
+      cached.disposed.current = false;
+      container.appendChild(terminal.element!);
+      terminalInstanceRef.current = terminal;
+      fitAddonRef.current = fitAddon;
+      highlightEngineRef.current = highlightEngine;
+      setIsReady(true);
+
+      // Re-fit and sync PTY size
+      const refit = () => {
+        try {
+          fitAddon.fit();
+          const { cols, rows } = terminal;
+          if (cols > 0 && rows > 0) {
+            invoke("pty_resize", { sessionId, cols, rows }).catch(() => {});
+          }
+        } catch { /* container not ready */ }
+      };
+      refit();
+      const t1 = setTimeout(refit, 50);
+      const t2 = setTimeout(refit, 200);
+
+      // Resize observer for this container
+      const resizeObserver = new ResizeObserver(refit);
+      resizeObserver.observe(container);
+
+      return () => {
+        cached.disposed.current = true;
+        clearTimeout(t1);
+        clearTimeout(t2);
+        resizeObserver.disconnect();
+      };
+    }
+
+    // ─── Cache miss: create new terminal ─────────────────────────
     const unlisteners: UnlistenFn[] = [];
-    let disposed = false;
+    const disposedRef = { current: false };
 
     // Read initial font/theme from themeStore
     const themeState = useThemeStore.getState();
@@ -208,7 +272,7 @@ export function useTerminal({
     let lastCols = 0;
     let lastRows = 0;
     const safeFit = () => {
-      if (disposed) return;
+      if (disposedRef.current) return;
       const el = terminalRef.current;
       if (!el || el.clientWidth === 0 || el.clientHeight === 0) return;
       try {
@@ -241,14 +305,14 @@ export function useTerminal({
     highlightEngineRef.current = highlightEngine;
 
     // Fix 3: Visual bell — notify parent via callback
-    const bellDisposable = terminal.onBell(() => {
+    terminal.onBell(() => {
       onBellRef.current?.();
     });
 
     // Fix 1: Right-click paste — read clipboard and write to terminal + PTY
     const handleContextMenu = (e: MouseEvent) => {
       e.preventDefault();
-      if (disposed) return;
+      if (disposedRef.current) return;
       pasteToTerminal(terminal, sessionId);
     };
     container.addEventListener("contextmenu", handleContextMenu);
@@ -256,14 +320,14 @@ export function useTerminal({
     // Track focused pane — when user clicks this terminal, update store
     // so splitActivePane targets the correct pane
     const handlePaneFocus = () => {
-      if (disposed) return;
+      if (disposedRef.current) return;
       useTabStore.getState().setFocusedPane(sessionId);
     };
     container.addEventListener("mousedown", handlePaneFocus);
 
     // Bridge: terminal keystrokes → PTY write (with change window guard)
-    const dataDisposable = terminal.onData((data: string) => {
-      if (disposed) return;
+    terminal.onData((data: string) => {
+      if (disposedRef.current) return;
 
       // Change window guard: buffer and check on Enter
       if (changeWindowEnabledRef.current && (data.includes("\r") || data.includes("\n"))) {
@@ -275,7 +339,7 @@ export function useTerminal({
           pendingDataRef.current = data;
           changeWindowCheck(command)
             .then((result) => {
-              if (disposed) return;
+              if (disposedRef.current) return;
               if (result.allowed) {
                 // Command allowed — forward the data
                 const bytes = Array.from(new TextEncoder().encode(data));
@@ -292,7 +356,7 @@ export function useTerminal({
             })
             .catch(() => {
               // Backend error — fail open, forward data
-              if (disposed) return;
+              if (disposedRef.current) return;
               const bytes = Array.from(new TextEncoder().encode(data));
               broadcastWrite(sessionId, bytes);
               invoke("pty_write", { sessionId, data: bytes }).catch(() => {});
@@ -320,8 +384,8 @@ export function useTerminal({
     });
 
     // Bridge: terminal binary data → PTY write
-    const binaryDisposable = terminal.onBinary((data: string) => {
-      if (disposed) return;
+    terminal.onBinary((data: string) => {
+      if (disposedRef.current) return;
       const bytes = Array.from(data, (char) => char.charCodeAt(0));
       invoke("pty_write", { sessionId, data: bytes }).catch(() => {
         // pty_write binary failure — input dropped silently
@@ -329,9 +393,9 @@ export function useTerminal({
     });
 
     // Bridge: terminal resize → PTY resize
-    const resizeDisposable = terminal.onResize(
+    terminal.onResize(
       ({ cols, rows }: { cols: number; rows: number }) => {
-        if (disposed) return;
+        if (disposedRef.current) return;
         invoke("pty_resize", { sessionId, cols, rows }).catch(() => {
           // pty_resize failure — terminal may be out of sync
         });
@@ -339,7 +403,7 @@ export function useTerminal({
     );
 
     // Title change detection (via escape sequences like \e]0;title\a)
-    const titleDisposable = terminal.onTitleChange((title: string) => {
+    terminal.onTitleChange((title: string) => {
       onTitleChangeRef.current?.(title);
     });
 
@@ -404,7 +468,7 @@ export function useTerminal({
       const unlistenOutput = await listen<string>(
         `pty-output-${sessionId}`,
         (event) => {
-          if (disposed) return;
+          if (disposedRef.current) return;
           const binary = atob(event.payload);
           const bytes = Uint8Array.from(binary, (ch) => ch.charCodeAt(0));
           terminal.write(bytes);
@@ -416,7 +480,7 @@ export function useTerminal({
       const unlistenExit = await listen<PtyExitPayload>(
         `pty-exit-${sessionId}`,
         (event) => {
-          if (disposed) return;
+          if (disposedRef.current) return;
           const code = event.payload.code;
           setHasExited(true);
           setExitCode(code);
@@ -428,13 +492,13 @@ export function useTerminal({
       );
       unlisteners.push(unlistenExit);
 
-      if (!disposed) {
+      if (!disposedRef.current) {
         setIsReady(true);
       }
     };
 
     setupEvents().catch((err: unknown) => {
-      if (!disposed) {
+      if (!disposedRef.current) {
         setError(`Failed to set up terminal events: ${String(err)}`);
       }
     });
@@ -442,7 +506,7 @@ export function useTerminal({
     // Window resize → re-fit terminal (debounced at 100ms)
     let resizeDebounceTimer: ReturnType<typeof setTimeout> | null = null;
     const handleWindowResize = () => {
-      if (disposed) return;
+      if (disposedRef.current) return;
       if (resizeDebounceTimer !== null) {
         clearTimeout(resizeDebounceTimer);
       }
@@ -454,7 +518,7 @@ export function useTerminal({
     // Debounced at 50ms to avoid fitting during rapid Allotment animation
     let resizeObserverTimer: ReturnType<typeof setTimeout> | null = null;
     const resizeObserver = new ResizeObserver(() => {
-      if (disposed) return;
+      if (disposedRef.current) return;
       if (resizeObserverTimer !== null) {
         clearTimeout(resizeObserverTimer);
       }
@@ -465,9 +529,18 @@ export function useTerminal({
     // Sync initial PTY size after a short delay (DOM needs to settle)
     const initialSizeTimeout = setTimeout(safeFit, 100);
 
-    // Cleanup on unmount
+    // Cache the terminal instance so it survives React remounts
+    terminalCache.set(sessionId, {
+      terminal,
+      fitAddon,
+      highlightEngine,
+      unlisteners,
+      disposed: disposedRef,
+    });
+
+    // Cleanup on unmount — only detach DOM-bound resources, keep terminal alive in cache
     return () => {
-      disposed = true;
+      disposedRef.current = true;
       clearTimeout(initialSizeTimeout);
       for (const t of fitTimers) clearTimeout(t);
       if (resizeDebounceTimer !== null) {
@@ -481,27 +554,11 @@ export function useTerminal({
       container.removeEventListener("contextmenu", handleContextMenu);
       container.removeEventListener("mousedown", handlePaneFocus);
 
-      // Dispose highlight engine
-      highlightEngine.dispose();
-      highlightEngineRef.current = null;
-
-      dataDisposable.dispose();
-      binaryDisposable.dispose();
-      resizeDisposable.dispose();
-      titleDisposable.dispose();
-      bellDisposable.dispose();
-      for (const unlisten of unlisteners) {
-        unlisten();
-      }
-
-      terminal.dispose();
+      // DON'T dispose terminal, listeners, or highlight engine — they live in cache.
+      // destroyTerminal(sessionId) is called when the tab is actually closed.
       terminalInstanceRef.current = null;
       fitAddonRef.current = null;
-
-      // NOTE: We do NOT call pty_close here. The PTY session lifecycle is
-      // managed by the tab store (removeTab/unsplitPane). Closing the PTY
-      // on unmount would kill the session when splitting panes, since React
-      // unmounts and remounts the original terminal in the new layout tree.
+      highlightEngineRef.current = null;
     };
   }, [sessionId]);
 

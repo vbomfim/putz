@@ -36,7 +36,10 @@ async function spawnPtySession(): Promise<string> {
 }
 
 /** Closes a PTY session via Tauri IPC (fire-and-forget). */
+import { destroyTerminal } from "../components/Terminal/useTerminal";
+
 function closePtySession(sessionId: string): void {
+  destroyTerminal(sessionId);
   invoke("pty_close", { sessionId }).catch(() => {
     // Ignore — session may already be closed
   });
