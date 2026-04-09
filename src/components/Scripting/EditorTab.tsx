@@ -252,6 +252,14 @@ export function EditorTab({ filePath, scriptId, regionId, tabId }: EditorTabProp
             </button>
             <button
               type="button"
+              className={`script-editor__lang-btn ${language === "python" ? "script-editor__lang-btn--active" : ""}`}
+              onClick={() => setLanguage("python")}
+              title="Python"
+            >
+              PY
+            </button>
+            <button
+              type="button"
               className={`script-editor__lang-btn ${language === "cisco-ios" ? "script-editor__lang-btn--active" : ""}`}
               onClick={() => setLanguage("cisco-ios")}
               title="Cisco IOS"
@@ -318,7 +326,7 @@ export function EditorTab({ filePath, scriptId, regionId, tabId }: EditorTabProp
       {/* Status bar */}
       <div className="editor-tab__status">
         <span>{statusMessage}</span>
-        <span>{language === "cisco-ios" ? "Cisco IOS" : "JavaScript"}</span>
+        <span>{language === "cisco-ios" ? "Cisco IOS" : language === "python" ? "Python" : "JavaScript"}</span>
       </div>
     </div>
   );

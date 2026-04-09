@@ -186,6 +186,9 @@ interface LayoutState {
   /** Updates the browserUrl on a browser tab (persists across remounts). */
   updateTabBrowserUrl: (regionId: string, tabId: string, url: string) => void;
 
+  /** Moves a tab from one region to another (or reorders within the same region). */
+  moveTab: (fromRegionId: string, tabId: string, toRegionId: string, insertIndex?: number) => void;
+
   // ─── Split / Close Region Actions ─────────────────────────────────
 
   /** Splits the focused region, creating a new region alongside it. */
@@ -554,6 +557,72 @@ export const useLayoutStore = create<LayoutState>((set, get) => ({
             ),
           },
         },
+      };
+    });
+  },
+
+  moveTab: (fromRegionId: string, tabId: string, toRegionId: string, insertIndex?: number) => {
+    set((state) => {
+      const fromRegion = state.regions[fromRegionId];
+      const toRegion = state.regions[toRegionId];
+      if (!fromRegion || !toRegion) return state;
+
+      const tabIndex = fromRegion.tabs.findIndex((t) => t.id === tabId);
+      if (tabIndex === -1) return state;
+      const tab = fromRegion.tabs[tabIndex];
+
+      // Remove from source
+      const fromTabs = fromRegion.tabs.filter((t) => t.id !== tabId);
+      const fromActiveTabId =
+        fromRegion.activeTabId === tabId
+          ? (fromTabs[Math.min(tabIndex, fromTabs.length - 1)]?.id || "")
+          : fromRegion.activeTabId;
+
+      // Insert into target
+      let toTabs: typeof toRegion.tabs;
+      if (fromRegionId === toRegionId) {
+        // Reorder within same region
+        toTabs = fromTabs;
+        const idx = insertIndex !== undefined ? Math.min(insertIndex, toTabs.length) : toTabs.length;
+        toTabs = [...toTabs.slice(0, idx), tab, ...toTabs.slice(idx)];
+        return {
+          regions: {
+            ...state.regions,
+            [fromRegionId]: {
+              ...fromRegion,
+              tabs: toTabs,
+              activeTabId: tab.id,
+            },
+          },
+        };
+      }
+
+      // Move between regions
+      const idx = insertIndex !== undefined ? Math.min(insertIndex, toRegion.tabs.length) : toRegion.tabs.length;
+      toTabs = [...toRegion.tabs.slice(0, idx), tab, ...toRegion.tabs.slice(idx)];
+
+      const newRegions = { ...state.regions };
+
+      // If source region has no tabs left, it'll be cleaned up
+      if (fromTabs.length === 0) {
+        delete newRegions[fromRegionId];
+      } else {
+        newRegions[fromRegionId] = {
+          ...fromRegion,
+          tabs: fromTabs,
+          activeTabId: fromActiveTabId,
+        };
+      }
+
+      newRegions[toRegionId] = {
+        ...toRegion,
+        tabs: toTabs,
+        activeTabId: tab.id,
+      };
+
+      return {
+        regions: newRegions,
+        focusedRegionId: toRegionId,
       };
     });
   },

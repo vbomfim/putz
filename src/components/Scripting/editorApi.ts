@@ -38,6 +38,9 @@ export function detectLanguage(filePath: string, content?: string): EditorLangua
     case "ts":
     case "mjs":
       return "javascript";
+    case "py":
+    case "pyw":
+      return "python";
     default:
       break;
   }

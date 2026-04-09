@@ -21,7 +21,7 @@ import { useThemeStore } from "../../stores/themeStore";
 // Use locally bundled Monaco instead of CDN (required for Tauri/offline)
 loader.config({ monaco: monacoEditor });
 
-export type EditorLanguage = "javascript" | "cisco-ios";
+export type EditorLanguage = "javascript" | "cisco-ios" | "python";
 
 interface MonacoEditorProps {
   /** Current editor content. */
@@ -258,7 +258,7 @@ export function MonacoEditor({
     [onChange],
   );
 
-  const monacoLanguage = language === "cisco-ios" ? CISCO_IOS_LANGUAGE_ID : "javascript";
+  const monacoLanguage = language === "cisco-ios" ? CISCO_IOS_LANGUAGE_ID : language;
 
   return (
     <Editor

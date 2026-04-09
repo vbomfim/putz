@@ -3,6 +3,7 @@
  *
  * Displays tabs for one region with add (+) and close (×) buttons.
  * Supports right-click context menu for tab operations.
+ * Supports pointer-based drag and drop between regions (HTML5 DnD fails in Tauri).
  *
  * Compact design (~30px height) to fit within each region.
  *
@@ -11,6 +12,15 @@
 import { useState, useCallback, useRef, useEffect } from "react";
 import { useLayoutStore, MAX_TITLE_LENGTH } from "../../stores/layoutStore";
 import type { RegionTab, TabPosition } from "../../types";
+
+// ─── Global drag state (pointer-based, not HTML5 DnD) ─────────────
+interface DragState {
+  tabId: string;
+  regionId: string;
+  title: string;
+  ghost: HTMLDivElement | null;
+}
+let activeDrag: DragState | null = null;
 
 interface RegionTabBarProps {
   /** The region ID this tab bar belongs to. */
@@ -104,7 +114,78 @@ function RegionTab({
     .filter(Boolean)
     .join(" ");
 
-  const icon = tab.type === "browser" ? "🌐" : "";
+  const icon = tab.type === "browser" ? "🌐" : tab.type === "editor" ? "📝" : tab.type === "diff" ? "📄" : "";
+
+  // ─── Pointer-based drag ──────────────────────────────────
+  const dragStartPos = useRef<{ x: number; y: number } | null>(null);
+  const isDragging = useRef(false);
+
+  const handlePointerDown = useCallback(
+    (e: React.PointerEvent) => {
+      if (isEditing || e.button !== 0) return;
+      dragStartPos.current = { x: e.clientX, y: e.clientY };
+      isDragging.current = false;
+    },
+    [isEditing],
+  );
+
+  useEffect(() => {
+    const handlePointerMove = (e: PointerEvent) => {
+      if (!dragStartPos.current) return;
+      const dx = e.clientX - dragStartPos.current.x;
+      const dy = e.clientY - dragStartPos.current.y;
+      if (!isDragging.current && (Math.abs(dx) > 5 || Math.abs(dy) > 5)) {
+        // Start drag
+        isDragging.current = true;
+        const ghost = document.createElement("div");
+        ghost.className = "region-tab-drag-ghost";
+        ghost.textContent = tab.title;
+        ghost.style.left = `${e.clientX}px`;
+        ghost.style.top = `${e.clientY}px`;
+        document.body.appendChild(ghost);
+        activeDrag = { tabId: tab.id, regionId, title: tab.title, ghost };
+      }
+      if (isDragging.current && activeDrag?.ghost) {
+        activeDrag.ghost.style.left = `${e.clientX}px`;
+        activeDrag.ghost.style.top = `${e.clientY}px`;
+      }
+    };
+
+    const handlePointerUp = (e: PointerEvent) => {
+      if (isDragging.current && activeDrag) {
+        // Find the drop target — look for a region tab bar under the pointer
+        activeDrag.ghost?.remove();
+        const target = document.elementFromPoint(e.clientX, e.clientY);
+        const tabBar = target?.closest("[data-region-tabbar]") as HTMLElement | null;
+        const dropTab = target?.closest("[data-tab-id]") as HTMLElement | null;
+
+        if (tabBar) {
+          const toRegionId = tabBar.getAttribute("data-region-tabbar") || "";
+          let insertIndex: number | undefined;
+          if (dropTab) {
+            // Insert at the position of the drop target tab
+            const dropTabId = dropTab.getAttribute("data-tab-id") || "";
+            const { regions } = useLayoutStore.getState();
+            const toRegion = regions[toRegionId];
+            if (toRegion) {
+              insertIndex = toRegion.tabs.findIndex((t) => t.id === dropTabId);
+            }
+          }
+          useLayoutStore.getState().moveTab(activeDrag.regionId, activeDrag.tabId, toRegionId, insertIndex);
+        }
+        activeDrag = null;
+      }
+      dragStartPos.current = null;
+      isDragging.current = false;
+    };
+
+    window.addEventListener("pointermove", handlePointerMove);
+    window.addEventListener("pointerup", handlePointerUp);
+    return () => {
+      window.removeEventListener("pointermove", handlePointerMove);
+      window.removeEventListener("pointerup", handlePointerUp);
+    };
+  }, [tab.id, tab.title, regionId]);
 
   return (
     <div
@@ -115,8 +196,10 @@ function RegionTab({
       data-tab-id={tab.id}
       onClick={handleClick}
       onDoubleClick={handleDoubleClick}
+      onPointerDown={handlePointerDown}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
+      style={{ cursor: "grab" }}
     >
       {icon && <span className="region-tab__icon">{icon}</span>}
 
@@ -272,6 +355,7 @@ export function RegionTabBar({
     <div
       className={tabBarClass}
       data-testid={`region-tabbar-${regionId}`}
+      data-region-tabbar={regionId}
       onContextMenu={handleContextMenu}
     >
       <div
