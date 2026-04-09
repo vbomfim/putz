@@ -229,7 +229,7 @@ export function EditorTab({ filePath, scriptId, regionId, tabId }: EditorTabProp
             onClick={handleFindReplace}
             title="Find & Replace (⌘H)"
           >
-            ↔
+            ⌥
           </button>
           {filePath && (
             <button
@@ -238,7 +238,7 @@ export function EditorTab({ filePath, scriptId, regionId, tabId }: EditorTabProp
               onClick={() => setShowCompareInput((prev) => !prev)}
               title="Compare with another file"
             >
-              ⇔
+              📄
             </button>
           )}
           <div className="script-editor__language-toggle">
