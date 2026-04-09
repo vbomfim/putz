@@ -242,30 +242,25 @@ export function EditorTab({ filePath, scriptId, regionId, tabId }: EditorTabProp
             </button>
           )}
           <div className="script-editor__language-toggle">
-            <button
-              type="button"
-              className={`script-editor__lang-btn ${language === "javascript" ? "script-editor__lang-btn--active" : ""}`}
-              onClick={() => setLanguage("javascript")}
-              title="JavaScript"
-            >
-              JS
-            </button>
-            <button
-              type="button"
-              className={`script-editor__lang-btn ${language === "python" ? "script-editor__lang-btn--active" : ""}`}
-              onClick={() => setLanguage("python")}
-              title="Python"
-            >
-              PY
-            </button>
-            <button
-              type="button"
-              className={`script-editor__lang-btn ${language === "cisco-ios" ? "script-editor__lang-btn--active" : ""}`}
-              onClick={() => setLanguage("cisco-ios")}
-              title="Cisco IOS"
-            >
-              IOS
-            </button>
+            {([
+              ["javascript", "JS", "JavaScript"],
+              ["python", "PY", "Python"],
+              ["terraform", "TF", "Terraform / HCL"],
+              ["jinja2", "J2", "Jinja2 Templates"],
+              ["json", "JSON", "JSON (ARM, CloudFormation)"],
+              ["yaml", "YAML", "YAML (Ansible, GCP DM)"],
+              ["cisco-ios", "IOS", "Cisco IOS Config"],
+            ] as const).map(([lang, label, title]) => (
+              <button
+                key={lang}
+                type="button"
+                className={`script-editor__lang-btn ${language === lang ? "script-editor__lang-btn--active" : ""}`}
+                onClick={() => setLanguage(lang)}
+                title={title}
+              >
+                {label}
+              </button>
+            ))}
           </div>
           <button
             type="button"
@@ -326,7 +321,7 @@ export function EditorTab({ filePath, scriptId, regionId, tabId }: EditorTabProp
       {/* Status bar */}
       <div className="editor-tab__status">
         <span>{statusMessage}</span>
-        <span>{language === "cisco-ios" ? "Cisco IOS" : language === "python" ? "Python" : "JavaScript"}</span>
+        <span>{{ "cisco-ios": "Cisco IOS", python: "Python", terraform: "Terraform", jinja2: "Jinja2", json: "JSON", yaml: "YAML", javascript: "JavaScript" }[language]}</span>
       </div>
     </div>
   );

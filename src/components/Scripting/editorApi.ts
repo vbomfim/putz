@@ -41,6 +41,19 @@ export function detectLanguage(filePath: string, content?: string): EditorLangua
     case "py":
     case "pyw":
       return "python";
+    case "tf":
+    case "tfvars":
+    case "hcl":
+      return "terraform";
+    case "json":
+      return "json";
+    case "yaml":
+    case "yml":
+      return "yaml";
+    case "j2":
+    case "jinja":
+    case "jinja2":
+      return "jinja2";
     default:
       break;
   }
@@ -70,6 +83,24 @@ export function detectLanguage(filePath: string, content?: string): EditorLangua
     ];
     const matchCount = iosPatterns.filter((p) => p.test(head)).length;
     if (matchCount >= 2) return "cisco-ios";
+
+    // Terraform/HCL detection
+    const tfPatterns = [
+      /^(resource|data|variable|output|locals|module|provider|terraform)\s+"/m,
+      /^\s*source\s*=\s*"/m,
+      /^\s*version\s*=\s*"/m,
+      /\b(aws_|azurerm_|google_)\w+/,
+    ];
+    const tfCount = tfPatterns.filter((p) => p.test(head)).length;
+    if (tfCount >= 2) return "terraform";
+
+    // ARM template detection (JSON with deployment schema)
+    if (/deploymentTemplate/i.test(head) && /\$schema/i.test(head)) return "json";
+
+    // Jinja2 detection ({{ }}, {% %} patterns)
+    const jinjaExprCount = (head.match(/\{\{/g) || []).length;
+    const jinjaTagCount = (head.match(/\{%/g) || []).length;
+    if (jinjaExprCount + jinjaTagCount >= 2) return "jinja2";
   }
 
   return "javascript";

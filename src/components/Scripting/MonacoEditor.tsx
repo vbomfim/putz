@@ -16,12 +16,14 @@ import * as monacoEditor from "monaco-editor";
 import { registerCiscoIosLanguage, CISCO_IOS_LANGUAGE_ID } from "./languages/ciscoIos";
 import { registerCiscoCompletions } from "./languages/ciscoCompletions";
 import { registerPutzCompletions } from "./languages/putzCompletions";
+import { registerTerraformLanguage, TERRAFORM_LANGUAGE_ID } from "./languages/terraformHcl";
+import { registerJinja2Language, registerJinja2Completions, JINJA2_LANGUAGE_ID } from "./languages/jinja2";
 import { useThemeStore } from "../../stores/themeStore";
 
 // Use locally bundled Monaco instead of CDN (required for Tauri/offline)
 loader.config({ monaco: monacoEditor });
 
-export type EditorLanguage = "javascript" | "cisco-ios" | "python";
+export type EditorLanguage = "javascript" | "cisco-ios" | "python" | "terraform" | "json" | "yaml" | "jinja2";
 
 interface MonacoEditorProps {
   /** Current editor content. */
@@ -212,6 +214,9 @@ export function MonacoEditor({
         registerCiscoIosLanguage(monacoInstance);
         registerCiscoCompletions(monacoInstance);
         registerPutzCompletions(monacoInstance);
+        registerTerraformLanguage(monacoInstance);
+        registerJinja2Language(monacoInstance);
+        registerJinja2Completions(monacoInstance);
         languagesRegistered = true;
       }
 
@@ -258,7 +263,11 @@ export function MonacoEditor({
     [onChange],
   );
 
-  const monacoLanguage = language === "cisco-ios" ? CISCO_IOS_LANGUAGE_ID : language;
+  const monacoLanguage =
+    language === "cisco-ios" ? CISCO_IOS_LANGUAGE_ID :
+    language === "terraform" ? TERRAFORM_LANGUAGE_ID :
+    language === "jinja2" ? JINJA2_LANGUAGE_ID :
+    language; // js, python, json, yaml are built-in Monaco IDs
 
   return (
     <Editor
