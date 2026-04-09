@@ -36,10 +36,9 @@ async function spawnPtySession(): Promise<string> {
 }
 
 /** Closes a PTY session via Tauri IPC (fire-and-forget). */
-import { destroyTerminal } from "../components/Terminal/useTerminal";
+import { cleanupPortalTarget } from "../components/Region/RegionContainer";
 
 function closePtySession(sessionId: string): void {
-  destroyTerminal(sessionId);
   invoke("pty_close", { sessionId }).catch(() => {
     // Ignore — session may already be closed
   });
@@ -551,6 +550,7 @@ export const useLayoutStore = create<LayoutState>((set, get) => ({
     // Remove region from regions map
     const newRegions = { ...regions };
     delete newRegions[regionId];
+    cleanupPortalTarget(regionId);
 
     // Focus the first remaining region
     const newFocusedRegionId = findFirstRegionId(newLayout);
