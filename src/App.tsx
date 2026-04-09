@@ -32,7 +32,7 @@ import { SFTPPanel } from "./components/SFTP";
 import { PingDashboard } from "./components/Ping/PingDashboard";
 import { InterfaceStatus } from "./components/InterfaceStatus/InterfaceStatus";
 import { MacArpViewer } from "./components/MacArpViewer/MacArpViewer";
-import { ScriptEditor } from "./components/Scripting";
+
 import { ThemeEditor } from "./components/Terminal/ThemeEditor";
 import { FontConfig } from "./components/Terminal/FontConfig";
 import { WorkspaceBar } from "./components/Workspace";
@@ -48,6 +48,7 @@ function App() {
   const regions = useLayoutStore((s) => s.regions);
   const addTerminalTab = useLayoutStore((s) => s.addTerminalTab);
   const addBrowserTab = useLayoutStore((s) => s.addBrowserTab);
+  const addEditorTab = useLayoutStore((s) => s.addEditorTab);
   const workspaceBarVisible = useSettingsStore((s) => s.workspaceBarVisible);
   const toggleWorkspaceBar = useSettingsStore((s) => s.toggleWorkspaceBar);
   const hasInitialized = useRef(false);
@@ -62,7 +63,6 @@ function App() {
   const [fontConfigOpen, setFontConfigOpen] = useState(false);
   const [sftpOpen, setSftpOpen] = useState(false);
   const [pingOpen, setPingOpen] = useState(false);
-  const [scriptOpen, setScriptOpen] = useState(false);
   const [interfaceStatusOpen, setInterfaceStatusOpen] = useState(false);
   const [macArpOpen, setMacArpOpen] = useState(false);
   const [availableThemes, setAvailableThemes] = useState<Theme[]>([]);
@@ -100,14 +100,14 @@ function App() {
       onToggleHistory: () => setHistoryOpen((prev) => !prev),
       onToggleSftp: () => setSftpOpen((prev) => !prev),
       onTogglePing: () => setPingOpen((prev) => !prev),
-      onToggleScript: () => setScriptOpen((prev) => !prev),
+      onToggleScript: () => addEditorTab(),
       onToggleInterfaceStatus: () => setInterfaceStatusOpen((prev) => !prev),
       onToggleMacArp: () => setMacArpOpen((prev) => !prev),
       onNewBrowserTab: () => addBrowserTab(undefined, ""),
       onToggleWorkspaceBar: () => toggleWorkspaceBar(),
     });
     return () => setMenuEventCallbacks({});
-  }, [addBrowserTab, toggleWorkspaceBar]);
+  }, [addBrowserTab, addEditorTab, toggleWorkspaceBar]);
 
   // Create the first tab on mount only
   useEffect(() => {
@@ -426,13 +426,6 @@ function App() {
       {macArpOpen && (
         <div className="modal-overlay" onClick={(e) => { if (e.target === e.currentTarget) setMacArpOpen(false); }} role="dialog" aria-modal="true">
           <div className="modal-panel modal-panel--wide"><button className="modal-close" onClick={() => setMacArpOpen(false)}>✕</button><MacArpViewer /></div>
-        </div>
-      )}
-
-      {/* Script Editor */}
-      {scriptOpen && (
-        <div className="modal-overlay" onClick={(e) => { if (e.target === e.currentTarget) setScriptOpen(false); }} role="dialog" aria-modal="true">
-          <div className="modal-panel modal-panel--wide"><button className="modal-close" onClick={() => setScriptOpen(false)}>✕</button><ScriptEditor onSave={() => setScriptOpen(false)} onRun={() => {}} onStop={() => {}} onRecordStart={() => {}} onRecordStop={() => {}} /></div>
         </div>
       )}
     </main>

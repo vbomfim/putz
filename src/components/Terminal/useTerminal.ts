@@ -22,6 +22,7 @@ import {
 } from "./types";
 import { useThemeStore } from "../../stores/themeStore";
 import { useTabStore } from "../../stores/tabStore";
+import { useLayoutStore } from "../../stores/layoutStore";
 import { HighlightEngine } from "./HighlightEngine";
 import type { HighlightSet } from "./highlightTypes";
 import { broadcastWrite } from "../../utils/broadcastHelper";
@@ -183,6 +184,40 @@ export function useTerminal({
     } catch {
       // WebLinksAddon not critical — URLs just won't be clickable
     }
+
+    // File path link provider — Ctrl+click or double-click opens in editor tab
+    // Detects absolute paths and common config file patterns
+    terminal.registerLinkProvider({
+      provideLinks(bufferLineNumber, callback) {
+        const line = terminal.buffer.active.getLine(bufferLineNumber - 1);
+        if (!line) { callback(undefined); return; }
+        const text = line.translateToString();
+        const links: { startIndex: number; length: number; text: string }[] = [];
+
+        // Match absolute paths: /path/to/file.ext
+        const pathRegex = /(?:^|\s)(\/[\w./-]+\.\w{1,10})\b/g;
+        let match: RegExpExecArray | null;
+        while ((match = pathRegex.exec(text)) !== null) {
+          const path = match[1];
+          const startIndex = match.index + match[0].indexOf(path);
+          links.push({ startIndex, length: path.length, text: path });
+        }
+
+        if (links.length === 0) { callback(undefined); return; }
+        callback(links.map((l) => ({
+          range: {
+            start: { x: l.startIndex + 1, y: bufferLineNumber },
+            end: { x: l.startIndex + l.length + 1, y: bufferLineNumber },
+          },
+          text: l.text,
+          activate() {
+            // Open file in editor tab
+            const { addEditorTab } = useLayoutStore.getState();
+            addEditorTab(undefined, l.text);
+          },
+        })));
+      },
+    });
 
     // Open terminal in the DOM container
     terminal.open(container);

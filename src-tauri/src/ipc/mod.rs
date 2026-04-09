@@ -3,6 +3,7 @@ pub mod autologin;
 pub mod browser;
 pub mod compliance;
 pub mod connection;
+pub mod editor;
 pub mod forwarding;
 pub mod highlight;
 pub mod history;
@@ -65,3 +66,4 @@ pub use browser::{
     browser_close, browser_navigate, browser_open, browser_resize, browser_set_visible,
     browser_hide_all, log_debug,
 };
+pub use editor::{file_read, file_write};

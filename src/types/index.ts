@@ -8,7 +8,7 @@
 export type TabStatus = "connected" | "disconnected" | "connecting" | "local";
 
 /** Content type rendered inside a tab. */
-export type TabContentType = "terminal" | "browser";
+export type TabContentType = "terminal" | "browser" | "editor";
 
 /**
  * Recursive tree structure representing a pane layout within a tab.
@@ -56,7 +56,7 @@ export const BROWSER_SESSION_PREFIX = "browser-";
 
 // ─── Region-based Layout Types ───────────────────────────────────────
 
-/** A tab within a region — terminal or browser. */
+/** A tab within a region — terminal, browser, or editor. */
 export interface RegionTab {
   /** Unique tab identifier (UUID v4). */
   id: string;
@@ -64,13 +64,20 @@ export interface RegionTab {
   title: string;
   /** Content type for this tab. */
   type: TabContentType;
-  /** PTY session ID or browser session ID. */
+  /** PTY session ID, browser session ID, or editor instance ID. */
   sessionId: string;
   /** URL for browser tabs (only when type is "browser"). */
   browserUrl?: string;
+  /** File path for editor tabs (only when type is "editor"). */
+  editorFilePath?: string;
+  /** Script ID for editor tabs editing saved scripts. */
+  editorScriptId?: string;
   /** Connection status of the tab. */
   status: TabStatus;
 }
+
+/** Prefix for editor tab session IDs. */
+export const EDITOR_SESSION_PREFIX = "editor-";
 
 /** Position of the tab bar within a region. */
 export type TabPosition = "top" | "bottom" | "left" | "right";

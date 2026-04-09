@@ -17,6 +17,7 @@ import { create } from "zustand";
 import { invoke } from "@tauri-apps/api/core";
 import type { Region, RegionTab, LayoutNode, TabPosition } from "../types";
 import { BROWSER_SESSION_PREFIX } from "../types";
+import { EDITOR_SESSION_PREFIX } from "../types";
 import { TERMINAL_CONFIG } from "../components/Terminal";
 
 /** Maximum allowed length for tab titles. */
@@ -166,6 +167,9 @@ interface LayoutState {
 
   /** Adds a browser tab to a region (defaults to focused region). */
   addBrowserTab: (regionId?: string, url?: string) => void;
+
+  /** Adds an editor tab to a region (defaults to focused region). */
+  addEditorTab: (regionId?: string, filePath?: string, scriptId?: string) => void;
 
   /** Closes a tab in a region. If last tab, closes the region. */
   closeTab: (regionId: string, tabId: string) => void;
@@ -318,6 +322,65 @@ export const useLayoutStore = create<LayoutState>((set, get) => ({
       type: "browser",
       sessionId,
       browserUrl,
+      status: "local",
+    };
+
+    set((state) => ({
+      regions: {
+        ...state.regions,
+        [targetRegionId]: {
+          ...state.regions[targetRegionId],
+          tabs: [...state.regions[targetRegionId].tabs, tab],
+          activeTabId: tab.id,
+        },
+      },
+      tabCounter: nextCounter,
+    }));
+  },
+
+  addEditorTab: (regionId?: string, filePath?: string, scriptId?: string) => {
+    const targetRegionId = regionId || get().focusedRegionId;
+    const region = get().regions[targetRegionId];
+    if (!region) return;
+
+    // If a file is already open in an editor tab, activate it instead
+    if (filePath) {
+      const existing = region.tabs.find(
+        (t) => t.type === "editor" && t.editorFilePath === filePath,
+      );
+      if (existing) {
+        set((state) => ({
+          regions: {
+            ...state.regions,
+            [targetRegionId]: {
+              ...state.regions[targetRegionId],
+              activeTabId: existing.id,
+            },
+          },
+        }));
+        return;
+      }
+    }
+
+    const sessionId = `${EDITOR_SESSION_PREFIX}${generateId()}`;
+    const nextCounter = get().tabCounter + 1;
+
+    // Derive title from file path or script
+    let title = "Untitled";
+    if (filePath) {
+      const parts = filePath.split("/");
+      title = parts[parts.length - 1] || filePath;
+    } else if (scriptId) {
+      title = "Script";
+    }
+
+    const tab: RegionTab = {
+      id: generateId(),
+      title,
+      type: "editor",
+      sessionId,
+      editorFilePath: filePath,
+      editorScriptId: scriptId,
       status: "local",
     };
 

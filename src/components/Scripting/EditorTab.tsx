@@ -1,0 +1,197 @@
+/**
+ * EditorTab — Monaco editor rendered as a region tab.
+ *
+ * Handles loading file content, saving, language detection,
+ * and integrating with the script system.
+ *
+ * @module EditorTab
+ */
+import { useState, useCallback, useEffect, useRef } from "react";
+import { MonacoEditor, type EditorLanguage } from "./MonacoEditor";
+import { fileRead, fileWrite, detectLanguage } from "./editorApi";
+import { scriptGet, scriptSave } from "./scriptApi";
+import type { SaveScriptInput } from "./types";
+import { DEFAULT_SCRIPT_CONTENT } from "./types";
+import { useLayoutStore } from "../../stores/layoutStore";
+import "./Scripting.css";
+
+interface EditorTabProps {
+  /** File path to open (optional). */
+  filePath?: string;
+  /** Script ID to load (optional). */
+  scriptId?: string;
+  /** Region and tab IDs for renaming the tab on file load. */
+  regionId: string;
+  tabId: string;
+}
+
+/**
+ * A full editor tab with Monaco, file I/O, and status bar.
+ * Opens as a tab in a region — not a modal.
+ */
+export function EditorTab({ filePath, scriptId, regionId, tabId }: EditorTabProps) {
+  const [content, setContent] = useState("");
+  const [language, setLanguage] = useState<EditorLanguage>("javascript");
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
+  const [isDirty, setIsDirty] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [statusMessage, setStatusMessage] = useState("");
+  const savedContentRef = useRef("");
+  const renameTab = useLayoutStore((s) => s.renameTab);
+
+  // Load file or script content on mount
+  useEffect(() => {
+    let cancelled = false;
+
+    const load = async () => {
+      setIsLoading(true);
+      setError(null);
+
+      try {
+        if (filePath) {
+          const text = await fileRead(filePath);
+          if (cancelled) return;
+          setContent(text);
+          savedContentRef.current = text;
+          setLanguage(detectLanguage(filePath));
+          setStatusMessage(`Opened ${filePath}`);
+        } else if (scriptId) {
+          const script = await scriptGet(scriptId);
+          if (cancelled) return;
+          setContent(script.content);
+          savedContentRef.current = script.content;
+          setLanguage("javascript");
+          renameTab(regionId, tabId, script.meta.name);
+          setStatusMessage(`Loaded script: ${script.meta.name}`);
+        } else {
+          // New empty file
+          setContent(DEFAULT_SCRIPT_CONTENT);
+          savedContentRef.current = DEFAULT_SCRIPT_CONTENT;
+          setLanguage("javascript");
+          setStatusMessage("New file");
+        }
+      } catch (err: unknown) {
+        if (cancelled) return;
+        const msg = err instanceof Error ? err.message : String(err);
+        setError(msg);
+        setStatusMessage(`Error: ${msg}`);
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+
+    load();
+    return () => { cancelled = true; };
+  }, [filePath, scriptId, regionId, tabId, renameTab]);
+
+  const handleChange = useCallback((value: string) => {
+    setContent(value);
+    setIsDirty(value !== savedContentRef.current);
+  }, []);
+
+  const handleSave = useCallback(async () => {
+    setIsSaving(true);
+    setError(null);
+    try {
+      if (filePath) {
+        await fileWrite(filePath, content);
+        savedContentRef.current = content;
+        setIsDirty(false);
+        setStatusMessage(`Saved ${filePath}`);
+      } else if (scriptId) {
+        const script = await scriptGet(scriptId);
+        const input: SaveScriptInput = {
+          id: scriptId,
+          name: script.meta.name,
+          content,
+        };
+        await scriptSave(input);
+        savedContentRef.current = content;
+        setIsDirty(false);
+        setStatusMessage(`Saved script: ${script.meta.name}`);
+      } else {
+        setStatusMessage("No file path — use Save As");
+      }
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      setError(msg);
+      setStatusMessage(`Save failed: ${msg}`);
+    } finally {
+      setIsSaving(false);
+    }
+  }, [filePath, scriptId, content]);
+
+  if (isLoading) {
+    return (
+      <div className="editor-tab" data-testid="editor-tab">
+        <div className="editor-tab__loading">Loading…</div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="editor-tab" data-testid="editor-tab">
+      {/* Toolbar */}
+      <div className="editor-tab__toolbar">
+        <div className="editor-tab__toolbar-left">
+          <span className="editor-tab__filepath" title={filePath || "Untitled"}>
+            {filePath ? filePath.split("/").pop() : scriptId ? "Script" : "Untitled"}
+            {isDirty && " •"}
+          </span>
+        </div>
+        <div className="editor-tab__toolbar-right">
+          <div className="script-editor__language-toggle">
+            <button
+              type="button"
+              className={`script-editor__lang-btn ${language === "javascript" ? "script-editor__lang-btn--active" : ""}`}
+              onClick={() => setLanguage("javascript")}
+              title="JavaScript"
+            >
+              JS
+            </button>
+            <button
+              type="button"
+              className={`script-editor__lang-btn ${language === "cisco-ios" ? "script-editor__lang-btn--active" : ""}`}
+              onClick={() => setLanguage("cisco-ios")}
+              title="Cisco IOS"
+            >
+              IOS
+            </button>
+          </div>
+          <button
+            type="button"
+            className="editor-tab__save-btn"
+            onClick={handleSave}
+            disabled={isSaving || !isDirty}
+            title="Save (Ctrl+S)"
+          >
+            {isSaving ? "Saving…" : "Save"}
+          </button>
+        </div>
+      </div>
+
+      {/* Error bar */}
+      {error && (
+        <div className="editor-tab__error">{error}</div>
+      )}
+
+      {/* Monaco Editor */}
+      <div className="editor-tab__editor">
+        <MonacoEditor
+          value={content}
+          onChange={handleChange}
+          language={language}
+          readOnly={isSaving}
+          onSave={handleSave}
+        />
+      </div>
+
+      {/* Status bar */}
+      <div className="editor-tab__status">
+        <span>{statusMessage}</span>
+        <span>{language === "cisco-ios" ? "Cisco IOS" : "JavaScript"}</span>
+      </div>
+    </div>
+  );
+}
