@@ -20,7 +20,7 @@ export async function fileWrite(path: string, content: string): Promise<void> {
 }
 
 /** Detect editor language from file extension. */
-export function detectLanguage(filePath: string): EditorLanguage {
+export function detectLanguage(filePath: string, content?: string): EditorLanguage {
   const ext = filePath.split(".").pop()?.toLowerCase() || "";
   switch (ext) {
     case "ios":
@@ -29,7 +29,40 @@ export function detectLanguage(filePath: string): EditorLanguage {
     case "config":
     case "acl":
       return "cisco-ios";
-    default:
+    case "js":
+    case "ts":
+    case "mjs":
       return "javascript";
+    default:
+      break;
   }
+
+  // Content-based detection: check first 20 lines for Cisco IOS patterns
+  if (content) {
+    const head = content.slice(0, 2000);
+    const iosPatterns = [
+      /^!/m,
+      /^hostname\s/m,
+      /^interface\s/m,
+      /^router\s/m,
+      /^ip route\s/m,
+      /^access-list\s/m,
+      /^snmp-server\s/m,
+      /^line\s+(con|vty|aux)\s/m,
+      /show running-config/i,
+      /Building configuration/i,
+      /^version\s+\d/m,
+      /^boot system/m,
+      /^vlan\s+\d/m,
+      /^spanning-tree\s/m,
+      /^crypto\s/m,
+      /^ntp\s/m,
+      /^logging\s/m,
+      /^enable\s/m,
+    ];
+    const matchCount = iosPatterns.filter((p) => p.test(head)).length;
+    if (matchCount >= 2) return "cisco-ios";
+  }
+
+  return "javascript";
 }

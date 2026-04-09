@@ -54,7 +54,7 @@ export function EditorTab({ filePath, scriptId, regionId, tabId }: EditorTabProp
           if (cancelled) return;
           setContent(text);
           savedContentRef.current = text;
-          setLanguage(detectLanguage(filePath));
+          setLanguage(detectLanguage(filePath, text));
           setStatusMessage(`Opened ${filePath}`);
         } else if (scriptId) {
           const script = await scriptGet(scriptId);
