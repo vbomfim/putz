@@ -183,6 +183,20 @@ export function MonacoEditor({
     return unsubscribe;
   }, [applyTheme]);
 
+  // Listen for putz-find event (from Cmd+F menu) — open Monaco find if focused
+  useEffect(() => {
+    const handlePutzFind = () => {
+      const editor = editorRef.current;
+      if (!editor) return;
+      // Only trigger if this editor has DOM focus
+      if (editor.hasTextFocus() || editor.getDomNode()?.contains(document.activeElement)) {
+        editor.getAction("actions.find")?.run();
+      }
+    };
+    window.addEventListener("putz-find", handlePutzFind);
+    return () => window.removeEventListener("putz-find", handlePutzFind);
+  }, []);
+
   const handleMount: OnMount = useCallback(
     (editor, monacoInstance) => {
       editorRef.current = editor;

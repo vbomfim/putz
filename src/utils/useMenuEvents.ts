@@ -94,7 +94,8 @@ export function useMenuEvents(): void {
 
         // ─── Edit ──────────────────────────────────────────
         case "menu-find":
-          
+          // Dispatch to whatever is active — terminal search or Monaco find
+          window.dispatchEvent(new CustomEvent("putz-find"));
           break;
 
         // ─── View ──────────────────────────────────────────

@@ -699,6 +699,37 @@
   cursor: pointer;
 }
 
+.editor-tab__compare-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 8px;
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--hover-bg);
+}
+
+.editor-tab__compare-label {
+  font-size: 11px;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+.editor-tab__compare-input {
+  flex: 1;
+  padding: 3px 8px;
+  border: 1px solid var(--hover-bg);
+  border-radius: 4px;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-size: 12px;
+  font-family: "JetBrains Mono", "Cascadia Code", monospace;
+  outline: none;
+}
+
+.editor-tab__compare-input:focus {
+  border-color: var(--accent);
+}
+
 .editor-tab__error {
   padding: 4px 8px;
   background: #f38ba822;

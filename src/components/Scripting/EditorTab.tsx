@@ -51,6 +51,25 @@ export function EditorTab({ filePath, scriptId, regionId, tabId }: EditorTabProp
     editorInstanceRef.current?.getAction("editor.action.startFindReplaceAction")?.run();
   }, []);
 
+  const [showCompareInput, setShowCompareInput] = useState(false);
+  const [comparePath, setComparePath] = useState("");
+  const addDiffTab = useLayoutStore((s) => s.addDiffTab);
+
+  const handleCompare = useCallback(() => {
+    if (!comparePath.trim()) return;
+    let resolvedPath = comparePath.trim();
+
+    // If relative, resolve against current file's directory
+    if (!resolvedPath.startsWith("/") && filePath) {
+      const dir = filePath.substring(0, filePath.lastIndexOf("/"));
+      resolvedPath = `${dir}/${resolvedPath}`;
+    }
+
+    addDiffTab(undefined, filePath, resolvedPath);
+    setShowCompareInput(false);
+    setComparePath("");
+  }, [comparePath, filePath, addDiffTab]);
+
   // Load file or script content on mount
   useEffect(() => {
     let cancelled = false;
@@ -212,6 +231,16 @@ export function EditorTab({ filePath, scriptId, regionId, tabId }: EditorTabProp
           >
             ↔
           </button>
+          {filePath && (
+            <button
+              type="button"
+              className="editor-tab__tool-btn"
+              onClick={() => setShowCompareInput((prev) => !prev)}
+              title="Compare with another file"
+            >
+              ⇔
+            </button>
+          )}
           <div className="script-editor__language-toggle">
             <button
               type="button"
@@ -241,6 +270,33 @@ export function EditorTab({ filePath, scriptId, regionId, tabId }: EditorTabProp
           </button>
         </div>
       </div>
+
+      {/* Compare input bar */}
+      {showCompareInput && (
+        <div className="editor-tab__compare-bar">
+          <span className="editor-tab__compare-label">Compare with:</span>
+          <input
+            className="editor-tab__compare-input"
+            type="text"
+            value={comparePath}
+            onChange={(e) => setComparePath(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") handleCompare();
+              if (e.key === "Escape") { setShowCompareInput(false); setComparePath(""); }
+            }}
+            placeholder="path/to/other-file.cfg"
+            autoFocus
+          />
+          <button
+            type="button"
+            className="editor-tab__save-btn"
+            onClick={handleCompare}
+            disabled={!comparePath.trim()}
+          >
+            Compare
+          </button>
+        </div>
+      )}
 
       {/* Error bar */}
       {error && (
