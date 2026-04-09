@@ -379,9 +379,9 @@ export function useTerminal({
     });
 
     // Bridge: terminal binary data → PTY write
-    terminal.onBinary((data: string) => {
+    terminal.onBinary((binaryData: string) => {
       if (disposed) return;
-      const bytes = Array.from(data, (char) => char.charCodeAt(0));
+      const bytes = Array.from(binaryData, (char) => char.charCodeAt(0));
       invoke("pty_write", { sessionId, data: bytes }).catch(() => {
         // pty_write binary failure — input dropped silently
       });
