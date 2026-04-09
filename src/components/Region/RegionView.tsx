@@ -80,7 +80,7 @@ export function RegionView({ region, isFocused }: RegionViewProps) {
           const isTabActive = tab.id === region.activeTabId;
           if (tab.type === "browser") {
             return (
-              <div key={tab.id} style={{ display: isTabActive ? "flex" : "none", flex: 1, flexDirection: "column" }}>
+              <div key={tab.id} style={{ display: isTabActive ? "flex" : "none", flex: 1, flexDirection: "column", minHeight: 0, overflow: "hidden" }}>
                 <BrowserView
                   browserId={tab.sessionId}
                   initialUrl={tab.browserUrl || ""}
@@ -92,7 +92,7 @@ export function RegionView({ region, isFocused }: RegionViewProps) {
             );
           }
           return (
-            <div key={tab.id} style={{ display: isTabActive ? "flex" : "none", flex: 1, flexDirection: "column" }}>
+            <div key={tab.id} style={{ display: isTabActive ? "flex" : "none", flex: 1, flexDirection: "column", minHeight: 0, overflow: "hidden" }}>
               <TerminalView
                 sessionId={tab.sessionId}
                 onTitleChange={handleTitleChange}
