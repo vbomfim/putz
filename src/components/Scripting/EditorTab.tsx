@@ -30,7 +30,7 @@ interface EditorTabProps {
  * A full editor tab with Monaco, file I/O, and status bar.
  * Opens as a tab in a region — not a modal.
  */
-export function EditorTab({ filePath, scriptId, regionId, tabId }: EditorTabProps) {
+export function EditorTab({ filePath: initialFilePath, scriptId, regionId, tabId }: EditorTabProps) {
   const [content, setContent] = useState("");
   const [language, setLanguage] = useState<EditorLanguage>("javascript");
   const [isLoading, setIsLoading] = useState(true);
@@ -38,6 +38,9 @@ export function EditorTab({ filePath, scriptId, regionId, tabId }: EditorTabProp
   const [isDirty, setIsDirty] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [statusMessage, setStatusMessage] = useState("");
+  const [currentPath, setCurrentPath] = useState(initialFilePath || "");
+  const [showSaveAs, setShowSaveAs] = useState(false);
+  const [saveAsPath, setSaveAsPath] = useState("");
   const savedContentRef = useRef("");
   const lastMtimeRef = useRef<number>(0);
   const editorInstanceRef = useRef<monaco.editor.IStandaloneCodeEditor | null>(null);
@@ -60,15 +63,15 @@ export function EditorTab({ filePath, scriptId, regionId, tabId }: EditorTabProp
     let resolvedPath = comparePath.trim();
 
     // If relative, resolve against current file's directory
-    if (!resolvedPath.startsWith("/") && filePath) {
-      const dir = filePath.substring(0, filePath.lastIndexOf("/"));
+    if (!resolvedPath.startsWith("/") && currentPath) {
+      const dir = currentPath.substring(0, currentPath.lastIndexOf("/"));
       resolvedPath = `${dir}/${resolvedPath}`;
     }
 
-    addDiffTab(undefined, filePath, resolvedPath);
+    addDiffTab(undefined, currentPath, resolvedPath);
     setShowCompareInput(false);
     setComparePath("");
-  }, [comparePath, filePath, addDiffTab]);
+  }, [comparePath, currentPath, addDiffTab]);
 
   // Load file or script content on mount
   useEffect(() => {
@@ -79,17 +82,16 @@ export function EditorTab({ filePath, scriptId, regionId, tabId }: EditorTabProp
       setError(null);
 
       try {
-        if (filePath) {
-          const text = await fileRead(filePath);
+        if (initialFilePath) {
+          const text = await fileRead(initialFilePath);
           if (cancelled) return;
           setContent(text);
           savedContentRef.current = text;
-          setLanguage(detectLanguage(filePath, text));
-          // Store initial mtime for change detection
+          setLanguage(detectLanguage(initialFilePath, text));
           try {
-            lastMtimeRef.current = await fileMtime(filePath);
-          } catch { /* ignore — polling will handle it */ }
-          setStatusMessage(`Opened ${filePath}`);
+            lastMtimeRef.current = await fileMtime(initialFilePath);
+          } catch { /* ignore */ }
+          setStatusMessage(`Opened ${initialFilePath}`);
         } else if (scriptId) {
           const script = await scriptGet(scriptId);
           if (cancelled) return;
@@ -117,24 +119,22 @@ export function EditorTab({ filePath, scriptId, regionId, tabId }: EditorTabProp
 
     load();
     return () => { cancelled = true; };
-  }, [filePath, scriptId, regionId, tabId, renameTab]);
+  }, [initialFilePath, scriptId, regionId, tabId, renameTab]);
 
   // Poll file mtime every 2s — reload if changed externally
   useEffect(() => {
-    if (!filePath) return;
+    if (!currentPath) return;
 
     const interval = setInterval(async () => {
       try {
-        const mtime = await fileMtime(filePath);
+        const mtime = await fileMtime(currentPath);
         if (mtime > lastMtimeRef.current && lastMtimeRef.current > 0) {
-          // File changed on disk
           if (isDirty) {
-            // User has unsaved changes — just notify
             setStatusMessage("⚠ File changed on disk (unsaved changes)");
             lastMtimeRef.current = mtime;
             return;
           }
-          const text = await fileRead(filePath);
+          const text = await fileRead(currentPath);
           setContent(text);
           savedContentRef.current = text;
           lastMtimeRef.current = mtime;
@@ -146,7 +146,7 @@ export function EditorTab({ filePath, scriptId, regionId, tabId }: EditorTabProp
     }, 2000);
 
     return () => clearInterval(interval);
-  }, [filePath, isDirty]);
+  }, [currentPath, isDirty]);
 
   const handleChange = useCallback((value: string) => {
     setContent(value);
@@ -154,16 +154,20 @@ export function EditorTab({ filePath, scriptId, regionId, tabId }: EditorTabProp
   }, []);
 
   const handleSave = useCallback(async () => {
+    if (!currentPath && !scriptId) {
+      // No path — show Save As
+      setShowSaveAs(true);
+      return;
+    }
     setIsSaving(true);
     setError(null);
     try {
-      if (filePath) {
-        await fileWrite(filePath, content);
+      if (currentPath) {
+        await fileWrite(currentPath, content);
         savedContentRef.current = content;
         setIsDirty(false);
-        // Update mtime so the watcher doesn't trigger a reload
-        try { lastMtimeRef.current = await fileMtime(filePath); } catch { /* ignore */ }
-        setStatusMessage(`Saved ${filePath}`);
+        try { lastMtimeRef.current = await fileMtime(currentPath); } catch { /* ignore */ }
+        setStatusMessage(`Saved ${currentPath}`);
       } else if (scriptId) {
         const script = await scriptGet(scriptId);
         const input: SaveScriptInput = {
@@ -175,8 +179,6 @@ export function EditorTab({ filePath, scriptId, regionId, tabId }: EditorTabProp
         savedContentRef.current = content;
         setIsDirty(false);
         setStatusMessage(`Saved script: ${script.meta.name}`);
-      } else {
-        setStatusMessage("No file path — use Save As");
       }
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
@@ -185,16 +187,41 @@ export function EditorTab({ filePath, scriptId, regionId, tabId }: EditorTabProp
     } finally {
       setIsSaving(false);
     }
-  }, [filePath, scriptId, content]);
+  }, [currentPath, scriptId, content]);
+
+  const handleSaveAs = useCallback(async () => {
+    const path = saveAsPath.trim();
+    if (!path) return;
+
+    setIsSaving(true);
+    setError(null);
+    try {
+      await fileWrite(path, content);
+      savedContentRef.current = content;
+      setCurrentPath(path);
+      setIsDirty(false);
+      setShowSaveAs(false);
+      setSaveAsPath("");
+      setLanguage(detectLanguage(path, content));
+      renameTab(regionId, tabId, path.split("/").pop() || path);
+      try { lastMtimeRef.current = await fileMtime(path); } catch { /* ignore */ }
+      setStatusMessage(`Saved as ${path}`);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      setError(msg);
+    } finally {
+      setIsSaving(false);
+    }
+  }, [saveAsPath, content, regionId, tabId, renameTab]);
 
   // Auto-save: 2 seconds after the user stops typing (only for files with a path)
   useEffect(() => {
-    if (!isDirty || (!filePath && !scriptId)) return;
+    if (!isDirty || (!currentPath && !scriptId)) return;
     const timer = setTimeout(() => {
       handleSave();
     }, 2000);
     return () => clearTimeout(timer);
-  }, [isDirty, content, filePath, scriptId, handleSave]);
+  }, [isDirty, content, currentPath, scriptId, handleSave]);
 
   if (isLoading) {
     return (
@@ -209,8 +236,8 @@ export function EditorTab({ filePath, scriptId, regionId, tabId }: EditorTabProp
       {/* Toolbar */}
       <div className="editor-tab__toolbar">
         <div className="editor-tab__toolbar-left">
-          <span className="editor-tab__filepath" title={filePath || "Untitled"}>
-            {filePath ? filePath.split("/").pop() : scriptId ? "Script" : "Untitled"}
+          <span className="editor-tab__filepath" title={currentPath || "Untitled"}>
+            {currentPath ? currentPath.split("/").pop() : scriptId ? "Script" : "Untitled"}
             {isDirty && " •"}
           </span>
         </div>
@@ -231,7 +258,7 @@ export function EditorTab({ filePath, scriptId, regionId, tabId }: EditorTabProp
           >
             ⌥
           </button>
-          {filePath && (
+          {currentPath && (
             <button
               type="button"
               className="editor-tab__tool-btn"
@@ -264,12 +291,12 @@ export function EditorTab({ filePath, scriptId, regionId, tabId }: EditorTabProp
           </div>
           <button
             type="button"
-            className={`editor-tab__save-btn ${isDirty ? "editor-tab__save-btn--dirty" : ""}`}
+            className={`editor-tab__save-btn ${(isDirty || !currentPath) ? "editor-tab__save-btn--dirty" : ""}`}
             onClick={handleSave}
-            disabled={isSaving || !isDirty}
-            title="Save (⌘S) — auto-saves after 2s"
+            disabled={isSaving || (!isDirty && !!currentPath)}
+            title={currentPath ? "Save (⌘S) — auto-saves after 2s" : "Save As (⌘S)"}
           >
-            {isSaving ? "Saving…" : isDirty ? "● Save" : "✓ Saved"}
+            {isSaving ? "Saving…" : !currentPath ? "Save As…" : isDirty ? "● Save" : "✓ Saved"}
           </button>
         </div>
       </div>
@@ -297,6 +324,33 @@ export function EditorTab({ filePath, scriptId, regionId, tabId }: EditorTabProp
             disabled={!comparePath.trim()}
           >
             Compare
+          </button>
+        </div>
+      )}
+
+      {/* Save As bar */}
+      {showSaveAs && (
+        <div className="editor-tab__compare-bar">
+          <span className="editor-tab__compare-label">Save as:</span>
+          <input
+            className="editor-tab__compare-input"
+            type="text"
+            value={saveAsPath}
+            onChange={(e) => setSaveAsPath(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") handleSaveAs();
+              if (e.key === "Escape") { setShowSaveAs(false); setSaveAsPath(""); }
+            }}
+            placeholder="/full/path/to/filename.cfg"
+            autoFocus
+          />
+          <button
+            type="button"
+            className="editor-tab__save-btn"
+            onClick={handleSaveAs}
+            disabled={!saveAsPath.trim()}
+          >
+            Save
           </button>
         </div>
       )}
