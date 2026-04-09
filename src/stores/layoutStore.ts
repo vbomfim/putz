@@ -16,8 +16,9 @@
 import { create } from "zustand";
 import { invoke } from "@tauri-apps/api/core";
 import type { Region, RegionTab, LayoutNode, TabPosition } from "../types";
-import { BROWSER_SESSION_PREFIX, EDITOR_SESSION_PREFIX } from "../types";
-
+import { BROWSER_SESSION_PREFIX } from "../types";
+import { EDITOR_SESSION_PREFIX } from "../types";
+import { TERMINAL_CONFIG } from "../components/Terminal";
 
 /** Maximum allowed length for tab titles. */
 export const MAX_TITLE_LENGTH = 100;
@@ -27,12 +28,12 @@ function generateId(): string {
   return crypto.randomUUID();
 }
 
-/** Prefix for terminal tabs that haven't spawned their PTY yet. */
-const PENDING_PTY_PREFIX = "pending-pty-";
-
-/** Spawns a new PTY session via Tauri IPC with the given dimensions. */
-export async function spawnPtyWithSize(cols: number, rows: number): Promise<string> {
-  return invoke<string>("pty_spawn", { cols, rows });
+/** Spawns a new PTY session via Tauri IPC. */
+async function spawnPtySession(): Promise<string> {
+  return invoke<string>("pty_spawn", {
+    cols: TERMINAL_CONFIG.defaultCols,
+    rows: TERMINAL_CONFIG.defaultRows,
+  });
 }
 
 /** Closes a PTY session via Tauri IPC (fire-and-forget). */
@@ -185,9 +186,6 @@ interface LayoutState {
   /** Updates the browserUrl on a browser tab (persists across remounts). */
   updateTabBrowserUrl: (regionId: string, tabId: string, url: string) => void;
 
-  /** Updates a tab's sessionId (used when PTY spawns after mount). */
-  updateTabSessionId: (tabId: string, sessionId: string) => void;
-
   /** Moves a tab from one region to another (or reorders within the same region). */
   moveTab: (fromRegionId: string, tabId: string, toRegionId: string, insertIndex?: number) => void;
 
@@ -266,16 +264,22 @@ export const useLayoutStore = create<LayoutState>((set, get) => ({
     const region = get().regions[targetRegionId];
     if (!region) return;
 
-    // Create tab with a pending sessionId — PTY will be spawned by
-    // useTerminal after fitAddon computes the actual terminal dimensions.
-    // This prevents readline/COLUMNS mismatch from wrong initial size.
-    const pendingSessionId = `${PENDING_PTY_PREFIX}${generateId()}`;
+    let sessionId: string;
+    try {
+      sessionId = await spawnPtySession();
+    } catch (err: unknown) {
+      const message =
+        err instanceof Error ? err.message : "Unknown PTY spawn error";
+      console.error("[layoutStore] Failed to spawn PTY session:", message);
+      return;
+    }
+
     const nextCounter = get().tabCounter + 1;
     const tab: RegionTab = {
       id: generateId(),
       title: `Terminal ${nextCounter}`,
       type: "terminal",
-      sessionId: pendingSessionId,
+      sessionId,
       status: "local",
     };
 
@@ -290,6 +294,15 @@ export const useLayoutStore = create<LayoutState>((set, get) => ({
       },
       tabCounter: nextCounter,
     }));
+
+    // Auto-focus the new terminal
+    setTimeout(() => {
+      if (typeof document === "undefined") return;
+      const el = document.querySelector(
+        `[data-session-id="${sessionId}"] .xterm-helper-textarea`,
+      ) as HTMLElement;
+      el?.focus();
+    }, 100);
   },
 
   addBrowserTab: (regionId?: string, url?: string) => {
@@ -548,25 +561,6 @@ export const useLayoutStore = create<LayoutState>((set, get) => ({
     });
   },
 
-  updateTabSessionId: (oldSessionId: string, newSessionId: string) => {
-    set((state) => {
-      const newRegions = { ...state.regions };
-      for (const [regionId, region] of Object.entries(newRegions)) {
-        const tabIdx = region.tabs.findIndex((t) => t.sessionId === oldSessionId);
-        if (tabIdx !== -1) {
-          newRegions[regionId] = {
-            ...region,
-            tabs: region.tabs.map((t) =>
-              t.sessionId === oldSessionId ? { ...t, sessionId: newSessionId } : t,
-            ),
-          };
-          break;
-        }
-      }
-      return { regions: newRegions };
-    });
-  },
-
   moveTab: (fromRegionId: string, tabId: string, toRegionId: string, insertIndex?: number) => {
     set((state) => {
       const fromRegion = state.regions[fromRegionId];
@@ -640,15 +634,24 @@ export const useLayoutStore = create<LayoutState>((set, get) => ({
     const currentRegion = regions[focusedRegionId];
     if (!currentRegion || currentRegion.tabs.length === 0) return;
 
-    // Create new region with pending PTY — will be spawned by useTerminal
-    const pendingSessionId = `${PENDING_PTY_PREFIX}${generateId()}`;
+    // Spawn a new PTY for the new region
+    let sessionId: string;
+    try {
+      sessionId = await spawnPtySession();
+    } catch (err: unknown) {
+      const message =
+        err instanceof Error ? err.message : "Unknown PTY spawn error";
+      console.error("[layoutStore] Failed to spawn PTY for split:", message);
+      return;
+    }
+
     const nextCounter = get().tabCounter + 1;
     const newRegionId = generateId();
     const newTab: RegionTab = {
       id: generateId(),
       title: `Terminal ${nextCounter}`,
       type: "terminal",
-      sessionId: pendingSessionId,
+      sessionId,
       status: "local",
     };
 
@@ -671,7 +674,11 @@ export const useLayoutStore = create<LayoutState>((set, get) => ({
     };
 
     const newLayout = replaceRegionNode(layout, focusedRegionId, splitNode);
-    if (!newLayout) return;
+    if (!newLayout) {
+      // Should not happen, but close the spawned session
+      closePtySession(sessionId);
+      return;
+    }
 
     set((state) => ({
       layout: newLayout,
@@ -682,6 +689,14 @@ export const useLayoutStore = create<LayoutState>((set, get) => ({
       focusedRegionId: newRegionId,
       tabCounter: nextCounter,
     }));
+
+    // Auto-focus the new terminal
+    setTimeout(() => {
+      const el = document.querySelector(
+        `[data-session-id="${sessionId}"] .xterm-helper-textarea`,
+      ) as HTMLElement;
+      el?.focus();
+    }, 200);
   },
 
   closeRegion: (regionId: string) => {

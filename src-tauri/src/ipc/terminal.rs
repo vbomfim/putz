@@ -32,7 +32,6 @@ pub fn pty_spawn(
     rows: u16,
     env: Option<HashMap<String, String>>,
 ) -> Result<String, String> {
-    eprintln!("[pty_spawn] cols={} rows={}", cols, rows);
     state
         .spawn(&app, shell, cwd, cols, rows, env, log_state.get_loggers())
         .map_err(|e| e.to_string())
@@ -45,7 +44,6 @@ pub fn pty_write(
     session_id: String,
     data: Vec<u8>,
 ) -> Result<(), String> {
-    eprintln!("[pty_write] session={} len={}", &session_id[..8], data.len());
     state.write(&session_id, &data).map_err(|e| e.to_string())
 }
 
@@ -60,7 +58,6 @@ pub fn pty_resize(
     cols: u16,
     rows: u16,
 ) -> Result<(), String> {
-    eprintln!("[pty_resize] session={} cols={} rows={}", &session_id[..8], cols, rows);
     state
         .resize(&session_id, cols, rows)
         .map_err(|e| e.to_string())

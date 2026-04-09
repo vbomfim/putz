@@ -22,7 +22,7 @@ import {
 } from "./types";
 import { useThemeStore } from "../../stores/themeStore";
 import { useTabStore } from "../../stores/tabStore";
-import { useLayoutStore, spawnPtyWithSize } from "../../stores/layoutStore";
+import { useLayoutStore } from "../../stores/layoutStore";
 import { HighlightEngine } from "./HighlightEngine";
 import type { HighlightSet } from "./highlightTypes";
 import { broadcastWrite } from "../../utils/broadcastHelper";
@@ -140,11 +140,9 @@ export function useTerminal({
   useEffect(() => {
     if (!terminalRef.current || !sessionId) return;
 
-    const isPendingPty = sessionId.startsWith("pending-pty-");
     const container = terminalRef.current;
     const unlisteners: UnlistenFn[] = [];
     let disposed = false;
-    let activeSessionId = isPendingPty ? "" : sessionId;
 
     // Read initial font/theme from themeStore
     const themeState = useThemeStore.getState();
@@ -269,7 +267,7 @@ export function useTerminal({
     let lastCols = 0;
     let lastRows = 0;
     const safeFit = () => {
-      if (disposed || !activeSessionId) return;
+      if (disposed) return;
       const el = terminalRef.current;
       if (!el || el.clientWidth === 0 || el.clientHeight === 0) return;
       try {
@@ -278,80 +276,23 @@ export function useTerminal({
         if (cols > 0 && rows > 0 && (cols !== lastCols || rows !== lastRows)) {
           lastCols = cols;
           lastRows = rows;
-          invoke("pty_resize", { sessionId: activeSessionId, cols, rows }).catch(() => {});
+          invoke("pty_resize", { sessionId, cols, rows }).catch(() => {});
         }
       } catch {
         // Container may not be visible yet
       }
     };
 
-    // Initial fit to get exact dimensions
-    fitAddon.fit();
-    const spawnCols = terminal.cols;
-    const spawnRows = terminal.rows;
+    // Initial fit to container
+    safeFit();
 
-    // If pending PTY, spawn with exact dimensions now
-    const spawnAndSetup = async () => {
-      if (isPendingPty) {
-        try {
-          const newSessionId = await spawnPtyWithSize(spawnCols, spawnRows);
-          if (disposed) return;
-          activeSessionId = newSessionId;
-          // Update the tab's sessionId in the store
-          useLayoutStore.getState().updateTabSessionId(sessionId, newSessionId);
-        } catch (err: unknown) {
-          if (disposed) return;
-          setError(`Failed to spawn PTY: ${String(err)}`);
-          return;
-        }
-      }
-
-      lastCols = spawnCols;
-      lastRows = spawnRows;
-
-      // Set up Tauri event listeners
-      const unlistenOutput = await listen<string>(
-        `pty-output-${activeSessionId}`,
-        (event) => {
-          if (disposed) return;
-          const binary = atob(event.payload);
-          const bytes = Uint8Array.from(binary, (ch) => ch.charCodeAt(0));
-          terminal.write(bytes);
-        },
-      );
-      unlisteners.push(unlistenOutput);
-
-      const unlistenExit = await listen<PtyExitPayload>(
-        `pty-exit-${activeSessionId}`,
-        (event) => {
-          if (disposed) return;
-          const code = event.payload.code;
-          setHasExited(true);
-          setExitCode(code);
-          terminal.write(
-            `\r\n\x1b[90m[Process exited with code ${code}]\x1b[0m\r\n`,
-          );
-          onExitRef.current?.(code);
-        },
-      );
-      unlisteners.push(unlistenExit);
-
-      if (!disposed) {
-        setIsReady(true);
-      }
-    };
-
-    spawnAndSetup().catch((err: unknown) => {
-      if (!disposed) {
-        setError(`Failed to set up terminal: ${String(err)}`);
-      }
-    });
-
-    // Staggered retry fits
+    // Staggered retry fits — Allotment split animation may not have
+    // settled dimensions yet. Multiple retries at increasing intervals
+    // ensure the terminal renders correctly in new split panes.
     const fitTimers = [
       setTimeout(safeFit, 150),
       setTimeout(safeFit, 500),
-      setTimeout(safeFit, 1500),
+      setTimeout(safeFit, 1000),
     ];
 
     // Initialize highlight engine
@@ -381,7 +322,7 @@ export function useTerminal({
 
     // Bridge: terminal keystrokes → PTY write (with change window guard)
     terminal.onData((data: string) => {
-      if (disposed || !activeSessionId) return;
+      if (disposed) return;
 
       // Change window guard: buffer and check on Enter
       if (changeWindowEnabledRef.current && (data.includes("\r") || data.includes("\n"))) {
@@ -389,15 +330,18 @@ export function useTerminal({
         lineBufferRef.current = "";
 
         if (command) {
+          // Check command asynchronously — hold back Enter key
           pendingDataRef.current = data;
           changeWindowCheck(command)
             .then((result) => {
               if (disposed) return;
               if (result.allowed) {
+                // Command allowed — forward the data
                 const bytes = Array.from(new TextEncoder().encode(data));
-                broadcastWrite(activeSessionId, bytes);
-                invoke("pty_write", { sessionId: activeSessionId, data: bytes }).catch(() => {});
+                broadcastWrite(sessionId, bytes);
+                invoke("pty_write", { sessionId, data: bytes }).catch(() => {});
               } else {
+                // Command blocked — show warning
                 setCwWarning({
                   show: true,
                   command,
@@ -406,12 +350,13 @@ export function useTerminal({
               }
             })
             .catch(() => {
+              // Backend error — fail open, forward data
               if (disposed) return;
               const bytes = Array.from(new TextEncoder().encode(data));
-              broadcastWrite(activeSessionId, bytes);
-              invoke("pty_write", { sessionId: activeSessionId, data: bytes }).catch(() => {});
+              broadcastWrite(sessionId, bytes);
+              invoke("pty_write", { sessionId, data: bytes }).catch(() => {});
             });
-          return;
+          return; // Don't forward yet — wait for check result
         }
       }
 
@@ -427,22 +372,26 @@ export function useTerminal({
       }
 
       const bytes = Array.from(new TextEncoder().encode(data));
-      broadcastWrite(activeSessionId, bytes);
-      invoke("pty_write", { sessionId: activeSessionId, data: bytes }).catch(() => {});
+      broadcastWrite(sessionId, bytes);
+      invoke("pty_write", { sessionId, data: bytes }).catch(() => {
+        // pty_write failure — input dropped silently
+      });
     });
 
     // Bridge: terminal binary data → PTY write
     terminal.onBinary((binaryData: string) => {
-      if (disposed || !activeSessionId) return;
+      if (disposed) return;
       const bytes = Array.from(binaryData, (char) => char.charCodeAt(0));
-      invoke("pty_write", { sessionId: activeSessionId, data: bytes }).catch(() => {});
+      invoke("pty_write", { sessionId, data: bytes }).catch(() => {
+        // pty_write binary failure — input dropped silently
+      });
     });
 
     // Bridge: terminal resize → PTY resize
     terminal.onResize(
       ({ cols, rows }: { cols: number; rows: number }) => {
-        if (disposed || !activeSessionId) return;
-        invoke("pty_resize", { sessionId: activeSessionId, cols, rows }).catch(() => {
+        if (disposed) return;
+        invoke("pty_resize", { sessionId, cols, rows }).catch(() => {
           // pty_resize failure — terminal may be out of sync
         });
       },
@@ -532,6 +481,47 @@ export function useTerminal({
         return true; // Allow normal key processing
       },
     );
+
+    // Set up Tauri event listeners (async)
+    const setupEvents = async () => {
+      // PTY output → terminal write (base64-encoded from Rust backend)
+      const unlistenOutput = await listen<string>(
+        `pty-output-${sessionId}`,
+        (event) => {
+          if (disposed) return;
+          const binary = atob(event.payload);
+          const bytes = Uint8Array.from(binary, (ch) => ch.charCodeAt(0));
+          terminal.write(bytes);
+        },
+      );
+      unlisteners.push(unlistenOutput);
+
+      // PTY exit → show exit message
+      const unlistenExit = await listen<PtyExitPayload>(
+        `pty-exit-${sessionId}`,
+        (event) => {
+          if (disposed) return;
+          const code = event.payload.code;
+          setHasExited(true);
+          setExitCode(code);
+          terminal.write(
+            `\r\n\x1b[90m[Process exited with code ${code}]\x1b[0m\r\n`,
+          );
+          onExitRef.current?.(code);
+        },
+      );
+      unlisteners.push(unlistenExit);
+
+      if (!disposed) {
+        setIsReady(true);
+      }
+    };
+
+    setupEvents().catch((err: unknown) => {
+      if (!disposed) {
+        setError(`Failed to set up terminal events: ${String(err)}`);
+      }
+    });
 
     // Window resize → re-fit terminal (debounced at 100ms)
     let resizeDebounceTimer: ReturnType<typeof setTimeout> | null = null;
