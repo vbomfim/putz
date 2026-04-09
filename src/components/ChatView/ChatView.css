@@ -10,8 +10,8 @@
 .chat-view {
   display: flex;
   flex-direction: column;
-  background: #1e1e2e;
-  color: #cdd6f4;
+  background: var(--bg-primary);
+  color: var(--text-primary);
   font-family: "JetBrains Mono", "Cascadia Code", "Fira Code", monospace;
   font-size: 13px;
   height: 100%;
@@ -31,15 +31,15 @@
   align-items: center;
   justify-content: space-between;
   padding: 8px 12px;
-  background: #181825;
-  border-bottom: 1px solid #313244;
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--hover-bg);
 }
 
 .chat-view__header h2 {
   margin: 0;
   font-size: 14px;
   font-weight: 600;
-  color: #cdd6f4;
+  color: var(--text-primary);
 }
 
 .chat-view__controls {
@@ -49,9 +49,9 @@
 }
 
 .chat-view__btn {
-  background: #313244;
+  background: var(--hover-bg);
   border: none;
-  color: #cdd6f4;
+  color: var(--text-primary);
   cursor: pointer;
   font-size: 12px;
   padding: 3px 10px;
@@ -60,7 +60,7 @@
 }
 
 .chat-view__btn:hover {
-  background: #45475a;
+  background: var(--border-color);
 }
 
 .chat-view__close {
@@ -74,8 +74,8 @@
 }
 
 .chat-view__close:hover {
-  background: #313244;
-  color: #cdd6f4;
+  background: var(--hover-bg);
+  color: var(--text-primary);
 }
 
 /* ── Search Bar ───────────────────────────────────────────── */
@@ -85,15 +85,15 @@
   align-items: center;
   gap: 8px;
   padding: 6px 12px;
-  background: #181825;
-  border-bottom: 1px solid #313244;
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--hover-bg);
 }
 
 .chat-view__search-input {
   flex: 1;
-  background: #11111b;
-  border: 1px solid #45475a;
-  color: #cdd6f4;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  color: var(--text-primary);
   padding: 4px 8px;
   border-radius: 4px;
   font-size: 12px;
@@ -102,7 +102,7 @@
 }
 
 .chat-view__search-input:focus {
-  border-color: #89b4fa;
+  border-color: var(--accent);
 }
 
 .chat-view__search-count {
@@ -131,7 +131,7 @@
 
 .chat-view__entry {
   margin-bottom: 4px;
-  border: 1px solid #313244;
+  border: 1px solid var(--hover-bg);
   border-radius: 4px;
   overflow: hidden;
 }
@@ -141,7 +141,7 @@
   align-items: center;
   gap: 8px;
   padding: 6px 8px;
-  background: #181825;
+  background: var(--bg-secondary);
   cursor: pointer;
   user-select: none;
 }
@@ -158,7 +158,7 @@
 }
 
 .chat-view__timestamp {
-  color: #585b70;
+  color: var(--text-secondary);
   font-size: 11px;
   flex-shrink: 0;
 }
@@ -169,7 +169,7 @@
 }
 
 .chat-view__direction--sent {
-  color: #89b4fa;
+  color: var(--accent);
 }
 
 .chat-view__direction--received {
@@ -177,7 +177,7 @@
 }
 
 .chat-view__command {
-  color: #89b4fa;
+  color: var(--accent);
   font-weight: 500;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -188,13 +188,13 @@
   display: flex;
   gap: 8px;
   padding: 6px 8px 6px 28px;
-  background: #11111b;
-  border-top: 1px solid #313244;
+  background: var(--bg-secondary);
+  border-top: 1px solid var(--hover-bg);
 }
 
 .chat-view__response-text {
   margin: 0;
-  color: #a6adc8;
+  color: var(--text-secondary);
   white-space: pre-wrap;
   word-break: break-all;
   font-size: 12px;
@@ -209,8 +209,8 @@
   align-items: center;
   gap: 8px;
   padding: 8px 12px;
-  background: #181825;
-  border-top: 1px solid #313244;
+  background: var(--bg-secondary);
+  border-top: 1px solid var(--hover-bg);
 }
 
 .chat-view__prompt {
@@ -222,9 +222,9 @@
 
 .chat-view__input {
   flex: 1;
-  background: #11111b;
-  border: 1px solid #45475a;
-  color: #cdd6f4;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  color: var(--text-primary);
   padding: 6px 10px;
   border-radius: 4px;
   font-size: 13px;
@@ -233,12 +233,12 @@
 }
 
 .chat-view__input:focus {
-  border-color: #89b4fa;
+  border-color: var(--accent);
 }
 
 .chat-view__send-btn {
-  background: #89b4fa;
-  color: #1e1e2e;
+  background: var(--accent);
+  color: var(--bg-primary);
   border: none;
   padding: 6px 16px;
   border-radius: 4px;
@@ -250,7 +250,7 @@
 }
 
 .chat-view__send-btn:hover:not(:disabled) {
-  background: #74c7ec;
+  background: var(--accent-hover);
 }
 
 .chat-view__send-btn:disabled {

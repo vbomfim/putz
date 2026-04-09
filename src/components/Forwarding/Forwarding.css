@@ -9,8 +9,8 @@
 
 .forwarding-btn {
   background: transparent;
-  border: 1px solid #45475a;
-  color: #cdd6f4;
+  border: 1px solid var(--border-color);
+  color: var(--text-primary);
   padding: 2px 8px;
   border-radius: 4px;
   cursor: pointer;
@@ -19,7 +19,7 @@
 }
 
 .forwarding-btn:hover {
-  background: #313244;
+  background: var(--hover-bg);
 }
 
 .forwarding-btn:disabled {
@@ -39,12 +39,12 @@
 .forwarding-config {
   margin-top: 12px;
   padding: 8px 0;
-  border-top: 1px solid #313244;
+  border-top: 1px solid var(--hover-bg);
 }
 
 .forwarding-config h4 {
   margin: 0 0 8px 0;
-  color: #cdd6f4;
+  color: var(--text-primary);
   font-size: 13px;
   font-weight: 600;
 }
@@ -61,21 +61,21 @@
   align-items: center;
   gap: 8px;
   padding: 4px 8px;
-  background: #1e1e2e;
-  border: 1px solid #313244;
+  background: var(--bg-primary);
+  border: 1px solid var(--hover-bg);
   border-radius: 4px;
   font-size: 12px;
 }
 
 .forwarding-rule-type {
-  color: #89b4fa;
+  color: var(--accent);
   font-weight: 600;
   min-width: 80px;
 }
 
 .forwarding-rule-desc {
   flex: 1;
-  color: #a6adc8;
+  color: var(--text-secondary);
   font-family: "JetBrains Mono", "Cascadia Code", monospace;
 }
 
@@ -109,16 +109,16 @@
   display: flex;
   flex-direction: column;
   gap: 2px;
-  color: #a6adc8;
+  color: var(--text-secondary);
   font-size: 11px;
   flex: 1;
 }
 
 .forwarding-form-row select,
 .forwarding-form-row input {
-  background: #1e1e2e;
-  border: 1px solid #45475a;
-  color: #cdd6f4;
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  color: var(--text-primary);
   padding: 4px 6px;
   border-radius: 4px;
   font-size: 13px;
@@ -128,12 +128,12 @@
 .forwarding-form-row select:focus,
 .forwarding-form-row input:focus {
   outline: none;
-  border-color: #89b4fa;
+  border-color: var(--accent);
 }
 
 .forwarding-add-btn {
-  background: #313244;
-  border: 1px solid #45475a;
+  background: var(--hover-bg);
+  border: 1px solid var(--border-color);
   color: #a6e3a1;
   padding: 4px 12px;
   border-radius: 4px;
@@ -144,7 +144,7 @@
 }
 
 .forwarding-add-btn:hover {
-  background: #45475a;
+  background: var(--border-color);
 }
 
 .forwarding-security-warning {
@@ -162,18 +162,18 @@
 .forwarding-panel {
   display: flex;
   flex-direction: column;
-  background: #1e1e2e;
-  color: #cdd6f4;
+  background: var(--bg-primary);
+  color: var(--text-primary);
   font-family: "JetBrains Mono", "Cascadia Code", "Fira Code", monospace;
   font-size: 13px;
   height: 100%;
   overflow: hidden;
-  border-left: 1px solid #313244;
+  border-left: 1px solid var(--hover-bg);
 }
 
 .forwarding-panel.forwarding-loading {
   padding: 16px;
-  color: #a6adc8;
+  color: var(--text-secondary);
 }
 
 .forwarding-toolbar {
@@ -181,18 +181,18 @@
   align-items: center;
   gap: 8px;
   padding: 4px 8px;
-  background: #181825;
-  border-bottom: 1px solid #313244;
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--hover-bg);
   min-height: 32px;
 }
 
 .forwarding-title {
   font-weight: 600;
-  color: #cdd6f4;
+  color: var(--text-primary);
 }
 
 .forwarding-count {
-  color: #a6adc8;
+  color: var(--text-secondary);
   font-size: 12px;
 }
 
@@ -236,17 +236,17 @@
 .forwarding-table th {
   text-align: left;
   padding: 6px 8px;
-  color: #a6adc8;
+  color: var(--text-secondary);
   font-weight: 600;
-  border-bottom: 1px solid #313244;
+  border-bottom: 1px solid var(--hover-bg);
   position: sticky;
   top: 0;
-  background: #181825;
+  background: var(--bg-secondary);
 }
 
 .forwarding-table td {
   padding: 4px 8px;
-  border-bottom: 1px solid #313244;
+  border-bottom: 1px solid var(--hover-bg);
 }
 
 .forwarding-table tr:hover td {
@@ -273,16 +273,16 @@
   display: flex;
   gap: 4px;
   padding: 6px 8px;
-  background: #181825;
-  border-bottom: 1px solid #313244;
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--hover-bg);
   align-items: center;
 }
 
 .forwarding-adhoc-form select,
 .forwarding-adhoc-form input {
-  background: #1e1e2e;
-  border: 1px solid #45475a;
-  color: #cdd6f4;
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  color: var(--text-primary);
   padding: 3px 6px;
   border-radius: 4px;
   font-size: 12px;
@@ -300,5 +300,5 @@
 .forwarding-adhoc-form select:focus,
 .forwarding-adhoc-form input:focus {
   outline: none;
-  border-color: #89b4fa;
+  border-color: var(--accent);
 }

@@ -133,6 +133,8 @@ function PaneRenderer({
           browserId={node.terminalSessionId}
           initialUrl={browserUrl}
           isActive={isActive}
+          regionId=""
+          tabId={tabId || ""}
           onClose={isInsideSplit ? () => onClosePane(node.terminalSessionId) : undefined}
         />
       );

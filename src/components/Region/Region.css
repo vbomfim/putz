@@ -16,7 +16,7 @@
 
 /* Allotment sash (divider) customization */
 .region-container .sash-container .sash {
-  background-color: rgba(255, 255, 255, 0.06);
+  background-color: var(--border-color);
   transition: background-color 0.15s;
 }
 
@@ -42,6 +42,8 @@
 
 .region-view__content {
   flex: 1;
+  display: flex;
+  flex-direction: column;
   position: relative;
   overflow: hidden;
 }
@@ -63,14 +65,14 @@
   height: 30px;
   min-height: 30px;
   background-color: var(--bg-secondary);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  border-bottom: 1px solid var(--border-color);
   user-select: none;
   -webkit-user-select: none;
   overflow: hidden;
 }
 
 .region-tabbar--focused {
-  border-bottom-color: rgba(255, 255, 255, 0.1);
+  border-bottom-color: var(--border-color);
 }
 
 .region-tabbar__tabs {
@@ -79,7 +81,7 @@
   overflow-x: auto;
   overflow-y: hidden;
   scrollbar-width: thin;
-  scrollbar-color: rgba(255, 255, 255, 0.1) transparent;
+  scrollbar-color: var(--border-color) transparent;
 }
 
 .region-tabbar__tabs::-webkit-scrollbar {
@@ -87,7 +89,7 @@
 }
 
 .region-tabbar__tabs::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.15);
+  background: var(--hover-bg);
   border-radius: 2px;
 }
 
@@ -104,7 +106,7 @@
   cursor: pointer;
   font-size: 0.75rem;
   color: var(--text-secondary);
-  border-right: 1px solid rgba(255, 255, 255, 0.04);
+  border-right: 1px solid var(--subtle-bg);
   position: relative;
   white-space: nowrap;
   transition:
@@ -119,7 +121,7 @@
 }
 
 .region-tab--hovered:not(.region-tab--active) {
-  background-color: rgba(255, 255, 255, 0.04);
+  background-color: var(--subtle-bg);
 }
 
 .region-tab:focus-visible {
@@ -192,7 +194,7 @@
 }
 
 .region-tabbar__add:hover {
-  background-color: rgba(255, 255, 255, 0.08);
+  background-color: var(--hover-bg);
   color: var(--text-primary);
 }
 
@@ -208,7 +210,7 @@
   z-index: 1000;
   min-width: 150px;
   background-color: var(--bg-secondary);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  border: 1px solid var(--border-color);
   border-radius: 6px;
   padding: 4px 0;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
@@ -232,7 +234,7 @@
 
 .region-tabbar__context-separator {
   height: 1px;
-  background-color: rgba(255, 255, 255, 0.08);
+  background-color: var(--hover-bg);
   margin: 3px 0;
 }
 
@@ -261,12 +263,12 @@
   min-width: 36px;
   height: 100%;
   border-bottom: none;
-  border-right: 1px solid rgba(255, 255, 255, 0.06);
+  border-right: 1px solid var(--border-color);
 }
 
 .region-tabbar--vertical.region-tabbar--focused {
   border-bottom-color: transparent;
-  border-right-color: rgba(255, 255, 255, 0.1);
+  border-right-color: var(--border-color);
 }
 
 .region-tabbar--vertical .region-tabbar__tabs {
@@ -293,7 +295,7 @@
   padding: 8px 0;
   justify-content: center;
   border-right: none;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+  border-bottom: 1px solid var(--subtle-bg);
 }
 
 .region-tabbar--vertical .region-tab__title {
@@ -316,24 +318,24 @@
 
 .region-tabbar--right {
   border-right: none;
-  border-left: 1px solid rgba(255, 255, 255, 0.06);
+  border-left: 1px solid var(--border-color);
 }
 
 .region-tabbar--right.region-tabbar--focused {
   border-right-color: transparent;
-  border-left-color: rgba(255, 255, 255, 0.1);
+  border-left-color: var(--border-color);
 }
 
 /* ─── Bottom tab bar overrides ─────────────────────────────────── */
 
 .region-tabbar--bottom {
   border-bottom: none;
-  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  border-top: 1px solid var(--border-color);
 }
 
 .region-tabbar--bottom.region-tabbar--focused {
   border-bottom-color: transparent;
-  border-top-color: rgba(255, 255, 255, 0.1);
+  border-top-color: var(--border-color);
 }
 
 /* ─── Tab Bar Action Icons (right-aligned) ───────────────── */
@@ -364,8 +366,8 @@
 }
 
 .region-tabbar__action:hover {
-  background: rgba(255, 255, 255, 0.1);
-  color: #cdd6f4;
+  background: var(--border-color);
+  color: var(--text-primary);
 }
 
 /* Vertical tab bar: stack actions at the bottom */

@@ -174,6 +174,9 @@ interface LayoutState {
   /** Renames a tab within a region. */
   renameTab: (regionId: string, tabId: string, title: string) => void;
 
+  /** Updates the browserUrl on a browser tab (persists across remounts). */
+  updateTabBrowserUrl: (regionId: string, tabId: string, url: string) => void;
+
   // ─── Split / Close Region Actions ─────────────────────────────────
 
   /** Splits the focused region, creating a new region alongside it. */
@@ -427,6 +430,24 @@ export const useLayoutStore = create<LayoutState>((set, get) => ({
             ...region,
             tabs: region.tabs.map((t) =>
               t.id === tabId ? { ...t, title: trimmed } : t,
+            ),
+          },
+        },
+      };
+    });
+  },
+
+  updateTabBrowserUrl: (regionId: string, tabId: string, url: string) => {
+    set((state) => {
+      const region = state.regions[regionId];
+      if (!region) return state;
+      return {
+        regions: {
+          ...state.regions,
+          [regionId]: {
+            ...region,
+            tabs: region.tabs.map((t) =>
+              t.id === tabId ? { ...t, browserUrl: url } : t,
             ),
           },
         },

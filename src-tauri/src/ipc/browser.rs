@@ -23,9 +23,12 @@ pub fn browser_open(
     y: f64,
     width: f64,
     height: f64,
+    popup: Option<bool>,
 ) -> Result<(), String> {
-    let parsed_url = validate_url(&url)?; let parsed_url2 = validate_url(&url).unwrap();
+    let parsed_url = validate_url(&url)?;
+    let parsed_url2 = parsed_url.clone();
     let label = format!("browser-{}", tab_id);
+    let is_popup = popup.unwrap_or(false);
 
     // If window/webview already exists, bring to front
     if let Some(existing) = app.get_webview_window(&label) {
@@ -37,29 +40,33 @@ pub fn browser_open(
 
     if let Some(existing) = app.get_webview(&label) {
         let _ = existing.navigate(parsed_url);
+        let _ = existing.set_position(tauri::LogicalPosition::new(x, y));
+        let _ = existing.set_size(tauri::LogicalSize::new(width, height));
+        let _ = existing.show();
         return Ok(());
     }
 
-    // Try to create as child webview of the main window (embedded in tab)
-    let main_window = app.get_window("main");
-    if let Some(win) = main_window {
-        let builder = WebviewBuilder::new(&label, WebviewUrl::External(parsed_url));
-        match win.add_child(
-            builder,
-            tauri::LogicalPosition::new(x, y),
-            tauri::LogicalSize::new(width, height),
-        ) {
-            Ok(_webview) => {
-                state.register(&tab_id, &label);
-                return Ok(());
-            }
-            Err(e) => {
-                eprintln!("[browser] add_child failed ({}), falling back to window", e);
+    // For popups, skip add_child — always create a separate window
+    if !is_popup {
+        if let Some(win) = app.get_window("main") {
+            let builder = WebviewBuilder::new(&label, WebviewUrl::External(parsed_url));
+            match win.add_child(
+                builder,
+                tauri::LogicalPosition::new(x, y),
+                tauri::LogicalSize::new(width, height),
+            ) {
+                Ok(_webview) => {
+                    state.register(&tab_id, &label);
+                    return Ok(());
+                }
+                Err(e) => {
+                    eprintln!("[browser] add_child failed ({}), falling back to window", e);
+                }
             }
         }
     }
 
-    // Fallback: open as separate window
+    // Separate window (popup or fallback)
     WebviewWindowBuilder::new(&app, &label, WebviewUrl::External(parsed_url2))
         .title(format!("Putz — {}", url))
         .inner_size(
@@ -80,7 +87,7 @@ pub fn browser_navigate(
     tab_id: String,
     url: String,
 ) -> Result<(), String> {
-    let parsed_url = validate_url(&url)?; let parsed_url2 = validate_url(&url).unwrap();
+    let parsed_url = validate_url(&url)?;
     let label = state.get_label(&tab_id)
         .ok_or_else(|| format!("No browser for tab {tab_id}"))?;
     
@@ -124,6 +131,7 @@ pub fn browser_resize(
     width: f64,
     height: f64,
 ) -> Result<(), String> {
+    eprintln!("[browser_resize] x={x} y={y} w={width} h={height}");
     let label = state.get_label(&tab_id).ok_or("Not found")?;
     if let Some(wv) = app.get_webview(&label) {
         let _ = wv.set_position(tauri::LogicalPosition::new(x, y));
@@ -147,6 +155,28 @@ pub fn browser_set_visible(
         if visible { let _ = win.show(); } else { let _ = win.hide(); }
     }
     Ok(())
+}
+
+/// Hides ALL registered browser webviews. Called during workspace switch.
+#[tauri::command]
+pub fn browser_hide_all(
+    app: AppHandle,
+    state: State<'_, BrowserManager>,
+) -> Result<(), String> {
+    for label in state.all_labels() {
+        if let Some(wv) = app.get_webview(&label) {
+            let _ = wv.hide();
+        }
+        if let Some(win) = app.get_webview_window(&label) {
+            let _ = win.hide();
+        }
+    }
+    Ok(())
+}
+
+#[tauri::command]
+pub fn log_debug(msg: String) {
+    eprintln!("{msg}");
 }
 
 #[cfg(test)]

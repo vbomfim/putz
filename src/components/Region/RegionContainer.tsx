@@ -1,45 +1,61 @@
 /**
  * RegionContainer — Recursive layout renderer for the region tree.
  *
- * Renders LayoutNode trees:
- * - Region leaf → RegionView with the region's tab bar + content
- * - Split node → Allotment with two recursive children
+ * Renders ALL workspaces simultaneously — active one visible, inactive hidden.
+ * This prevents terminal unmounting when switching workspaces.
  *
- * Uses the `allotment` library for resizable split regions.
- *
- * @module RegionContainer
+ * - Active workspace renders from layoutStore (live, interactive)
+ * - Inactive workspaces render from savedLayout (frozen, display:none)
+ * - Same region/tab IDs ensure React reuses components on switch
  */
 import { useCallback } from "react";
 import { Allotment } from "allotment";
 import "allotment/dist/style.css";
 import { RegionView } from "./RegionView";
 import { useLayoutStore } from "../../stores/layoutStore";
-import type { LayoutNode } from "../../types";
+import { useWorkspaceStore } from "../../stores/workspaceStore";
+import type { LayoutNode, Region } from "../../types";
 import { MIN_REGION_SIZE_PX } from "../../types";
 import "./Region.css";
 
-/**
- * Top-level region container — renders the entire layout tree.
- */
 export function RegionContainer() {
-  const layout = useLayoutStore((s) => s.layout);
-  const regions = useLayoutStore((s) => s.regions);
-  const focusedRegionId = useLayoutStore((s) => s.focusedRegionId);
+  const workspaces = useWorkspaceStore((s) => s.workspaces);
+  const activeWorkspaceId = useWorkspaceStore((s) => s.activeWorkspaceId);
+  const activeLayout = useLayoutStore((s) => s.layout);
+  const activeRegions = useLayoutStore((s) => s.regions);
+  const activeFocusedRegionId = useLayoutStore((s) => s.focusedRegionId);
 
   return (
-    <div className="region-container">
-      <LayoutRenderer
-        node={layout}
-        regions={regions}
-        focusedRegionId={focusedRegionId}
-      />
-    </div>
+    <>
+      {workspaces.map((ws) => {
+        const isActive = ws.id === activeWorkspaceId;
+        const layout = isActive ? activeLayout : ws.savedLayout?.layout;
+        const regions = isActive ? activeRegions : ws.savedLayout?.regions;
+        const focused = isActive ? activeFocusedRegionId : (ws.savedLayout?.focusedRegionId || "");
+
+        if (!layout || !regions) return null;
+
+        return (
+          <div
+            key={ws.id}
+            className="region-container"
+            style={{ display: isActive ? "flex" : "none" }}
+          >
+            <LayoutRenderer
+              node={layout}
+              regions={regions}
+              focusedRegionId={focused}
+            />
+          </div>
+        );
+      })}
+    </>
   );
 }
 
 interface LayoutRendererProps {
   node: LayoutNode;
-  regions: Record<string, import("../../types").Region>;
+  regions: Record<string, Region>;
   focusedRegionId: string;
 }
 

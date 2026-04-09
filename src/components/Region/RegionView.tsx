@@ -84,7 +84,9 @@ export function RegionView({ region, isFocused }: RegionViewProps) {
                 <BrowserView
                   browserId={tab.sessionId}
                   initialUrl={tab.browserUrl || ""}
-                  isActive={isTabActive && isFocused}
+                  isActive={isTabActive}
+                  regionId={region.id}
+                  tabId={tab.id}
                 />
               </div>
             );

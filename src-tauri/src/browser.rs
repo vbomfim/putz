@@ -53,6 +53,12 @@ impl BrowserManager {
         map.len()
     }
 
+    /// Returns all registered webview labels.
+    pub fn all_labels(&self) -> Vec<String> {
+        let map = self.webviews.lock().unwrap();
+        map.values().cloned().collect()
+    }
+
     /// Closes all tracked webviews. Called on app shutdown.
     pub fn close_all(&self) {
         let mut map = self.webviews.lock().unwrap();

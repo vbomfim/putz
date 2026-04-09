@@ -24,6 +24,7 @@ use ipc::{
     autologin_cancel, autologin_delete_profile, autologin_get_profile, autologin_process,
     autologin_set_profile, autologin_start,
     browser_close, browser_navigate, browser_open, browser_resize, browser_set_visible,
+    browser_hide_all, log_debug,
     change_window_active, change_window_check, change_window_delete, change_window_list,
     change_window_set,
     connection_close, connection_open, connection_resize, connection_write,
@@ -195,16 +196,21 @@ pub fn run() {
             browser_close,
             browser_resize,
             browser_set_visible,
+            browser_hide_all,
+            log_debug,
         ])
         // Fix 8: Graceful app exit — clean up PTY sessions and protocol connections
         .on_window_event(|window, event| {
             if let tauri::WindowEvent::CloseRequested { .. } = event {
+                // Only clean up when the MAIN window closes, not popup browsers
+                if window.label() != "main" {
+                    return;
+                }
                 // Close all PTY sessions (sends SIGHUP to child processes)
                 let pty_mgr: tauri::State<'_, PtyManager> = window.state();
                 pty_mgr.close_all();
                 // Close all protocol connections
                 let conn_mgr: tauri::State<'_, ConnectionManager> = window.state();
-                // Block briefly on async close — app is exiting anyway
                 tauri::async_runtime::block_on(conn_mgr.close_all());
                 // Close all browser webviews
                 let browser_mgr: tauri::State<'_, BrowserManager> = window.state();

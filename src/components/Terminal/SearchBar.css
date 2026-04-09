@@ -10,7 +10,7 @@
   align-items: center;
   gap: 0.25rem;
   padding: 0.375rem 0.5rem;
-  background-color: var(--bg-secondary, #1e1e2e);
+  background-color: var(--bg-secondary, var(--bg-primary));
   border-bottom: 1px solid var(--border, #444);
   z-index: 20;
   flex-shrink: 0;

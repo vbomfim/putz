@@ -252,30 +252,25 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => {
       // 1. Save current layout into current workspace
       const currentLayout = captureLayoutState();
 
-      // 2. Hide browser webviews in current regions
-      const currentRegions = useLayoutStore.getState().regions;
-      for (const region of Object.values(currentRegions)) {
-        for (const tab of region.tabs) {
-          if (tab.type === "browser") {
-            invoke("browser_set_visible", { tabId: tab.sessionId, visible: false }).catch(() => {});
-          }
-        }
-      }
+      // 2. Hide ALL browser webviews globally via Rust (catches all webviews regardless of tab state)
+      invoke("browser_hide_all", {}).catch(() => {});
 
       // 3. Restore target workspace layout
       const targetWorkspace = workspaces.find((w) => w.id === id)!;
       restoreLayoutState(targetWorkspace.savedLayout);
 
-      // 4. Show browser webviews in the new active region
-      const newRegions = useLayoutStore.getState().regions;
-      const newFocusedId = useLayoutStore.getState().focusedRegionId;
-      const newFocusedRegion = newRegions[newFocusedId];
-      if (newFocusedRegion) {
-        const activeTab = newFocusedRegion.tabs.find((t) => t.id === newFocusedRegion.activeTabId);
-        if (activeTab?.type === "browser") {
-          invoke("browser_set_visible", { tabId: activeTab.sessionId, visible: true }).catch(() => {});
+      // 4. Re-show active browser webviews in the restored workspace
+      //    (browser_hide_all hid everything, but isActive effect won't re-fire
+      //    if isActive was already true before the switch)
+      setTimeout(() => {
+        const newRegions = useLayoutStore.getState().regions;
+        for (const region of Object.values(newRegions)) {
+          const activeTab = region.tabs.find((t) => t.id === region.activeTabId);
+          if (activeTab?.type === "browser" && activeTab.sessionId) {
+            invoke("browser_set_visible", { tabId: activeTab.sessionId, visible: true }).catch(() => {});
+          }
         }
-      }
+      }, 100);
 
       // 5. Update workspace store
       set((state) => {

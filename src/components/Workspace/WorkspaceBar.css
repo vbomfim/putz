@@ -2,6 +2,7 @@
  *
  * Vertical bar on the left edge of the window.
  * Shows colored circles for each workspace (like VS Code's activity bar).
+ * Uses CSS variables from the active theme for full theme support.
  */
 
 /* ─── Bar Layout ─────────────────────────────────────────── */
@@ -10,8 +11,8 @@
   display: flex;
   flex-direction: column;
   width: 48px;
-  background: #11111b;
-  border-right: 1px solid #45475a;
+  background: var(--bg-secondary);
+  border-right: 1px solid var(--border-color, rgba(128, 128, 128, 0.2));
   padding: 8px 0;
   gap: 4px;
   align-items: center;
@@ -54,11 +55,11 @@
 .workspace-item--active {
   border-radius: 12px;
   opacity: 1;
-  box-shadow: 0 0 0 2px #89b4fa;
+  box-shadow: 0 0 0 2px var(--accent);
 }
 
 .workspace-item:focus-visible {
-  outline: 2px solid #89b4fa;
+  outline: 2px solid var(--accent);
   outline-offset: 2px;
 }
 
@@ -68,9 +69,9 @@
   width: 36px;
   height: 36px;
   border-radius: 8px;
-  border: 2px dashed #585b70;
+  border: 2px dashed var(--text-secondary);
   background: transparent;
-  color: #585b70;
+  color: var(--text-secondary);
   font-size: 18px;
   cursor: pointer;
   display: flex;
@@ -82,13 +83,13 @@
 }
 
 .workspace-add:hover {
-  border-color: #89b4fa;
-  color: #89b4fa;
+  border-color: var(--accent);
+  color: var(--accent);
   border-radius: 12px;
 }
 
 .workspace-add:focus-visible {
-  outline: 2px solid #89b4fa;
+  outline: 2px solid var(--accent);
   outline-offset: 2px;
 }
 
@@ -97,10 +98,10 @@
 .workspace-context-menu {
   position: fixed;
   z-index: 400;
-  background: #1e1e2e;
-  border: 1px solid #45475a;
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color, rgba(128, 128, 128, 0.2));
   border-radius: 6px;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
   padding: 4px 0;
   min-width: 140px;
 }
@@ -111,7 +112,7 @@
   padding: 6px 12px;
   background: none;
   border: none;
-  color: #cdd6f4;
+  color: var(--text-primary);
   font-size: 13px;
   text-align: left;
   cursor: pointer;
@@ -119,12 +120,13 @@
 }
 
 .workspace-context-item:hover {
-  background-color: #313244;
+  background-color: var(--accent);
+  color: white;
 }
 
 .workspace-context-item--danger:hover {
-  background-color: #f38ba8;
-  color: #11111b;
+  background-color: #e45649;
+  color: white;
 }
 
 /* ─── Color Picker ───────────────────────────────────────── */
@@ -132,10 +134,10 @@
 .workspace-color-picker {
   position: fixed;
   z-index: 400;
-  background: #1e1e2e;
-  border: 1px solid #45475a;
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color, rgba(128, 128, 128, 0.2));
   border-radius: 8px;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
   padding: 8px;
   display: grid;
   grid-template-columns: repeat(4, 1fr);
@@ -156,12 +158,12 @@
 }
 
 .workspace-color-swatch:hover {
-  border-color: #cdd6f4;
+  border-color: var(--text-primary);
   transform: scale(1.15);
 }
 
 .workspace-color-swatch:focus-visible {
-  outline: 2px solid #89b4fa;
+  outline: 2px solid var(--accent);
   outline-offset: 2px;
 }
 
@@ -171,9 +173,9 @@
   width: 36px;
   height: 36px;
   border-radius: 8px;
-  border: 2px solid #89b4fa;
-  background: #1e1e2e;
-  color: #cdd6f4;
+  border: 2px solid var(--accent);
+  background: var(--bg-primary);
+  color: var(--text-primary);
   font-size: 12px;
   text-align: center;
   padding: 2px;
@@ -181,5 +183,5 @@
 
 .workspace-rename-input:focus {
   outline: none;
-  border-color: #b4befe;
+  border-color: var(--accent-hover);
 }

@@ -88,6 +88,56 @@ function applyUiTheme(mode: UiThemeMode): void {
   document.documentElement.setAttribute("data-ui-theme", resolved);
 }
 
+/** Derives UI CSS variables from terminal theme colors and applies to :root. */
+function applyThemeToUI(colors: ThemeColors): void {
+  const root = document.documentElement.style;
+  const bg = colors.background;
+  const fg = colors.foreground;
+
+  // Detect light vs dark theme by background luminance
+  const isLight = hexLuminance(bg) > 0.5;
+
+  root.setProperty("--bg-primary", bg);
+  root.setProperty("--bg-secondary", isLight ? darken(bg, 0.05) : lighten(bg, 0.05));
+  root.setProperty("--text-primary", fg);
+  root.setProperty("--text-secondary", isLight ? lighten(fg, 0.3) : darken(fg, 0.3));
+  root.setProperty("--accent", colors.blue);
+  root.setProperty("--accent-hover", colors.brightBlue || colors.cyan);
+  // Adaptive UI chrome colors
+  root.setProperty("--border-color", isLight ? "rgba(0, 0, 0, 0.12)" : "rgba(255, 255, 255, 0.08)");
+  root.setProperty("--hover-bg", isLight ? "rgba(0, 0, 0, 0.06)" : "rgba(255, 255, 255, 0.08)");
+  root.setProperty("--subtle-bg", isLight ? "rgba(0, 0, 0, 0.04)" : "rgba(255, 255, 255, 0.04)");
+}
+
+function hexToRgb(hex: string): [number, number, number] {
+  const h = hex.replace("#", "");
+  return [
+    parseInt(h.slice(0, 2), 16) / 255,
+    parseInt(h.slice(2, 4), 16) / 255,
+    parseInt(h.slice(4, 6), 16) / 255,
+  ];
+}
+
+function rgbToHex(r: number, g: number, b: number): string {
+  const clamp = (v: number) => Math.max(0, Math.min(255, Math.round(v * 255)));
+  return `#${clamp(r).toString(16).padStart(2, "0")}${clamp(g).toString(16).padStart(2, "0")}${clamp(b).toString(16).padStart(2, "0")}`;
+}
+
+function hexLuminance(hex: string): number {
+  const [r, g, b] = hexToRgb(hex);
+  return 0.299 * r + 0.587 * g + 0.114 * b;
+}
+
+function lighten(hex: string, amount: number): string {
+  const [r, g, b] = hexToRgb(hex);
+  return rgbToHex(r + (1 - r) * amount, g + (1 - g) * amount, b + (1 - b) * amount);
+}
+
+function darken(hex: string, amount: number): string {
+  const [r, g, b] = hexToRgb(hex);
+  return rgbToHex(r * (1 - amount), g * (1 - amount), b * (1 - amount));
+}
+
 // ─── Store Definition ────────────────────────────────────────────────
 
 interface ThemeState {
@@ -153,6 +203,7 @@ export const useThemeStore = create<ThemeState>((set, get) => {
 
     setActiveTheme: (themeId: string, colors: ThemeColors) => {
       set({ activeThemeId: themeId, activeColors: colors });
+      applyThemeToUI(colors);
       const state = get();
       persistState({
         activeThemeId: themeId,

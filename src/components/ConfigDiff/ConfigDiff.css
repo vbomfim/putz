@@ -10,8 +10,8 @@
 .config-diff {
   display: flex;
   flex-direction: column;
-  background: #1e1e2e;
-  color: #cdd6f4;
+  background: var(--bg-primary);
+  color: var(--text-primary);
   font-family: "JetBrains Mono", "Cascadia Code", "Fira Code", monospace;
   font-size: 13px;
   height: 100%;
@@ -31,15 +31,15 @@
   align-items: center;
   justify-content: space-between;
   padding: 8px 12px;
-  background: #181825;
-  border-bottom: 1px solid #313244;
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--hover-bg);
 }
 
 .config-diff__header h2 {
   margin: 0;
   font-size: 14px;
   font-weight: 600;
-  color: #cdd6f4;
+  color: var(--text-primary);
 }
 
 .config-diff__controls {
@@ -59,15 +59,15 @@
 }
 
 .config-diff__close:hover {
-  background: #313244;
-  color: #cdd6f4;
+  background: var(--hover-bg);
+  color: var(--text-primary);
 }
 
 /* ── Buttons ──────────────────────────────────────────────── */
 
 .config-diff__btn {
   padding: 4px 14px;
-  border: 1px solid #45475a;
+  border: 1px solid var(--border-color);
   border-radius: 4px;
   font-size: 12px;
   font-family: inherit;
@@ -81,22 +81,22 @@
 }
 
 .config-diff__btn--primary {
-  background: #89b4fa;
-  color: #1e1e2e;
-  border-color: #89b4fa;
+  background: var(--accent);
+  color: var(--bg-primary);
+  border-color: var(--accent);
 }
 
 .config-diff__btn--primary:hover:not(:disabled) {
-  background: #74c7ec;
+  background: var(--accent-hover);
 }
 
 .config-diff__btn--secondary {
-  background: #313244;
-  color: #cdd6f4;
+  background: var(--hover-bg);
+  color: var(--text-primary);
 }
 
 .config-diff__btn--secondary:hover:not(:disabled) {
-  background: #45475a;
+  background: var(--border-color);
 }
 
 /* ── Input Panes ──────────────────────────────────────────── */
@@ -104,7 +104,7 @@
 .config-diff__panes {
   display: flex;
   gap: 1px;
-  background: #313244;
+  background: var(--hover-bg);
   flex: 1;
   min-height: 0;
 }
@@ -113,7 +113,7 @@
   flex: 1;
   display: flex;
   flex-direction: column;
-  background: #1e1e2e;
+  background: var(--bg-primary);
   min-width: 0;
 }
 
@@ -123,15 +123,15 @@
   text-transform: uppercase;
   letter-spacing: 0.5px;
   padding: 4px 12px;
-  background: #181825;
-  border-bottom: 1px solid #313244;
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--hover-bg);
 }
 
 .config-diff__textarea {
   flex: 1;
-  background: #11111b;
+  background: var(--bg-secondary);
   border: none;
-  color: #cdd6f4;
+  color: var(--text-primary);
   padding: 8px;
   font-family: "JetBrains Mono", "Cascadia Code", "Fira Code", monospace;
   font-size: 13px;
@@ -150,7 +150,7 @@
 /* ── Diff Output ──────────────────────────────────────────── */
 
 .config-diff__output {
-  border-top: 2px solid #313244;
+  border-top: 2px solid var(--hover-bg);
   flex: 1;
   display: flex;
   flex-direction: column;
@@ -162,8 +162,8 @@
   display: flex;
   gap: 12px;
   padding: 6px 12px;
-  background: #181825;
-  border-bottom: 1px solid #313244;
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--hover-bg);
   font-size: 12px;
 }
 
@@ -184,7 +184,7 @@
 .config-diff__empty {
   padding: 16px;
   text-align: center;
-  color: #a6adc8;
+  color: var(--text-secondary);
   font-style: italic;
 }
 
@@ -215,7 +215,7 @@
   width: 48px;
   text-align: right;
   padding: 0 8px;
-  color: #585b70;
+  color: var(--text-secondary);
   flex-shrink: 0;
   user-select: none;
   font-size: 11px;
@@ -223,11 +223,11 @@
 }
 
 .config-diff__line-num--old {
-  border-right: 1px solid #313244;
+  border-right: 1px solid var(--hover-bg);
 }
 
 .config-diff__line-num--new {
-  border-right: 1px solid #313244;
+  border-right: 1px solid var(--hover-bg);
 }
 
 .config-diff__line-prefix {
@@ -247,7 +247,7 @@
 }
 
 .config-diff__line--equal .config-diff__line-prefix {
-  color: #585b70;
+  color: var(--text-secondary);
 }
 
 .config-diff__line-content {
@@ -266,5 +266,5 @@
 }
 
 .config-diff__line--equal .config-diff__line-content {
-  color: #cdd6f4;
+  color: var(--text-primary);
 }

@@ -10,8 +10,8 @@
 .script-editor {
   display: flex;
   flex-direction: column;
-  background: #1e1e2e;
-  color: #cdd6f4;
+  background: var(--bg-primary);
+  color: var(--text-primary);
   font-family: "JetBrains Mono", "Cascadia Code", "Fira Code", monospace;
   font-size: 13px;
   height: 100%;
@@ -23,15 +23,15 @@
   align-items: center;
   justify-content: space-between;
   padding: 8px 12px;
-  background: #181825;
-  border-bottom: 1px solid #313244;
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--hover-bg);
 }
 
 .script-editor__header h2 {
   margin: 0;
   font-size: 14px;
   font-weight: 600;
-  color: #cdd6f4;
+  color: var(--text-primary);
 }
 
 .script-editor__close {
@@ -45,8 +45,8 @@
 }
 
 .script-editor__close:hover {
-  background: #313244;
-  color: #cdd6f4;
+  background: var(--hover-bg);
+  color: var(--text-primary);
 }
 
 /* ── Metadata Fields ───────────────────────────────────────── */
@@ -56,7 +56,7 @@
   display: flex;
   flex-direction: column;
   gap: 6px;
-  border-bottom: 1px solid #313244;
+  border-bottom: 1px solid var(--hover-bg);
 }
 
 .script-editor__field {
@@ -73,9 +73,9 @@
 }
 
 .script-editor__field input[type="text"] {
-  background: #181825;
-  border: 1px solid #45475a;
-  color: #cdd6f4;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  color: var(--text-primary);
   padding: 4px 8px;
   border-radius: 4px;
   font-size: 13px;
@@ -84,7 +84,7 @@
 }
 
 .script-editor__field input[type="text"]:focus {
-  border-color: #89b4fa;
+  border-color: var(--accent);
 }
 
 .script-editor__field--checkbox {
@@ -97,7 +97,7 @@
   align-items: center;
   gap: 6px;
   font-size: 12px;
-  color: #a6adc8;
+  color: var(--text-secondary);
   text-transform: none;
   letter-spacing: normal;
   cursor: pointer;
@@ -128,9 +128,9 @@
 
 .script-editor__textarea {
   flex: 1;
-  background: #11111b;
-  border: 1px solid #313244;
-  color: #cdd6f4;
+  background: var(--bg-secondary);
+  border: 1px solid var(--hover-bg);
+  color: var(--text-primary);
   padding: 8px;
   border-radius: 4px;
   font-family: "JetBrains Mono", "Cascadia Code", "Fira Code", monospace;
@@ -144,13 +144,13 @@
 }
 
 .script-editor__textarea:focus {
-  border-color: #89b4fa;
+  border-color: var(--accent);
 }
 
 /* ── Log Output ────────────────────────────────────────────── */
 
 .script-editor__log {
-  border-top: 1px solid #313244;
+  border-top: 1px solid var(--hover-bg);
   max-height: 200px;
   display: flex;
   flex-direction: column;
@@ -161,7 +161,7 @@
   align-items: center;
   justify-content: space-between;
   padding: 4px 12px;
-  background: #181825;
+  background: var(--bg-secondary);
   font-size: 11px;
   color: #6c7086;
   text-transform: uppercase;
@@ -190,7 +190,7 @@
 }
 
 .script-log__time {
-  color: #585b70;
+  color: var(--text-secondary);
   flex-shrink: 0;
   font-size: 11px;
 }
@@ -209,7 +209,7 @@
 }
 
 .script-log--info .script-log__level {
-  color: #89b4fa;
+  color: var(--accent);
 }
 
 .script-log--warn .script-log__level {
@@ -229,7 +229,7 @@
 }
 
 .script-log--output .script-log__message {
-  color: #a6adc8;
+  color: var(--text-secondary);
 }
 
 /* ── Action Buttons ────────────────────────────────────────── */
@@ -239,13 +239,13 @@
   align-items: center;
   gap: 8px;
   padding: 8px 12px;
-  background: #181825;
-  border-top: 1px solid #313244;
+  background: var(--bg-secondary);
+  border-top: 1px solid var(--hover-bg);
 }
 
 .script-editor__btn {
   padding: 4px 16px;
-  border: 1px solid #45475a;
+  border: 1px solid var(--border-color);
   border-radius: 4px;
   font-size: 13px;
   font-family: inherit;
@@ -259,27 +259,27 @@
 }
 
 .script-editor__btn--primary {
-  background: #89b4fa;
-  color: #1e1e2e;
-  border-color: #89b4fa;
+  background: var(--accent);
+  color: var(--bg-primary);
+  border-color: var(--accent);
 }
 
 .script-editor__btn--primary:hover:not(:disabled) {
-  background: #74c7ec;
+  background: var(--accent-hover);
 }
 
 .script-editor__btn--secondary {
-  background: #313244;
-  color: #cdd6f4;
+  background: var(--hover-bg);
+  color: var(--text-primary);
 }
 
 .script-editor__btn--secondary:hover:not(:disabled) {
-  background: #45475a;
+  background: var(--border-color);
 }
 
 .script-editor__btn--danger {
   background: #f38ba8;
-  color: #1e1e2e;
+  color: var(--bg-primary);
   border-color: #f38ba8;
 }
 
@@ -292,8 +292,8 @@
 .script-library {
   display: flex;
   flex-direction: column;
-  background: #1e1e2e;
-  color: #cdd6f4;
+  background: var(--bg-primary);
+  color: var(--text-primary);
   font-family: "JetBrains Mono", "Cascadia Code", "Fira Code", monospace;
   font-size: 13px;
   height: 100%;
@@ -305,20 +305,20 @@
   align-items: center;
   justify-content: space-between;
   padding: 8px 12px;
-  background: #181825;
-  border-bottom: 1px solid #313244;
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--hover-bg);
 }
 
 .script-library__header h3 {
   margin: 0;
   font-size: 13px;
   font-weight: 600;
-  color: #cdd6f4;
+  color: var(--text-primary);
 }
 
 .script-library__new-btn {
-  background: #89b4fa;
-  color: #1e1e2e;
+  background: var(--accent);
+  color: var(--bg-primary);
   border: none;
   padding: 3px 12px;
   border-radius: 4px;
@@ -329,13 +329,13 @@
 }
 
 .script-library__new-btn:hover {
-  background: #74c7ec;
+  background: var(--accent-hover);
 }
 
 .script-library__loading {
   padding: 16px;
   text-align: center;
-  color: #a6adc8;
+  color: var(--text-secondary);
 }
 
 .script-library__empty {
@@ -360,7 +360,7 @@
 .script-library__item {
   display: flex;
   align-items: stretch;
-  border-bottom: 1px solid #313244;
+  border-bottom: 1px solid var(--hover-bg);
 }
 
 .script-library__item-btn {
@@ -371,7 +371,7 @@
   padding: 8px 12px;
   background: transparent;
   border: none;
-  color: #cdd6f4;
+  color: var(--text-primary);
   text-align: left;
   cursor: pointer;
   font-family: inherit;
@@ -379,7 +379,7 @@
 }
 
 .script-library__item-btn:hover {
-  background: #313244;
+  background: var(--hover-bg);
 }
 
 .script-library__item-header {
@@ -408,7 +408,7 @@
 
 .script-library__item-desc {
   font-size: 11px;
-  color: #a6adc8;
+  color: var(--text-secondary);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -421,20 +421,20 @@
   width: 36px;
   background: transparent;
   border: none;
-  border-left: 1px solid #313244;
+  border-left: 1px solid var(--hover-bg);
   color: #6c7086;
   cursor: pointer;
   font-size: 12px;
 }
 
 .script-library__delete-btn:hover {
-  background: #45475a;
+  background: var(--border-color);
   color: #f38ba8;
 }
 
 .script-library__delete-btn--confirm {
   background: #f38ba8;
-  color: #1e1e2e;
+  color: var(--bg-primary);
   font-size: 10px;
   font-weight: 600;
 }
@@ -448,13 +448,13 @@
 .script-runner {
   display: flex;
   flex-direction: column;
-  background: #1e1e2e;
-  color: #cdd6f4;
+  background: var(--bg-primary);
+  color: var(--text-primary);
   font-family: "JetBrains Mono", "Cascadia Code", "Fira Code", monospace;
   font-size: 13px;
   height: 100%;
   overflow: hidden;
-  border-top: 1px solid #313244;
+  border-top: 1px solid var(--hover-bg);
 }
 
 .script-runner__header {
@@ -462,8 +462,8 @@
   align-items: center;
   gap: 12px;
   padding: 6px 12px;
-  background: #181825;
-  border-bottom: 1px solid #313244;
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--hover-bg);
   min-height: 32px;
 }
 
@@ -475,8 +475,8 @@
 }
 
 .script-runner__status--running {
-  background: #89b4fa22;
-  color: #89b4fa;
+  background: var(--accent)22;
+  color: var(--accent);
 }
 
 .script-runner__status--completed {
@@ -507,7 +507,7 @@
 
 .script-runner__stop-btn {
   background: #f38ba8;
-  color: #1e1e2e;
+  color: var(--bg-primary);
   border: none;
   padding: 2px 10px;
   border-radius: 4px;
@@ -521,8 +521,8 @@
 }
 
 .script-runner__clear-btn {
-  background: #313244;
-  color: #cdd6f4;
+  background: var(--hover-bg);
+  color: var(--text-primary);
   border: none;
   padding: 2px 10px;
   border-radius: 4px;
@@ -532,7 +532,7 @@
 }
 
 .script-runner__clear-btn:hover {
-  background: #45475a;
+  background: var(--border-color);
 }
 
 .script-runner__entries {

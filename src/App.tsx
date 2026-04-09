@@ -109,17 +109,26 @@ function App() {
     return () => setMenuEventCallbacks({});
   }, [addBrowserTab, toggleWorkspaceBar]);
 
-  // Create the first tab on mount
+  // Create the first tab on mount only
   useEffect(() => {
     if (!hasInitialized.current) {
       hasInitialized.current = true;
-      addTerminalTab();
-      return;
-    }
-    // Auto-create a tab if all regions are empty
-    const allEmpty = Object.values(regions).every((r) => r.tabs.length === 0);
-    if (allEmpty) {
-      addTerminalTab();
+      const allEmpty = Object.values(regions).every((r) => r.tabs.length === 0);
+      if (allEmpty) {
+        addTerminalTab();
+      }
+      // Load and apply active theme on startup
+      invoke<Theme[]>("theme_list").then((themes) => {
+        const activeId = useThemeStore.getState().activeThemeId;
+        const active = themes.find((t) => t.id === activeId) || themes[0];
+        if (active) {
+          useThemeStore.getState().setActiveTheme(active.id, active.colors);
+        }
+        setAvailableThemes(themes);
+        useThemeStore.getState().setThemes(
+          themes.map((t) => ({ id: t.id, name: t.name, isBuiltin: t.isBuiltin }))
+        );
+      }).catch(() => {});
     }
   }, [addTerminalTab, regions]);
 
@@ -180,10 +189,6 @@ function App() {
     window.addEventListener("keydown", handleEscape);
     return () => window.removeEventListener("keydown", handleEscape);
   }, [vaultOpen, keyManagerOpen, themeEditorOpen, fontConfigOpen]);
-
-  const handleNewTerminal = useCallback(() => {
-    addTerminalTab();
-  }, [addTerminalTab]);
 
   const handleSidebarToggle = useCallback(() => {
     setSidebarOpen((prev) => !prev);
@@ -261,41 +266,8 @@ function App() {
   }, [addTerminalTab, addBrowserTab]);
 
   // Empty state — all regions are empty
-  const allRegionsEmpty = Object.values(regions).every((r) => r.tabs.length === 0);
-  if (allRegionsEmpty && hasInitialized.current) {
-    return (
-      <div className="app-shell" data-testid="app-root">
-        {workspaceBarVisible && <WorkspaceBar />}
-        <main className="app-container">
-          <UpdateChecker />
-          <ShortcutsPanel />
-          <HistoryPanel
-            isOpen={historyOpen}
-            onClose={() => setHistoryOpen(false)}
-            onSelect={handleHistorySelect}
-          />
-          <QuickConnect
-            isOpen={quickConnectOpen}
-            onClose={() => setQuickConnectOpen(false)}
-            onConnect={handleQuickConnect}
-          />
-          <div className="app-empty-state" data-testid="app-empty-state">
-            <p>No open terminals</p>
-            <button
-              className="app-new-terminal-btn"
-              onClick={handleNewTerminal}
-              type="button"
-            >
-              New Terminal
-            </button>
-            <p className="app-empty-hint">
-              or press <kbd>Ctrl+T</kbd>
-            </p>
-          </div>
-        </main>
-      </div>
-    );
-  }
+  // Note: don't render empty state here — RegionContainer handles all workspaces.
+  // Switching to an empty workspace shouldn't unmount other workspace terminals.
 
   return (
     <div className="app-shell" data-testid="app-root">
@@ -303,11 +275,18 @@ function App() {
       <main className="app-container">
         <UpdateChecker />
         <CredentialReminder />
-        <SessionSidebar
-          isOpen={sidebarOpen}
-          onToggle={handleSidebarToggle}
-          onSessionOpen={handleSessionOpen}
-        />
+        <div style={{ display: "flex", flex: 1, minHeight: 0 }}>
+          {sidebarOpen && (
+            <SessionSidebar
+              isOpen={sidebarOpen}
+              onToggle={handleSidebarToggle}
+              onSessionOpen={handleSessionOpen}
+            />
+          )}
+          <div className="app-content">
+            <RegionContainer />
+          </div>
+        </div>
         {!sidebarOpen && (
           <button
             className="sidebar-toggle"
@@ -334,9 +313,6 @@ function App() {
         onClose={() => setQuickConnectOpen(false)}
         onConnect={handleQuickConnect}
       />
-      <div className="app-content">
-        <RegionContainer />
-      </div>
       <ConfigDiff
         isOpen={configDiffOpen}
         onClose={() => setConfigDiffOpen(false)}
@@ -505,14 +481,14 @@ function ThemeOverlay({ themes, onClose }: { themes: Theme[]; onClose: () => voi
   return (
     <div style={{
       position: "fixed", top: 0, right: 0, bottom: 0, width: "320px",
-      background: "#1e1e2e", borderLeft: "1px solid #45475a",
+      background: "var(--bg-primary)", borderLeft: "1px solid var(--border-color)",
       zIndex: 300, display: "flex", flexDirection: "column",
-      boxShadow: "-4px 0 20px rgba(0,0,0,0.5)",
+      boxShadow: "-4px 0 20px rgba(0,0,0,0.3)",
       animation: "slide-in-right 0.15s ease-out",
     }} role="dialog" aria-label="Theme Selector">
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "16px", borderBottom: "1px solid #45475a" }}>
-        <h3 style={{ margin: 0, color: "#cdd6f4", fontSize: "16px" }}>🎨 Color Themes</h3>
-        <button onClick={onClose} style={{ background: "none", border: "none", color: "#cdd6f4", fontSize: "18px", cursor: "pointer" }} aria-label="Close">✕</button>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "16px", borderBottom: "1px solid var(--border-color)" }}>
+        <h3 style={{ margin: 0, color: "var(--text-primary)", fontSize: "16px" }}>🎨 Color Themes</h3>
+        <button onClick={onClose} style={{ background: "none", border: "none", color: "var(--text-primary)", fontSize: "18px", cursor: "pointer" }} aria-label="Close">✕</button>
       </div>
       <div style={{ flex: 1, overflowY: "auto", padding: "12px", display: "flex", flexDirection: "column", gap: "6px" }}>
         {themes.map((theme) => (
@@ -522,10 +498,10 @@ function ThemeOverlay({ themes, onClose }: { themes: Theme[]; onClose: () => voi
             style={{
               display: "flex", alignItems: "center", gap: "10px",
               padding: "10px 12px",
-              border: theme.id === activeThemeId ? "2px solid #89b4fa" : "1px solid transparent",
+              border: theme.id === activeThemeId ? "2px solid var(--accent)" : "1px solid var(--border-color)",
               borderRadius: "6px",
-              background: theme.colors.background || "#1e1e2e",
-              color: theme.colors.foreground || "#cdd6f4",
+              background: theme.colors.background,
+              color: theme.colors.foreground,
               cursor: "pointer", textAlign: "left", transition: "border-color 0.1s",
             }}
           >
@@ -539,8 +515,8 @@ function ThemeOverlay({ themes, onClose }: { themes: Theme[]; onClose: () => voi
           </button>
         ))}
       </div>
-      <div style={{ padding: "12px", borderTop: "1px solid #45475a" }}>
-        <button onClick={() => setEditing(true)} style={{ width: "100%", padding: "8px", background: "#89b4fa", color: "#1e1e2e", border: "none", borderRadius: "6px", cursor: "pointer", fontWeight: "bold", fontSize: "13px" }}>
+      <div style={{ padding: "12px", borderTop: "1px solid var(--border-color)" }}>
+        <button onClick={() => setEditing(true)} style={{ width: "100%", padding: "8px", background: "var(--accent)", color: "white", border: "none", borderRadius: "6px", cursor: "pointer", fontWeight: "bold", fontSize: "13px" }}>
           + Create Custom Theme
         </button>
       </div>
