@@ -21,6 +21,24 @@ vi.mock("@tauri-apps/api/event", () => ({
   listen: vi.fn().mockResolvedValue(vi.fn()),
 }));
 
+// Mock MonacoEditor — renders a textarea for testability
+let mockMonacoValue = "";
+let mockMonacoOnChange: ((val: string) => void) | null = null;
+vi.mock("../components/Scripting/MonacoEditor", () => ({
+  MonacoEditor: ({ value, onChange, readOnly }: { value: string; onChange: (v: string) => void; readOnly?: boolean }) => {
+    mockMonacoValue = value;
+    mockMonacoOnChange = onChange;
+    return (
+      <textarea
+        data-testid="script-content-textarea"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        disabled={readOnly}
+      />
+    );
+  },
+}));
+
 const mockOnSave = vi.fn();
 const mockOnRun = vi.fn();
 const mockOnStop = vi.fn();

@@ -6,6 +6,8 @@
 export { ScriptEditor } from "./ScriptEditor";
 export { ScriptLibrary } from "./ScriptLibrary";
 export { ScriptRunner } from "./ScriptRunner";
+export { MonacoEditor } from "./MonacoEditor";
+export type { EditorLanguage } from "./MonacoEditor";
 export {
   scriptList,
   scriptGet,

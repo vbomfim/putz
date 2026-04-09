@@ -1,9 +1,15 @@
 /**
- * ScriptEditor — textarea editor for creating and editing automation scripts.
+ * ScriptEditor — Monaco-powered editor for automation scripts and Cisco configs.
  *
  * Supports create and edit modes:
  * - Create: empty editor with default template
  * - Edit: pre-filled with existing script content
+ *
+ * Features:
+ * - Monaco Editor with syntax highlighting and autocompletion
+ * - JavaScript mode: Putz API completions (send, waitFor, etc.)
+ * - Cisco IOS mode: IOS config syntax highlighting and command completions
+ * - Theme sync with Putz themeStore
  *
  * Provides run, stop, save, and record controls.
  *
@@ -17,6 +23,7 @@ import type {
   ScriptStatus,
 } from "./types";
 import { DEFAULT_SCRIPT_CONTENT } from "./types";
+import { MonacoEditor, type EditorLanguage } from "./MonacoEditor";
 
 interface ScriptEditorProps {
   /** Script to edit (undefined = create mode). */
@@ -77,6 +84,7 @@ export function ScriptEditor({
   const [isLoginScript, setIsLoginScript] = useState(
     script?.meta.isLoginScript ?? false,
   );
+  const [editorLanguage, setEditorLanguage] = useState<EditorLanguage>("javascript");
   const [errors, setErrors] = useState<Record<string, string>>({});
   const logEndRef = useRef<HTMLDivElement>(null);
 
@@ -123,22 +131,6 @@ export function ScriptEditor({
     onRun(script.meta.id);
   }, [script, onRun]);
 
-  const handleKeyDown = useCallback(
-    (e: React.KeyboardEvent) => {
-      // Ctrl+S / Cmd+S to save
-      if ((e.ctrlKey || e.metaKey) && e.key === "s") {
-        e.preventDefault();
-        handleSave();
-      }
-      // Ctrl+Enter to run
-      if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
-        e.preventDefault();
-        handleRun();
-      }
-    },
-    [handleSave, handleRun],
-  );
-
   /** Returns a CSS class for a log level. */
   const logLevelClass = (level: string): string => {
     switch (level) {
@@ -175,7 +167,6 @@ export function ScriptEditor({
       data-testid="script-editor"
       role="dialog"
       aria-label={isEdit ? "Edit Script" : "Create Script"}
-      onKeyDown={handleKeyDown}
     >
       {/* Header */}
       <div className="script-editor__header">
@@ -238,17 +229,37 @@ export function ScriptEditor({
 
       {/* Code editor */}
       <div className="script-editor__code">
-        <label htmlFor="script-content">Script</label>
-        <textarea
-          id="script-content"
-          className="script-editor__textarea"
-          value={content}
-          onChange={(e) => setContent(e.target.value)}
-          disabled={isSaving}
-          spellCheck={false}
-          data-testid="script-content-textarea"
-          placeholder="// Write your automation script here..."
-        />
+        <div className="script-editor__code-header">
+          <label>Script</label>
+          <div className="script-editor__language-toggle">
+            <button
+              type="button"
+              className={`script-editor__lang-btn ${editorLanguage === "javascript" ? "script-editor__lang-btn--active" : ""}`}
+              onClick={() => setEditorLanguage("javascript")}
+              title="JavaScript — Putz automation scripts"
+            >
+              JS
+            </button>
+            <button
+              type="button"
+              className={`script-editor__lang-btn ${editorLanguage === "cisco-ios" ? "script-editor__lang-btn--active" : ""}`}
+              onClick={() => setEditorLanguage("cisco-ios")}
+              title="Cisco IOS — config syntax highlighting"
+            >
+              IOS
+            </button>
+          </div>
+        </div>
+        <div className="script-editor__monaco-wrapper">
+          <MonacoEditor
+            value={content}
+            onChange={setContent}
+            language={editorLanguage}
+            readOnly={isSaving}
+            onSave={handleSave}
+            onRun={isEdit && sessionId ? handleRun : undefined}
+          />
+        </div>
         {errors.content && (
           <span className="script-editor__error">{errors.content}</span>
         )}
