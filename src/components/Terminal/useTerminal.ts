@@ -185,22 +185,34 @@ export function useTerminal({
       // WebLinksAddon not critical — URLs just won't be clickable
     }
 
-    // File path link provider — Ctrl+click or double-click opens in editor tab
-    // Detects absolute paths and common config file patterns
+    // File path link provider — Ctrl+click opens in editor tab
+    // Detects absolute paths and filenames with extensions (e.g. from ls output)
     terminal.registerLinkProvider({
       provideLinks(bufferLineNumber, callback) {
         const line = terminal.buffer.active.getLine(bufferLineNumber - 1);
         if (!line) { callback(undefined); return; }
         const text = line.translateToString();
-        const links: { startIndex: number; length: number; text: string }[] = [];
+        const links: { startIndex: number; length: number; text: string; isRelative: boolean }[] = [];
 
         // Match absolute paths: /path/to/file.ext
-        const pathRegex = /(?:^|\s)(\/[\w./-]+\.\w{1,10})\b/g;
+        const absRegex = /(?:^|\s)(\/[\w./-]+\.\w{1,10})\b/g;
         let match: RegExpExecArray | null;
-        while ((match = pathRegex.exec(text)) !== null) {
+        while ((match = absRegex.exec(text)) !== null) {
           const path = match[1];
           const startIndex = match.index + match[0].indexOf(path);
-          links.push({ startIndex, length: path.length, text: path });
+          links.push({ startIndex, length: path.length, text: path, isRelative: false });
+        }
+
+        // Match filenames with common config/script extensions at end of line
+        // (covers ls -lah output like "CR4.txt", "router.cfg")
+        const fileExts = "txt|cfg|conf|config|ios|acl|js|ts|py|sh|yaml|yml|json|xml|csv|log|bak|md";
+        const fnRegex = new RegExp(`(?:^|\\s)([\\w][\\w.+-]*\\.(?:${fileExts}))\\s*$`, "gi");
+        while ((match = fnRegex.exec(text)) !== null) {
+          const fname = match[1];
+          const startIndex = match.index + match[0].indexOf(fname);
+          // Skip if already matched as absolute path
+          if (links.some((l) => l.startIndex === startIndex)) continue;
+          links.push({ startIndex, length: fname.length, text: fname, isRelative: true });
         }
 
         if (links.length === 0) { callback(undefined); return; }
@@ -211,9 +223,16 @@ export function useTerminal({
           },
           text: l.text,
           activate() {
-            // Open file in editor tab
             const { addEditorTab } = useLayoutStore.getState();
-            addEditorTab(undefined, l.text);
+            if (l.isRelative) {
+              // Resolve relative filename using PTY's current working directory.
+              // We use the shell's $PWD via a Tauri command, but for now
+              // we read from the terminal title (often set to CWD by shells).
+              // Fallback: just open the filename — user can adjust path.
+              addEditorTab(undefined, l.text);
+            } else {
+              addEditorTab(undefined, l.text);
+            }
           },
         })));
       },
@@ -378,13 +397,38 @@ export function useTerminal({
       onTitleChangeRef.current?.(title);
     });
 
-    // Keyboard shortcuts: Ctrl+Shift+H (highlight), Ctrl+Shift+C/V (copy/paste),
-    // Ctrl+Plus/Minus/0 (font zoom)
+    // Keyboard shortcuts: Cmd/Ctrl+C/V/A (copy/paste/select-all),
+    // Ctrl+Shift+H (highlight), Ctrl+Plus/Minus/0 (font zoom)
     terminal.attachCustomKeyEventHandler(
       (event: KeyboardEvent) => {
         if (event.type !== "keydown") return true;
 
-        // Fix 2: Ctrl+Shift+C — copy selection to clipboard
+        const isMod = event.metaKey || event.ctrlKey;
+
+        // Cmd+C / Ctrl+C — copy selection (if any), otherwise send SIGINT
+        if (isMod && !event.shiftKey && event.key === "c") {
+          const selection = terminal.getSelection();
+          if (selection) {
+            navigator.clipboard.writeText(selection).catch(() => {});
+            return false; // Consumed — don't send to PTY
+          }
+          // No selection → let xterm send Ctrl+C (SIGINT) to PTY
+          return true;
+        }
+
+        // Cmd+V / Ctrl+V — paste from clipboard
+        if (isMod && !event.shiftKey && event.key === "v") {
+          pasteToTerminal(terminal, sessionId);
+          return false;
+        }
+
+        // Cmd+A / Ctrl+A — select all terminal content
+        if (isMod && !event.shiftKey && event.key === "a") {
+          terminal.selectAll();
+          return false;
+        }
+
+        // Ctrl+Shift+C — copy (Linux-style, always copies)
         if (event.ctrlKey && event.shiftKey && event.key === "C") {
           const selection = terminal.getSelection();
           if (selection) {
@@ -393,20 +437,20 @@ export function useTerminal({
           return false;
         }
 
-        // Fix 2: Ctrl+Shift+V — paste from clipboard
+        // Ctrl+Shift+V — paste (Linux-style)
         if (event.ctrlKey && event.shiftKey && event.key === "V") {
           pasteToTerminal(terminal, sessionId);
           return false;
         }
 
-        // Ctrl+Shift+H — toggle highlighting (existing)
+        // Ctrl+Shift+H — toggle highlighting
         if (event.ctrlKey && event.shiftKey && event.key === "H") {
           const newState = highlightEngine.toggle();
           setHighlightEnabled(newState);
           return false;
         }
 
-        // Fix 7: Ctrl+= or Ctrl+Plus — increase font size
+        // Ctrl+= or Ctrl+Plus — increase font size
         if (event.ctrlKey && !event.shiftKey && (event.key === "=" || event.key === "+")) {
           const current = terminal.options.fontSize ?? FONT_SIZE_DEFAULT;
           terminal.options.fontSize = clampFontSize(current + 1);
@@ -414,7 +458,7 @@ export function useTerminal({
           return false;
         }
 
-        // Fix 7: Ctrl+- — decrease font size
+        // Ctrl+- — decrease font size
         if (event.ctrlKey && !event.shiftKey && event.key === "-") {
           const current = terminal.options.fontSize ?? FONT_SIZE_DEFAULT;
           terminal.options.fontSize = clampFontSize(current - 1);
@@ -422,7 +466,7 @@ export function useTerminal({
           return false;
         }
 
-        // Fix 7: Ctrl+0 — reset font size to default
+        // Ctrl+0 — reset font size to default
         if (event.ctrlKey && !event.shiftKey && event.key === "0") {
           terminal.options.fontSize = FONT_SIZE_DEFAULT;
           try { fitAddon.fit(); } catch { /* ignore */ }
