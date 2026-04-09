@@ -157,8 +157,6 @@ export function useTerminal({
       cursorBlink: true,
       cursorStyle: "block",
       allowProposedApi: true,
-      screenReaderMode: true,
-      // Fix 5: Better word separators for double-click selection
       wordSeparator: WORD_SEPARATOR,
     });
 
