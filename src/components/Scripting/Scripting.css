@@ -669,6 +669,36 @@
   cursor: default;
 }
 
+.editor-tab__tool-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  padding: 3px 6px;
+  border-radius: 4px;
+  font-size: 13px;
+  cursor: pointer;
+  transition: background-color 0.15s, color 0.15s;
+}
+
+.editor-tab__tool-btn:hover {
+  background: var(--hover-bg);
+  color: var(--text-primary);
+}
+
+.editor-tab__toggle-label {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+.editor-tab__toggle-label input[type="checkbox"] {
+  margin: 0;
+  cursor: pointer;
+}
+
 .editor-tab__error {
   padding: 4px 8px;
   background: #f38ba822;

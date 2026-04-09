@@ -203,10 +203,10 @@ export function useTerminal({
           links.push({ startIndex, length: path.length, text: path, isRelative: false });
         }
 
-        // Match filenames with common config/script extensions at end of line
-        // (covers ls -lah output like "CR4.txt", "router.cfg")
+        // Match filenames with common config/script extensions anywhere in line
+        // (covers ls output "CR4.txt", ls -lah trailing filenames, etc.)
         const fileExts = "txt|cfg|conf|config|ios|acl|js|ts|py|sh|yaml|yml|json|xml|csv|log|bak|md";
-        const fnRegex = new RegExp(`(?:^|\\s)([\\w][\\w.+-]*\\.(?:${fileExts}))\\s*$`, "gi");
+        const fnRegex = new RegExp(`(?:^|\\s)([\\w][\\w.+-]*\\.(?:${fileExts}))(?=\\s|$)`, "gi");
         while ((match = fnRegex.exec(text)) !== null) {
           const fname = match[1];
           const startIndex = match.index + match[0].indexOf(fname);

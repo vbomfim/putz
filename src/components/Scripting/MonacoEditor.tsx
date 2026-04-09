@@ -35,6 +35,8 @@ interface MonacoEditorProps {
   /** Keyboard shortcut handlers passed through. */
   onSave?: () => void;
   onRun?: () => void;
+  /** Ref to expose the editor instance for triggering actions. */
+  editorInstanceRef?: React.MutableRefObject<monaco.editor.IStandaloneCodeEditor | null>;
 }
 
 // Track whether languages have been registered (once per Monaco instance)
@@ -160,6 +162,7 @@ export function MonacoEditor({
   readOnly = false,
   onSave,
   onRun,
+  editorInstanceRef,
 }: MonacoEditorProps) {
   const editorRef = useRef<monaco.editor.IStandaloneCodeEditor | null>(null);
   const monacoRef = useRef<typeof monaco | null>(null);
@@ -184,6 +187,11 @@ export function MonacoEditor({
     (editor, monacoInstance) => {
       editorRef.current = editor;
       monacoRef.current = monacoInstance;
+
+      // Expose to parent for triggering find/replace
+      if (editorInstanceRef) {
+        editorInstanceRef.current = editor;
+      }
 
       // Register custom languages (once per Monaco instance)
       if (!languagesRegistered) {
@@ -212,6 +220,16 @@ export function MonacoEditor({
           () => onRun(),
         );
       }
+
+      // Ensure Find & Replace keybindings work (Cmd+F / Cmd+H)
+      editor.addCommand(
+        monacoInstance.KeyMod.CtrlCmd | monacoInstance.KeyCode.KeyF,
+        () => editor.getAction("actions.find")?.run(),
+      );
+      editor.addCommand(
+        monacoInstance.KeyMod.CtrlCmd | monacoInstance.KeyCode.KeyH,
+        () => editor.getAction("editor.action.startFindReplaceAction")?.run(),
+      );
 
       // Focus the editor
       editor.focus();

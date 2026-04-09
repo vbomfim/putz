@@ -8,6 +8,7 @@ export { ScriptLibrary } from "./ScriptLibrary";
 export { ScriptRunner } from "./ScriptRunner";
 export { MonacoEditor } from "./MonacoEditor";
 export { EditorTab } from "./EditorTab";
+export { DiffEditorTab } from "./DiffEditorTab";
 export type { EditorLanguage } from "./MonacoEditor";
 export {
   scriptList,

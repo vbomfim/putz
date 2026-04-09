@@ -14,6 +14,11 @@ export async function fileRead(path: string): Promise<string> {
   return invoke<string>("file_read", { path });
 }
 
+/** Get a file's modification time (ms since epoch). */
+export async function fileMtime(path: string): Promise<number> {
+  return invoke<number>("file_mtime", { path });
+}
+
 /** Write content to a file by absolute path. */
 export async function fileWrite(path: string, content: string): Promise<void> {
   return invoke("file_write", { path, content });

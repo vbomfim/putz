@@ -8,7 +8,7 @@
 export type TabStatus = "connected" | "disconnected" | "connecting" | "local";
 
 /** Content type rendered inside a tab. */
-export type TabContentType = "terminal" | "browser" | "editor";
+export type TabContentType = "terminal" | "browser" | "editor" | "diff";
 
 /**
  * Recursive tree structure representing a pane layout within a tab.
@@ -72,6 +72,14 @@ export interface RegionTab {
   editorFilePath?: string;
   /** Script ID for editor tabs editing saved scripts. */
   editorScriptId?: string;
+  /** Left file path for diff tabs. */
+  diffLeftPath?: string;
+  /** Right file path for diff tabs. */
+  diffRightPath?: string;
+  /** Left content for diff tabs (if no path). */
+  diffLeftContent?: string;
+  /** Right content for diff tabs (if no path). */
+  diffRightContent?: string;
   /** Connection status of the tab. */
   status: TabStatus;
 }

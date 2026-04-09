@@ -12,6 +12,7 @@ import { useCallback } from "react";
 import { TerminalView } from "../Terminal";
 import { BrowserView } from "../Browser";
 import { EditorTab } from "../Scripting/EditorTab";
+import { DiffEditorTab } from "../Scripting/DiffEditorTab";
 import { RegionTabBar } from "./RegionTabBar";
 import { useLayoutStore } from "../../stores/layoutStore";
 import type { Region } from "../../types";
@@ -99,6 +100,20 @@ export function RegionView({ region, isFocused }: RegionViewProps) {
                 <EditorTab
                   filePath={tab.editorFilePath}
                   scriptId={tab.editorScriptId}
+                  regionId={region.id}
+                  tabId={tab.id}
+                />
+              </div>
+            );
+          }
+          if (tab.type === "diff") {
+            return (
+              <div key={tab.id} style={{ display: isTabActive ? "flex" : "none", flex: 1, flexDirection: "column", minHeight: 0, overflow: "hidden" }}>
+                <DiffEditorTab
+                  leftPath={tab.diffLeftPath}
+                  rightPath={tab.diffRightPath}
+                  leftContent={tab.diffLeftContent}
+                  rightContent={tab.diffRightContent}
                   regionId={region.id}
                   tabId={tab.id}
                 />

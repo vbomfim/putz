@@ -171,6 +171,9 @@ interface LayoutState {
   /** Adds an editor tab to a region (defaults to focused region). */
   addEditorTab: (regionId?: string, filePath?: string, scriptId?: string) => void;
 
+  /** Adds a diff tab comparing two files or content strings. */
+  addDiffTab: (regionId?: string, leftPath?: string, rightPath?: string, leftContent?: string, rightContent?: string) => void;
+
   /** Closes a tab in a region. If last tab, closes the region. */
   closeTab: (regionId: string, tabId: string) => void;
 
@@ -381,6 +384,41 @@ export const useLayoutStore = create<LayoutState>((set, get) => ({
       sessionId,
       editorFilePath: filePath,
       editorScriptId: scriptId,
+      status: "local",
+    };
+
+    set((state) => ({
+      regions: {
+        ...state.regions,
+        [targetRegionId]: {
+          ...state.regions[targetRegionId],
+          tabs: [...state.regions[targetRegionId].tabs, tab],
+          activeTabId: tab.id,
+        },
+      },
+      tabCounter: nextCounter,
+    }));
+  },
+
+  addDiffTab: (regionId?: string, leftPath?: string, rightPath?: string, leftContent?: string, rightContent?: string) => {
+    const targetRegionId = regionId || get().focusedRegionId;
+    const region = get().regions[targetRegionId];
+    if (!region) return;
+
+    const sessionId = `${EDITOR_SESSION_PREFIX}diff-${generateId()}`;
+    const nextCounter = get().tabCounter + 1;
+    const leftName = leftPath?.split("/").pop() || "Original";
+    const rightName = rightPath?.split("/").pop() || "Modified";
+
+    const tab: RegionTab = {
+      id: generateId(),
+      title: `${leftName} ↔ ${rightName}`,
+      type: "diff",
+      sessionId,
+      diffLeftPath: leftPath,
+      diffRightPath: rightPath,
+      diffLeftContent: leftContent,
+      diffRightContent: rightContent,
       status: "local",
     };
 

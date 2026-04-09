@@ -28,7 +28,7 @@ use ipc::{
     change_window_active, change_window_check, change_window_delete, change_window_list,
     change_window_set,
     connection_close, connection_open, connection_resize, connection_write,
-    file_read, file_write,
+    file_read, file_write, file_mtime,
     forwarding_add, forwarding_list, forwarding_remove, forwarding_status,
     highlight_create_set,
     highlight_delete_set, highlight_get_set, highlight_list_sets, highlight_update_set,
@@ -202,6 +202,7 @@ pub fn run() {
             log_debug,
             file_read,
             file_write,
+            file_mtime,
         ])
         // Fix 8: Graceful app exit — clean up PTY sessions and protocol connections
         .on_window_event(|window, event| {

@@ -8,7 +8,8 @@
  */
 import { useState, useCallback, useEffect, useRef } from "react";
 import { MonacoEditor, type EditorLanguage } from "./MonacoEditor";
-import { fileRead, fileWrite, detectLanguage } from "./editorApi";
+import type * as monaco from "monaco-editor";
+import { fileRead, fileWrite, fileMtime, detectLanguage } from "./editorApi";
 import { scriptGet, scriptSave } from "./scriptApi";
 import type { SaveScriptInput } from "./types";
 import { DEFAULT_SCRIPT_CONTENT } from "./types";
@@ -38,7 +39,17 @@ export function EditorTab({ filePath, scriptId, regionId, tabId }: EditorTabProp
   const [error, setError] = useState<string | null>(null);
   const [statusMessage, setStatusMessage] = useState("");
   const savedContentRef = useRef("");
+  const lastMtimeRef = useRef<number>(0);
+  const editorInstanceRef = useRef<monaco.editor.IStandaloneCodeEditor | null>(null);
   const renameTab = useLayoutStore((s) => s.renameTab);
+
+  const handleFind = useCallback(() => {
+    editorInstanceRef.current?.getAction("actions.find")?.run();
+  }, []);
+
+  const handleFindReplace = useCallback(() => {
+    editorInstanceRef.current?.getAction("editor.action.startFindReplaceAction")?.run();
+  }, []);
 
   // Load file or script content on mount
   useEffect(() => {
@@ -55,6 +66,10 @@ export function EditorTab({ filePath, scriptId, regionId, tabId }: EditorTabProp
           setContent(text);
           savedContentRef.current = text;
           setLanguage(detectLanguage(filePath, text));
+          // Store initial mtime for change detection
+          try {
+            lastMtimeRef.current = await fileMtime(filePath);
+          } catch { /* ignore — polling will handle it */ }
           setStatusMessage(`Opened ${filePath}`);
         } else if (scriptId) {
           const script = await scriptGet(scriptId);
@@ -85,6 +100,35 @@ export function EditorTab({ filePath, scriptId, regionId, tabId }: EditorTabProp
     return () => { cancelled = true; };
   }, [filePath, scriptId, regionId, tabId, renameTab]);
 
+  // Poll file mtime every 2s — reload if changed externally
+  useEffect(() => {
+    if (!filePath) return;
+
+    const interval = setInterval(async () => {
+      try {
+        const mtime = await fileMtime(filePath);
+        if (mtime > lastMtimeRef.current && lastMtimeRef.current > 0) {
+          // File changed on disk
+          if (isDirty) {
+            // User has unsaved changes — just notify
+            setStatusMessage("⚠ File changed on disk (unsaved changes)");
+            lastMtimeRef.current = mtime;
+            return;
+          }
+          const text = await fileRead(filePath);
+          setContent(text);
+          savedContentRef.current = text;
+          lastMtimeRef.current = mtime;
+          setStatusMessage("File reloaded (changed on disk)");
+        }
+      } catch {
+        // File may have been deleted — ignore
+      }
+    }, 2000);
+
+    return () => clearInterval(interval);
+  }, [filePath, isDirty]);
+
   const handleChange = useCallback((value: string) => {
     setContent(value);
     setIsDirty(value !== savedContentRef.current);
@@ -98,6 +142,8 @@ export function EditorTab({ filePath, scriptId, regionId, tabId }: EditorTabProp
         await fileWrite(filePath, content);
         savedContentRef.current = content;
         setIsDirty(false);
+        // Update mtime so the watcher doesn't trigger a reload
+        try { lastMtimeRef.current = await fileMtime(filePath); } catch { /* ignore */ }
         setStatusMessage(`Saved ${filePath}`);
       } else if (scriptId) {
         const script = await scriptGet(scriptId);
@@ -122,6 +168,15 @@ export function EditorTab({ filePath, scriptId, regionId, tabId }: EditorTabProp
     }
   }, [filePath, scriptId, content]);
 
+  // Auto-save: 2 seconds after the user stops typing (only for files with a path)
+  useEffect(() => {
+    if (!isDirty || (!filePath && !scriptId)) return;
+    const timer = setTimeout(() => {
+      handleSave();
+    }, 2000);
+    return () => clearTimeout(timer);
+  }, [isDirty, content, filePath, scriptId, handleSave]);
+
   if (isLoading) {
     return (
       <div className="editor-tab" data-testid="editor-tab">
@@ -141,6 +196,22 @@ export function EditorTab({ filePath, scriptId, regionId, tabId }: EditorTabProp
           </span>
         </div>
         <div className="editor-tab__toolbar-right">
+          <button
+            type="button"
+            className="editor-tab__tool-btn"
+            onClick={handleFind}
+            title="Find (⌘F)"
+          >
+            🔍
+          </button>
+          <button
+            type="button"
+            className="editor-tab__tool-btn"
+            onClick={handleFindReplace}
+            title="Find & Replace (⌘H)"
+          >
+            ↔
+          </button>
           <div className="script-editor__language-toggle">
             <button
               type="button"
@@ -161,12 +232,12 @@ export function EditorTab({ filePath, scriptId, regionId, tabId }: EditorTabProp
           </div>
           <button
             type="button"
-            className="editor-tab__save-btn"
+            className={`editor-tab__save-btn ${isDirty ? "editor-tab__save-btn--dirty" : ""}`}
             onClick={handleSave}
             disabled={isSaving || !isDirty}
-            title="Save (Ctrl+S)"
+            title="Save (⌘S) — auto-saves after 2s"
           >
-            {isSaving ? "Saving…" : "Save"}
+            {isSaving ? "Saving…" : isDirty ? "● Save" : "✓ Saved"}
           </button>
         </div>
       </div>
@@ -184,6 +255,7 @@ export function EditorTab({ filePath, scriptId, regionId, tabId }: EditorTabProp
           language={language}
           readOnly={isSaving}
           onSave={handleSave}
+          editorInstanceRef={editorInstanceRef}
         />
       </div>
 
