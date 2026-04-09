@@ -53,7 +53,7 @@ pub use sftp::{
 pub use templates::{
     template_create, template_delete, template_execute, template_get, template_list,
 };
-pub use terminal::{pty_close, pty_resize, pty_spawn, pty_write};
+pub use terminal::{pty_close, pty_cwd, pty_resize, pty_spawn, pty_write};
 pub use theme::{
     theme_create, theme_delete, theme_export, theme_get, theme_import, theme_list, theme_update,
 };

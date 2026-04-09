@@ -56,6 +56,8 @@ struct PtySession {
     /// Child process handle (needed for wait/kill).
     #[allow(dead_code)]
     child: Box<dyn Child + Send + Sync>,
+    /// PID of the child shell process (for CWD lookup).
+    pid: Option<u32>,
 }
 
 /// Manages all active PTY sessions.
@@ -176,11 +178,13 @@ impl PtyManager {
             .map_err(|e| PtyError::SpawnFailed(e.to_string()))?;
 
         let session_id = Uuid::new_v4().to_string();
+        let pid = child.process_id();
 
         let session = PtySession {
             writer,
             master: pair.master,
             child,
+            pid,
         };
 
         {
@@ -250,6 +254,28 @@ impl PtyManager {
             .map_err(|e| PtyError::WriteFailed(e.to_string()))?;
 
         Ok(())
+    }
+
+    /// Gets the current working directory of a PTY session's child process.
+    ///
+    /// On macOS, uses `proc_pidinfo` via lsof fallback. On Linux, reads `/proc/PID/cwd`.
+    pub fn get_cwd(&self, session_id: &str) -> Result<String, PtyError> {
+        validate_session_id(session_id)?;
+
+        let sessions = self
+            .sessions
+            .lock()
+            .map_err(|e| PtyError::WriteFailed(e.to_string()))?;
+
+        let session = sessions
+            .get(session_id)
+            .ok_or_else(|| PtyError::NotFound(session_id.to_string()))?;
+
+        let pid = session.pid.ok_or_else(|| {
+            PtyError::WriteFailed("No PID available for this session".to_string())
+        })?;
+
+        get_process_cwd(pid)
     }
 
     /// Closes a PTY session and removes it from the manager.
@@ -444,6 +470,42 @@ fn validate_env_vars(vars: &HashMap<String, String>) -> Result<(), PtyError> {
         }
     }
     Ok(())
+}
+
+/// Gets the current working directory of a process by PID.
+fn get_process_cwd(pid: u32) -> Result<String, PtyError> {
+    #[cfg(target_os = "linux")]
+    {
+        let link = format!("/proc/{}/cwd", pid);
+        std::fs::read_link(&link)
+            .map(|p| p.to_string_lossy().to_string())
+            .map_err(|e| PtyError::WriteFailed(format!("Failed to read CWD for PID {}: {}", pid, e)))
+    }
+
+    #[cfg(target_os = "macos")]
+    {
+        // On macOS, use lsof to find the CWD
+        let output = std::process::Command::new("lsof")
+            .args(["-p", &pid.to_string(), "-Fn", "-d", "cwd"])
+            .output()
+            .map_err(|e| PtyError::WriteFailed(format!("lsof failed: {}", e)))?;
+
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        // lsof output: "p<pid>\nfcwd\nn<path>\n"
+        for line in stdout.lines() {
+            if let Some(path) = line.strip_prefix('n') {
+                if path.starts_with('/') {
+                    return Ok(path.to_string());
+                }
+            }
+        }
+        Err(PtyError::WriteFailed(format!("Could not determine CWD for PID {}", pid)))
+    }
+
+    #[cfg(windows)]
+    {
+        Err(PtyError::WriteFailed("CWD lookup not supported on Windows".to_string()))
+    }
 }
 
 #[cfg(test)]

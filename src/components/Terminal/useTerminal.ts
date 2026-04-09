@@ -225,11 +225,18 @@ export function useTerminal({
           activate() {
             const { addEditorTab } = useLayoutStore.getState();
             if (l.isRelative) {
-              // Resolve relative filename using PTY's current working directory.
-              // We use the shell's $PWD via a Tauri command, but for now
-              // we read from the terminal title (often set to CWD by shells).
-              // Fallback: just open the filename — user can adjust path.
-              addEditorTab(undefined, l.text);
+              // Resolve relative path via PTY's working directory
+              invoke<string>("pty_cwd", { sessionId })
+                .then((cwd) => {
+                  const fullPath = cwd.endsWith("/")
+                    ? `${cwd}${l.text}`
+                    : `${cwd}/${l.text}`;
+                  addEditorTab(undefined, fullPath);
+                })
+                .catch(() => {
+                  // Fallback: open just the filename
+                  addEditorTab(undefined, l.text);
+                });
             } else {
               addEditorTab(undefined, l.text);
             }

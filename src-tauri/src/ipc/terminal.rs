@@ -71,6 +71,12 @@ pub fn pty_close(state: State<'_, PtyManager>, session_id: String) -> Result<(),
     state.close(&session_id).map_err(|e| e.to_string())
 }
 
+/// Gets the current working directory of a PTY session's shell process.
+#[tauri::command]
+pub fn pty_cwd(state: State<'_, PtyManager>, session_id: String) -> Result<String, String> {
+    state.get_cwd(&session_id).map_err(|e| e.to_string())
+}
+
 #[cfg(test)]
 mod tests {
     // IPC command handlers are thin wrappers around PtyManager methods.
