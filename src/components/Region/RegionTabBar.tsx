@@ -406,7 +406,19 @@ export function RegionTabBar({
         </button>
         <button
           className="region-tabbar__action"
-          onClick={() => { setFocusedRegion(regionId); addSearchTab(regionId); }}
+          onClick={async () => {
+            setFocusedRegion(regionId);
+            // Get CWD from the active terminal tab in this region
+            const activeTab = tabs.find((t) => t.id === activeTabId);
+            let cwd: string | undefined;
+            if (activeTab?.type === "terminal" && activeTab.sessionId) {
+              try {
+                const { invoke } = await import("@tauri-apps/api/core");
+                cwd = await invoke<string>("pty_cwd", { sessionId: activeTab.sessionId });
+              } catch { /* fallback — no directory */ }
+            }
+            addSearchTab(regionId, cwd);
+          }}
           aria-label="Search in Files"
           type="button"
           title="Search & Replace in Files"
