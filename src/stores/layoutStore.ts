@@ -174,6 +174,9 @@ interface LayoutState {
   /** Adds a diff tab comparing two files or content strings. */
   addDiffTab: (regionId?: string, leftPath?: string, rightPath?: string, leftContent?: string, rightContent?: string) => void;
 
+  /** Adds a search & replace tab. */
+  addSearchTab: (regionId?: string, directory?: string) => void;
+
   /** Closes a tab in a region. If last tab, closes the region. */
   closeTab: (regionId: string, tabId: string) => void;
 
@@ -422,6 +425,36 @@ export const useLayoutStore = create<LayoutState>((set, get) => ({
       diffRightPath: rightPath,
       diffLeftContent: leftContent,
       diffRightContent: rightContent,
+      status: "local",
+    };
+
+    set((state) => ({
+      regions: {
+        ...state.regions,
+        [targetRegionId]: {
+          ...state.regions[targetRegionId],
+          tabs: [...state.regions[targetRegionId].tabs, tab],
+          activeTabId: tab.id,
+        },
+      },
+      tabCounter: nextCounter,
+    }));
+  },
+
+  addSearchTab: (regionId?: string, directory?: string) => {
+    const targetRegionId = regionId || get().focusedRegionId;
+    const region = get().regions[targetRegionId];
+    if (!region) return;
+
+    const sessionId = `${EDITOR_SESSION_PREFIX}search-${generateId()}`;
+    const nextCounter = get().tabCounter + 1;
+
+    const tab: RegionTab = {
+      id: generateId(),
+      title: "Search & Replace",
+      type: "search",
+      sessionId,
+      editorFilePath: directory,
       status: "local",
     };
 

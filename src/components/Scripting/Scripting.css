@@ -764,3 +764,236 @@
   color: var(--text-secondary);
   font-size: 14px;
 }
+
+/* ── Search & Replace Tab ──────────────────────────────── */
+
+.search-replace-tab {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-family: "JetBrains Mono", "Cascadia Code", monospace;
+  font-size: 13px;
+}
+
+.search-replace-tab__inputs {
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  border-bottom: 1px solid var(--hover-bg);
+  background: var(--bg-secondary);
+}
+
+.search-replace-tab__row {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+}
+
+.search-replace-tab__row--options {
+  gap: 6px;
+}
+
+.search-replace-tab__input {
+  flex: 1;
+  padding: 4px 8px;
+  border: 1px solid var(--hover-bg);
+  border-radius: 4px;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-size: 12px;
+  font-family: inherit;
+  outline: none;
+}
+
+.search-replace-tab__input:focus {
+  border-color: var(--accent);
+}
+
+.search-replace-tab__input--small {
+  flex: 2;
+}
+
+.search-replace-tab__input--tiny {
+  flex: 0 0 80px;
+}
+
+.search-replace-tab__option {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 11px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.search-replace-tab__option input {
+  margin: 0;
+}
+
+.search-replace-tab__btn {
+  padding: 4px 8px;
+  border: 1px solid var(--hover-bg);
+  border-radius: 4px;
+  background: var(--bg-primary);
+  color: var(--text-secondary);
+  font-size: 13px;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.search-replace-tab__btn:hover:not(:disabled) {
+  background: var(--hover-bg);
+  color: var(--text-primary);
+}
+
+.search-replace-tab__btn--primary {
+  background: var(--accent);
+  color: white;
+  border-color: var(--accent);
+}
+
+.search-replace-tab__btn--primary:hover:not(:disabled) {
+  opacity: 0.85;
+}
+
+.search-replace-tab__btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.search-replace-tab__status {
+  padding: 4px 8px;
+  font-size: 11px;
+  color: var(--text-secondary);
+  border-bottom: 1px solid var(--hover-bg);
+}
+
+.search-replace-tab__results {
+  flex: 1;
+  overflow-y: auto;
+  min-height: 0;
+}
+
+.search-replace-tab__empty {
+  padding: 24px;
+  text-align: center;
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
+/* File group */
+.search-result__file {
+  border-bottom: 1px solid var(--hover-bg);
+}
+
+.search-result__file-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  cursor: pointer;
+  background: var(--bg-secondary);
+  font-size: 12px;
+}
+
+.search-result__file-header:hover {
+  background: var(--hover-bg);
+}
+
+.search-result__chevron {
+  font-size: 10px;
+  color: var(--text-secondary);
+  width: 12px;
+  flex-shrink: 0;
+}
+
+.search-result__filename {
+  font-weight: 600;
+  color: var(--accent);
+  cursor: pointer;
+}
+
+.search-result__filename:hover {
+  text-decoration: underline;
+}
+
+.search-result__dir {
+  color: var(--text-secondary);
+  font-size: 11px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+  min-width: 0;
+}
+
+.search-result__count {
+  background: var(--hover-bg);
+  color: var(--text-secondary);
+  padding: 1px 6px;
+  border-radius: 8px;
+  font-size: 10px;
+  flex-shrink: 0;
+}
+
+.search-result__replace-file {
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-size: 12px;
+  padding: 2px 4px;
+  border-radius: 3px;
+  flex-shrink: 0;
+}
+
+.search-result__replace-file:hover {
+  background: var(--hover-bg);
+  color: var(--text-primary);
+}
+
+/* Match lines */
+.search-result__matches {
+  padding-left: 20px;
+}
+
+.search-result__match {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 2px 8px;
+  cursor: pointer;
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.search-result__match:hover {
+  background: var(--hover-bg);
+}
+
+.search-result__line-num {
+  color: var(--text-secondary);
+  font-size: 11px;
+  min-width: 30px;
+  text-align: right;
+  flex-shrink: 0;
+}
+
+.search-result__line-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+.search-result__highlight {
+  background: #f9e2af44;
+  color: #f9e2af;
+  border-radius: 2px;
+  padding: 0 1px;
+}

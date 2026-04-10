@@ -66,4 +66,4 @@ pub use browser::{
     browser_close, browser_navigate, browser_open, browser_resize, browser_set_visible,
     browser_hide_all, log_debug,
 };
-pub use editor::{file_mtime, file_read, file_write};
+pub use editor::{file_mtime, file_read, file_replace, file_replace_all, file_search, file_write};

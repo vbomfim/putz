@@ -8,7 +8,7 @@
 export type TabStatus = "connected" | "disconnected" | "connecting" | "local";
 
 /** Content type rendered inside a tab. */
-export type TabContentType = "terminal" | "browser" | "editor" | "diff";
+export type TabContentType = "terminal" | "browser" | "editor" | "diff" | "search";
 
 /**
  * Recursive tree structure representing a pane layout within a tab.

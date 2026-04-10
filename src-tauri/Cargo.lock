@@ -4142,6 +4142,7 @@ dependencies = [
  "tokio",
  "url",
  "uuid",
+ "walkdir",
  "zeroize",
 ]
 

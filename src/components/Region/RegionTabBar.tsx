@@ -244,6 +244,7 @@ export function RegionTabBar({
   const addTerminalTab = useLayoutStore((s) => s.addTerminalTab);
   const addBrowserTab = useLayoutStore((s) => s.addBrowserTab);
   const addEditorTab = useLayoutStore((s) => s.addEditorTab);
+  const addSearchTab = useLayoutStore((s) => s.addSearchTab);
   const closeTab = useLayoutStore((s) => s.closeTab);
   const renameTab = useLayoutStore((s) => s.renameTab);
   const setFocusedRegion = useLayoutStore((s) => s.setFocusedRegion);
@@ -402,6 +403,15 @@ export function RegionTabBar({
           title="New Editor Tab"
         >
           📝
+        </button>
+        <button
+          className="region-tabbar__action"
+          onClick={() => { setFocusedRegion(regionId); addSearchTab(regionId); }}
+          aria-label="Search in Files"
+          type="button"
+          title="Search & Replace in Files"
+        >
+          🔎
         </button>
         <button
           className="region-tabbar__action"

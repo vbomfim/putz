@@ -9,6 +9,7 @@ export { ScriptRunner } from "./ScriptRunner";
 export { MonacoEditor } from "./MonacoEditor";
 export { EditorTab } from "./EditorTab";
 export { DiffEditorTab } from "./DiffEditorTab";
+export { SearchReplaceTab } from "./SearchReplaceTab";
 export type { EditorLanguage } from "./MonacoEditor";
 export {
   scriptList,
