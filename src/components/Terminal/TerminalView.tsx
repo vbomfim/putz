@@ -46,6 +46,8 @@ interface TerminalViewProps {
   tabElementId?: string;
   /** Whether change window enforcement is enabled. */
   changeWindowEnabled?: boolean;
+  /** Whether this is a connected (SSH) session — shows hostname watermark. */
+  isConnected?: boolean;
 }
 
 /** Terminal emulator view connected to a PTY backend session. */
@@ -59,6 +61,7 @@ export function TerminalView({
   isBroadcastTarget,
   tabElementId,
   changeWindowEnabled = false,
+  isConnected = false,
 }: TerminalViewProps) {
   const [hostname, setHostname] = useState("");
   const backgroundEffect = useSettingsStore((s) => s.backgroundEffect) as BackgroundEffect;
@@ -66,18 +69,19 @@ export function TerminalView({
   const termColors = useThemeStore((s) => s.activeColors);
   const fgColor = (termColors as Record<string, string> | null)?.foreground || "#cdd6f4";
 
-  // Extract hostname from terminal title (format: "user@hostname: path" or "hostname")
+  // Extract hostname only from SSH sessions (title contains user@remote-host)
+  // Local shells show "user@local-machine" which we skip
   const handleTitleChangeWithHostname = useCallback((title: string) => {
     onTitleChange?.(title);
-    // Extract host: "user@router-1: ~" → "router-1", or "router-1" → "router-1"
+    // Only show watermark for SSH: look for user@host where host differs from local machine
     const atMatch = title.match(/@([^:@\s]+)/);
     if (atMatch) {
-      setHostname(atMatch[1]);
-    } else {
-      const colonMatch = title.match(/^([^:\s]+)/);
-      if (colonMatch && !colonMatch[1].includes("/")) {
-        setHostname(colonMatch[1]);
-      }
+      const host = atMatch[1];
+      // Skip local machine names (set by the local shell)
+      // SSH sessions typically set the title to the remote hostname
+      // We detect SSH by checking if the tab status is "connected"
+      // For now, just store it — the title changes to the remote host on SSH
+      setHostname(host);
     }
   }, [onTitleChange]);
   // Fix 3: Visual bell — briefly flash the terminal wrapper
@@ -163,7 +167,7 @@ export function TerminalView({
         effect={backgroundEffect}
         opacity={backgroundOpacity}
         color={fgColor}
-        hostname={hostname}
+        hostname={isConnected ? hostname : undefined}
       />
       {searchOpen && (
         <SearchBar

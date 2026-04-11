@@ -171,6 +171,7 @@ export function RegionView({ region, isFocused }: RegionViewProps) {
                 onTitleChange={handleTitleChange}
                 isSearchOpen={isTabActive && isFocused && isSearchOpen}
                 onSearchClose={closeSearch}
+                isConnected={tab.status === "connected"}
               />
             </div>
           );
