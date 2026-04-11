@@ -65,45 +65,34 @@ function matrixRain(ctx: CanvasRenderingContext2D, w: number, h: number, state: 
     state.speeds = Array.from({ length: cols }, () => 0.3 + Math.random() * 0.7);
   }
 
-  // Fade previous frame
-  ctx.fillStyle = `rgba(0, 0, 0, 0.05)`;
-  ctx.fillRect(0, 0, w, h);
-
+  // Clear to transparent
+  ctx.clearRect(0, 0, w, h);
   ctx.font = `${fontSize}px monospace`;
 
   for (let i = 0; i < cols; i++) {
     const y = state.drops[i] * fontSize;
 
-    // Bright leading character
-    ctx.fillStyle = color;
-    ctx.globalAlpha = 0.9;
-    ctx.fillText(state.chars[i], i * fontSize, y);
-
-    // Trail characters (dimmer)
-    ctx.globalAlpha = 0.3;
-    for (let j = 1; j < 5; j++) {
+    // Draw trail (dimming upward)
+    for (let j = 0; j < 12; j++) {
       const trailY = y - j * fontSize;
-      if (trailY > 0) {
-        ctx.fillText(randomMatrixChar(), i * fontSize, trailY);
-      }
+      if (trailY < 0 || trailY > h) continue;
+      ctx.fillStyle = color;
+      ctx.globalAlpha = j === 0 ? 1 : Math.max(0, 0.6 - j * 0.05);
+      ctx.fillText(randomMatrixChar(), i * fontSize, trailY);
     }
 
-    ctx.globalAlpha = 1;
-
-    // Advance drop
     state.drops[i] += state.speeds[i] * speed;
 
-    // Random character change
     if (Math.random() > 0.95) {
       state.chars[i] = randomMatrixChar();
     }
 
-    // Reset when off screen
     if (y > h && Math.random() > 0.975) {
       state.drops[i] = Math.random() * -20;
       state.speeds[i] = 0.3 + Math.random() * 0.7;
     }
   }
+  ctx.globalAlpha = 1;
 }
 
 interface MatrixState {
@@ -142,8 +131,7 @@ function starfield(ctx: CanvasRenderingContext2D, w: number, h: number, state: {
     }));
   }
 
-  ctx.fillStyle = "rgba(0, 0, 0, 0.15)";
-  ctx.fillRect(0, 0, w, h);
+  ctx.clearRect(0, 0, w, h);
 
   const cx = w / 2;
   const cy = h / 2;
@@ -178,8 +166,7 @@ function starfield(ctx: CanvasRenderingContext2D, w: number, h: number, state: {
 
 // ── Digital Rain (subtle) ──────────────────────────────────────
 function digitalRain(ctx: CanvasRenderingContext2D, w: number, h: number, state: { offset: number }, color: string, speed: number) {
-  ctx.fillStyle = "rgba(0, 0, 0, 0.03)";
-  ctx.fillRect(0, 0, w, h);
+  ctx.clearRect(0, 0, w, h);
 
   state.offset += 0.5 * speed;
   const cols = Math.ceil(w / 20);
@@ -224,8 +211,7 @@ function networkParticles(ctx: CanvasRenderingContext2D, w: number, h: number, s
     }));
   }
 
-  ctx.fillStyle = "rgba(0, 0, 0, 0.05)";
-  ctx.fillRect(0, 0, w, h);
+  ctx.clearRect(0, 0, w, h);
 
   const connectionDist = 120;
 
