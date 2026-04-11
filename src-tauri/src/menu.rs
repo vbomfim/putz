@@ -101,18 +101,12 @@ pub fn build_menu(app: &AppHandle<Wry>) -> Result<tauri::menu::Menu<Wry>, tauri:
         .build()?;
 
     let tools_menu = SubmenuBuilder::new(app, "Tools")
-        .item(&menu_item!(app, "menu-sftp", "SFTP File Transfer", "CmdOrCtrl+Shift+F"))
-        .item(&menu_item!(app, "menu-config-diff", "Config Diff Viewer"))
         .item(&menu_item!(app, "menu-ping-dashboard", "Ping Dashboard"))
-        .item(&menu_item!(app, "menu-interface-status", "Interface Status"))
-        .item(&menu_item!(app, "menu-mac-arp-viewer", "MAC/ARP Viewer"))
         .separator()
         .item(&menu_item!(app, "menu-command-history", "Command History", "CmdOrCtrl+R"))
         .item(&menu_item!(app, "menu-command-templates", "Command Templates", "CmdOrCtrl+Shift+T"))
         .separator()
         .item(&menu_item!(app, "menu-script-editor", "Script Editor"))
-        .item(&menu_item!(app, "menu-run-script", "Run Script..."))
-        .item(&menu_item!(app, "menu-record-script", "Record Script"))
         .build()?;
 
     let window_menu = SubmenuBuilder::new(app, "Window")

@@ -26,12 +26,8 @@ import { QuickConnect } from "./components/QuickConnect";
 import { CredentialReminder } from "./components/Vault/CredentialReminder";
 import { CredentialManager } from "./components/Vault";
 import { KeyManager } from "./components/Keys";
-import { ConfigDiff } from "./components/ConfigDiff";
 import { TemplatePanel } from "./components/Templates";
-import { SFTPPanel } from "./components/SFTP";
 import { PingDashboard } from "./components/Ping/PingDashboard";
-import { InterfaceStatus } from "./components/InterfaceStatus/InterfaceStatus";
-import { MacArpViewer } from "./components/MacArpViewer/MacArpViewer";
 
 import { ThemeEditor } from "./components/Terminal/ThemeEditor";
 import { FontConfig } from "./components/Terminal/FontConfig";
@@ -55,16 +51,12 @@ function App() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [quickConnectOpen, setQuickConnectOpen] = useState(false);
-  const [configDiffOpen, setConfigDiffOpen] = useState(false);
   const [templatePanelOpen, setTemplatePanelOpen] = useState(false);
   const [vaultOpen, setVaultOpen] = useState(false);
   const [keyManagerOpen, setKeyManagerOpen] = useState(false);
   const [themeEditorOpen, setThemeEditorOpen] = useState(false);
   const [fontConfigOpen, setFontConfigOpen] = useState(false);
-  const [sftpOpen, setSftpOpen] = useState(false);
   const [pingOpen, setPingOpen] = useState(false);
-  const [interfaceStatusOpen, setInterfaceStatusOpen] = useState(false);
-  const [macArpOpen, setMacArpOpen] = useState(false);
   const [availableThemes, setAvailableThemes] = useState<Theme[]>([]);
 
   // Listen for native menu events from the Tauri backend
@@ -95,14 +87,10 @@ function App() {
       onToggleKeyManager: () => setKeyManagerOpen((prev) => !prev),
       onToggleThemeEditor: () => setThemeEditorOpen((prev) => !prev),
       onToggleFontConfig: () => setFontConfigOpen((prev) => !prev),
-      onToggleConfigDiff: () => setConfigDiffOpen((prev) => !prev),
       onToggleTemplates: () => setTemplatePanelOpen((prev) => !prev),
       onToggleHistory: () => setHistoryOpen((prev) => !prev),
-      onToggleSftp: () => setSftpOpen((prev) => !prev),
       onTogglePing: () => setPingOpen((prev) => !prev),
       onToggleScript: () => addEditorTab(),
-      onToggleInterfaceStatus: () => setInterfaceStatusOpen((prev) => !prev),
-      onToggleMacArp: () => setMacArpOpen((prev) => !prev),
       onNewBrowserTab: () => addBrowserTab(undefined, ""),
       onToggleWorkspaceBar: () => toggleWorkspaceBar(),
     });
@@ -194,11 +182,6 @@ function App() {
     setSidebarOpen((prev) => !prev);
   }, []);
 
-  /** Toggles the Config Diff Viewer overlay. */
-  const handleToggleConfigDiff = useCallback(() => {
-    setConfigDiffOpen((prev) => !prev);
-  }, []);
-
   /** Toggles the Command Templates panel. */
   const handleToggleTemplates = useCallback(() => {
     setTemplatePanelOpen((prev) => !prev);
@@ -212,13 +195,6 @@ function App() {
 
       const key = e.key.toLowerCase();
 
-      // Ctrl+Shift+K — Config Diff Viewer
-      if (key === "k") {
-        e.preventDefault();
-        handleToggleConfigDiff();
-        return;
-      }
-
       // Ctrl+Shift+T — Command Templates
       if (key === "t") {
         e.preventDefault();
@@ -228,7 +204,7 @@ function App() {
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [handleToggleConfigDiff, handleToggleTemplates]);
+  }, [handleToggleTemplates]);
 
   /** Called when a session is opened from the sidebar. */
   const handleSessionOpen = useCallback((_session: SessionProfile) => {
@@ -312,10 +288,6 @@ function App() {
         isOpen={quickConnectOpen}
         onClose={() => setQuickConnectOpen(false)}
         onConnect={handleQuickConnect}
-      />
-      <ConfigDiff
-        isOpen={configDiffOpen}
-        onClose={() => setConfigDiffOpen(false)}
       />
       <TemplatePanel
         isOpen={templatePanelOpen}
@@ -401,31 +373,10 @@ function App() {
         />
       )}
 
-      {/* SFTP Panel */}
-      {sftpOpen && (
-        <div className="modal-overlay" onClick={(e) => { if (e.target === e.currentTarget) setSftpOpen(false); }} role="dialog" aria-modal="true">
-          <div className="modal-panel modal-panel--wide"><button className="modal-close" onClick={() => setSftpOpen(false)}>✕</button><SFTPPanel connectionId="" onClose={() => setSftpOpen(false)} /></div>
-        </div>
-      )}
-
       {/* Ping Dashboard */}
       {pingOpen && (
         <div className="modal-overlay" onClick={(e) => { if (e.target === e.currentTarget) setPingOpen(false); }} role="dialog" aria-modal="true">
           <div className="modal-panel modal-panel--wide"><button className="modal-close" onClick={() => setPingOpen(false)}>✕</button><PingDashboard /></div>
-        </div>
-      )}
-
-      {/* Interface Status */}
-      {interfaceStatusOpen && (
-        <div className="modal-overlay" onClick={(e) => { if (e.target === e.currentTarget) setInterfaceStatusOpen(false); }} role="dialog" aria-modal="true">
-          <div className="modal-panel modal-panel--wide"><button className="modal-close" onClick={() => setInterfaceStatusOpen(false)}>✕</button><InterfaceStatus /></div>
-        </div>
-      )}
-
-      {/* MAC/ARP Viewer */}
-      {macArpOpen && (
-        <div className="modal-overlay" onClick={(e) => { if (e.target === e.currentTarget) setMacArpOpen(false); }} role="dialog" aria-modal="true">
-          <div className="modal-panel modal-panel--wide"><button className="modal-close" onClick={() => setMacArpOpen(false)}>✕</button><MacArpViewer /></div>
         </div>
       )}
     </main>

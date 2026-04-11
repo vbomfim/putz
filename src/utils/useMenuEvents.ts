@@ -24,14 +24,10 @@ export interface MenuEventCallbacks {
   onToggleKeyManager?: () => void;
   onToggleThemeEditor?: () => void;
   onToggleFontConfig?: () => void;
-  onToggleConfigDiff?: () => void;
   onToggleTemplates?: () => void;
   onToggleHistory?: () => void;
-  onToggleSftp?: () => void;
   onTogglePing?: () => void;
   onToggleScript?: () => void;
-  onToggleInterfaceStatus?: () => void;
-  onToggleMacArp?: () => void;
   onNewBrowserTab?: () => void;
   onToggleWorkspaceBar?: () => void;
 }
@@ -166,10 +162,6 @@ export function useMenuEvents(): void {
           menuCallbacks.onToggleFontConfig?.();
           break;
 
-        case "menu-config-diff":
-          menuCallbacks.onToggleConfigDiff?.();
-          break;
-
         case "menu-command-templates":
           menuCallbacks.onToggleTemplates?.();
           break;
@@ -178,25 +170,11 @@ export function useMenuEvents(): void {
           menuCallbacks.onToggleHistory?.();
           break;
 
-        case "menu-sftp":
-          menuCallbacks.onToggleSftp?.();
-          break;
-
-        case "menu-interface-status":
-          menuCallbacks.onToggleInterfaceStatus?.();
-          break;
-
-        case "menu-mac-arp-viewer":
-          menuCallbacks.onToggleMacArp?.();
-          break;
-
         case "menu-ping-dashboard":
           menuCallbacks.onTogglePing?.();
           break;
 
         case "menu-script-editor":
-        case "menu-run-script":
-        case "menu-record-script":
           menuCallbacks.onToggleScript?.();
           break;
 
