@@ -371,6 +371,11 @@
   color: var(--text-primary);
 }
 
+.region-tabbar__action--active {
+  color: var(--accent);
+  background: rgba(137, 180, 250, 0.15);
+}
+
 /* Vertical tab bar: stack actions at the bottom */
 .region-tabbar--vertical .region-tabbar__actions {
   flex-direction: column;

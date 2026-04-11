@@ -201,6 +201,9 @@ interface LayoutState {
   /** Moves a tab from one region to another (or reorders within the same region). */
   moveTab: (fromRegionId: string, tabId: string, toRegionId: string, insertIndex?: number) => void;
 
+  /** Splits a tab into a new region in the given direction. */
+  splitTabToNew: (regionId: string, tabId: string, direction: "horizontal" | "vertical", position: "before" | "after") => void;
+
   // ─── Split / Close Region Actions ─────────────────────────────────
 
   /** Splits the focused region, creating a new region alongside it. */
@@ -740,6 +743,65 @@ export const useLayoutStore = create<LayoutState>((set, get) => ({
         focusedRegionId: toRegionId,
       };
     });
+  },
+
+  splitTabToNew: (regionId: string, tabId: string, direction: "horizontal" | "vertical", position: "before" | "after") => {
+    const { regions, layout } = get();
+    const region = regions[regionId];
+    if (!region) return;
+
+    const tabIndex = region.tabs.findIndex((t) => t.id === tabId);
+    if (tabIndex === -1) return;
+    const tab = region.tabs[tabIndex];
+
+    // Remove tab from source region
+    const remainingTabs = region.tabs.filter((t) => t.id !== tabId);
+
+    // If this is the only tab, can't split — nothing would remain
+    if (remainingTabs.length === 0) return;
+
+    const newActiveTabId = region.activeTabId === tabId
+      ? (remainingTabs[Math.min(tabIndex, remainingTabs.length - 1)]?.id || "")
+      : region.activeTabId;
+
+    // Create new region with the moved tab
+    const newRegionId = generateId();
+    const newRegion: Region = {
+      id: newRegionId,
+      tabs: [tab],
+      activeTabId: tab.id,
+      tabPosition: region.tabPosition,
+    };
+
+    // Replace the region node in layout with a split
+    const ratio = position === "before" ? 0.5 : 0.5;
+    const first = position === "before"
+      ? { type: "region" as const, regionId: newRegionId }
+      : { type: "region" as const, regionId };
+    const second = position === "before"
+      ? { type: "region" as const, regionId }
+      : { type: "region" as const, regionId: newRegionId };
+
+    const splitNode: LayoutNode = {
+      type: "split",
+      direction,
+      children: [first, second],
+      ratio,
+    };
+
+    const newLayout = replaceRegionNode(layout, regionId, splitNode);
+    if (!newLayout) return;
+
+    set((state) => ({
+      layout: newLayout,
+      regions: {
+        ...state.regions,
+        [regionId]: { ...region, tabs: remainingTabs, activeTabId: newActiveTabId },
+        [newRegionId]: newRegion,
+      },
+      focusedRegionId: newRegionId,
+      tabCounter: state.tabCounter,
+    }));
   },
 
   // ─── Split / Close Region ──────────────────────────────────────────

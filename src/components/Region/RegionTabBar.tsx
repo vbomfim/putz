@@ -243,13 +243,12 @@ export function RegionTabBar({
 }: RegionTabBarProps) {
   const addTerminalTab = useLayoutStore((s) => s.addTerminalTab);
   const addBrowserTab = useLayoutStore((s) => s.addBrowserTab);
-  const addEditorTab = useLayoutStore((s) => s.addEditorTab);
-  const addSearchTab = useLayoutStore((s) => s.addSearchTab);
   const closeTab = useLayoutStore((s) => s.closeTab);
   const renameTab = useLayoutStore((s) => s.renameTab);
   const setFocusedRegion = useLayoutStore((s) => s.setFocusedRegion);
   const setTabPosition = useLayoutStore((s) => s.setTabPosition);
   const splitRegion = useLayoutStore((s) => s.splitRegion);
+  const splitTabToNew = useLayoutStore((s) => s.splitTabToNew);
 
   const [contextMenu, setContextMenu] = useState<ContextMenu | null>(null);
   const contextMenuRef = useRef<HTMLDivElement>(null);
@@ -322,9 +321,21 @@ export function RegionTabBar({
         case "tabsRight":
           setTabPosition(regionId, "right");
           break;
+        case "splitRight":
+          splitTabToNew(regionId, contextMenu.tabId, "vertical", "after");
+          break;
+        case "splitLeft":
+          splitTabToNew(regionId, contextMenu.tabId, "vertical", "before");
+          break;
+        case "splitDown":
+          splitTabToNew(regionId, contextMenu.tabId, "horizontal", "after");
+          break;
+        case "splitUp":
+          splitTabToNew(regionId, contextMenu.tabId, "horizontal", "before");
+          break;
       }
     },
-    [contextMenu, regionId, tabs, closeTab, addBrowserTab, setTabPosition],
+    [contextMenu, regionId, tabs, closeTab, addBrowserTab, setTabPosition, splitTabToNew],
   );
 
   const handleAddClick = useCallback(() => {
@@ -375,7 +386,7 @@ export function RegionTabBar({
         ))}
       </div>
 
-      {/* Right-aligned action icons — like cmux */}
+      {/* Right-aligned action icons — keep minimal */}
       <div className="region-tabbar__actions">
         <button
           className="region-tabbar__action"
@@ -385,45 +396,6 @@ export function RegionTabBar({
           title="New Terminal"
         >
           ⌨
-        </button>
-        <button
-          className="region-tabbar__action"
-          onClick={() => { setFocusedRegion(regionId); addBrowserTab(regionId, ""); }}
-          aria-label="New Browser"
-          type="button"
-          title="New Browser Tab"
-        >
-          🌐
-        </button>
-        <button
-          className="region-tabbar__action"
-          onClick={() => { setFocusedRegion(regionId); addEditorTab(regionId); }}
-          aria-label="New Editor"
-          type="button"
-          title="New Editor Tab"
-        >
-          📝
-        </button>
-        <button
-          className="region-tabbar__action"
-          onClick={async () => {
-            setFocusedRegion(regionId);
-            // Get CWD from the active terminal tab in this region
-            const activeTab = tabs.find((t) => t.id === activeTabId);
-            let cwd: string | undefined;
-            if (activeTab?.type === "terminal" && activeTab.sessionId) {
-              try {
-                const { invoke } = await import("@tauri-apps/api/core");
-                cwd = await invoke<string>("pty_cwd", { sessionId: activeTab.sessionId });
-              } catch { /* fallback — no directory */ }
-            }
-            addSearchTab(regionId, cwd);
-          }}
-          aria-label="Search in Files"
-          type="button"
-          title="Search & Replace in Files"
-        >
-          🔎
         </button>
         <button
           className="region-tabbar__action"
@@ -467,6 +439,19 @@ export function RegionTabBar({
             type="button"
           >
             Close Others
+          </button>
+          <div className="region-tabbar__context-separator" />
+          <button className="region-tabbar__context-item" onClick={() => handleContextAction("splitRight")} role="menuitem" type="button">
+            Split Right ◫
+          </button>
+          <button className="region-tabbar__context-item" onClick={() => handleContextAction("splitLeft")} role="menuitem" type="button">
+            Split Left ◫
+          </button>
+          <button className="region-tabbar__context-item" onClick={() => handleContextAction("splitDown")} role="menuitem" type="button">
+            Split Down ⬒
+          </button>
+          <button className="region-tabbar__context-item" onClick={() => handleContextAction("splitUp")} role="menuitem" type="button">
+            Split Up ⬒
           </button>
           <div className="region-tabbar__context-separator" />
           <button
