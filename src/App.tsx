@@ -24,8 +24,6 @@ import { useKeyboardShortcuts } from "./components/TabBar/useKeyboardShortcuts";
 import { HistoryPanel } from "./components/History";
 import { QuickConnect } from "./components/QuickConnect";
 import { CredentialReminder } from "./components/Vault/CredentialReminder";
-import { CredentialManager } from "./components/Vault";
-import { KeyManager } from "./components/Keys";
 import { TemplatePanel } from "./components/Templates";
 import { PingDashboard } from "./components/Ping/PingDashboard";
 
@@ -45,6 +43,7 @@ function App() {
   const addTerminalTab = useLayoutStore((s) => s.addTerminalTab);
   const addBrowserTab = useLayoutStore((s) => s.addBrowserTab);
   const addEditorTab = useLayoutStore((s) => s.addEditorTab);
+  const addVaultTab = useLayoutStore((s) => s.addVaultTab);
   const workspaceBarVisible = useSettingsStore((s) => s.workspaceBarVisible);
   const toggleWorkspaceBar = useSettingsStore((s) => s.toggleWorkspaceBar);
   const hasInitialized = useRef(false);
@@ -52,8 +51,6 @@ function App() {
   const [historyOpen, setHistoryOpen] = useState(false);
   const [quickConnectOpen, setQuickConnectOpen] = useState(false);
   const [templatePanelOpen, setTemplatePanelOpen] = useState(false);
-  const [vaultOpen, setVaultOpen] = useState(false);
-  const [keyManagerOpen, setKeyManagerOpen] = useState(false);
   const [themeEditorOpen, setThemeEditorOpen] = useState(false);
   const [fontConfigOpen, setFontConfigOpen] = useState(false);
   const [pingOpen, setPingOpen] = useState(false);
@@ -83,8 +80,8 @@ function App() {
   // Wire menu event callbacks for panel toggles
   useEffect(() => {
     setMenuEventCallbacks({
-      onToggleVault: () => setVaultOpen((prev) => !prev),
-      onToggleKeyManager: () => setKeyManagerOpen((prev) => !prev),
+      onToggleVault: () => addVaultTab(),
+      onToggleKeyManager: () => addVaultTab(),
       onToggleThemeEditor: () => setThemeEditorOpen((prev) => !prev),
       onToggleFontConfig: () => setFontConfigOpen((prev) => !prev),
       onToggleTemplates: () => setTemplatePanelOpen((prev) => !prev),
@@ -95,7 +92,7 @@ function App() {
       onToggleWorkspaceBar: () => toggleWorkspaceBar(),
     });
     return () => setMenuEventCallbacks({});
-  }, [addBrowserTab, addEditorTab, toggleWorkspaceBar]);
+  }, [addBrowserTab, addEditorTab, addVaultTab, toggleWorkspaceBar]);
 
   // Create the first tab on mount only
   useEffect(() => {
@@ -149,20 +146,10 @@ function App() {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, []);
 
-  // Global Escape key — close vault/key-manager overlays
+  // Global Escape key — close overlay panels
   useEffect(() => {
     const handleEscape = (e: KeyboardEvent) => {
       if (e.key !== "Escape") return;
-      if (vaultOpen) {
-        e.preventDefault();
-        setVaultOpen(false);
-        return;
-      }
-      if (keyManagerOpen) {
-        e.preventDefault();
-        setKeyManagerOpen(false);
-        return;
-      }
       if (themeEditorOpen) {
         e.preventDefault();
         setThemeEditorOpen(false);
@@ -176,7 +163,7 @@ function App() {
     };
     window.addEventListener("keydown", handleEscape);
     return () => window.removeEventListener("keydown", handleEscape);
-  }, [vaultOpen, keyManagerOpen, themeEditorOpen, fontConfigOpen]);
+  }, [themeEditorOpen, fontConfigOpen]);
 
   const handleSidebarToggle = useCallback(() => {
     setSidebarOpen((prev) => !prev);
@@ -308,58 +295,6 @@ function App() {
       />
 
       {/* Credential Vault overlay */}
-      {vaultOpen && (
-        <div
-          className="modal-overlay"
-          data-testid="vault-overlay"
-          onClick={(e) => {
-            if (e.target === e.currentTarget) setVaultOpen(false);
-          }}
-          role="dialog"
-          aria-modal="true"
-          aria-label="Credential Vault"
-        >
-          <div className="modal-panel" data-testid="vault-panel">
-            <button
-              className="modal-close"
-              onClick={() => setVaultOpen(false)}
-              aria-label="Close Credential Vault"
-              data-testid="vault-close"
-            >
-              ✕
-            </button>
-            <CredentialManager />
-          </div>
-        </div>
-      )}
-
-      {/* SSH Key Manager overlay */}
-      {keyManagerOpen && (
-        <div
-          className="modal-overlay"
-          data-testid="key-manager-overlay"
-          onClick={(e) => {
-            if (e.target === e.currentTarget) setKeyManagerOpen(false);
-          }}
-          role="dialog"
-          aria-modal="true"
-          aria-label="SSH Key Manager"
-        >
-          <div className="modal-panel" data-testid="key-manager-panel">
-            <button
-              className="modal-close"
-              onClick={() => setKeyManagerOpen(false)}
-              aria-label="Close SSH Key Manager"
-              data-testid="key-manager-close"
-            >
-              ✕
-            </button>
-            <KeyManager />
-          </div>
-        </div>
-      )}
-
-      {/* Theme Editor overlay */}
       {/* Font Config overlay */}
       {fontConfigOpen && (
         <FontConfigOverlay onClose={() => setFontConfigOpen(false)} />

@@ -14,6 +14,7 @@ import { BrowserView } from "../Browser";
 import { EditorTab } from "../Scripting/EditorTab";
 import { DiffEditorTab } from "../Scripting/DiffEditorTab";
 import { SearchReplaceTab } from "../Scripting/SearchReplaceTab";
+import { VaultTab } from "../Vault/VaultTab";
 import { RegionTabBar } from "./RegionTabBar";
 import { useLayoutStore } from "../../stores/layoutStore";
 import type { Region } from "../../types";
@@ -129,6 +130,13 @@ export function RegionView({ region, isFocused }: RegionViewProps) {
                   regionId={region.id}
                   tabId={tab.id}
                 />
+              </div>
+            );
+          }
+          if (tab.type === "vault") {
+            return (
+              <div key={tab.id} style={{ display: isTabActive ? "flex" : "none", flex: 1, flexDirection: "column", minHeight: 0, overflow: "hidden" }}>
+                <VaultTab />
               </div>
             );
           }
