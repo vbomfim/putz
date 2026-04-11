@@ -25,6 +25,7 @@ const EFFECTS: { id: BackgroundEffect; label: string; desc: string }[] = [
   { id: "starfield", label: "Starfield", desc: "3D star warp" },
   { id: "rain", label: "Rain", desc: "Falling digits" },
   { id: "network", label: "Network", desc: "Connected particles" },
+  { id: "copilot", label: "Copilot", desc: "Animated Copilot avatar" },
 ];
 
 export function SettingsTab() {

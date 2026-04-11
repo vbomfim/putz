@@ -11,7 +11,7 @@
  */
 import { useEffect, useRef, useCallback } from "react";
 
-export type BackgroundEffect = "none" | "matrix" | "starfield" | "rain" | "network";
+export type BackgroundEffect = "none" | "matrix" | "starfield" | "rain" | "network" | "copilot";
 
 interface TerminalBackgroundProps {
   effect: BackgroundEffect;
@@ -249,6 +249,140 @@ function networkParticles(ctx: CanvasRenderingContext2D, w: number, h: number, s
   ctx.globalAlpha = 1;
 }
 
+// ── Copilot Avatar ─────────────────────────────────────────────
+const AVATAR_FRAMES = {
+  normal: [
+    "       ▄██████▄       ",
+    "   ▄█▀▀▀▀▀██▀▀▀▀▀█▄   ",
+    "  ▐█      ▐▌      █▌  ",
+    "  ▐█▄    ▄██▄    ▄█▌  ",
+    " ▄▄███████▀▀███████▄▄ ",
+    "████     ▄  ▄     ████",
+    "████     █  █     ████",
+    "▀███▄            ▄███▀",
+    "   ▀▀████████████▀▀   ",
+  ],
+  blink: [
+    "       ▄██████▄       ",
+    "   ▄█▀▀▀▀▀██▀▀▀▀▀█▄   ",
+    "  ▐█      ▐▌      █▌  ",
+    "  ▐█▄    ▄██▄    ▄█▌  ",
+    " ▄▄███████▀▀███████▄▄ ",
+    "████     ─  ─     ████",
+    "████              ████",
+    "▀███▄            ▄███▀",
+    "   ▀▀████████████▀▀   ",
+  ],
+  halfBlink: [
+    "       ▄██████▄       ",
+    "   ▄█▀▀▀▀▀██▀▀▀▀▀█▄   ",
+    "  ▐█      ▐▌      █▌  ",
+    "  ▐█▄    ▄██▄    ▄█▌  ",
+    " ▄▄███████▀▀███████▄▄ ",
+    "████     ▀  ▀     ████",
+    "████              ████",
+    "▀███▄            ▄███▀",
+    "   ▀▀████████████▀▀   ",
+  ],
+  yawn: [
+    "       ▄██████▄       ",
+    "   ▄█▀▀▀▀▀██▀▀▀▀▀█▄   ",
+    "  ▐█      ▐▌      █▌  ",
+    "  ▐█▄    ▄██▄    ▄█▌  ",
+    " ▄▄███████▀▀███████▄▄ ",
+    "████     ▀  ▀     ████",
+    "████              ████",
+    "▀███▄    ▄▄▄▄    ▄███▀",
+    "   ▀▀████████████▀▀   ",
+  ],
+  yawnWide: [
+    "       ▄██████▄       ",
+    "   ▄█▀▀▀▀▀██▀▀▀▀▀█▄   ",
+    "  ▐█      ▐▌      █▌  ",
+    "  ▐█▄    ▄██▄    ▄█▌  ",
+    " ▄▄███████▀▀███████▄▄ ",
+    "████     ─  ─     ████",
+    "████              ████",
+    "▀███▄   ▄████▄   ▄███▀",
+    "   ▀▀████████████▀▀   ",
+  ],
+  smile: [
+    "       ▄██████▄       ",
+    "   ▄█▀▀▀▀▀██▀▀▀▀▀█▄   ",
+    "  ▐█      ▐▌      █▌  ",
+    "  ▐█▄    ▄██▄    ▄█▌  ",
+    " ▄▄███████▀▀███████▄▄ ",
+    "████     ▀  ▀     ████",
+    "████              ████",
+    "▀███▄     ‿‿     ▄███▀",
+    "   ▀▀████████████▀▀   ",
+  ],
+};
+
+type AvatarFrame = keyof typeof AVATAR_FRAMES;
+
+interface CopilotState {
+  frame: AvatarFrame;
+  timer: number;
+  blinkTimer: number;
+  idleTimer: number;
+  phase: string;
+  phaseStep: number;
+}
+
+function copilotAvatar(ctx: CanvasRenderingContext2D, w: number, h: number, state: CopilotState, color: string, speed: number) {
+  ctx.clearRect(0, 0, w, h);
+
+  state.timer += speed;
+
+  if (state.phase === "idle") {
+    state.blinkTimer += speed;
+    state.idleTimer += speed;
+    if (state.blinkTimer > 480 / speed) {
+      state.phase = "blinking";
+      state.phaseStep = 0;
+      state.blinkTimer = 0;
+    }
+    if (state.idleTimer > 1200 / speed) {
+      state.phase = "yawning";
+      state.phaseStep = 0;
+      state.idleTimer = 0;
+    }
+    state.frame = "normal";
+  } else if (state.phase === "blinking") {
+    state.phaseStep += speed;
+    if (state.phaseStep < 6) state.frame = "halfBlink";
+    else if (state.phaseStep < 18) state.frame = "blink";
+    else if (state.phaseStep < 24) state.frame = "halfBlink";
+    else { state.frame = "normal"; state.phase = "idle"; }
+  } else if (state.phase === "yawning") {
+    state.phaseStep += speed;
+    if (state.phaseStep < 24) state.frame = "yawn";
+    else if (state.phaseStep < 48) state.frame = "yawnWide";
+    else if (state.phaseStep < 72) state.frame = "yawn";
+    else if (state.phaseStep < 84) state.frame = "smile";
+    else { state.frame = "normal"; state.phase = "idle"; }
+  }
+
+  const lines = AVATAR_FRAMES[state.frame];
+  const maxLineLen = Math.max(...lines.map((l) => l.length));
+  const targetH = h * 0.4;
+  const fontSize = Math.min(targetH / lines.length, w / (maxLineLen * 0.6), 32);
+
+  ctx.font = `${fontSize}px monospace`;
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillStyle = color;
+
+  const startY = h / 2 - (lines.length * fontSize) / 2;
+  for (let i = 0; i < lines.length; i++) {
+    ctx.fillText(lines[i], w / 2, startY + i * fontSize + fontSize / 2);
+  }
+
+  ctx.textAlign = "start";
+  ctx.textBaseline = "alphabetic";
+}
+
 // ── Main Component ─────────────────────────────────────────────
 export function TerminalBackground({
   effect,
@@ -264,6 +398,7 @@ export function TerminalBackground({
     stars: [],
     offset: 0,
     particles: [],
+    frame: "normal" as AvatarFrame, timer: 0, blinkTimer: 0, idleTimer: 0, phase: "idle", phaseStep: 0,
   });
 
   // Static hostname watermark (no animation loop needed)
@@ -319,6 +454,9 @@ export function TerminalBackground({
         break;
       case "network":
         networkParticles(ctx, w, h, s as unknown as { particles: Particle[] }, resolvedColor, speed);
+        break;
+      case "copilot":
+        copilotAvatar(ctx, w, h, s as unknown as CopilotState, resolvedColor, speed);
         break;
     }
 
