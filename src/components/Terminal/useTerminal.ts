@@ -218,22 +218,44 @@ export function useTerminal({
           },
           text: l.text,
           activate() {
-            const { addEditorTab } = useLayoutStore.getState();
-            if (l.isRelative) {
-              // Resolve relative path via PTY's working directory
-              invoke<string>("pty_cwd", { sessionId })
-                .then((cwd) => {
-                  const fullPath = cwd.endsWith("/")
-                    ? `${cwd}${l.text}`
-                    : `${cwd}/${l.text}`;
-                  addEditorTab(undefined, fullPath);
-                })
-                .catch(() => {
-                  // Fallback: open just the filename
-                  addEditorTab(undefined, l.text);
-                });
+            const resolveAndOpen = (openFn: (path: string) => void) => {
+              if (l.isRelative) {
+                invoke<string>("pty_cwd", { sessionId })
+                  .then((cwd) => {
+                    const fullPath = cwd.endsWith("/") ? `${cwd}${l.text}` : `${cwd}/${l.text}`;
+                    openFn(fullPath);
+                  })
+                  .catch(() => openFn(l.text));
+              } else {
+                openFn(l.text);
+              }
+            };
+
+            const ext = l.text.split(".").pop()?.toLowerCase() || "";
+            if (ext === "md" || ext === "markdown" || ext === "mdx") {
+              // Show context menu for markdown: View or Edit
+              const menu = document.createElement("div");
+              menu.className = "region-tabbar__context-menu";
+              menu.style.cssText = `position:fixed;z-index:1000;left:${window.innerWidth/2-60}px;top:${window.innerHeight/2-30}px;`;
+              menu.innerHTML = `
+                <button class="region-tabbar__context-item" data-action="view">📖 View Rendered</button>
+                <button class="region-tabbar__context-item" data-action="edit">✏️ Edit Source</button>
+              `;
+              document.body.appendChild(menu);
+              const cleanup = () => { menu.remove(); document.removeEventListener("click", outsideClick); };
+              const outsideClick = (e: MouseEvent) => { if (!menu.contains(e.target as Node)) cleanup(); };
+              setTimeout(() => document.addEventListener("click", outsideClick), 10);
+              menu.addEventListener("click", (e) => {
+                const action = (e.target as HTMLElement).getAttribute("data-action");
+                cleanup();
+                if (action === "view") {
+                  resolveAndOpen((path) => useLayoutStore.getState().addMarkdownTab(undefined, path));
+                } else if (action === "edit") {
+                  resolveAndOpen((path) => useLayoutStore.getState().addEditorTab(undefined, path));
+                }
+              });
             } else {
-              addEditorTab(undefined, l.text);
+              resolveAndOpen((path) => useLayoutStore.getState().addEditorTab(undefined, path));
             }
           },
         })));

@@ -189,6 +189,9 @@ interface LayoutState {
   /** Adds a settings tab. */
   addSettingsTab: (regionId?: string) => void;
 
+  /** Adds a markdown preview tab. */
+  addMarkdownTab: (regionId?: string, filePath?: string) => void;
+
   /** Closes a tab in a region. If last tab, closes the region. */
   closeTab: (regionId: string, tabId: string) => void;
 
@@ -561,6 +564,21 @@ export const useLayoutStore = create<LayoutState>((set, get) => ({
       return;
     }
     const tab: RegionTab = { id: generateId(), title: "Settings", type: "settings", sessionId: `${EDITOR_SESSION_PREFIX}settings-${generateId()}`, status: "local" };
+    set((state) => ({ regions: { ...state.regions, [targetRegionId]: { ...state.regions[targetRegionId], tabs: [...state.regions[targetRegionId].tabs, tab], activeTabId: tab.id } }, tabCounter: state.tabCounter + 1 }));
+  },
+
+  addMarkdownTab: (regionId?: string, filePath?: string) => {
+    const targetRegionId = regionId || get().focusedRegionId;
+    const region = get().regions[targetRegionId];
+    if (!region || !filePath) return;
+    // Deduplicate by path
+    const existing = region.tabs.find((t) => t.type === "markdown" && t.editorFilePath === filePath);
+    if (existing) {
+      set((state) => ({ regions: { ...state.regions, [targetRegionId]: { ...state.regions[targetRegionId], activeTabId: existing.id } } }));
+      return;
+    }
+    const name = filePath.split("/").pop() || filePath;
+    const tab: RegionTab = { id: generateId(), title: `📖 ${name}`, type: "markdown", sessionId: `${EDITOR_SESSION_PREFIX}md-${generateId()}`, editorFilePath: filePath, status: "local" };
     set((state) => ({ regions: { ...state.regions, [targetRegionId]: { ...state.regions[targetRegionId], tabs: [...state.regions[targetRegionId].tabs, tab], activeTabId: tab.id } }, tabCounter: state.tabCounter + 1 }));
   },
 
