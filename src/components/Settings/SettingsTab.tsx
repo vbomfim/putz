@@ -5,11 +5,19 @@
  *
  * @module SettingsTab
  */
-import { useCallback } from "react";
+import { useCallback, useEffect, useState } from "react";
+import { invoke } from "@tauri-apps/api/core";
 import { useSettingsStore } from "../../stores/settingsStore";
 import { useThemeStore } from "../../stores/themeStore";
 import type { BackgroundEffect } from "../Terminal/TerminalBackground";
 import "../Vault/VaultTab.css";
+
+interface Theme {
+  id: string;
+  name: string;
+  isBuiltin: boolean;
+  colors: Record<string, string>;
+}
 
 const EFFECTS: { id: BackgroundEffect; label: string; desc: string }[] = [
   { id: "none", label: "None", desc: "Clean background" },
@@ -24,7 +32,17 @@ export function SettingsTab() {
   const backgroundOpacity = useSettingsStore((s) => s.backgroundOpacity);
   const setBackgroundEffect = useSettingsStore((s) => s.setBackgroundEffect);
   const setBackgroundOpacity = useSettingsStore((s) => s.setBackgroundOpacity);
-  const activeThemeName = useThemeStore((s) => s.activeThemeId);
+  const activeThemeId = useThemeStore((s) => s.activeThemeId);
+  const setActiveTheme = useThemeStore((s) => s.setActiveTheme);
+  const [themes, setThemes] = useState<Theme[]>([]);
+
+  useEffect(() => {
+    invoke<Theme[]>("theme_list").then(setThemes).catch(() => {});
+  }, []);
+
+  const handleThemeSelect = useCallback((theme: Theme) => {
+    setActiveTheme(theme.id, theme.colors as unknown as Parameters<typeof setActiveTheme>[1]);
+  }, [setActiveTheme]);
 
   const handleEffectChange = useCallback((effect: string) => {
     setBackgroundEffect(effect);
@@ -37,6 +55,35 @@ export function SettingsTab() {
       </div>
 
       <div style={{ flex: 1, overflow: "auto", padding: 16, display: "flex", flexDirection: "column", gap: 24 }}>
+
+        {/* ── Theme ───────────────────────────────────── */}
+        <section>
+          <h3 style={{ fontSize: 13, margin: "0 0 8px", color: "var(--text-primary)" }}>Color Theme</h3>
+          <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
+            {themes.map((theme) => (
+              <button
+                key={theme.id}
+                onClick={() => handleThemeSelect(theme)}
+                style={{
+                  padding: "6px 12px",
+                  border: activeThemeId === theme.id ? "2px solid var(--accent)" : "1px solid var(--hover-bg)",
+                  borderRadius: 6,
+                  background: activeThemeId === theme.id ? "var(--accent)" : "var(--bg-secondary)",
+                  color: activeThemeId === theme.id ? "white" : "var(--text-primary)",
+                  cursor: "pointer",
+                  fontSize: 12,
+                  fontFamily: "inherit",
+                }}
+              >
+                {theme.name}
+                {!theme.isBuiltin && " ✦"}
+              </button>
+            ))}
+          </div>
+          {themes.length === 0 && (
+            <span style={{ fontSize: 12, color: "var(--text-secondary)" }}>Loading themes…</span>
+          )}
+        </section>
 
         {/* ── Terminal Background ──────────────────────── */}
         <section>
@@ -93,7 +140,7 @@ export function SettingsTab() {
         <section>
           <h3 style={{ fontSize: 13, margin: "0 0 8px", color: "var(--text-primary)" }}>About</h3>
           <div style={{ fontSize: 12, color: "var(--text-secondary)", display: "flex", flexDirection: "column", gap: 4 }}>
-            <span>Theme: {activeThemeName}</span>
+            <span>Theme: {themes.find((t) => t.id === activeThemeId)?.name || activeThemeId}</span>
             <span>Background: {EFFECTS.find((e) => e.id === backgroundEffect)?.label || "None"}</span>
           </div>
         </section>
