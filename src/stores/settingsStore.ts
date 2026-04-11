@@ -15,6 +15,8 @@ const STORAGE_KEY = "putz-settings";
 interface PersistedSettings {
   toolbarVisible: boolean;
   workspaceBarVisible: boolean;
+  backgroundEffect: string;
+  backgroundOpacity: number;
 }
 
 /** Loads persisted settings from localStorage, returning defaults on failure. */
@@ -26,12 +28,14 @@ function loadPersistedSettings(): PersistedSettings {
       return {
         toolbarVisible: parsed.toolbarVisible ?? false,
         workspaceBarVisible: parsed.workspaceBarVisible ?? true,
+        backgroundEffect: parsed.backgroundEffect ?? "none",
+        backgroundOpacity: parsed.backgroundOpacity ?? 0.15,
       };
     }
   } catch {
     // Corrupted localStorage — fall through to defaults
   }
-  return { toolbarVisible: false, workspaceBarVisible: true };
+  return { toolbarVisible: false, workspaceBarVisible: true, backgroundEffect: "none", backgroundOpacity: 0.15 };
 }
 
 /** Saves settings to localStorage. */
@@ -55,6 +59,12 @@ interface SettingsState {
   /** Whether the workspace bar is visible. */
   workspaceBarVisible: boolean;
 
+  /** Terminal background effect. */
+  backgroundEffect: string;
+
+  /** Terminal background opacity (0-1). */
+  backgroundOpacity: number;
+
   /** Toggles toolbar visibility and persists to localStorage. */
   toggleToolbar: () => void;
 
@@ -69,31 +79,47 @@ interface SettingsState {
 
   /** Sets shortcuts panel state explicitly. */
   setShortcutsPanelOpen: (open: boolean) => void;
+
+  /** Sets the terminal background effect. */
+  setBackgroundEffect: (effect: string) => void;
+
+  /** Sets the terminal background opacity. */
+  setBackgroundOpacity: (opacity: number) => void;
 }
 
 export const useSettingsStore = create<SettingsState>((set, get) => {
   const persisted = loadPersistedSettings();
 
+  const persist = () => {
+    const s = get();
+    persistSettings({
+      toolbarVisible: s.toolbarVisible,
+      workspaceBarVisible: s.workspaceBarVisible,
+      backgroundEffect: s.backgroundEffect,
+      backgroundOpacity: s.backgroundOpacity,
+    });
+  };
+
   return {
     toolbarVisible: persisted.toolbarVisible,
     workspaceBarVisible: persisted.workspaceBarVisible,
+    backgroundEffect: persisted.backgroundEffect,
+    backgroundOpacity: persisted.backgroundOpacity,
     shortcutsPanelOpen: false,
 
     toggleToolbar: () => {
-      const newValue = !get().toolbarVisible;
-      set({ toolbarVisible: newValue });
-      persistSettings({ toolbarVisible: newValue, workspaceBarVisible: get().workspaceBarVisible });
+      set({ toolbarVisible: !get().toolbarVisible });
+      persist();
     },
 
     setToolbarVisible: (visible: boolean) => {
       set({ toolbarVisible: visible });
-      persistSettings({ toolbarVisible: visible, workspaceBarVisible: get().workspaceBarVisible });
+      persist();
     },
 
     toggleWorkspaceBar: () => {
-      const newValue = !get().workspaceBarVisible;
-      set({ workspaceBarVisible: newValue });
-      persistSettings({ toolbarVisible: get().toolbarVisible, workspaceBarVisible: newValue });
+      set({ workspaceBarVisible: !get().workspaceBarVisible });
+      persist();
     },
 
     toggleShortcutsPanel: () => {
@@ -102,6 +128,16 @@ export const useSettingsStore = create<SettingsState>((set, get) => {
 
     setShortcutsPanelOpen: (open: boolean) => {
       set({ shortcutsPanelOpen: open });
+    },
+
+    setBackgroundEffect: (effect: string) => {
+      set({ backgroundEffect: effect });
+      persist();
+    },
+
+    setBackgroundOpacity: (opacity: number) => {
+      set({ backgroundOpacity: opacity });
+      persist();
     },
   };
 });

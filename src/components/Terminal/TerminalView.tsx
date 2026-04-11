@@ -15,12 +15,15 @@
  * - highlightSetId: optional highlight set ID to apply
  * - onBell: callback when a visual bell (\a) is received
  */
-import { useCallback } from "react";
+import { useCallback, useState } from "react";
 import { useTerminal } from "./useTerminal";
 import { useSearch } from "./useSearch";
 import { SearchBar } from "./SearchBar";
+import { TerminalBackground, type BackgroundEffect } from "./TerminalBackground";
 import { ChangeWindowWarning } from "../Compliance/ChangeWindowWarning";
 import { BELL_FLASH_CLASS, BELL_FLASH_DURATION_MS } from "./terminalPolish";
+import { useSettingsStore } from "../../stores/settingsStore";
+import { useThemeStore } from "../../stores/themeStore";
 import "@xterm/xterm/css/xterm.css";
 import "./Terminal.css";
 
@@ -57,6 +60,26 @@ export function TerminalView({
   tabElementId,
   changeWindowEnabled = false,
 }: TerminalViewProps) {
+  const [hostname, setHostname] = useState("");
+  const backgroundEffect = useSettingsStore((s) => s.backgroundEffect) as BackgroundEffect;
+  const backgroundOpacity = useSettingsStore((s) => s.backgroundOpacity);
+  const termColors = useThemeStore((s) => s.activeColors);
+  const fgColor = (termColors as Record<string, string> | null)?.foreground || "#cdd6f4";
+
+  // Extract hostname from terminal title (format: "user@hostname: path" or "hostname")
+  const handleTitleChangeWithHostname = useCallback((title: string) => {
+    onTitleChange?.(title);
+    // Extract host: "user@router-1: ~" → "router-1", or "router-1" → "router-1"
+    const atMatch = title.match(/@([^:@\s]+)/);
+    if (atMatch) {
+      setHostname(atMatch[1]);
+    } else {
+      const colonMatch = title.match(/^([^:\s]+)/);
+      if (colonMatch && !colonMatch[1].includes("/")) {
+        setHostname(colonMatch[1]);
+      }
+    }
+  }, [onTitleChange]);
   // Fix 3: Visual bell — briefly flash the terminal wrapper
   const handleBell = useCallback(() => {
     // Flash the tab element if available, otherwise flash the terminal wrapper
@@ -90,7 +113,7 @@ export function TerminalView({
   } =
     useTerminal({
       sessionId,
-      onTitleChange,
+      onTitleChange: handleTitleChangeWithHostname,
       highlightSetId,
       onBell: handleBell,
       changeWindowEnabled,
@@ -135,7 +158,14 @@ export function TerminalView({
       className={`terminal-wrapper${isBroadcastTarget ? " terminal-wrapper--broadcast-target" : ""}`}
       data-testid="terminal-wrapper"
       data-session-id={sessionId}
-    >      {searchOpen && (
+    >
+      <TerminalBackground
+        effect={backgroundEffect}
+        opacity={backgroundOpacity}
+        color={fgColor}
+        hostname={hostname}
+      />
+      {searchOpen && (
         <SearchBar
           onSearch={search.findNext}
           onSearchPrevious={search.findPrevious}
