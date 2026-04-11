@@ -137,12 +137,13 @@ export function VaultTab() {
   const handleDeleteCred = useCallback(async (id: string) => {
     try {
       await invoke("vault_delete", { id });
+      if (editingId === id) { setEditingId(null); setIsAdding(false); }
       showToast("Deleted");
       await loadAll();
     } catch {
       showToast("Failed to delete");
     }
-  }, [loadAll, showToast]);
+  }, [editingId, loadAll, showToast]);
 
   const handleCancelEdit = useCallback(() => {
     setEditingId(null);

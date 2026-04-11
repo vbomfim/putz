@@ -180,6 +180,12 @@ interface LayoutState {
   /** Adds a vault (credentials + keys) tab. */
   addVaultTab: (regionId?: string) => void;
 
+  /** Adds a command history tab. */
+  addHistoryTab: (regionId?: string) => void;
+
+  /** Adds a command templates tab. */
+  addTemplateTab: (regionId?: string) => void;
+
   /** Closes a tab in a region. If last tab, closes the region. */
   closeTab: (regionId: string, tabId: string) => void;
 
@@ -511,6 +517,32 @@ export const useLayoutStore = create<LayoutState>((set, get) => ({
       },
       tabCounter: state.tabCounter + 1,
     }));
+  },
+
+  addHistoryTab: (regionId?: string) => {
+    const targetRegionId = regionId || get().focusedRegionId;
+    const region = get().regions[targetRegionId];
+    if (!region) return;
+    const existing = region.tabs.find((t) => t.type === "history");
+    if (existing) {
+      set((state) => ({ regions: { ...state.regions, [targetRegionId]: { ...state.regions[targetRegionId], activeTabId: existing.id } } }));
+      return;
+    }
+    const tab: RegionTab = { id: generateId(), title: "History", type: "history", sessionId: `${EDITOR_SESSION_PREFIX}hist-${generateId()}`, status: "local" };
+    set((state) => ({ regions: { ...state.regions, [targetRegionId]: { ...state.regions[targetRegionId], tabs: [...state.regions[targetRegionId].tabs, tab], activeTabId: tab.id } }, tabCounter: state.tabCounter + 1 }));
+  },
+
+  addTemplateTab: (regionId?: string) => {
+    const targetRegionId = regionId || get().focusedRegionId;
+    const region = get().regions[targetRegionId];
+    if (!region) return;
+    const existing = region.tabs.find((t) => t.type === "templates");
+    if (existing) {
+      set((state) => ({ regions: { ...state.regions, [targetRegionId]: { ...state.regions[targetRegionId], activeTabId: existing.id } } }));
+      return;
+    }
+    const tab: RegionTab = { id: generateId(), title: "Templates", type: "templates", sessionId: `${EDITOR_SESSION_PREFIX}tmpl-${generateId()}`, status: "local" };
+    set((state) => ({ regions: { ...state.regions, [targetRegionId]: { ...state.regions[targetRegionId], tabs: [...state.regions[targetRegionId].tabs, tab], activeTabId: tab.id } }, tabCounter: state.tabCounter + 1 }));
   },
 
   closeTab: (regionId: string, tabId: string) => {

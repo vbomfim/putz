@@ -21,10 +21,8 @@ import { SessionSidebar } from "./components/SessionManager";
 import { UpdateChecker } from "./components/UpdateChecker";
 import { useMenuEvents, setMenuEventCallbacks } from "./utils/useMenuEvents";
 import { useKeyboardShortcuts } from "./components/TabBar/useKeyboardShortcuts";
-import { HistoryPanel } from "./components/History";
 import { QuickConnect } from "./components/QuickConnect";
 import { CredentialReminder } from "./components/Vault/CredentialReminder";
-import { TemplatePanel } from "./components/Templates";
 import { PingDashboard } from "./components/Ping/PingDashboard";
 
 import { ThemeEditor } from "./components/Terminal/ThemeEditor";
@@ -44,13 +42,13 @@ function App() {
   const addBrowserTab = useLayoutStore((s) => s.addBrowserTab);
   const addEditorTab = useLayoutStore((s) => s.addEditorTab);
   const addVaultTab = useLayoutStore((s) => s.addVaultTab);
+  const addHistoryTab = useLayoutStore((s) => s.addHistoryTab);
+  const addTemplateTab = useLayoutStore((s) => s.addTemplateTab);
   const workspaceBarVisible = useSettingsStore((s) => s.workspaceBarVisible);
   const toggleWorkspaceBar = useSettingsStore((s) => s.toggleWorkspaceBar);
   const hasInitialized = useRef(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [historyOpen, setHistoryOpen] = useState(false);
   const [quickConnectOpen, setQuickConnectOpen] = useState(false);
-  const [templatePanelOpen, setTemplatePanelOpen] = useState(false);
   const [themeEditorOpen, setThemeEditorOpen] = useState(false);
   const [fontConfigOpen, setFontConfigOpen] = useState(false);
   const [pingOpen, setPingOpen] = useState(false);
@@ -84,15 +82,15 @@ function App() {
       onToggleKeyManager: () => addVaultTab(),
       onToggleThemeEditor: () => setThemeEditorOpen((prev) => !prev),
       onToggleFontConfig: () => setFontConfigOpen((prev) => !prev),
-      onToggleTemplates: () => setTemplatePanelOpen((prev) => !prev),
-      onToggleHistory: () => setHistoryOpen((prev) => !prev),
+      onToggleTemplates: () => addTemplateTab(),
+      onToggleHistory: () => addHistoryTab(),
       onTogglePing: () => setPingOpen((prev) => !prev),
       onToggleScript: () => addEditorTab(),
       onNewBrowserTab: () => addBrowserTab(undefined, ""),
       onToggleWorkspaceBar: () => toggleWorkspaceBar(),
     });
     return () => setMenuEventCallbacks({});
-  }, [addBrowserTab, addEditorTab, addVaultTab, toggleWorkspaceBar]);
+  }, [addBrowserTab, addEditorTab, addVaultTab, addHistoryTab, addTemplateTab, toggleWorkspaceBar]);
 
   // Create the first tab on mount only
   useEffect(() => {
@@ -125,10 +123,10 @@ function App() {
 
       const key = e.key.toLowerCase();
 
-      // Ctrl+R — Toggle command history search
+      // Ctrl+R — Open command history tab
       if (key === "r" && !e.shiftKey) {
         e.preventDefault();
-        setHistoryOpen((prev) => !prev);
+        addHistoryTab();
         setQuickConnectOpen(false);
         return;
       }
@@ -137,14 +135,13 @@ function App() {
       if (key === "k" && !e.shiftKey) {
         e.preventDefault();
         setQuickConnectOpen((prev) => !prev);
-        setHistoryOpen(false);
         return;
       }
     };
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, []);
+  }, [addHistoryTab]);
 
   // Global Escape key — close overlay panels
   useEffect(() => {
@@ -169,29 +166,19 @@ function App() {
     setSidebarOpen((prev) => !prev);
   }, []);
 
-  /** Toggles the Command Templates panel. */
-  const handleToggleTemplates = useCallback(() => {
-    setTemplatePanelOpen((prev) => !prev);
-  }, []);
-
-  /** Global keyboard shortcut for panels not managed by TabBar's hook. */
+  /** Global keyboard shortcut: Ctrl+Shift+T → Templates tab. */
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       const modifier = e.ctrlKey || e.metaKey;
       if (!modifier || !e.shiftKey) return;
-
-      const key = e.key.toLowerCase();
-
-      // Ctrl+Shift+T — Command Templates
-      if (key === "t") {
+      if (e.key.toLowerCase() === "t") {
         e.preventDefault();
-        handleToggleTemplates();
-        return;
+        addTemplateTab();
       }
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [handleToggleTemplates]);
+  }, [addTemplateTab]);
 
   /** Called when a session is opened from the sidebar. */
   const handleSessionOpen = useCallback((_session: SessionProfile) => {
@@ -199,20 +186,6 @@ function App() {
     // For now, just open a new local terminal tab.
     addTerminalTab();
   }, [addTerminalTab]);
-
-  /** Called when a command is selected from the history panel. */
-  const handleHistorySelect = useCallback((command: string) => {
-    const state = useLayoutStore.getState();
-    const sessionId = state.getActiveSessionId();
-    if (!sessionId) return;
-    const bytes = Array.from(new TextEncoder().encode(command));
-    // Determine if the active tab is a connected session
-    const region = state.getFocusedRegion();
-    const activeTab = region?.tabs.find((t) => t.id === region.activeTabId);
-    const cmd = activeTab?.status === "connected" ? "connection_write" : "pty_write";
-    invoke(cmd, { sessionId, data: bytes }).catch(() => {});
-    setHistoryOpen(false);
-  }, []);
 
   /** Called when a connection is submitted from the quick connect bar. */
   const handleQuickConnect = useCallback((connection: ParsedConnection) => {
@@ -266,35 +239,12 @@ function App() {
         )}
       <BroadcastBar />
       <ShortcutsPanel />
-      <HistoryPanel
-        isOpen={historyOpen}
-        onClose={() => setHistoryOpen(false)}
-        onSelect={handleHistorySelect}
-      />
       <QuickConnect
         isOpen={quickConnectOpen}
         onClose={() => setQuickConnectOpen(false)}
         onConnect={handleQuickConnect}
       />
-      <TemplatePanel
-        isOpen={templatePanelOpen}
-        onClose={() => setTemplatePanelOpen(false)}
-        onSendToTerminal={(text) => {
-          const state = useLayoutStore.getState();
-          const sessionId = state.getActiveSessionId();
-          if (!sessionId) { console.error("No active session"); return; }
-          const region = state.getFocusedRegion();
-          const activeTab = region?.tabs.find((t) => t.id === region.activeTabId);
-          const bytes = Array.from(new TextEncoder().encode(text + "\n"));
-          const command = activeTab?.status === "connected" ? "connection_write" : "pty_write";
-          console.log("[template-send]", command, sessionId, text.substring(0, 50));
-          invoke(command, { sessionId, data: bytes }).catch((err) => {
-            console.error("[template-send] failed:", err);
-          });
-        }}
-      />
 
-      {/* Credential Vault overlay */}
       {/* Font Config overlay */}
       {fontConfigOpen && (
         <FontConfigOverlay onClose={() => setFontConfigOpen(false)} />
