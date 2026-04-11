@@ -709,10 +709,17 @@ export const useLayoutStore = create<LayoutState>((set, get) => ({
       toTabs = [...toRegion.tabs.slice(0, idx), tab, ...toRegion.tabs.slice(idx)];
 
       const newRegions = { ...state.regions };
+      let newLayout = state.layout;
 
-      // If source region has no tabs left, it'll be cleaned up
+      // If source region has no tabs left, collapse it from the layout
       if (fromTabs.length === 0) {
         delete newRegions[fromRegionId];
+        cleanupPortalTarget(fromRegionId);
+        // Remove the empty region from the layout tree (collapse the split)
+        if (newLayout.type !== "region") {
+          const collapsed = removeRegionFromLayout(newLayout, fromRegionId);
+          if (collapsed) newLayout = collapsed;
+        }
       } else {
         newRegions[fromRegionId] = {
           ...fromRegion,
@@ -728,6 +735,7 @@ export const useLayoutStore = create<LayoutState>((set, get) => ({
       };
 
       return {
+        layout: newLayout,
         regions: newRegions,
         focusedRegionId: toRegionId,
       };
