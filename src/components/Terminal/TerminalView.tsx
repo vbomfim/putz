@@ -66,8 +66,16 @@ export function TerminalView({
   const [hostname, setHostname] = useState("");
   const backgroundEffect = useSettingsStore((s) => s.backgroundEffect) as BackgroundEffect;
   const backgroundOpacity = useSettingsStore((s) => s.backgroundOpacity);
+  const backgroundColorMode = useSettingsStore((s) => s.backgroundColorMode);
+  const backgroundCustomColor = useSettingsStore((s) => s.backgroundCustomColor);
+  const backgroundSpeed = useSettingsStore((s) => s.backgroundSpeed);
   const termColors = useThemeStore((s) => s.activeColors);
   const fgColor = (termColors as Record<string, string> | null)?.foreground || "#cdd6f4";
+
+  // Resolve the animation color based on mode
+  const effectColor = backgroundColorMode === "custom" ? backgroundCustomColor
+    : backgroundColorMode === "rainbow" ? "rainbow"
+    : fgColor;
 
   // Extract hostname only from SSH sessions (title contains user@remote-host)
   // Local shells show "user@local-machine" which we skip
@@ -166,7 +174,8 @@ export function TerminalView({
       <TerminalBackground
         effect={backgroundEffect}
         opacity={backgroundOpacity}
-        color={fgColor}
+        color={effectColor}
+        speed={backgroundSpeed}
         hostname={isConnected ? hostname : undefined}
       />
       {searchOpen && (

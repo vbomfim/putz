@@ -30,8 +30,14 @@ const EFFECTS: { id: BackgroundEffect; label: string; desc: string }[] = [
 export function SettingsTab() {
   const backgroundEffect = useSettingsStore((s) => s.backgroundEffect);
   const backgroundOpacity = useSettingsStore((s) => s.backgroundOpacity);
+  const backgroundColorMode = useSettingsStore((s) => s.backgroundColorMode);
+  const backgroundCustomColor = useSettingsStore((s) => s.backgroundCustomColor);
+  const backgroundSpeed = useSettingsStore((s) => s.backgroundSpeed);
   const setBackgroundEffect = useSettingsStore((s) => s.setBackgroundEffect);
   const setBackgroundOpacity = useSettingsStore((s) => s.setBackgroundOpacity);
+  const setBackgroundColorMode = useSettingsStore((s) => s.setBackgroundColorMode);
+  const setBackgroundCustomColor = useSettingsStore((s) => s.setBackgroundCustomColor);
+  const setBackgroundSpeed = useSettingsStore((s) => s.setBackgroundSpeed);
   const activeThemeId = useThemeStore((s) => s.activeThemeId);
   const setActiveTheme = useThemeStore((s) => s.setActiveTheme);
   const [themes, setThemes] = useState<Theme[]>([]);
@@ -118,21 +124,56 @@ export function SettingsTab() {
           </div>
 
           {backgroundEffect !== "none" && (
-            <div style={{ marginTop: 12, display: "flex", alignItems: "center", gap: 12 }}>
-              <label style={{ fontSize: 12, color: "var(--text-secondary)", whiteSpace: "nowrap" }}>Opacity</label>
-              <input
-                type="range"
-                min="0.05"
-                max="1"
-                step="0.05"
-                value={backgroundOpacity}
-                onChange={(e) => setBackgroundOpacity(parseFloat(e.target.value))}
-                style={{ flex: 1 }}
-              />
-              <span style={{ fontSize: 11, color: "var(--text-secondary)", minWidth: 30 }}>
-                {Math.round(backgroundOpacity * 100)}%
-              </span>
-            </div>
+            <>
+              <div style={{ marginTop: 12, display: "flex", alignItems: "center", gap: 12 }}>
+                <label style={{ fontSize: 12, color: "var(--text-secondary)", whiteSpace: "nowrap", minWidth: 50 }}>Opacity</label>
+                <input type="range" min="0.05" max="1" step="0.05" value={backgroundOpacity}
+                  onChange={(e) => setBackgroundOpacity(parseFloat(e.target.value))} style={{ flex: 1 }} />
+                <span style={{ fontSize: 11, color: "var(--text-secondary)", minWidth: 30 }}>{Math.round(backgroundOpacity * 100)}%</span>
+              </div>
+
+              <div style={{ marginTop: 8, display: "flex", alignItems: "center", gap: 12 }}>
+                <label style={{ fontSize: 12, color: "var(--text-secondary)", whiteSpace: "nowrap", minWidth: 50 }}>Speed</label>
+                <input type="range" min="0.2" max="3" step="0.1" value={backgroundSpeed}
+                  onChange={(e) => setBackgroundSpeed(parseFloat(e.target.value))} style={{ flex: 1 }} />
+                <span style={{ fontSize: 11, color: "var(--text-secondary)", minWidth: 30 }}>{backgroundSpeed.toFixed(1)}×</span>
+              </div>
+
+              <div style={{ marginTop: 12, display: "flex", flexDirection: "column", gap: 6 }}>
+                <label style={{ fontSize: 12, color: "var(--text-secondary)" }}>Color</label>
+                <div style={{ display: "flex", gap: 4, flexWrap: "wrap", alignItems: "center" }}>
+                  {([
+                    ["theme", "Theme", "Uses terminal foreground color"],
+                    ["rainbow", "🌈 Rainbow", "Cycles through all colors"],
+                    ["custom", "Custom", "Pick your own color"],
+                  ] as const).map(([mode, label, title]) => (
+                    <button
+                      key={mode}
+                      onClick={() => setBackgroundColorMode(mode)}
+                      style={{
+                        padding: "4px 10px",
+                        border: backgroundColorMode === mode ? "2px solid var(--accent)" : "1px solid var(--hover-bg)",
+                        borderRadius: 6,
+                        background: backgroundColorMode === mode ? "var(--accent)" : "var(--bg-secondary)",
+                        color: backgroundColorMode === mode ? "white" : "var(--text-primary)",
+                        cursor: "pointer", fontSize: 12, fontFamily: "inherit",
+                      }}
+                      title={title}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                  {backgroundColorMode === "custom" && (
+                    <input
+                      type="color"
+                      value={backgroundCustomColor}
+                      onChange={(e) => setBackgroundCustomColor(e.target.value)}
+                      style={{ width: 32, height: 28, border: "none", borderRadius: 4, cursor: "pointer" }}
+                    />
+                  )}
+                </div>
+              </div>
+            </>
           )}
         </section>
 

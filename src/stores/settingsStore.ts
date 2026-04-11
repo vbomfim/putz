@@ -17,6 +17,9 @@ interface PersistedSettings {
   workspaceBarVisible: boolean;
   backgroundEffect: string;
   backgroundOpacity: number;
+  backgroundColorMode: string;
+  backgroundCustomColor: string;
+  backgroundSpeed: number;
 }
 
 /** Loads persisted settings from localStorage, returning defaults on failure. */
@@ -30,12 +33,15 @@ function loadPersistedSettings(): PersistedSettings {
         workspaceBarVisible: parsed.workspaceBarVisible ?? true,
         backgroundEffect: parsed.backgroundEffect ?? "none",
         backgroundOpacity: parsed.backgroundOpacity ?? 0.15,
+        backgroundColorMode: parsed.backgroundColorMode ?? "theme",
+        backgroundCustomColor: parsed.backgroundCustomColor ?? "#50fa7b",
+        backgroundSpeed: parsed.backgroundSpeed ?? 1,
       };
     }
   } catch {
     // Corrupted localStorage — fall through to defaults
   }
-  return { toolbarVisible: false, workspaceBarVisible: true, backgroundEffect: "none", backgroundOpacity: 0.15 };
+  return { toolbarVisible: false, workspaceBarVisible: true, backgroundEffect: "none", backgroundOpacity: 0.15, backgroundColorMode: "theme", backgroundCustomColor: "#50fa7b", backgroundSpeed: 1 };
 }
 
 /** Saves settings to localStorage. */
@@ -65,6 +71,15 @@ interface SettingsState {
   /** Terminal background opacity (0-1). */
   backgroundOpacity: number;
 
+  /** Color mode: "theme" | "custom" | "rainbow". */
+  backgroundColorMode: string;
+
+  /** Custom color hex when mode is "custom". */
+  backgroundCustomColor: string;
+
+  /** Animation speed multiplier (0.2 - 3). */
+  backgroundSpeed: number;
+
   /** Toggles toolbar visibility and persists to localStorage. */
   toggleToolbar: () => void;
 
@@ -85,6 +100,15 @@ interface SettingsState {
 
   /** Sets the terminal background opacity. */
   setBackgroundOpacity: (opacity: number) => void;
+
+  /** Sets the color mode. */
+  setBackgroundColorMode: (mode: string) => void;
+
+  /** Sets the custom color. */
+  setBackgroundCustomColor: (color: string) => void;
+
+  /** Sets the animation speed. */
+  setBackgroundSpeed: (speed: number) => void;
 }
 
 export const useSettingsStore = create<SettingsState>((set, get) => {
@@ -97,6 +121,9 @@ export const useSettingsStore = create<SettingsState>((set, get) => {
       workspaceBarVisible: s.workspaceBarVisible,
       backgroundEffect: s.backgroundEffect,
       backgroundOpacity: s.backgroundOpacity,
+      backgroundColorMode: s.backgroundColorMode,
+      backgroundCustomColor: s.backgroundCustomColor,
+      backgroundSpeed: s.backgroundSpeed,
     });
   };
 
@@ -105,6 +132,9 @@ export const useSettingsStore = create<SettingsState>((set, get) => {
     workspaceBarVisible: persisted.workspaceBarVisible,
     backgroundEffect: persisted.backgroundEffect,
     backgroundOpacity: persisted.backgroundOpacity,
+    backgroundColorMode: persisted.backgroundColorMode,
+    backgroundCustomColor: persisted.backgroundCustomColor,
+    backgroundSpeed: persisted.backgroundSpeed,
     shortcutsPanelOpen: false,
 
     toggleToolbar: () => {
@@ -137,6 +167,21 @@ export const useSettingsStore = create<SettingsState>((set, get) => {
 
     setBackgroundOpacity: (opacity: number) => {
       set({ backgroundOpacity: opacity });
+      persist();
+    },
+
+    setBackgroundColorMode: (mode: string) => {
+      set({ backgroundColorMode: mode });
+      persist();
+    },
+
+    setBackgroundCustomColor: (color: string) => {
+      set({ backgroundCustomColor: color });
+      persist();
+    },
+
+    setBackgroundSpeed: (speed: number) => {
+      set({ backgroundSpeed: speed });
       persist();
     },
   };

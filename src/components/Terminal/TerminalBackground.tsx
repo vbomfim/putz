@@ -288,6 +288,8 @@ export function TerminalBackground({
     return () => observer.disconnect();
   }, [hostname, color]);
 
+  const frameCountRef = useRef(0);
+
   const render = useCallback(() => {
     const canvas = canvasRef.current;
     if (!canvas || effect === "none") return;
@@ -299,18 +301,24 @@ export function TerminalBackground({
     const h = canvas.height;
     const s = stateRef.current;
 
+    // Resolve rainbow color — cycle hue each frame
+    frameCountRef.current += 1;
+    const resolvedColor = color === "rainbow"
+      ? `hsl(${(frameCountRef.current * 0.5) % 360}, 100%, 60%)`
+      : color;
+
     switch (effect) {
       case "matrix":
-        matrixRain(ctx, w, h, s as unknown as MatrixState, color, speed);
+        matrixRain(ctx, w, h, s as unknown as MatrixState, resolvedColor, speed);
         break;
       case "starfield":
-        starfield(ctx, w, h, s as unknown as { stars: Star[] }, color, speed);
+        starfield(ctx, w, h, s as unknown as { stars: Star[] }, resolvedColor, speed);
         break;
       case "rain":
-        digitalRain(ctx, w, h, s as unknown as { offset: number }, color, speed);
+        digitalRain(ctx, w, h, s as unknown as { offset: number }, resolvedColor, speed);
         break;
       case "network":
-        networkParticles(ctx, w, h, s as unknown as { particles: Particle[] }, color, speed);
+        networkParticles(ctx, w, h, s as unknown as { particles: Particle[] }, resolvedColor, speed);
         break;
     }
 
