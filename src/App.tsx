@@ -44,6 +44,7 @@ function App() {
   const addVaultTab = useLayoutStore((s) => s.addVaultTab);
   const addHistoryTab = useLayoutStore((s) => s.addHistoryTab);
   const addTemplateTab = useLayoutStore((s) => s.addTemplateTab);
+  const addSettingsTab = useLayoutStore((s) => s.addSettingsTab);
   const workspaceBarVisible = useSettingsStore((s) => s.workspaceBarVisible);
   const toggleWorkspaceBar = useSettingsStore((s) => s.toggleWorkspaceBar);
   const hasInitialized = useRef(false);
@@ -86,11 +87,12 @@ function App() {
       onToggleHistory: () => addHistoryTab(),
       onTogglePing: () => setPingOpen((prev) => !prev),
       onToggleScript: () => addEditorTab(),
+      onOpenSettings: () => addSettingsTab(),
       onNewBrowserTab: () => addBrowserTab(undefined, ""),
       onToggleWorkspaceBar: () => toggleWorkspaceBar(),
     });
     return () => setMenuEventCallbacks({});
-  }, [addBrowserTab, addEditorTab, addVaultTab, addHistoryTab, addTemplateTab, toggleWorkspaceBar]);
+  }, [addBrowserTab, addEditorTab, addVaultTab, addHistoryTab, addTemplateTab, addSettingsTab, toggleWorkspaceBar]);
 
   // Create the first tab on mount only
   useEffect(() => {

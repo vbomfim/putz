@@ -186,6 +186,9 @@ interface LayoutState {
   /** Adds a command templates tab. */
   addTemplateTab: (regionId?: string) => void;
 
+  /** Adds a settings tab. */
+  addSettingsTab: (regionId?: string) => void;
+
   /** Closes a tab in a region. If last tab, closes the region. */
   closeTab: (regionId: string, tabId: string) => void;
 
@@ -545,6 +548,19 @@ export const useLayoutStore = create<LayoutState>((set, get) => ({
       return;
     }
     const tab: RegionTab = { id: generateId(), title: "Templates", type: "templates", sessionId: `${EDITOR_SESSION_PREFIX}tmpl-${generateId()}`, status: "local" };
+    set((state) => ({ regions: { ...state.regions, [targetRegionId]: { ...state.regions[targetRegionId], tabs: [...state.regions[targetRegionId].tabs, tab], activeTabId: tab.id } }, tabCounter: state.tabCounter + 1 }));
+  },
+
+  addSettingsTab: (regionId?: string) => {
+    const targetRegionId = regionId || get().focusedRegionId;
+    const region = get().regions[targetRegionId];
+    if (!region) return;
+    const existing = region.tabs.find((t) => t.type === "settings");
+    if (existing) {
+      set((state) => ({ regions: { ...state.regions, [targetRegionId]: { ...state.regions[targetRegionId], activeTabId: existing.id } } }));
+      return;
+    }
+    const tab: RegionTab = { id: generateId(), title: "Settings", type: "settings", sessionId: `${EDITOR_SESSION_PREFIX}settings-${generateId()}`, status: "local" };
     set((state) => ({ regions: { ...state.regions, [targetRegionId]: { ...state.regions[targetRegionId], tabs: [...state.regions[targetRegionId].tabs, tab], activeTabId: tab.id } }, tabCounter: state.tabCounter + 1 }));
   },
 

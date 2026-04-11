@@ -28,6 +28,7 @@ export interface MenuEventCallbacks {
   onToggleHistory?: () => void;
   onTogglePing?: () => void;
   onToggleScript?: () => void;
+  onOpenSettings?: () => void;
   onNewBrowserTab?: () => void;
   onToggleWorkspaceBar?: () => void;
 }
@@ -92,6 +93,10 @@ export function useMenuEvents(): void {
         case "menu-find":
           // Dispatch to whatever is active — terminal search or Monaco find
           window.dispatchEvent(new CustomEvent("putz-find"));
+          break;
+
+        case "menu-preferences":
+          menuCallbacks.onOpenSettings?.();
           break;
 
         // ─── View ──────────────────────────────────────────

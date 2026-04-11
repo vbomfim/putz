@@ -17,6 +17,7 @@ import { SearchReplaceTab } from "../Scripting/SearchReplaceTab";
 import { VaultTab } from "../Vault/VaultTab";
 import { HistoryTab } from "../History/HistoryTab";
 import { TemplateTab } from "../Templates/TemplateTab";
+import { SettingsTab } from "../Settings/SettingsTab";
 import { RegionTabBar } from "./RegionTabBar";
 import { useLayoutStore } from "../../stores/layoutStore";
 import type { Region } from "../../types";
@@ -153,6 +154,13 @@ export function RegionView({ region, isFocused }: RegionViewProps) {
             return (
               <div key={tab.id} style={{ display: isTabActive ? "flex" : "none", flex: 1, flexDirection: "column", minHeight: 0, overflow: "hidden" }}>
                 <TemplateTab />
+              </div>
+            );
+          }
+          if (tab.type === "settings") {
+            return (
+              <div key={tab.id} style={{ display: isTabActive ? "flex" : "none", flex: 1, flexDirection: "column", minHeight: 0, overflow: "hidden" }}>
+                <SettingsTab />
               </div>
             );
           }
