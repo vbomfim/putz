@@ -292,6 +292,7 @@ function ThemeOverlay({ themes, onClose }: { themes: Theme[]; onClose: () => voi
   const activeThemeId = useThemeStore((s) => s.activeThemeId);
   const setActiveTheme = useThemeStore((s) => s.setActiveTheme);
   const [editing, setEditing] = useState(false);
+  const [localThemes, setLocalThemes] = useState(themes);
   
   const handleSelectTheme = (theme: Theme) => {
     setActiveTheme(theme.id, theme.colors);
@@ -302,7 +303,24 @@ function ThemeOverlay({ themes, onClose }: { themes: Theme[]; onClose: () => voi
       <div className="modal-overlay" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }} role="dialog" aria-modal="true" aria-label="Theme Editor">
         <div className="modal-panel modal-panel--wide">
           <button className="modal-close" onClick={() => setEditing(false)} aria-label="Back">←</button>
-          <ThemeEditor themes={themes} editingTheme={null} onSave={() => { setEditing(false); }} onCancel={() => setEditing(false)} />
+          <ThemeEditor
+            themes={localThemes}
+            editingTheme={null}
+            onSave={async (name, colors) => {
+              try {
+                await invoke("theme_create", { input: { name, colors } });
+                // Reload themes and apply the new one
+                const updated = await invoke<Theme[]>("theme_list");
+                setLocalThemes(updated);
+                const created = updated.find((t) => t.name === name);
+                if (created) setActiveTheme(created.id, created.colors);
+              } catch (err) {
+                console.error("Failed to save theme:", err);
+              }
+              setEditing(false);
+            }}
+            onCancel={() => setEditing(false)}
+          />
         </div>
       </div>
     );
@@ -322,7 +340,7 @@ function ThemeOverlay({ themes, onClose }: { themes: Theme[]; onClose: () => voi
         <button onClick={onClose} style={{ background: "none", border: "none", color: "var(--text-primary)", fontSize: "18px", cursor: "pointer" }} aria-label="Close">✕</button>
       </div>
       <div style={{ flex: 1, overflowY: "auto", padding: "12px", display: "flex", flexDirection: "column", gap: "6px" }}>
-        {themes.map((theme) => (
+        {localThemes.map((theme) => (
           <button
             key={theme.id}
             onClick={() => handleSelectTheme(theme)}
