@@ -14,7 +14,8 @@
   overflow: hidden;
   display: flex;
   flex-direction: column;
-  background-color: var(--bg-primary);
+  /* background set to transparent when animated bg is active — 
+     the TerminalBackground canvas paints behind, xterm handles its own bg */
 }
 
 .terminal-container {
@@ -23,6 +24,8 @@
   min-height: 0;
   overflow: hidden;
   padding: 4px;
+  position: relative;
+  z-index: 1;
 }
 
 /* Ensure xterm.js terminal fills its container */
@@ -32,6 +35,13 @@
 
 .terminal-container .xterm-viewport {
   overflow-y: auto;
+  /* Allow animated background to show through */
+  background-color: transparent !important;
+}
+
+.terminal-container .xterm-screen {
+  /* Allow animated background to show through */  
+  background-color: transparent !important;
 }
 
 /* Loading indicator */
