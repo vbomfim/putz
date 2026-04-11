@@ -367,7 +367,7 @@ export function TerminalBackground({
           style={{
             position: "absolute",
             inset: 0,
-            zIndex: 0,
+            zIndex: 2,
             pointerEvents: "none",
           }}
         />
@@ -378,7 +378,7 @@ export function TerminalBackground({
           style={{
             position: "absolute",
             inset: 0,
-            zIndex: 0,
+            zIndex: 2,
             opacity,
             pointerEvents: "none",
           }}

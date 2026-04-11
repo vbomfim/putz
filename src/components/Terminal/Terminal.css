@@ -35,13 +35,6 @@
 
 .terminal-container .xterm-viewport {
   overflow-y: auto;
-  /* Allow animated background to show through */
-  background-color: transparent !important;
-}
-
-.terminal-container .xterm-screen {
-  /* Allow animated background to show through */  
-  background-color: transparent !important;
 }
 
 /* Loading indicator */

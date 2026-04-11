@@ -21,7 +21,6 @@ import {
   type PtyExitPayload,
 } from "./types";
 import { useThemeStore } from "../../stores/themeStore";
-import { useSettingsStore } from "../../stores/settingsStore";
 import { useTabStore } from "../../stores/tabStore";
 import { useLayoutStore } from "../../stores/layoutStore";
 import { HighlightEngine } from "./HighlightEngine";
@@ -147,30 +146,15 @@ export function useTerminal({
 
     // Read initial font/theme from themeStore
     const themeState = useThemeStore.getState();
-    const settingsState = useSettingsStore.getState();
     const initialFontSettings = themeState.fontSettings;
-    let initialTheme = (themeState.activeColors || DEFAULT_TERMINAL_THEME) as unknown as Record<string, string>;
-
-    // Make background semi-transparent for animated effects
-    if (settingsState.backgroundEffect !== "none" && initialTheme.background) {
-      const bg = initialTheme.background;
-      if (bg.startsWith("#") && bg.length >= 7) {
-        const r = parseInt(bg.slice(1, 3), 16);
-        const g = parseInt(bg.slice(3, 5), 16);
-        const b = parseInt(bg.slice(5, 7), 16);
-        initialTheme = { ...initialTheme, background: `rgba(${r}, ${g}, ${b}, 0.85)` };
-      }
-    }
-
     const terminal = new Terminal({
       fontSize: initialFontSettings.fontSize,
       fontFamily: initialFontSettings.fontFamily,
       scrollback: TERMINAL_CONFIG.scrollback,
-      theme: initialTheme,
+      theme: (themeState.activeColors || DEFAULT_TERMINAL_THEME),
       cursorBlink: true,
       cursorStyle: "block",
       allowProposedApi: true,
-      allowTransparency: true,
       wordSeparator: WORD_SEPARATOR,
     });
 
@@ -259,17 +243,14 @@ export function useTerminal({
     terminal.open(container);
 
     // Try WebGL addon for GPU-accelerated rendering, fall back to canvas
-    // Skip WebGL when background effects are active (WebGL doesn't support transparency)
-    if (settingsState.backgroundEffect === "none") {
-      try {
-        const webglAddon = new WebglAddon();
-        webglAddon.onContextLoss(() => {
-          webglAddon.dispose();
-        });
-        terminal.loadAddon(webglAddon);
-      } catch {
-        // WebGL not available — canvas renderer is the automatic fallback
-      }
+    try {
+      const webglAddon = new WebglAddon();
+      webglAddon.onContextLoss(() => {
+        webglAddon.dispose();
+      });
+      terminal.loadAddon(webglAddon);
+    } catch {
+      // WebGL not available — canvas renderer is the automatic fallback
     }
 
     /**
@@ -598,12 +579,11 @@ export function useTerminal({
 
   // Effect: subscribe to themeStore for live theme/font changes
   useEffect(() => {
-    const applyThemeWithTransparency = () => {
+    const applyTheme = () => {
       const term = terminalInstanceRef.current;
       if (!term) return;
 
       const themeState = useThemeStore.getState();
-      const settingsState = useSettingsStore.getState();
 
       if (themeState.fontSettings) {
         term.options.fontSize = themeState.fontSettings.fontSize;
@@ -612,28 +592,14 @@ export function useTerminal({
       }
 
       if (themeState.activeColors) {
-        const colors = { ...themeState.activeColors } as Record<string, string>;
-        // Make background semi-transparent when an animated effect is active
-        if (settingsState.backgroundEffect !== "none" && colors.background) {
-          const bg = colors.background;
-          const r = parseInt(bg.slice(1, 3), 16);
-          const g = parseInt(bg.slice(3, 5), 16);
-          const b = parseInt(bg.slice(5, 7), 16);
-          colors.background = `rgba(${r}, ${g}, ${b}, 0.85)`;
-        }
-        term.options.theme = colors;
+        term.options.theme = themeState.activeColors;
       }
 
       try { fitAddonRef.current?.fit(); } catch { /* ignore */ }
     };
 
-    const unsubTheme = useThemeStore.subscribe(applyThemeWithTransparency);
-    const unsubSettings = useSettingsStore.subscribe(applyThemeWithTransparency);
-
-    // Apply immediately
-    applyThemeWithTransparency();
-
-    return () => { unsubTheme(); unsubSettings(); };
+    const unsubTheme = useThemeStore.subscribe(applyTheme);
+    return unsubTheme;
   }, []);
 
   // Effect: load and apply highlight set when highlightSetId changes
