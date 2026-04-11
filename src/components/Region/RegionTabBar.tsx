@@ -243,6 +243,8 @@ export function RegionTabBar({
 }: RegionTabBarProps) {
   const addTerminalTab = useLayoutStore((s) => s.addTerminalTab);
   const addBrowserTab = useLayoutStore((s) => s.addBrowserTab);
+  const addEditorTab = useLayoutStore((s) => s.addEditorTab);
+  const addSearchTab = useLayoutStore((s) => s.addSearchTab);
   const closeTab = useLayoutStore((s) => s.closeTab);
   const renameTab = useLayoutStore((s) => s.renameTab);
   const setFocusedRegion = useLayoutStore((s) => s.setFocusedRegion);
@@ -396,6 +398,44 @@ export function RegionTabBar({
           title="New Terminal"
         >
           ⌨
+        </button>
+        <button
+          className="region-tabbar__action"
+          onClick={() => { setFocusedRegion(regionId); addBrowserTab(regionId, ""); }}
+          aria-label="New Browser"
+          type="button"
+          title="New Browser Tab"
+        >
+          🌐
+        </button>
+        <button
+          className="region-tabbar__action"
+          onClick={() => { setFocusedRegion(regionId); addEditorTab(regionId); }}
+          aria-label="New Editor"
+          type="button"
+          title="New Editor Tab"
+        >
+          📝
+        </button>
+        <button
+          className="region-tabbar__action"
+          onClick={async () => {
+            setFocusedRegion(regionId);
+            const activeTab = tabs.find((t) => t.id === activeTabId);
+            let cwd: string | undefined;
+            if (activeTab?.type === "terminal" && activeTab.sessionId) {
+              try {
+                const { invoke } = await import("@tauri-apps/api/core");
+                cwd = await invoke<string>("pty_cwd", { sessionId: activeTab.sessionId });
+              } catch { /* fallback */ }
+            }
+            addSearchTab(regionId, cwd);
+          }}
+          aria-label="Search in Files"
+          type="button"
+          title="Search & Replace in Files"
+        >
+          🔎
         </button>
         <button
           className="region-tabbar__action"
