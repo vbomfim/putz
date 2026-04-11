@@ -24,8 +24,6 @@
   min-height: 0;
   overflow: hidden;
   padding: 4px;
-  position: relative;
-  z-index: 1;
 }
 
 /* Ensure xterm.js terminal fills its container */

@@ -21,7 +21,6 @@ import {
   type PtyExitPayload,
 } from "./types";
 import { useThemeStore } from "../../stores/themeStore";
-import { useSettingsStore } from "../../stores/settingsStore";
 import { useTabStore } from "../../stores/tabStore";
 import { useLayoutStore } from "../../stores/layoutStore";
 import { HighlightEngine } from "./HighlightEngine";
@@ -147,25 +146,16 @@ export function useTerminal({
 
     // Read initial font/theme from themeStore
     const themeState = useThemeStore.getState();
-    const hasEffect = useSettingsStore.getState().backgroundEffect !== "none";
     const initialFontSettings = themeState.fontSettings;
-    const baseColors = (themeState.activeColors || DEFAULT_TERMINAL_THEME) as unknown as Record<string, string>;
-
-    // When animated background is active, make xterm background transparent
-    // so the animation canvas behind shows through
-    const themeColors = hasEffect && baseColors.background
-      ? { ...baseColors, background: "#00000000" }
-      : baseColors;
 
     const terminal = new Terminal({
       fontSize: initialFontSettings.fontSize,
       fontFamily: initialFontSettings.fontFamily,
       scrollback: TERMINAL_CONFIG.scrollback,
-      theme: themeColors,
+      theme: (themeState.activeColors || DEFAULT_TERMINAL_THEME),
       cursorBlink: true,
       cursorStyle: "block",
       allowProposedApi: true,
-      allowTransparency: hasEffect,
       wordSeparator: WORD_SEPARATOR,
     });
 
@@ -254,17 +244,14 @@ export function useTerminal({
     terminal.open(container);
 
     // Try WebGL addon for GPU-accelerated rendering, fall back to canvas
-    // Skip WebGL when background effect is active — WebGL can't do transparent bg
-    if (!hasEffect) {
-      try {
-        const webglAddon = new WebglAddon();
-        webglAddon.onContextLoss(() => {
-          webglAddon.dispose();
-        });
-        terminal.loadAddon(webglAddon);
-      } catch {
-        // WebGL not available — canvas renderer is the automatic fallback
-      }
+    try {
+      const webglAddon = new WebglAddon();
+      webglAddon.onContextLoss(() => {
+        webglAddon.dispose();
+      });
+      terminal.loadAddon(webglAddon);
+    } catch {
+      // WebGL not available — canvas renderer is the automatic fallback
     }
 
     /**
@@ -596,30 +583,19 @@ export function useTerminal({
     const applyTheme = () => {
       const term = terminalInstanceRef.current;
       if (!term) return;
-
       const themeState = useThemeStore.getState();
-      const hasEffect = useSettingsStore.getState().backgroundEffect !== "none";
-
       if (themeState.fontSettings) {
         term.options.fontSize = themeState.fontSettings.fontSize;
         term.options.fontFamily = themeState.fontSettings.fontFamily;
         term.options.lineHeight = themeState.fontSettings.lineHeight;
       }
-
       if (themeState.activeColors) {
-        const colors = { ...themeState.activeColors } as unknown as Record<string, string>;
-        if (hasEffect && colors.background) {
-          colors.background = "#00000000";
-        }
-        term.options.theme = colors;
+        term.options.theme = themeState.activeColors;
       }
-
       try { fitAddonRef.current?.fit(); } catch { /* ignore */ }
     };
-
-    const unsubTheme = useThemeStore.subscribe(applyTheme);
-    const unsubSettings = useSettingsStore.subscribe(applyTheme);
-    return () => { unsubTheme(); unsubSettings(); };
+    const unsub = useThemeStore.subscribe(applyTheme);
+    return unsub;
   }, []);
 
   // Effect: load and apply highlight set when highlightSetId changes
