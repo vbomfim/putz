@@ -76,7 +76,7 @@ export function SettingsTab() {
               <input
                 type="range"
                 min="0.05"
-                max="0.5"
+                max="1"
                 step="0.05"
                 value={backgroundOpacity}
                 onChange={(e) => setBackgroundOpacity(parseFloat(e.target.value))}
