@@ -222,7 +222,9 @@ export function useTerminal({
               if (l.isRelative) {
                 invoke<string>("pty_cwd", { sessionId })
                   .then((cwd) => {
-                    const fullPath = cwd.endsWith("/") ? `${cwd}${l.text}` : `${cwd}/${l.text}`;
+                    // Handle both Unix (/) and Windows (\) path separators
+                    const sep = cwd.includes("\\") ? "\\" : "/";
+                    const fullPath = cwd.endsWith(sep) ? `${cwd}${l.text}` : `${cwd}${sep}${l.text}`;
                     openFn(fullPath);
                   })
                   .catch(() => openFn(l.text));

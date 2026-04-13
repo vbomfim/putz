@@ -64,8 +64,10 @@ export function EditorTab({ filePath: initialFilePath, scriptId, regionId, tabId
 
     // If relative, resolve against current file's directory
     if (!resolvedPath.startsWith("/") && currentPath) {
-      const dir = currentPath.substring(0, currentPath.lastIndexOf("/"));
-      resolvedPath = `${dir}/${resolvedPath}`;
+      const sepIdx = Math.max(currentPath.lastIndexOf("/"), currentPath.lastIndexOf("\\"));
+      const dir = currentPath.substring(0, sepIdx);
+      const sep = currentPath.includes("\\") ? "\\" : "/";
+      resolvedPath = `${dir}${sep}${resolvedPath}`;
     }
 
     addDiffTab(undefined, currentPath, resolvedPath);
