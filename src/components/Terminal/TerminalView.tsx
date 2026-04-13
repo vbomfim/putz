@@ -48,6 +48,8 @@ interface TerminalViewProps {
   changeWindowEnabled?: boolean;
   /** Whether this is a connected (SSH) session — shows hostname watermark. */
   isConnected?: boolean;
+  /** Callback when the PTY process exits. */
+  onExit?: (code: number) => void;
 }
 
 /** Terminal emulator view connected to a PTY backend session. */
@@ -62,6 +64,7 @@ export function TerminalView({
   tabElementId,
   changeWindowEnabled = false,
   isConnected = false,
+  onExit,
 }: TerminalViewProps) {
   const [hostname, setHostname] = useState("");
   const backgroundEffect = useSettingsStore((s) => s.backgroundEffect) as BackgroundEffect;
@@ -128,6 +131,7 @@ export function TerminalView({
     useTerminal({
       sessionId,
       onTitleChange: handleTitleChangeWithHostname,
+      onExit,
       highlightSetId,
       onBell: handleBell,
       changeWindowEnabled,

@@ -43,6 +43,7 @@ export function RegionView({ region, isFocused }: RegionViewProps) {
   const isSearchOpen = useLayoutStore((s) => s.isSearchOpen);
   const closeSearch = useLayoutStore((s) => s.closeSearch);
   const renameTab = useLayoutStore((s) => s.renameTab);
+  const closeTab = useLayoutStore((s) => s.closeTab);
 
   const handleFocus = useCallback(() => {
     setFocusedRegion(region.id);
@@ -180,6 +181,7 @@ export function RegionView({ region, isFocused }: RegionViewProps) {
                 isSearchOpen={isTabActive && isFocused && isSearchOpen}
                 onSearchClose={closeSearch}
                 isConnected={tab.status === "connected"}
+                onExit={() => closeTab(region.id, tab.id)}
               />
             </div>
           );
