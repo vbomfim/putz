@@ -370,16 +370,66 @@ function copilotAvatar(ctx: CanvasRenderingContext2D, w: number, h: number, stat
   const fontSize = Math.min(targetH / lines.length, w / (maxLineLen * 0.6), 32);
 
   ctx.font = `${fontSize}px monospace`;
-  ctx.textAlign = "center";
   ctx.textBaseline = "middle";
-  ctx.fillStyle = color;
 
+  // Per-character color maps: P=purple, C=cyan, G=green, R=red, .=default
+  const PURPLE = "#C78CE1";
+  const CYAN = "#9BDCDF";
+  const GREEN = "#8ABC81";
+  const RED = "#F38BA8";
+
+  const colorMapTop = [
+    ".......PPPPPPPP.......",
+    "...CCCCCCCCCCCCCCCC...",
+    "..CC......CC......CC..",
+    "..CCC....CCCC....CCC..",
+    ".PPPCCCCCCCCCCCCCCPPP.",
+  ];
+  // Eyes/mouth rows vary per expression
+  const eyeColorMaps: Record<string, string[]> = {
+    normal:   ["PPPP.....G..G.....PPPP", "PPPP.....G..G.....PPPP", "PPPPP............PPPPP"],
+    blink:    ["PPPP.....G..G.....PPPP", "PPPP..............PPPP", "PPPPP............PPPPP"],
+    halfBlink:["PPPP.....G..G.....PPPP", "PPPP..............PPPP", "PPPPP............PPPPP"],
+    yawn:     ["PPPP.....G..G.....PPPP", "PPPP..............PPPP", "PPPPP............PPPPP"],
+    yawnWide: ["PPPP.....G..G.....PPPP", "PPPP..............PPPP", "PPPPP............PPPPP"],
+    smile:    ["PPPP.....G..G.....PPPP", "PPPP..............PPPP", "PPPPP............PPPPP"],
+  };
+  const colorMapRow8 = "...PPPPPPPPPPPPPPPP...";
+
+  const eyeRows = eyeColorMaps[state.frame] || eyeColorMaps.normal;
+  const colorMap = [...colorMapTop, ...eyeRows, colorMapRow8];
+
+  const useMultiColor = color === "multicolor";
+  const colorLookup: Record<string, string> = { P: PURPLE, C: CYAN, G: GREEN, R: RED };
+
+  // Measure char width
+  const charW = ctx.measureText("█").width;
+  const totalW = maxLineLen * charW;
+  const startX = (w - totalW) / 2;
   const startY = h / 2 - (lines.length * fontSize) / 2;
-  for (let i = 0; i < lines.length; i++) {
-    ctx.fillText(lines[i], w / 2, startY + i * fontSize + fontSize / 2);
-  }
 
   ctx.textAlign = "start";
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    const cmap = i < colorMap.length ? colorMap[i] : "";
+    const y = startY + i * fontSize + fontSize / 2;
+
+    if (!useMultiColor) {
+      // Single color — draw whole line
+      ctx.fillStyle = color;
+      ctx.fillText(line, startX, y);
+    } else {
+      // Multi-color — draw char by char
+      for (let c = 0; c < line.length; c++) {
+        const ch = line[c];
+        if (ch === " ") continue;
+        const code = c < cmap.length ? cmap[c] : ".";
+        ctx.fillStyle = colorLookup[code] || "#CDD6F4";
+        ctx.fillText(ch, startX + c * charW, y);
+      }
+    }
+  }
+
   ctx.textBaseline = "alphabetic";
 }
 

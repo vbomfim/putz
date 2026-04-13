@@ -75,6 +75,7 @@ export function TerminalView({
   // Resolve the animation color based on mode
   const effectColor = backgroundColorMode === "custom" ? backgroundCustomColor
     : backgroundColorMode === "rainbow" ? "rainbow"
+    : backgroundColorMode === "multicolor" ? "multicolor"
     : fgColor;
 
   // Extract hostname only from SSH sessions (title contains user@remote-host)

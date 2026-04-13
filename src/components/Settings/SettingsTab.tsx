@@ -53,7 +53,10 @@ export function SettingsTab() {
 
   const handleEffectChange = useCallback((effect: string) => {
     setBackgroundEffect(effect);
-  }, [setBackgroundEffect]);
+    if (effect === "copilot" && backgroundOpacity < 0.25) {
+      setBackgroundOpacity(0.3);
+    }
+  }, [setBackgroundEffect, setBackgroundOpacity, backgroundOpacity]);
 
   return (
     <div className="vault-tab" style={{ padding: 0 }}>
@@ -146,6 +149,7 @@ export function SettingsTab() {
                   {([
                     ["theme", "Theme", "Uses terminal foreground color"],
                     ["rainbow", "🌈 Rainbow", "Cycles through all colors"],
+                    ["multicolor", "🎨 Original", "Copilot's purple/cyan/green colors"],
                     ["custom", "Custom", "Pick your own color"],
                   ] as const).map(([mode, label, title]) => (
                     <button
