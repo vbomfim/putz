@@ -33,12 +33,16 @@ async function getTitleBarOffset(): Promise<number> {
       win.innerSize(),
       win.scaleFactor(),
     ]);
-    // outerSize includes title bar + decorations, innerSize is content area only
-    cachedTitleBarOffset = Math.round((outerSize.height - innerSize.height) / scale);
-    if (cachedTitleBarOffset <= 0) cachedTitleBarOffset = 28; // macOS fallback
-    invoke("log_debug", { msg: `[browser] title bar offset = ${cachedTitleBarOffset}px (outer=${outerSize.height} inner=${innerSize.height} scale=${scale})` }).catch(() => {});
+    // On macOS: add_child coords are relative to the window (including title bar)
+    // but getBoundingClientRect is relative to the viewport (below title bar).
+    // On Windows/Linux: both are relative to the client area — no offset needed.
+    const rawOffset = (outerSize.height - innerSize.height) / scale;
+    // Only apply offset on macOS (where it's typically 28px)
+    // Windows returns 0 or a small frame size that doesn't need correction
+    const isMac = navigator.userAgent.includes("Mac");
+    cachedTitleBarOffset = isMac ? Math.round(rawOffset) : 0;
   } catch {
-    cachedTitleBarOffset = 28; // macOS default
+    cachedTitleBarOffset = 0;
   }
   return cachedTitleBarOffset;
 }
@@ -51,7 +55,7 @@ export function BrowserView({ browserId, initialUrl, isActive, regionId, tabId, 
   const contentRef = useRef<HTMLDivElement>(null);
   const urlInputRef = useRef<HTMLInputElement>(null);
   const webviewCreated = useRef(false);
-  const titleBarOffset = useRef(28); // default, updated async
+  const titleBarOffset = useRef(0); // computed async per platform
   const updateTabBrowserUrl = useLayoutStore((s) => s.updateTabBrowserUrl);
 
   // Detect title bar offset on mount
