@@ -478,14 +478,14 @@ fn validate_env_vars(vars: &HashMap<String, String>) -> Result<(), PtyError> {
 }
 
 /// Gets the current working directory of a process by PID.
-fn get_process_cwd(pid: u32) -> Result<String, PtyError> {
+fn get_process_cwd(_pid: u32) -> Result<String, PtyError> {
     #[cfg(target_os = "linux")]
     {
-        let link = format!("/proc/{}/cwd", pid);
+        let link = format!("/proc/{}/cwd", _pid);
         std::fs::read_link(&link)
             .map(|p| p.to_string_lossy().to_string())
             .map_err(|e| {
-                PtyError::WriteFailed(format!("Failed to read CWD for PID {}: {}", pid, e))
+                PtyError::WriteFailed(format!("Failed to read CWD for PID {}: {}", _pid, e))
             })
     }
 
@@ -493,7 +493,7 @@ fn get_process_cwd(pid: u32) -> Result<String, PtyError> {
     {
         // On macOS, use lsof to find the CWD (-a = AND the filters)
         let output = std::process::Command::new("lsof")
-            .args(["-a", "-p", &pid.to_string(), "-d", "cwd", "-Fn"])
+            .args(["-a", "-p", &_pid.to_string(), "-d", "cwd", "-Fn"])
             .output()
             .map_err(|e| PtyError::WriteFailed(format!("lsof failed: {}", e)))?;
 
@@ -508,7 +508,7 @@ fn get_process_cwd(pid: u32) -> Result<String, PtyError> {
         }
         Err(PtyError::WriteFailed(format!(
             "Could not determine CWD for PID {}",
-            pid
+            _pid
         )))
     }
 

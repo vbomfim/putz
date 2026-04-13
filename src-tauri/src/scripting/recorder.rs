@@ -8,7 +8,6 @@
 /// return) triggers a `putz.waitFor()` after the command.
 use std::time::Instant;
 
-use super::models::ScriptMeta;
 
 /// Time threshold for merging keystrokes (milliseconds).
 /// Keystrokes within this window are combined into one `send()` call.

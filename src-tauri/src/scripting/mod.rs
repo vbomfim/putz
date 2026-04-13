@@ -10,4 +10,3 @@ pub mod recorder;
 pub mod validation;
 
 pub use manager::ScriptManager;
-pub use models::*;

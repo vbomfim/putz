@@ -11,7 +11,7 @@ use regex::Regex;
 
 use super::error::AutoLoginError;
 use super::models::{
-    AutoLoginProfile, BuiltinPatterns, DeviceType, LoginAction, LoginStep, SetAutoLoginInput,
+    AutoLoginProfile, BuiltinPatterns, LoginAction, LoginStep, SetAutoLoginInput,
 };
 
 /// In-memory store for auto-login profiles.

@@ -22,7 +22,7 @@ use tokio::net::TcpListener;
 use tokio::sync::Mutex as TokioMutex;
 use uuid::Uuid;
 
-use crate::protocol::{ConnectionStatusPayload, EventEmitter, ProtocolError};
+use crate::protocol::{EventEmitter, ProtocolError};
 
 /// Maximum number of forwarding rules per SSH connection.
 const MAX_FORWARDING_RULES: usize = 32;
