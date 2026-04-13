@@ -122,6 +122,7 @@ pub async fn authenticate(
 ///
 /// Returns Ok(true) if auth succeeded, Ok(false) if rejected,
 /// Err if agent is unavailable.
+#[cfg(unix)]
 async fn try_agent_auth(
     session: &mut client::Handle<SshHandler>,
     username: &str,
@@ -185,6 +186,17 @@ async fn try_agent_auth(
     }
 
     Ok(false)
+}
+
+/// SSH agent is not available on Windows (Unix domain sockets only).
+#[cfg(not(unix))]
+async fn try_agent_auth(
+    _session: &mut client::Handle<SshHandler>,
+    _username: &str,
+) -> Result<bool, ProtocolError> {
+    Err(ProtocolError::AuthFailed(
+        "SSH agent forwarding is not supported on Windows".into(),
+    ))
 }
 
 /// Validates and canonicalizes an SSH key path.
