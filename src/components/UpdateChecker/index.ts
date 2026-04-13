@@ -1,1 +1,0 @@
-export { UpdateChecker } from "./UpdateChecker";

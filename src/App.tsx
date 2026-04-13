@@ -18,7 +18,7 @@ import { RegionContainer } from "./components/Region";
 import { BroadcastBar } from "./components/BroadcastBar";
 import { ShortcutsPanel } from "./components/Help";
 import { SessionSidebar } from "./components/SessionManager";
-import { UpdateChecker } from "./components/UpdateChecker";
+
 import { useMenuEvents, setMenuEventCallbacks } from "./utils/useMenuEvents";
 import { useKeyboardShortcuts } from "./components/TabBar/useKeyboardShortcuts";
 import { QuickConnect } from "./components/QuickConnect";
@@ -211,7 +211,6 @@ function App() {
     <div className="app-shell" data-testid="app-root">
       {workspaceBarVisible && <WorkspaceBar />}
       <main className="app-container">
-        <UpdateChecker />
         <CredentialReminder />
         <div style={{ display: "flex", flex: 1, minHeight: 0 }}>
           {sidebarOpen && (
