@@ -48,8 +48,10 @@ pub fn browser_open(
         return Ok(());
     }
 
-    // For popups, skip add_child — always create a separate window
-    if !is_popup {
+    // For popups, or on Windows (where add_child covers the whole UI),
+    // skip embedded webview and create a separate window
+    let use_embedded = !is_popup && !cfg!(windows);
+    if use_embedded {
         if let Some(win) = app.get_window("main") {
             let builder = WebviewBuilder::new(&label, WebviewUrl::External(parsed_url));
             match win.add_child(
