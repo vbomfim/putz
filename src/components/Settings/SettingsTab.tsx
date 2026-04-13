@@ -41,12 +41,16 @@ export function SettingsTab() {
   const setBackgroundSpeed = useSettingsStore((s) => s.setBackgroundSpeed);
   const backgroundSize = useSettingsStore((s) => s.backgroundSize);
   const setBackgroundSize = useSettingsStore((s) => s.setBackgroundSize);
+  const defaultShell = useSettingsStore((s) => s.defaultShell);
+  const setDefaultShell = useSettingsStore((s) => s.setDefaultShell);
   const activeThemeId = useThemeStore((s) => s.activeThemeId);
   const setActiveTheme = useThemeStore((s) => s.setActiveTheme);
   const [themes, setThemes] = useState<Theme[]>([]);
+  const [availableShells, setAvailableShells] = useState<{ name: string; path: string }[]>([]);
 
   useEffect(() => {
     invoke<Theme[]>("theme_list").then(setThemes).catch(() => {});
+    invoke<{ name: string; path: string }[]>("pty_list_shells").then(setAvailableShells).catch(() => {});
   }, []);
 
   const handleThemeSelect = useCallback((theme: Theme) => {
@@ -204,6 +208,46 @@ export function SettingsTab() {
               </div>
             </>
           )}
+        </section>
+
+        {/* ── Default Shell ────────────────────────────── */}
+        <section>
+          <h3 style={{ fontSize: 13, margin: "0 0 8px", color: "var(--text-primary)" }}>Default Shell</h3>
+          <p style={{ fontSize: 11, color: "var(--text-secondary)", margin: "0 0 8px" }}>
+            New terminal tabs will use this shell. Applies to next tab opened.
+          </p>
+          <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
+            <button
+              onClick={() => setDefaultShell("")}
+              style={{
+                padding: "6px 12px",
+                border: !defaultShell ? "2px solid var(--accent)" : "1px solid var(--hover-bg)",
+                borderRadius: 6,
+                background: !defaultShell ? "var(--accent)" : "var(--bg-secondary)",
+                color: !defaultShell ? "white" : "var(--text-primary)",
+                cursor: "pointer", fontSize: 12, fontFamily: "inherit",
+              }}
+            >
+              System Default
+            </button>
+            {availableShells.map((shell) => (
+              <button
+                key={shell.path}
+                onClick={() => setDefaultShell(shell.path)}
+                style={{
+                  padding: "6px 12px",
+                  border: defaultShell === shell.path ? "2px solid var(--accent)" : "1px solid var(--hover-bg)",
+                  borderRadius: 6,
+                  background: defaultShell === shell.path ? "var(--accent)" : "var(--bg-secondary)",
+                  color: defaultShell === shell.path ? "white" : "var(--text-primary)",
+                  cursor: "pointer", fontSize: 12, fontFamily: "inherit",
+                }}
+                title={shell.path}
+              >
+                {shell.name}
+              </button>
+            ))}
+          </div>
         </section>
 
         {/* ── Info ─────────────────────────────────────── */}

@@ -19,6 +19,7 @@ import type { Region, RegionTab, LayoutNode, TabPosition } from "../types";
 import { BROWSER_SESSION_PREFIX } from "../types";
 import { EDITOR_SESSION_PREFIX } from "../types";
 import { TERMINAL_CONFIG } from "../components/Terminal";
+import { useSettingsStore } from "./settingsStore";
 
 /** Maximum allowed length for tab titles. */
 export const MAX_TITLE_LENGTH = 100;
@@ -30,9 +31,11 @@ function generateId(): string {
 
 /** Spawns a new PTY session via Tauri IPC. */
 async function spawnPtySession(): Promise<string> {
+  const { defaultShell } = useSettingsStore.getState();
   return invoke<string>("pty_spawn", {
     cols: TERMINAL_CONFIG.defaultCols,
     rows: TERMINAL_CONFIG.defaultRows,
+    shell: defaultShell || undefined,
   });
 }
 

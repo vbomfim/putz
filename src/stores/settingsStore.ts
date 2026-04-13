@@ -21,6 +21,7 @@ interface PersistedSettings {
   backgroundCustomColor: string;
   backgroundSpeed: number;
   backgroundSize: string;
+  defaultShell: string;
 }
 
 /** Loads persisted settings from localStorage, returning defaults on failure. */
@@ -38,12 +39,13 @@ function loadPersistedSettings(): PersistedSettings {
         backgroundCustomColor: parsed.backgroundCustomColor ?? "#50fa7b",
         backgroundSpeed: parsed.backgroundSpeed ?? 1,
         backgroundSize: parsed.backgroundSize ?? "large",
+        defaultShell: parsed.defaultShell ?? "",
       };
     }
   } catch {
     // Corrupted localStorage — fall through to defaults
   }
-  return { toolbarVisible: false, workspaceBarVisible: true, backgroundEffect: "none", backgroundOpacity: 0.15, backgroundColorMode: "theme", backgroundCustomColor: "#50fa7b", backgroundSpeed: 1, backgroundSize: "large" };
+  return { toolbarVisible: false, workspaceBarVisible: true, backgroundEffect: "none", backgroundOpacity: 0.15, backgroundColorMode: "theme", backgroundCustomColor: "#50fa7b", backgroundSpeed: 1, backgroundSize: "large", defaultShell: "" };
 }
 
 /** Saves settings to localStorage. */
@@ -85,6 +87,9 @@ interface SettingsState {
   /** Avatar/effect size: small, medium, large. */
   backgroundSize: string;
 
+  /** Default shell path (empty = system default). */
+  defaultShell: string;
+
   /** Toggles toolbar visibility and persists to localStorage. */
   toggleToolbar: () => void;
 
@@ -117,6 +122,9 @@ interface SettingsState {
 
   /** Sets the avatar/effect size. */
   setBackgroundSize: (size: string) => void;
+
+  /** Sets the default shell. */
+  setDefaultShell: (shell: string) => void;
 }
 
 export const useSettingsStore = create<SettingsState>((set, get) => {
@@ -133,6 +141,7 @@ export const useSettingsStore = create<SettingsState>((set, get) => {
       backgroundCustomColor: s.backgroundCustomColor,
       backgroundSpeed: s.backgroundSpeed,
       backgroundSize: s.backgroundSize,
+      defaultShell: s.defaultShell,
     });
   };
 
@@ -145,6 +154,7 @@ export const useSettingsStore = create<SettingsState>((set, get) => {
     backgroundCustomColor: persisted.backgroundCustomColor,
     backgroundSpeed: persisted.backgroundSpeed,
     backgroundSize: persisted.backgroundSize,
+    defaultShell: persisted.defaultShell,
     shortcutsPanelOpen: false,
 
     toggleToolbar: () => {
@@ -197,6 +207,11 @@ export const useSettingsStore = create<SettingsState>((set, get) => {
 
     setBackgroundSize: (size: string) => {
       set({ backgroundSize: size });
+      persist();
+    },
+
+    setDefaultShell: (shell: string) => {
+      set({ defaultShell: shell });
       persist();
     },
   };

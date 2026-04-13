@@ -38,7 +38,14 @@ const ALLOWED_SHELLS_UNIX: &[&str] = &[
 
 /// Allowed shell names on Windows (case-insensitive comparison).
 #[cfg(windows)]
-const ALLOWED_SHELLS_WINDOWS: &[&str] = &["powershell.exe", "pwsh.exe", "cmd.exe"];
+const ALLOWED_SHELLS_WINDOWS: &[&str] = &[
+    "powershell.exe",
+    "pwsh.exe",
+    "cmd.exe",
+    "bash.exe",
+    "wsl.exe",
+    "nu.exe",
+];
 
 /// Allowed environment variable name patterns.
 /// Only these prefixes/exact names may be passed to the PTY.

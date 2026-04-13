@@ -77,6 +77,69 @@ pub fn pty_cwd(state: State<'_, PtyManager>, session_id: String) -> Result<Strin
     state.get_cwd(&session_id).map_err(|e| e.to_string())
 }
 
+/// Lists available shells on the system.
+/// Returns a list of {name, path} objects for shells that exist.
+#[tauri::command]
+pub fn pty_list_shells() -> Vec<serde_json::Value> {
+    let mut shells = Vec::new();
+
+    #[cfg(unix)]
+    {
+        let candidates = [
+            ("Zsh", "/bin/zsh"),
+            ("Bash", "/bin/bash"),
+            ("Fish", "/usr/local/bin/fish"),
+            ("Fish", "/usr/bin/fish"),
+            ("Sh", "/bin/sh"),
+        ];
+        for (name, path) in candidates {
+            if std::path::Path::new(path).exists() {
+                // Deduplicate by name
+                if !shells.iter().any(|s: &serde_json::Value| s["name"] == name) {
+                    shells.push(serde_json::json!({"name": name, "path": path}));
+                }
+            }
+        }
+    }
+
+    #[cfg(windows)]
+    {
+        use std::process::Command;
+
+        // PowerShell 7 (pwsh)
+        if Command::new("pwsh").arg("--version").output().is_ok() {
+            shells.push(serde_json::json!({"name": "PowerShell 7", "path": "pwsh.exe"}));
+        }
+        // Windows PowerShell
+        if Command::new("powershell.exe").arg("-Command").arg("$PSVersionTable.PSVersion.Major").output().is_ok() {
+            shells.push(serde_json::json!({"name": "Windows PowerShell", "path": "powershell.exe"}));
+        }
+        // CMD
+        shells.push(serde_json::json!({"name": "Command Prompt", "path": "cmd.exe"}));
+        // Git Bash
+        let git_bash_paths = [
+            r"C:\Program Files\Git\bin\bash.exe",
+            r"C:\Program Files (x86)\Git\bin\bash.exe",
+        ];
+        for path in git_bash_paths {
+            if std::path::Path::new(path).exists() {
+                shells.push(serde_json::json!({"name": "Git Bash", "path": path}));
+                break;
+            }
+        }
+        // WSL
+        if Command::new("wsl.exe").arg("--status").output().is_ok() {
+            shells.push(serde_json::json!({"name": "WSL", "path": "wsl.exe"}));
+        }
+        // Nushell
+        if Command::new("nu.exe").arg("--version").output().is_ok() {
+            shells.push(serde_json::json!({"name": "Nushell", "path": "nu.exe"}));
+        }
+    }
+
+    shells
+}
+
 #[cfg(test)]
 mod tests {
     // IPC command handlers are thin wrappers around PtyManager methods.
