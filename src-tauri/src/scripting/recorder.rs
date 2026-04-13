@@ -8,7 +8,6 @@
 /// return) triggers a `putz.waitFor()` after the command.
 use std::time::Instant;
 
-
 /// Time threshold for merging keystrokes (milliseconds).
 /// Keystrokes within this window are combined into one `send()` call.
 const MERGE_THRESHOLD_MS: u128 = 200;

@@ -10,9 +10,7 @@ use std::sync::Mutex;
 use regex::Regex;
 
 use super::error::AutoLoginError;
-use super::models::{
-    AutoLoginProfile, BuiltinPatterns, LoginAction, LoginStep, SetAutoLoginInput,
-};
+use super::models::{AutoLoginProfile, BuiltinPatterns, LoginAction, LoginStep, SetAutoLoginInput};
 
 /// In-memory store for auto-login profiles.
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
