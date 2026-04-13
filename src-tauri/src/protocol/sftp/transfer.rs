@@ -50,10 +50,7 @@ impl TransferStatus {
     /// Returns true if the transfer is in a terminal state.
     #[allow(dead_code)]
     pub fn is_terminal(&self) -> bool {
-        matches!(
-            self,
-            Self::Completed | Self::Failed | Self::Cancelled
-        )
+        matches!(self, Self::Completed | Self::Failed | Self::Cancelled)
     }
 }
 
@@ -116,9 +113,7 @@ impl TransferInfo {
         if self.total_bytes == 0 {
             return 0;
         }
-        let pct =
-            (self.bytes_transferred as f64 / self.total_bytes as f64)
-                * 100.0;
+        let pct = (self.bytes_transferred as f64 / self.total_bytes as f64) * 100.0;
         pct.min(100.0) as u8
     }
 
@@ -128,13 +123,10 @@ impl TransferInfo {
             return;
         }
 
-        self.speed =
-            (self.bytes_transferred as f64 / elapsed_secs) as u64;
+        self.speed = (self.bytes_transferred as f64 / elapsed_secs) as u64;
 
-        if self.speed > 0 && self.total_bytes > self.bytes_transferred
-        {
-            let remaining =
-                self.total_bytes - self.bytes_transferred;
+        if self.speed > 0 && self.total_bytes > self.bytes_transferred {
+            let remaining = self.total_bytes - self.bytes_transferred;
             self.eta_seconds = remaining / self.speed;
         } else {
             self.eta_seconds = 0;
@@ -204,24 +196,16 @@ impl TransferEngine {
     pub fn new() -> Self {
         Self {
             transfers: Arc::new(TokioMutex::new(HashMap::new())),
-            semaphore: Arc::new(Semaphore::new(
-                MAX_CONCURRENT_TRANSFERS,
-            )),
+            semaphore: Arc::new(Semaphore::new(MAX_CONCURRENT_TRANSFERS)),
         }
     }
 
     /// Registers a new transfer and returns its initial info.
-    pub async fn register(
-        &self,
-        info: TransferInfo,
-    ) -> Result<(), String> {
+    pub async fn register(&self, info: TransferInfo) -> Result<(), String> {
         let mut transfers = self.transfers.lock().await;
 
         if transfers.contains_key(&info.transfer_id) {
-            return Err(format!(
-                "Transfer {} already exists",
-                info.transfer_id
-            ));
+            return Err(format!("Transfer {} already exists", info.transfer_id));
         }
 
         transfers.insert(info.transfer_id.clone(), info);
@@ -235,10 +219,9 @@ impl TransferEngine {
         status: TransferStatus,
     ) -> Result<(), String> {
         let mut transfers = self.transfers.lock().await;
-        let info =
-            transfers.get_mut(transfer_id).ok_or_else(|| {
-                format!("Transfer not found: {transfer_id}")
-            })?;
+        let info = transfers
+            .get_mut(transfer_id)
+            .ok_or_else(|| format!("Transfer not found: {transfer_id}"))?;
         info.status = status;
         Ok(())
     }
@@ -251,10 +234,9 @@ impl TransferEngine {
         elapsed_secs: f64,
     ) -> Result<TransferProgressPayload, String> {
         let mut transfers = self.transfers.lock().await;
-        let info =
-            transfers.get_mut(transfer_id).ok_or_else(|| {
-                format!("Transfer not found: {transfer_id}")
-            })?;
+        let info = transfers
+            .get_mut(transfer_id)
+            .ok_or_else(|| format!("Transfer not found: {transfer_id}"))?;
 
         info.bytes_transferred = bytes_transferred;
         info.update_speed(elapsed_secs);
@@ -263,16 +245,11 @@ impl TransferEngine {
     }
 
     /// Marks a transfer as failed with an error message.
-    pub async fn mark_failed(
-        &self,
-        transfer_id: &str,
-        error: String,
-    ) -> Result<(), String> {
+    pub async fn mark_failed(&self, transfer_id: &str, error: String) -> Result<(), String> {
         let mut transfers = self.transfers.lock().await;
-        let info =
-            transfers.get_mut(transfer_id).ok_or_else(|| {
-                format!("Transfer not found: {transfer_id}")
-            })?;
+        let info = transfers
+            .get_mut(transfer_id)
+            .ok_or_else(|| format!("Transfer not found: {transfer_id}"))?;
         info.status = TransferStatus::Failed;
         info.error = Some(error);
         Ok(())
@@ -280,10 +257,7 @@ impl TransferEngine {
 
     /// Gets a snapshot of a specific transfer.
     #[allow(dead_code)]
-    pub async fn get(
-        &self,
-        transfer_id: &str,
-    ) -> Option<TransferInfo> {
+    pub async fn get(&self, transfer_id: &str) -> Option<TransferInfo> {
         let transfers = self.transfers.lock().await;
         transfers.get(transfer_id).cloned()
     }
@@ -318,20 +292,15 @@ mod tests {
 
     #[test]
     fn transfer_direction_serializes_lowercase() {
-        let json =
-            serde_json::to_string(&TransferDirection::Download)
-                .unwrap();
+        let json = serde_json::to_string(&TransferDirection::Download).unwrap();
         assert_eq!(json, r#""download""#);
     }
 
     #[test]
     fn transfer_direction_roundtrip() {
-        for dir in
-            [TransferDirection::Download, TransferDirection::Upload]
-        {
+        for dir in [TransferDirection::Download, TransferDirection::Upload] {
             let json = serde_json::to_string(&dir).unwrap();
-            let restored: TransferDirection =
-                serde_json::from_str(&json).unwrap();
+            let restored: TransferDirection = serde_json::from_str(&json).unwrap();
             assert_eq!(dir, restored);
         }
     }
@@ -340,9 +309,7 @@ mod tests {
 
     #[test]
     fn transfer_status_serializes_lowercase() {
-        let json =
-            serde_json::to_string(&TransferStatus::InProgress)
-                .unwrap();
+        let json = serde_json::to_string(&TransferStatus::InProgress).unwrap();
         assert_eq!(json, r#""inprogress""#);
     }
 
@@ -357,8 +324,7 @@ mod tests {
         ];
         for status in variants {
             let json = serde_json::to_string(&status).unwrap();
-            let restored: TransferStatus =
-                serde_json::from_str(&json).unwrap();
+            let restored: TransferStatus = serde_json::from_str(&json).unwrap();
             assert_eq!(status, restored);
         }
     }
@@ -641,10 +607,7 @@ mod tests {
         );
         engine.register(info).await.unwrap();
 
-        let payload = engine
-            .update_progress("t1", 5000, 2.0)
-            .await
-            .unwrap();
+        let payload = engine.update_progress("t1", 5000, 2.0).await.unwrap();
         assert_eq!(payload.bytes_transferred, 5000);
         assert_eq!(payload.speed, 2500);
         assert_eq!(payload.progress_percent, 50);

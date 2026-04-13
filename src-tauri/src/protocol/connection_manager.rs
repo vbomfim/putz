@@ -22,8 +22,7 @@ use super::ssh::SshConnection;
 use super::telnet::negotiation::{build_naws_subnegotiation, escape_iac};
 use super::telnet::TelnetConnection;
 use super::{
-    ConnectionParams, EventEmitter, Protocol, ProtocolError, ProtocolType,
-    TauriEventEmitter,
+    ConnectionParams, EventEmitter, Protocol, ProtocolError, ProtocolType, TauriEventEmitter,
 };
 use crate::vault::VaultManager;
 
@@ -55,9 +54,9 @@ impl ProtocolConnection {
     async fn write(&mut self, data: &[u8]) -> Result<(), ProtocolError> {
         match self {
             Self::Telnet(c) => {
-                let writer = c.write_handle().ok_or_else(|| {
-                    ProtocolError::ChannelClosed("not connected".into())
-                })?;
+                let writer = c
+                    .write_handle()
+                    .ok_or_else(|| ProtocolError::ChannelClosed("not connected".into()))?;
                 let escaped = escape_iac(data);
                 let mut w = writer.lock().await;
                 w.write_all(&escaped)
@@ -74,16 +73,12 @@ impl ProtocolConnection {
     }
 
     /// Resizes terminal using protocol-specific semantics.
-    async fn resize(
-        &mut self,
-        cols: u16,
-        rows: u16,
-    ) -> Result<(), ProtocolError> {
+    async fn resize(&mut self, cols: u16, rows: u16) -> Result<(), ProtocolError> {
         match self {
             Self::Telnet(c) => {
-                let writer = c.write_handle().ok_or_else(|| {
-                    ProtocolError::ChannelClosed("not connected".into())
-                })?;
+                let writer = c
+                    .write_handle()
+                    .ok_or_else(|| ProtocolError::ChannelClosed("not connected".into()))?;
                 let mut naws_msg = Vec::new();
                 build_naws_subnegotiation(cols, rows, &mut naws_msg);
                 let mut w = writer.lock().await;
@@ -115,21 +110,13 @@ impl ProtocolConnection {
     /// on a separate thread via tokio::task::spawn_blocking.
     fn serial_writer_handle(
         &self,
-    ) -> Result<
-        Arc<std::sync::Mutex<Box<dyn serialport::SerialPort>>>,
-        ProtocolError,
-    > {
+    ) -> Result<Arc<std::sync::Mutex<Box<dyn serialport::SerialPort>>>, ProtocolError> {
         match self {
-            Self::Serial(conn) => {
-                conn.writer_handle().ok_or_else(|| {
-                    ProtocolError::ChannelClosed(
-                        "Not connected".into(),
-                    )
-                })
-            }
+            Self::Serial(conn) => conn
+                .writer_handle()
+                .ok_or_else(|| ProtocolError::ChannelClosed("Not connected".into())),
             _ => Err(ProtocolError::InvalidParams(
-                "Break signal is only supported for serial connections"
-                    .into(),
+                "Break signal is only supported for serial connections".into(),
             )),
         }
     }
@@ -162,12 +149,8 @@ impl ConnectionManager {
         protocol: ProtocolType,
         app: tauri::AppHandle,
     ) -> Result<String, ProtocolError> {
-        self.open_with_emitter(
-            params,
-            protocol,
-            Arc::new(TauriEventEmitter::new(app)),
-        )
-        .await
+        self.open_with_emitter(params, protocol, Arc::new(TauriEventEmitter::new(app)))
+            .await
     }
 
     /// Opens an SSH connection with a pre-resolved vault password.
@@ -209,19 +192,11 @@ impl ConnectionManager {
         let connection_id = Uuid::new_v4().to_string();
 
         let mut conn = SshConnection::new();
-        conn.connect_with_emitter(
-            params,
-            connection_id.clone(),
-            emitter,
-            vault_password,
-        )
-        .await?;
+        conn.connect_with_emitter(params, connection_id.clone(), emitter, vault_password)
+            .await?;
 
         let mut conns = self.connections.lock().await;
-        conns.insert(
-            connection_id.clone(),
-            ProtocolConnection::Ssh(conn),
-        );
+        conns.insert(connection_id.clone(), ProtocolConnection::Ssh(conn));
 
         Ok(connection_id)
     }
@@ -253,27 +228,22 @@ impl ConnectionManager {
         }
 
         let connection_id = Uuid::new_v4().to_string();
-        let emitter: Arc<dyn EventEmitter> =
-            Arc::new(TauriEventEmitter::new(app));
+        let emitter: Arc<dyn EventEmitter> = Arc::new(TauriEventEmitter::new(app));
 
-        let (mut conn, jump_sessions) =
-            super::ssh::proxy::connect_through_jump_hosts(
-                &hops,
-                params,
-                connection_id.clone(),
-                emitter,
-                vault_password,
-            )
-            .await?;
+        let (mut conn, jump_sessions) = super::ssh::proxy::connect_through_jump_hosts(
+            &hops,
+            params,
+            connection_id.clone(),
+            emitter,
+            vault_password,
+        )
+        .await?;
 
         // Store jump sessions in the connection for lifecycle mgmt
         conn.set_jump_sessions(jump_sessions);
 
         let mut conns = self.connections.lock().await;
-        conns.insert(
-            connection_id.clone(),
-            ProtocolConnection::Ssh(conn),
-        );
+        conns.insert(connection_id.clone(), ProtocolConnection::Ssh(conn));
 
         Ok(connection_id)
     }
@@ -290,16 +260,14 @@ impl ConnectionManager {
         match protocol {
             ProtocolType::Ssh => {
                 // Extract password from vault before async
-                let vault_password =
-                    if let Some(ref cred_id) = params.credential_id
-                    {
-                        vault
-                            .get_for_session(cred_id)
-                            .ok()
-                            .map(|c| c.secret.clone())
-                    } else {
-                        None
-                    };
+                let vault_password = if let Some(ref cred_id) = params.credential_id {
+                    vault
+                        .get_for_session(cred_id)
+                        .ok()
+                        .map(|c| c.secret.clone())
+                } else {
+                    None
+                };
                 self.open_ssh_with_emitter(
                     params,
                     Arc::new(TauriEventEmitter::new(app)),
@@ -307,13 +275,10 @@ impl ConnectionManager {
                 )
                 .await
             }
-            _ => self
-                .open_with_emitter(
-                    params,
-                    protocol,
-                    Arc::new(TauriEventEmitter::new(app)),
-                )
-                .await,
+            _ => {
+                self.open_with_emitter(params, protocol, Arc::new(TauriEventEmitter::new(app)))
+                    .await
+            }
         }
     }
 
@@ -339,49 +304,30 @@ impl ConnectionManager {
         match protocol {
             ProtocolType::Telnet => {
                 let mut conn = TelnetConnection::new();
-                conn.connect_with_emitter(
-                    params,
-                    connection_id.clone(),
-                    emitter,
-                )
-                .await?;
+                conn.connect_with_emitter(params, connection_id.clone(), emitter)
+                    .await?;
 
                 let mut conns = self.connections.lock().await;
-                conns.insert(
-                    connection_id.clone(),
-                    ProtocolConnection::Telnet(conn),
-                );
+                conns.insert(connection_id.clone(), ProtocolConnection::Telnet(conn));
             }
             ProtocolType::Serial => {
                 let config = build_serial_config(&params)?;
                 let mut conn = SerialConnection::new();
-                conn.connect_with_emitter(
-                    config,
-                    connection_id.clone(),
-                    emitter,
-                )?;
+                conn.connect_with_emitter(config, connection_id.clone(), emitter)?;
 
                 let mut conns = self.connections.lock().await;
-                conns.insert(
-                    connection_id.clone(),
-                    ProtocolConnection::Serial(conn),
-                );
+                conns.insert(connection_id.clone(), ProtocolConnection::Serial(conn));
             }
             ProtocolType::Ssh => {
                 // SSH connections should use open_ssh_with_password()
                 // or open_ssh_with_emitter() which accept a pre-resolved
                 // vault password. This path is kept for backwards
                 // compatibility with tests that don't use vault.
-                return self
-                    .open_ssh_with_emitter(
-                        params, emitter, None,
-                    )
-                    .await;
+                return self.open_ssh_with_emitter(params, emitter, None).await;
             }
             ProtocolType::Local => {
                 return Err(ProtocolError::InvalidParams(
-                    "Local sessions use PTY, not ConnectionManager"
-                        .into(),
+                    "Local sessions use PTY, not ConnectionManager".into(),
                 ));
             }
         }
@@ -399,11 +345,8 @@ impl ConnectionManager {
         config: SerialConfig,
         app: tauri::AppHandle,
     ) -> Result<String, ProtocolError> {
-        self.open_serial_with_emitter(
-            config,
-            Arc::new(TauriEventEmitter::new(app)),
-        )
-        .await
+        self.open_serial_with_emitter(config, Arc::new(TauriEventEmitter::new(app)))
+            .await
     }
 
     /// Opens a serial connection with explicit config and custom emitter.
@@ -423,17 +366,10 @@ impl ConnectionManager {
 
         let connection_id = Uuid::new_v4().to_string();
         let mut conn = SerialConnection::new();
-        conn.connect_with_emitter(
-            config,
-            connection_id.clone(),
-            emitter,
-        )?;
+        conn.connect_with_emitter(config, connection_id.clone(), emitter)?;
 
         let mut conns = self.connections.lock().await;
-        conns.insert(
-            connection_id.clone(),
-            ProtocolConnection::Serial(conn),
-        );
+        conns.insert(connection_id.clone(), ProtocolConnection::Serial(conn));
 
         Ok(connection_id)
     }
@@ -444,22 +380,14 @@ impl ConnectionManager {
     /// - Telnet: IAC escaping + raw TCP write
     /// - SSH: channel data message
     /// - Serial: raw byte write
-    pub async fn write(
-        &self,
-        connection_id: &str,
-        data: &[u8],
-    ) -> Result<(), ProtocolError> {
+    pub async fn write(&self, connection_id: &str, data: &[u8]) -> Result<(), ProtocolError> {
         let mut conns = self.connections.lock().await;
         let conn = conns.get_mut(connection_id).ok_or_else(|| {
-            ProtocolError::ChannelClosed(format!(
-                "Connection not found: {connection_id}"
-            ))
+            ProtocolError::ChannelClosed(format!("Connection not found: {connection_id}"))
         })?;
 
         if !conn.is_connected() {
-            return Err(ProtocolError::ChannelClosed(
-                "Connection is closed".into(),
-            ));
+            return Err(ProtocolError::ChannelClosed("Connection is closed".into()));
         }
 
         conn.write(data).await
@@ -479,26 +407,18 @@ impl ConnectionManager {
     ) -> Result<(), ProtocolError> {
         let mut conns = self.connections.lock().await;
         let conn = conns.get_mut(connection_id).ok_or_else(|| {
-            ProtocolError::ChannelClosed(format!(
-                "Connection not found: {connection_id}"
-            ))
+            ProtocolError::ChannelClosed(format!("Connection not found: {connection_id}"))
         })?;
 
         conn.resize(cols, rows).await
     }
 
     /// Closes an active connection and removes it from the manager.
-    pub async fn close(
-        &self,
-        connection_id: &str,
-    ) -> Result<(), ProtocolError> {
+    pub async fn close(&self, connection_id: &str) -> Result<(), ProtocolError> {
         let mut conns = self.connections.lock().await;
-        let mut conn =
-            conns.remove(connection_id).ok_or_else(|| {
-                ProtocolError::ChannelClosed(format!(
-                    "Connection not found: {connection_id}"
-                ))
-            })?;
+        let mut conn = conns.remove(connection_id).ok_or_else(|| {
+            ProtocolError::ChannelClosed(format!("Connection not found: {connection_id}"))
+        })?;
 
         conn.close().await
     }
@@ -519,17 +439,12 @@ impl ConnectionManager {
     /// Only valid for serial connections — returns an error for other types.
     /// Uses `spawn_blocking` to avoid blocking the tokio runtime
     /// during the 300ms break duration.
-    pub async fn send_break(
-        &self,
-        connection_id: &str,
-    ) -> Result<(), ProtocolError> {
+    pub async fn send_break(&self, connection_id: &str) -> Result<(), ProtocolError> {
         // Get the writer handle and drop the CM lock before blocking
         let writer = {
             let conns = self.connections.lock().await;
             let conn = conns.get(connection_id).ok_or_else(|| {
-                ProtocolError::ChannelClosed(format!(
-                    "Connection not found: {connection_id}"
-                ))
+                ProtocolError::ChannelClosed(format!("Connection not found: {connection_id}"))
             })?;
             conn.serial_writer_handle()?
         };
@@ -538,35 +453,23 @@ impl ConnectionManager {
         tokio::task::spawn_blocking(move || {
             use std::time::Duration;
 
-            let port = writer.lock().map_err(|e| {
-                ProtocolError::IoError(format!(
-                    "Lock poisoned: {e}"
-                ))
-            })?;
+            let port = writer
+                .lock()
+                .map_err(|e| ProtocolError::IoError(format!("Lock poisoned: {e}")))?;
 
-            port.set_break().map_err(|e| {
-                ProtocolError::IoError(format!(
-                    "Failed to set break: {e}"
-                ))
-            })?;
+            port.set_break()
+                .map_err(|e| ProtocolError::IoError(format!("Failed to set break: {e}")))?;
 
             // Hold break for ~300ms (standard break duration)
             std::thread::sleep(Duration::from_millis(300));
 
-            port.clear_break().map_err(|e| {
-                ProtocolError::IoError(format!(
-                    "Failed to clear break: {e}"
-                ))
-            })?;
+            port.clear_break()
+                .map_err(|e| ProtocolError::IoError(format!("Failed to clear break: {e}")))?;
 
             Ok(())
         })
         .await
-        .map_err(|e| {
-            ProtocolError::IoError(format!(
-                "Break task failed: {e}"
-            ))
-        })?
+        .map_err(|e| ProtocolError::IoError(format!("Break task failed: {e}")))?
     }
 
     /// Returns whether a connection exists and is active.
@@ -593,9 +496,7 @@ impl ConnectionManager {
     ) -> Result<russh::ChannelStream<russh::client::Msg>, ProtocolError> {
         let mut conns = self.connections.lock().await;
         let conn = conns.get_mut(connection_id).ok_or_else(|| {
-            ProtocolError::ChannelClosed(format!(
-                "Connection not found: {connection_id}"
-            ))
+            ProtocolError::ChannelClosed(format!("Connection not found: {connection_id}"))
         })?;
 
         if !conn.is_connected() {
@@ -606,39 +507,24 @@ impl ConnectionManager {
 
         match conn {
             ProtocolConnection::Ssh(ssh_conn) => {
-                let session = ssh_conn
-                    .session_handle_mut()
-                    .ok_or_else(|| {
-                        ProtocolError::ChannelClosed(
-                            "SSH session not connected".into(),
-                        )
-                    })?;
+                let session = ssh_conn.session_handle_mut().ok_or_else(|| {
+                    ProtocolError::ChannelClosed("SSH session not connected".into())
+                })?;
 
                 // Open a new session channel for SFTP
-                let channel = session
-                    .channel_open_session()
-                    .await
-                    .map_err(|e| {
-                        ProtocolError::ChannelClosed(format!(
-                            "Failed to open SFTP channel: {e}"
-                        ))
-                    })?;
+                let channel = session.channel_open_session().await.map_err(|e| {
+                    ProtocolError::ChannelClosed(format!("Failed to open SFTP channel: {e}"))
+                })?;
 
                 // Request the "sftp" subsystem
-                channel
-                    .request_subsystem(true, "sftp")
-                    .await
-                    .map_err(|e| {
-                        ProtocolError::ChannelClosed(format!(
-                            "Failed to request SFTP subsystem: {e}"
-                        ))
-                    })?;
+                channel.request_subsystem(true, "sftp").await.map_err(|e| {
+                    ProtocolError::ChannelClosed(format!("Failed to request SFTP subsystem: {e}"))
+                })?;
 
                 Ok(channel.into_stream())
             }
             _ => Err(ProtocolError::InvalidParams(
-                "SFTP is only supported for SSH connections"
-                    .into(),
+                "SFTP is only supported for SSH connections".into(),
             )),
         }
     }
@@ -662,15 +548,10 @@ impl ConnectionManager {
     pub async fn get_ssh_session_handle(
         &self,
         connection_id: &str,
-    ) -> Result<
-        russh::client::Handle<super::ssh::SshHandler>,
-        ProtocolError,
-    > {
+    ) -> Result<russh::client::Handle<super::ssh::SshHandler>, ProtocolError> {
         let conns = self.connections.lock().await;
         let conn = conns.get(connection_id).ok_or_else(|| {
-            ProtocolError::ChannelClosed(format!(
-                "Connection not found: {connection_id}"
-            ))
+            ProtocolError::ChannelClosed(format!("Connection not found: {connection_id}"))
         })?;
 
         match conn {
@@ -683,8 +564,7 @@ impl ConnectionManager {
                 ))
             }
             _ => Err(ProtocolError::InvalidParams(
-                "Port forwarding is only supported for SSH connections"
-                    .into(),
+                "Port forwarding is only supported for SSH connections".into(),
             )),
         }
     }
@@ -699,44 +579,27 @@ impl ConnectionManager {
         port: u32,
         originator_address: &str,
         originator_port: u32,
-    ) -> Result<
-        russh::Channel<russh::client::Msg>,
-        ProtocolError,
-    > {
+    ) -> Result<russh::Channel<russh::client::Msg>, ProtocolError> {
         let conns = self.connections.lock().await;
         let conn = conns.get(connection_id).ok_or_else(|| {
-            ProtocolError::ChannelClosed(format!(
-                "Connection not found: {connection_id}"
-            ))
+            ProtocolError::ChannelClosed(format!("Connection not found: {connection_id}"))
         })?;
 
         match conn {
             ProtocolConnection::Ssh(ssh_conn) => {
-                let session = ssh_conn
-                    .session_handle()
-                    .ok_or_else(|| {
-                        ProtocolError::ChannelClosed(
-                            "SSH session not connected".into(),
-                        )
-                    })?;
+                let session = ssh_conn.session_handle().ok_or_else(|| {
+                    ProtocolError::ChannelClosed("SSH session not connected".into())
+                })?;
 
                 session
-                    .channel_open_direct_tcpip(
-                        host,
-                        port,
-                        originator_address,
-                        originator_port,
-                    )
+                    .channel_open_direct_tcpip(host, port, originator_address, originator_port)
                     .await
                     .map_err(|e| {
-                        ProtocolError::IoError(format!(
-                            "Failed to open direct-tcpip channel: {e}"
-                        ))
+                        ProtocolError::IoError(format!("Failed to open direct-tcpip channel: {e}"))
                     })
             }
             _ => Err(ProtocolError::InvalidParams(
-                "Port forwarding is only supported for SSH connections"
-                    .into(),
+                "Port forwarding is only supported for SSH connections".into(),
             )),
         }
     }
@@ -752,33 +615,21 @@ impl ConnectionManager {
     ) -> Result<u32, ProtocolError> {
         let mut conns = self.connections.lock().await;
         let conn = conns.get_mut(connection_id).ok_or_else(|| {
-            ProtocolError::ChannelClosed(format!(
-                "Connection not found: {connection_id}"
-            ))
+            ProtocolError::ChannelClosed(format!("Connection not found: {connection_id}"))
         })?;
 
         match conn {
             ProtocolConnection::Ssh(ssh_conn) => {
-                let session = ssh_conn
-                    .session_handle_mut()
-                    .ok_or_else(|| {
-                        ProtocolError::ChannelClosed(
-                            "SSH session not connected".into(),
-                        )
-                    })?;
+                let session = ssh_conn.session_handle_mut().ok_or_else(|| {
+                    ProtocolError::ChannelClosed("SSH session not connected".into())
+                })?;
 
-                session
-                    .tcpip_forward(address, port)
-                    .await
-                    .map_err(|e| {
-                        ProtocolError::IoError(format!(
-                            "Remote forwarding request denied: {e}"
-                        ))
-                    })
+                session.tcpip_forward(address, port).await.map_err(|e| {
+                    ProtocolError::IoError(format!("Remote forwarding request denied: {e}"))
+                })
             }
             _ => Err(ProtocolError::InvalidParams(
-                "Port forwarding is only supported for SSH connections"
-                    .into(),
+                "Port forwarding is only supported for SSH connections".into(),
             )),
         }
     }
@@ -791,16 +642,12 @@ impl ConnectionManager {
 /// - `params.port` → baud rate (if provided as u16, cast to u32)
 ///
 /// Uses defaults for data bits, parity, stop bits, and flow control.
-fn build_serial_config(
-    params: &ConnectionParams,
-) -> Result<SerialConfig, ProtocolError> {
+fn build_serial_config(params: &ConnectionParams) -> Result<SerialConfig, ProtocolError> {
     let port = params
         .host
         .as_deref()
         .ok_or_else(|| {
-            ProtocolError::InvalidParams(
-                "Serial port path is required (set as host)".into(),
-            )
+            ProtocolError::InvalidParams("Serial port path is required (set as host)".into())
         })?
         .to_string();
 
@@ -840,11 +687,7 @@ mod tests {
             key_path: None,
         };
         let result = mgr
-            .open_with_emitter(
-                params,
-                ProtocolType::Ssh,
-                emitter,
-            )
+            .open_with_emitter(params, ProtocolType::Ssh, emitter)
             .await;
         assert!(result.is_err());
     }
@@ -863,11 +706,7 @@ mod tests {
             key_path: None,
         };
         let result = mgr
-            .open_with_emitter(
-                params,
-                ProtocolType::Local,
-                emitter,
-            )
+            .open_with_emitter(params, ProtocolType::Local, emitter)
             .await;
         assert!(result.is_err());
     }
@@ -1009,16 +848,14 @@ mod tests {
     async fn open_telnet_connection_to_local_server() {
         use tokio::io::AsyncWriteExt;
 
-        let listener =
-            tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
         let port = listener.local_addr().unwrap().port();
 
         let server = tokio::spawn(async move {
             let (mut stream, _) = listener.accept().await.unwrap();
             stream.write_all(b"Hello\r\n").await.unwrap();
             stream.flush().await.unwrap();
-            tokio::time::sleep(tokio::time::Duration::from_millis(200))
-                .await;
+            tokio::time::sleep(tokio::time::Duration::from_millis(200)).await;
             let _ = stream.shutdown().await;
         });
 
@@ -1035,11 +872,7 @@ mod tests {
         };
 
         let conn_id = mgr
-            .open_with_emitter(
-                params,
-                ProtocolType::Telnet,
-                emitter,
-            )
+            .open_with_emitter(params, ProtocolType::Telnet, emitter)
             .await
             .unwrap();
 
@@ -1058,8 +891,7 @@ mod tests {
     async fn write_and_resize_active_connection() {
         use tokio::io::AsyncReadExt;
 
-        let listener =
-            tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
         let port = listener.local_addr().unwrap().port();
 
         let server = tokio::spawn(async move {
@@ -1092,11 +924,7 @@ mod tests {
         };
 
         let conn_id = mgr
-            .open_with_emitter(
-                params,
-                ProtocolType::Telnet,
-                emitter,
-            )
+            .open_with_emitter(params, ProtocolType::Telnet, emitter)
             .await
             .unwrap();
 
@@ -1121,8 +949,7 @@ mod tests {
         let mgr = ConnectionManager::new();
         let emitter = Arc::new(MockEmitter::new());
         let config = SerialConfig::default(); // empty port
-        let result =
-            mgr.open_serial_with_emitter(config, emitter).await;
+        let result = mgr.open_serial_with_emitter(config, emitter).await;
         assert!(result.is_err());
     }
 
@@ -1134,8 +961,7 @@ mod tests {
             port: "/dev/ttyNONEXISTENT99".into(),
             ..SerialConfig::default()
         };
-        let result =
-            mgr.open_serial_with_emitter(config, emitter).await;
+        let result = mgr.open_serial_with_emitter(config, emitter).await;
         assert!(result.is_err());
     }
 
@@ -1146,15 +972,13 @@ mod tests {
     async fn double_close_returns_error() {
         use tokio::io::AsyncWriteExt;
 
-        let listener =
-            tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
         let port = listener.local_addr().unwrap().port();
 
         let server = tokio::spawn(async move {
             let (mut stream, _) = listener.accept().await.unwrap();
             stream.write_all(b"OK\r\n").await.unwrap();
-            tokio::time::sleep(tokio::time::Duration::from_millis(200))
-                .await;
+            tokio::time::sleep(tokio::time::Duration::from_millis(200)).await;
         });
 
         let mgr = ConnectionManager::new();
@@ -1195,15 +1019,13 @@ mod tests {
     async fn write_to_closed_connection_returns_error() {
         use tokio::io::AsyncWriteExt;
 
-        let listener =
-            tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
         let port = listener.local_addr().unwrap().port();
 
         let server = tokio::spawn(async move {
             let (mut stream, _) = listener.accept().await.unwrap();
             stream.write_all(b"OK\r\n").await.unwrap();
-            tokio::time::sleep(tokio::time::Duration::from_millis(200))
-                .await;
+            tokio::time::sleep(tokio::time::Duration::from_millis(200)).await;
         });
 
         let mgr = ConnectionManager::new();
@@ -1282,15 +1104,13 @@ mod tests {
     async fn send_break_on_telnet_returns_invalid_params() {
         use tokio::io::AsyncWriteExt;
 
-        let listener =
-            tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
         let port = listener.local_addr().unwrap().port();
 
         let server = tokio::spawn(async move {
             let (mut stream, _) = listener.accept().await.unwrap();
             stream.write_all(b"OK\r\n").await.unwrap();
-            tokio::time::sleep(tokio::time::Duration::from_millis(500))
-                .await;
+            tokio::time::sleep(tokio::time::Duration::from_millis(500)).await;
         });
 
         let mgr = ConnectionManager::new();
@@ -1349,15 +1169,13 @@ mod tests {
     async fn is_connected_false_after_close() {
         use tokio::io::AsyncWriteExt;
 
-        let listener =
-            tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
         let port = listener.local_addr().unwrap().port();
 
         let server = tokio::spawn(async move {
             let (mut stream, _) = listener.accept().await.unwrap();
             stream.write_all(b"OK\r\n").await.unwrap();
-            tokio::time::sleep(tokio::time::Duration::from_millis(200))
-                .await;
+            tokio::time::sleep(tokio::time::Duration::from_millis(200)).await;
         });
 
         let mgr = ConnectionManager::new();

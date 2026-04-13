@@ -74,9 +74,9 @@ impl SessionManager {
 
     /// Acquires the internal mutex, returning a graceful error on poisoning.
     fn lock_store(&self) -> Result<MutexGuard<'_, SessionStore>, SessionError> {
-        self.store.lock().map_err(|e| {
-            SessionError::LockError(format!("Session store mutex poisoned: {e}"))
-        })
+        self.store
+            .lock()
+            .map_err(|e| SessionError::LockError(format!("Session store mutex poisoned: {e}")))
     }
 
     /// Loads the session store from disk, with backup fallback.
@@ -153,9 +153,7 @@ impl SessionManager {
 
         // Shift backups: N-1 → N
         for i in (1..MAX_BACKUPS).rev() {
-            let from = self
-                .config_dir
-                .join(format!("sessions.backup.{i}.json"));
+            let from = self.config_dir.join(format!("sessions.backup.{i}.json"));
             let to = self
                 .config_dir
                 .join(format!("sessions.backup.{}.json", i + 1));
@@ -212,10 +210,7 @@ impl SessionManager {
                 }
             }
             Protocol::Serial => {
-                if serial_port
-                    .as_ref()
-                    .is_none_or(|p| p.trim().is_empty())
-                {
+                if serial_port.as_ref().is_none_or(|p| p.trim().is_empty()) {
                     return Err(SessionError::InvalidInput(
                         "Serial sessions require a serial port".into(),
                     ));
@@ -227,10 +222,7 @@ impl SessionManager {
     }
 
     /// Creates a new session profile.
-    pub fn create_session(
-        &self,
-        input: CreateSessionInput,
-    ) -> Result<String, SessionError> {
+    pub fn create_session(&self, input: CreateSessionInput) -> Result<String, SessionError> {
         validation::validate_name(&input.name)?;
         if let Some(ref host) = input.host {
             validation::validate_host(host)?;
@@ -244,11 +236,7 @@ impl SessionManager {
         if let Some(ref serial_port) = input.serial_port {
             validation::validate_serial_port(serial_port)?;
         }
-        Self::validate_protocol_fields(
-            &input.protocol,
-            &input.host,
-            &input.serial_port,
-        )?;
+        Self::validate_protocol_fields(&input.protocol, &input.host, &input.serial_port)?;
 
         let id = uuid::Uuid::new_v4().to_string();
         let now = Self::now_iso8601();
@@ -287,9 +275,7 @@ impl SessionManager {
         }
 
         // Verify folder exists (unless root)
-        if profile.folder_id != "root"
-            && !store.folders.iter().any(|f| f.id == profile.folder_id)
-        {
+        if profile.folder_id != "root" && !store.folders.iter().any(|f| f.id == profile.folder_id) {
             return Err(SessionError::FolderNotFound(profile.folder_id.clone()));
         }
 
@@ -312,11 +298,7 @@ impl SessionManager {
     }
 
     /// Updates an existing session profile with partial fields.
-    pub fn update_session(
-        &self,
-        id: &str,
-        input: UpdateSessionInput,
-    ) -> Result<(), SessionError> {
+    pub fn update_session(&self, id: &str, input: UpdateSessionInput) -> Result<(), SessionError> {
         validation::validate_uuid(id)?;
 
         if let Some(ref name) = input.name {
@@ -339,9 +321,7 @@ impl SessionManager {
 
         // Verify target folder exists
         if let Some(ref folder_id) = input.folder_id {
-            if folder_id != "root"
-                && !store.folders.iter().any(|f| f.id == *folder_id)
-            {
+            if folder_id != "root" && !store.folders.iter().any(|f| f.id == *folder_id) {
                 return Err(SessionError::FolderNotFound(folder_id.clone()));
             }
         }
@@ -409,11 +389,7 @@ impl SessionManager {
         }
 
         // Validate protocol-specific fields after merge
-        Self::validate_protocol_fields(
-            &session.protocol,
-            &session.host,
-            &session.serial_port,
-        )?;
+        Self::validate_protocol_fields(&session.protocol, &session.host, &session.serial_port)?;
 
         session.updated_at = Self::now_iso8601();
 
@@ -480,9 +456,7 @@ impl SessionManager {
         if input.target_folder_id != "root"
             && !store.folders.iter().any(|f| f.id == input.target_folder_id)
         {
-            return Err(SessionError::FolderNotFound(
-                input.target_folder_id.clone(),
-            ));
+            return Err(SessionError::FolderNotFound(input.target_folder_id.clone()));
         }
 
         let session = store
@@ -501,11 +475,7 @@ impl SessionManager {
     // ─── CRUD: Folders ─────────────────────────────────────────
 
     /// Creates a new folder.
-    pub fn create_folder(
-        &self,
-        name: &str,
-        parent_id: &str,
-    ) -> Result<String, SessionError> {
+    pub fn create_folder(&self, name: &str, parent_id: &str) -> Result<String, SessionError> {
         validation::validate_folder_name(name)?;
 
         let id = uuid::Uuid::new_v4().to_string();
@@ -519,9 +489,7 @@ impl SessionManager {
         }
 
         // Verify parent exists (unless root)
-        if parent_id != "root"
-            && !store.folders.iter().any(|f| f.id == parent_id)
-        {
+        if parent_id != "root" && !store.folders.iter().any(|f| f.id == parent_id) {
             return Err(SessionError::FolderNotFound(parent_id.into()));
         }
 
@@ -690,15 +658,13 @@ impl SessionManager {
         let mut store = self.lock_store()?;
 
         // Check resource limits before importing
-        let total_sessions =
-            store.sessions.len() + imported_store.sessions.len();
+        let total_sessions = store.sessions.len() + imported_store.sessions.len();
         if total_sessions > MAX_SESSIONS {
             return Err(SessionError::LimitExceeded(format!(
                 "Import would exceed maximum sessions ({MAX_SESSIONS})"
             )));
         }
-        let total_folders =
-            store.folders.len() + imported_store.folders.len();
+        let total_folders = store.folders.len() + imported_store.folders.len();
         if total_folders > MAX_FOLDERS {
             return Err(SessionError::LimitExceeded(format!(
                 "Import would exceed maximum folders ({MAX_FOLDERS})"
@@ -715,10 +681,7 @@ impl SessionManager {
         for folder in &imported_store.folders {
             // Validate each imported folder name
             if let Err(e) = validation::validate_folder_name(&folder.name) {
-                eprintln!(
-                    "Warning: Skipping imported folder '{}': {e}",
-                    folder.name
-                );
+                eprintln!("Warning: Skipping imported folder '{}': {e}", folder.name);
                 continue;
             }
 
@@ -744,46 +707,30 @@ impl SessionManager {
         for session in &imported_store.sessions {
             // Validate imported session fields
             if let Err(e) = validation::validate_name(&session.name) {
-                eprintln!(
-                    "Warning: Skipping imported session '{}': {e}",
-                    session.name
-                );
+                eprintln!("Warning: Skipping imported session '{}': {e}", session.name);
                 continue;
             }
             if let Some(ref host) = session.host {
                 if let Err(e) = validation::validate_host(host) {
-                    eprintln!(
-                        "Warning: Skipping imported session '{}': {e}",
-                        session.name
-                    );
+                    eprintln!("Warning: Skipping imported session '{}': {e}", session.name);
                     continue;
                 }
             }
             if let Some(port) = session.port {
                 if let Err(e) = validation::validate_port(port) {
-                    eprintln!(
-                        "Warning: Skipping imported session '{}': {e}",
-                        session.name
-                    );
+                    eprintln!("Warning: Skipping imported session '{}': {e}", session.name);
                     continue;
                 }
             }
             if let Some(ref username) = session.username {
                 if let Err(e) = validation::validate_username(username) {
-                    eprintln!(
-                        "Warning: Skipping imported session '{}': {e}",
-                        session.name
-                    );
+                    eprintln!("Warning: Skipping imported session '{}': {e}", session.name);
                     continue;
                 }
             }
             if let Some(ref serial_port) = session.serial_port {
-                if let Err(e) = validation::validate_serial_port(serial_port)
-                {
-                    eprintln!(
-                        "Warning: Skipping imported session '{}': {e}",
-                        session.name
-                    );
+                if let Err(e) = validation::validate_serial_port(serial_port) {
+                    eprintln!("Warning: Skipping imported session '{}': {e}", session.name);
                     continue;
                 }
             }
@@ -844,10 +791,7 @@ mod tests {
 
     /// Creates a temporary directory for test isolation.
     fn temp_dir() -> PathBuf {
-        let dir = std::env::temp_dir().join(format!(
-            "putz-test-{}",
-            uuid::Uuid::new_v4()
-        ));
+        let dir = std::env::temp_dir().join(format!("putz-test-{}", uuid::Uuid::new_v4()));
         fs::create_dir_all(&dir).unwrap();
         dir
     }
@@ -1054,8 +998,7 @@ mod tests {
         let dir = temp_dir();
         let mgr = SessionManager::with_config_dir(dir.clone());
 
-        let result =
-            mgr.delete_session("550e8400-e29b-41d4-a716-446655440000");
+        let result = mgr.delete_session("550e8400-e29b-41d4-a716-446655440000");
         assert!(matches!(result, Err(SessionError::NotFound(_))));
 
         cleanup(&dir);
@@ -1391,12 +1334,8 @@ mod tests {
 
         // Should have backups 1 through 5 (max)
         for i in 1..=5 {
-            let backup =
-                dir.join(format!("sessions.backup.{i}.json"));
-            assert!(
-                backup.exists(),
-                "Backup {i} should exist"
-            );
+            let backup = dir.join(format!("sessions.backup.{i}.json"));
+            assert!(backup.exists(), "Backup {i} should exist");
         }
 
         // Backup 6 should NOT exist

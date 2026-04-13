@@ -5,9 +5,7 @@
 /// input and delegates to `ThemeManager`.
 use tauri::State;
 
-use crate::theme::{
-    CreateThemeInput, Theme, ThemeExport, ThemeManager, UpdateThemeInput,
-};
+use crate::theme::{CreateThemeInput, Theme, ThemeExport, ThemeManager, UpdateThemeInput};
 
 /// Lists all themes (built-in + custom).
 #[tauri::command]
@@ -48,10 +46,7 @@ pub fn theme_delete(state: State<'_, ThemeManager>, id: String) -> Result<(), St
 
 /// Imports a theme from a ThemeExport JSON payload.
 #[tauri::command]
-pub fn theme_import(
-    state: State<'_, ThemeManager>,
-    data: ThemeExport,
-) -> Result<String, String> {
+pub fn theme_import(state: State<'_, ThemeManager>, data: ThemeExport) -> Result<String, String> {
     state.import_theme(data).map_err(|e| e.to_string())
 }
 

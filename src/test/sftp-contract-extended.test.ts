@@ -16,15 +16,12 @@ import type {
   TransferInfo,
   TransferProgressPayload,
   TransferCompletePayload,
-  TransferDirection,
   TransferStatus,
   SftpContextAction,
 } from "../components/SFTP/types";
 import {
   formatFileSize,
   formatPermissions,
-  formatSpeed,
-  formatEta,
 } from "../components/SFTP/types";
 
 // ── IPC Command Invocation Contract ──────────────────────────────

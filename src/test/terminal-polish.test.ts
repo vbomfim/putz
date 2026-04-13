@@ -7,7 +7,7 @@
  *
  * Tags: [TDD], [POLISH]
  */
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect } from "vitest";
 import { TERMINAL_CONFIG } from "../components/Terminal/types";
 import {
   FONT_SIZE_MIN,

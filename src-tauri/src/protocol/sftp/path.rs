@@ -60,10 +60,7 @@ pub fn validate_remote_path(path: &str) -> Result<(), String> {
     // Check for path traversal via `..` components
     for component in path.split('/') {
         if component == ".." {
-            return Err(
-                "Remote path must not contain '..' (path traversal)"
-                    .into(),
-            );
+            return Err("Remote path must not contain '..' (path traversal)".into());
         }
     }
 
@@ -75,8 +72,7 @@ pub fn validate_remote_path(path: &str) -> Result<(), String> {
 ///
 /// Does NOT resolve `..` — that's the validation step's job to reject.
 pub fn normalize_remote_path(path: &str) -> String {
-    let parts: Vec<&str> =
-        path.split('/').filter(|p| !p.is_empty()).collect();
+    let parts: Vec<&str> = path.split('/').filter(|p| !p.is_empty()).collect();
 
     if parts.is_empty() {
         return "/".to_string();
@@ -113,43 +109,33 @@ pub fn validate_local_path(path: &str) -> Result<String, String> {
     }
 
     if path.contains('\0') {
-        return Err(
-            "Local path must not contain null bytes".into(),
-        );
+        return Err("Local path must not contain null bytes".into());
     }
 
     // Canonicalize the parent directory to resolve symlinks and ..
     let file_path = std::path::Path::new(path);
 
-    let parent = file_path.parent().ok_or_else(|| {
-        "Local path has no parent directory".to_string()
-    })?;
+    let parent = file_path
+        .parent()
+        .ok_or_else(|| "Local path has no parent directory".to_string())?;
 
     // Parent must exist so we can canonicalize it
-    let canonical_parent =
-        parent.canonicalize().map_err(|e| {
-            format!(
-                "Cannot resolve local path parent '{}': {e}",
-                parent.display()
-            )
-        })?;
+    let canonical_parent = parent.canonicalize().map_err(|e| {
+        format!(
+            "Cannot resolve local path parent '{}': {e}",
+            parent.display()
+        )
+    })?;
 
     let file_name = file_path
         .file_name()
-        .ok_or_else(|| {
-            "Local path has no file name".to_string()
-        })?
+        .ok_or_else(|| "Local path has no file name".to_string())?
         .to_str()
-        .ok_or_else(|| {
-            "Local path file name is not valid UTF-8".to_string()
-        })?;
+        .ok_or_else(|| "Local path file name is not valid UTF-8".to_string())?;
 
     // Validate the file name itself
     if file_name.contains('/') || file_name.contains('\\') {
-        return Err(
-            "Local file name must not contain path separators"
-                .into(),
-        );
+        return Err("Local file name must not contain path separators".into());
     }
 
     let canonical_path = canonical_parent.join(file_name);
@@ -169,16 +155,12 @@ pub fn validate_local_path(path: &str) -> Result<String, String> {
     canonical_path
         .to_str()
         .map(|s| s.to_string())
-        .ok_or_else(|| {
-            "Canonical path is not valid UTF-8".to_string()
-        })
+        .ok_or_else(|| "Canonical path is not valid UTF-8".to_string())
 }
 
 /// Checks whether a canonicalized directory is within an allowed
 /// base directory (user home or system temp).
-fn is_within_allowed_directory(
-    dir: &std::path::Path,
-) -> bool {
+fn is_within_allowed_directory(dir: &std::path::Path) -> bool {
     // Check user home directory
     if let Some(home) = directories::UserDirs::new() {
         let home_dir = home.home_dir();
@@ -221,32 +203,22 @@ mod tests {
 
     #[test]
     fn accepts_path_with_dots_in_filename() {
-        assert!(
-            validate_remote_path("/home/user/.bashrc").is_ok()
-        );
+        assert!(validate_remote_path("/home/user/.bashrc").is_ok());
     }
 
     #[test]
     fn accepts_path_with_spaces() {
-        assert!(
-            validate_remote_path("/home/user/my documents")
-                .is_ok()
-        );
+        assert!(validate_remote_path("/home/user/my documents").is_ok());
     }
 
     #[test]
     fn accepts_path_with_single_dot() {
-        assert!(
-            validate_remote_path("/home/user/./file.txt").is_ok()
-        );
+        assert!(validate_remote_path("/home/user/./file.txt").is_ok());
     }
 
     #[test]
     fn accepts_path_with_tab_character() {
-        assert!(
-            validate_remote_path("/home/user/file\twith\ttabs")
-                .is_ok()
-        );
+        assert!(validate_remote_path("/home/user/file\twith\ttabs").is_ok());
     }
 
     // ── validate_remote_path: rejected paths ─────────────────────
@@ -259,47 +231,38 @@ mod tests {
 
     #[test]
     fn rejects_relative_path() {
-        let err =
-            validate_remote_path("home/user").unwrap_err();
+        let err = validate_remote_path("home/user").unwrap_err();
         assert!(err.contains("absolute"));
     }
 
     #[test]
     fn rejects_path_with_traversal_at_start() {
-        let err =
-            validate_remote_path("/../etc/passwd").unwrap_err();
+        let err = validate_remote_path("/../etc/passwd").unwrap_err();
         assert!(err.contains(".."));
     }
 
     #[test]
     fn rejects_path_with_traversal_in_middle() {
-        let err =
-            validate_remote_path("/home/../etc/passwd")
-                .unwrap_err();
+        let err = validate_remote_path("/home/../etc/passwd").unwrap_err();
         assert!(err.contains(".."));
     }
 
     #[test]
     fn rejects_path_with_traversal_at_end() {
-        let err =
-            validate_remote_path("/home/user/..").unwrap_err();
+        let err = validate_remote_path("/home/user/..").unwrap_err();
         assert!(err.contains(".."));
     }
 
     #[test]
     fn rejects_path_with_null_byte() {
-        let err =
-            validate_remote_path("/home/user\0/file")
-                .unwrap_err();
+        let err = validate_remote_path("/home/user\0/file").unwrap_err();
         assert!(err.contains("null"));
     }
 
     #[test]
     fn rejects_path_exceeding_max_length() {
-        let long_path =
-            format!("/{}", "a".repeat(MAX_PATH_LENGTH));
-        let err =
-            validate_remote_path(&long_path).unwrap_err();
+        let long_path = format!("/{}", "a".repeat(MAX_PATH_LENGTH));
+        let err = validate_remote_path(&long_path).unwrap_err();
         assert!(err.contains("maximum length"));
     }
 
@@ -313,29 +276,21 @@ mod tests {
 
     #[test]
     fn rejects_path_with_control_character() {
-        let err =
-            validate_remote_path("/home/user/\x01file")
-                .unwrap_err();
+        let err = validate_remote_path("/home/user/\x01file").unwrap_err();
         assert!(err.contains("control character"));
     }
 
     #[test]
     fn rejects_path_with_bell_character() {
-        let err =
-            validate_remote_path("/home/\x07bell")
-                .unwrap_err();
+        let err = validate_remote_path("/home/\x07bell").unwrap_err();
         assert!(err.contains("control character"));
     }
 
     #[test]
     fn double_dot_in_filename_is_ok() {
         // "..." or "..hidden" are NOT traversal — only bare ".." is
-        assert!(
-            validate_remote_path("/home/user/...").is_ok()
-        );
-        assert!(
-            validate_remote_path("/home/user/..hidden").is_ok()
-        );
+        assert!(validate_remote_path("/home/user/...").is_ok());
+        assert!(validate_remote_path("/home/user/..hidden").is_ok());
     }
 
     // ── normalize_remote_path ────────────────────────────────────
@@ -347,10 +302,7 @@ mod tests {
 
     #[test]
     fn normalize_removes_trailing_slash() {
-        assert_eq!(
-            normalize_remote_path("/home/user/"),
-            "/home/user"
-        );
+        assert_eq!(normalize_remote_path("/home/user/"), "/home/user");
     }
 
     #[test]
@@ -384,15 +336,13 @@ mod tests {
 
     #[test]
     fn local_path_rejects_null_bytes() {
-        let err =
-            validate_local_path("/tmp/file\0.txt").unwrap_err();
+        let err = validate_local_path("/tmp/file\0.txt").unwrap_err();
         assert!(err.contains("null"));
     }
 
     #[test]
     fn local_path_rejects_exceeding_max_length() {
-        let long =
-            format!("/tmp/{}", "a".repeat(MAX_PATH_LENGTH));
+        let long = format!("/tmp/{}", "a".repeat(MAX_PATH_LENGTH));
         let err = validate_local_path(&long).unwrap_err();
         assert!(err.contains("maximum length"));
     }
@@ -402,22 +352,16 @@ mod tests {
         // std::env::temp_dir() is always allowed
         let temp = std::env::temp_dir();
         let path = temp.join("sftp_test_file.txt");
-        let result =
-            validate_local_path(path.to_str().unwrap());
+        let result = validate_local_path(path.to_str().unwrap());
         assert!(result.is_ok(), "Temp dir should be allowed: {result:?}");
     }
 
     #[test]
     fn local_path_accepts_home_directory() {
         if let Some(user_dirs) = directories::UserDirs::new() {
-            let path =
-                user_dirs.home_dir().join("sftp_test.txt");
-            let result =
-                validate_local_path(path.to_str().unwrap());
-            assert!(
-                result.is_ok(),
-                "Home dir should be allowed: {result:?}"
-            );
+            let path = user_dirs.home_dir().join("sftp_test.txt");
+            let result = validate_local_path(path.to_str().unwrap());
+            assert!(result.is_ok(), "Home dir should be allowed: {result:?}");
         }
     }
 
@@ -427,10 +371,7 @@ mod tests {
         #[cfg(not(target_os = "windows"))]
         {
             let result = validate_local_path("/etc/passwd");
-            assert!(
-                result.is_err(),
-                "System paths should be rejected"
-            );
+            assert!(result.is_err(), "System paths should be rejected");
         }
     }
 
@@ -439,10 +380,7 @@ mod tests {
         // Even if the raw path contains .., canonicalize resolves it.
         // The parent dir must exist for canonicalize to work.
         let temp = std::env::temp_dir();
-        let traversal = format!(
-            "{}/subdir/../sftp_test.txt",
-            temp.display()
-        );
+        let traversal = format!("{}/subdir/../sftp_test.txt", temp.display());
         // /tmp/subdir may not exist so parent canonicalize will
         // fail — which is the correct safe behavior.
         let result = validate_local_path(&traversal);
@@ -464,9 +402,6 @@ mod tests {
 
     #[test]
     fn max_transfer_size_is_10gb() {
-        assert_eq!(
-            MAX_TRANSFER_SIZE,
-            10 * 1024 * 1024 * 1024
-        );
+        assert_eq!(MAX_TRANSFER_SIZE, 10 * 1024 * 1024 * 1024);
     }
 }

@@ -123,7 +123,8 @@ describe("Logging Contract — Extended", () => {
     });
 
     it("rotation creates files with _partN suffix pattern", () => {
-      const baseFile = "my-session_2025-01-15_14-32-01.log";
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const _baseFile = "my-session_2025-01-15_14-32-01.log";
       const rotatedPattern = /^.+_part\d+\.log$/;
       const rotated = "my-session_2025-01-15_14-32-01_part1.log";
       expect(rotated).toMatch(rotatedPattern);

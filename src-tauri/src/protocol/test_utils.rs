@@ -2,11 +2,10 @@
 ///
 /// Provides mock implementations of traits used across multiple
 /// test modules to avoid duplication.
-
 use std::sync::Mutex as StdMutex;
 
-use super::EventEmitter;
 use super::ConnectionStatusPayload;
+use super::EventEmitter;
 
 /// Mock event emitter for testing protocol connections.
 ///
@@ -35,11 +34,7 @@ impl EventEmitter for MockEmitter {
             .push((connection_id.to_string(), data.to_string()));
     }
 
-    fn emit_status(
-        &self,
-        connection_id: &str,
-        payload: &ConnectionStatusPayload,
-    ) {
+    fn emit_status(&self, connection_id: &str, payload: &ConnectionStatusPayload) {
         self.statuses
             .lock()
             .unwrap()

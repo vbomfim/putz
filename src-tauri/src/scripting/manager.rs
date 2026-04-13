@@ -104,10 +104,7 @@ impl ScriptManager {
     }
 
     /// Saves a script (create or update). Returns the script ID.
-    pub fn save(
-        &self,
-        input: SaveScriptInput,
-    ) -> Result<String, ScriptError> {
+    pub fn save(&self, input: SaveScriptInput) -> Result<String, ScriptError> {
         validation::validate_name(&input.name)?;
         validation::validate_content(&input.content)?;
 
@@ -121,14 +118,12 @@ impl ScriptManager {
             validation::validate_uuid(id)?;
 
             // Check for duplicate name (excluding self)
-            if store.scripts.iter().any(|s| {
-                s.id != *id
-                    && s.name.to_lowercase()
-                        == input.name.trim().to_lowercase()
-            }) {
-                return Err(ScriptError::DuplicateName(
-                    input.name.clone(),
-                ));
+            if store
+                .scripts
+                .iter()
+                .any(|s| s.id != *id && s.name.to_lowercase() == input.name.trim().to_lowercase())
+            {
+                return Err(ScriptError::DuplicateName(input.name.clone()));
             }
 
             let meta = store
@@ -138,8 +133,7 @@ impl ScriptManager {
                 .ok_or_else(|| ScriptError::NotFound(id.clone()))?;
 
             meta.name = input.name.trim().to_string();
-            meta.description =
-                input.description.unwrap_or_default();
+            meta.description = input.description.unwrap_or_default();
             meta.is_login_script = is_login;
             meta.updated_at = now;
 
@@ -158,13 +152,12 @@ impl ScriptManager {
             }
 
             // Check for duplicate name
-            if store.scripts.iter().any(|s| {
-                s.name.to_lowercase()
-                    == input.name.trim().to_lowercase()
-            }) {
-                return Err(ScriptError::DuplicateName(
-                    input.name.clone(),
-                ));
+            if store
+                .scripts
+                .iter()
+                .any(|s| s.name.to_lowercase() == input.name.trim().to_lowercase())
+            {
+                return Err(ScriptError::DuplicateName(input.name.clone()));
             }
 
             let id = Uuid::new_v4().to_string();
@@ -173,9 +166,7 @@ impl ScriptManager {
             let meta = ScriptMeta {
                 id: id.clone(),
                 name: input.name.trim().to_string(),
-                description: input
-                    .description
-                    .unwrap_or_default(),
+                description: input.description.unwrap_or_default(),
                 filename: filename.clone(),
                 is_login_script: is_login,
                 created_at: now.clone(),
@@ -220,9 +211,8 @@ impl ScriptManager {
     pub async fn run(
         &self,
         input: RunScriptInput,
-        command_handler: impl Fn(ScriptCommand) -> std::pin::Pin<
-                Box<dyn std::future::Future<Output = ()> + Send>,
-            > + Send
+        command_handler: impl Fn(ScriptCommand) -> std::pin::Pin<Box<dyn std::future::Future<Output = ()> + Send>>
+            + Send
             + Sync
             + 'static,
         app: tauri::AppHandle,
@@ -263,21 +253,17 @@ impl ScriptManager {
         let cancelled_clone = cancelled.clone();
 
         // Create channels for script ↔ async communication
-        let (cmd_tx, cmd_rx) =
-            std::sync::mpsc::sync_channel::<ScriptCommand>(256);
+        let (cmd_tx, cmd_rx) = std::sync::mpsc::sync_channel::<ScriptCommand>(256);
 
         // Create output buffer and listener
-        let output_buffer =
-            Arc::new(Mutex::new(OutputBuffer::new()));
+        let output_buffer = Arc::new(Mutex::new(OutputBuffer::new()));
         let output_notify = Arc::new(tokio::sync::Notify::new());
 
         // Register output listener BEFORE starting script
         let buffer_clone = output_buffer.clone();
         let notify_clone = output_notify.clone();
-        let event_name_pty =
-            format!("pty-output-{}", session_id);
-        let event_name_conn =
-            format!("connection-output-{}", session_id);
+        let event_name_pty = format!("pty-output-{}", session_id);
+        let event_name_conn = format!("connection-output-{}", session_id);
 
         let listener_pty = app.clone();
         let listener_conn = app.clone();
@@ -287,26 +273,20 @@ impl ScriptManager {
         let notify_conn = notify_clone.clone();
 
         // Listen for PTY output
-        let unlisten_pty = tauri::Listener::listen(
-            &listener_pty,
-            &event_name_pty,
-            move |event| {
-                // PTY output is base64-encoded
-                let payload = event.payload();
-                if let Some(data) = decode_output_payload(payload) {
-                    if let Ok(mut buf) = buffer_pty.lock() {
-                        buf.append(&data);
-                    }
-                    notify_pty.notify_one();
+        let unlisten_pty = tauri::Listener::listen(&listener_pty, &event_name_pty, move |event| {
+            // PTY output is base64-encoded
+            let payload = event.payload();
+            if let Some(data) = decode_output_payload(payload) {
+                if let Ok(mut buf) = buffer_pty.lock() {
+                    buf.append(&data);
                 }
-            },
-        );
+                notify_pty.notify_one();
+            }
+        });
 
         // Listen for connection output
-        let unlisten_conn = tauri::Listener::listen(
-            &listener_conn,
-            &event_name_conn,
-            move |event| {
+        let unlisten_conn =
+            tauri::Listener::listen(&listener_conn, &event_name_conn, move |event| {
                 let payload = event.payload();
                 if let Some(data) = decode_output_payload(payload) {
                     if let Ok(mut buf) = buffer_conn.lock() {
@@ -314,8 +294,7 @@ impl ScriptManager {
                     }
                     notify_conn.notify_one();
                 }
-            },
-        );
+            });
 
         // Create script context
         let ctx = Arc::new(ScriptContext {
@@ -340,15 +319,12 @@ impl ScriptManager {
         let ctx_clone = ctx.clone();
         let task = tokio::spawn(async move {
             let exec_result =
-                tokio::task::spawn_blocking(move || {
-                    engine::execute_script(&content, ctx_clone)
-                })
-                .await;
+                tokio::task::spawn_blocking(move || engine::execute_script(&content, ctx_clone))
+                    .await;
 
             // Update result
             let mut res = result_clone.lock().await;
-            res.finished_at =
-                Some(chrono::Utc::now().to_rfc3339());
+            res.finished_at = Some(chrono::Utc::now().to_rfc3339());
 
             // Collect logs
             if let Ok(logs) = ctx.log_entries.lock() {
@@ -369,8 +345,7 @@ impl ScriptManager {
                 }
                 Err(e) => {
                     res.status = ScriptStatus::Failed;
-                    res.error =
-                        Some(format!("Task panicked: {e}"));
+                    res.error = Some(format!("Task panicked: {e}"));
                 }
             }
 
@@ -406,10 +381,7 @@ impl ScriptManager {
     }
 
     /// Gets the current status of a running/completed script.
-    pub async fn get_run_status(
-        &self,
-        run_id: &str,
-    ) -> Result<ScriptRunResult, ScriptError> {
+    pub async fn get_run_status(&self, run_id: &str) -> Result<ScriptRunResult, ScriptError> {
         let runners = self.runners.lock().await;
         let handle = runners
             .get(run_id)
@@ -419,10 +391,7 @@ impl ScriptManager {
     }
 
     /// Stops a running script.
-    pub async fn stop(
-        &self,
-        run_id: &str,
-    ) -> Result<(), ScriptError> {
+    pub async fn stop(&self, run_id: &str) -> Result<(), ScriptError> {
         let runners = self.runners.lock().await;
         let handle = runners
             .get(run_id)
@@ -435,13 +404,11 @@ impl ScriptManager {
     // ── Recording ──────────────────────────────────────────────
 
     /// Starts recording keystrokes for a session.
-    pub fn record_start(
-        &self,
-        session_id: &str,
-    ) -> Result<(), ScriptError> {
-        let mut recorders = self.recorders.lock().map_err(|e| {
-            ScriptError::LockError(format!("Recorder lock: {e}"))
-        })?;
+    pub fn record_start(&self, session_id: &str) -> Result<(), ScriptError> {
+        let mut recorders = self
+            .recorders
+            .lock()
+            .map_err(|e| ScriptError::LockError(format!("Recorder lock: {e}")))?;
 
         if recorders.contains_key(session_id) {
             return Err(ScriptError::AlreadyRunning(format!(
@@ -449,27 +416,19 @@ impl ScriptManager {
             )));
         }
 
-        recorders.insert(
-            session_id.to_string(),
-            ScriptRecorder::new(session_id),
-        );
+        recorders.insert(session_id.to_string(), ScriptRecorder::new(session_id));
         Ok(())
     }
 
     /// Records a keystroke for an active recording session.
-    pub fn record_keystroke(
-        &self,
-        session_id: &str,
-        data: &str,
-    ) -> Result<(), ScriptError> {
-        let mut recorders = self.recorders.lock().map_err(|e| {
-            ScriptError::LockError(format!("Recorder lock: {e}"))
-        })?;
+    pub fn record_keystroke(&self, session_id: &str, data: &str) -> Result<(), ScriptError> {
+        let mut recorders = self
+            .recorders
+            .lock()
+            .map_err(|e| ScriptError::LockError(format!("Recorder lock: {e}")))?;
 
         let recorder = recorders.get_mut(session_id).ok_or_else(|| {
-            ScriptError::NotFound(format!(
-                "No active recording for session: {session_id}"
-            ))
+            ScriptError::NotFound(format!("No active recording for session: {session_id}"))
         })?;
 
         recorder.record_keystroke(data);
@@ -477,18 +436,14 @@ impl ScriptManager {
     }
 
     /// Stops recording and returns the generated script content.
-    pub fn record_stop(
-        &self,
-        session_id: &str,
-    ) -> Result<String, ScriptError> {
-        let mut recorders = self.recorders.lock().map_err(|e| {
-            ScriptError::LockError(format!("Recorder lock: {e}"))
-        })?;
+    pub fn record_stop(&self, session_id: &str) -> Result<String, ScriptError> {
+        let mut recorders = self
+            .recorders
+            .lock()
+            .map_err(|e| ScriptError::LockError(format!("Recorder lock: {e}")))?;
 
         let recorder = recorders.remove(session_id).ok_or_else(|| {
-            ScriptError::NotFound(format!(
-                "No active recording for session: {session_id}"
-            ))
+            ScriptError::NotFound(format!("No active recording for session: {session_id}"))
         })?;
 
         Ok(recorder.generate_script())
@@ -496,14 +451,10 @@ impl ScriptManager {
 
     // ── Private helpers ────────────────────────────────────────
 
-    fn lock_store(
-        &self,
-    ) -> Result<std::sync::MutexGuard<'_, ScriptStore>, ScriptError> {
-        self.store.lock().map_err(|e| {
-            ScriptError::LockError(format!(
-                "Script store mutex poisoned: {e}"
-            ))
-        })
+    fn lock_store(&self) -> Result<std::sync::MutexGuard<'_, ScriptStore>, ScriptError> {
+        self.store
+            .lock()
+            .map_err(|e| ScriptError::LockError(format!("Script store mutex poisoned: {e}")))
     }
 
     fn load_store(config_dir: &PathBuf) -> ScriptStore {
@@ -518,10 +469,7 @@ impl ScriptManager {
         }
     }
 
-    fn save_store(
-        &self,
-        store: &ScriptStore,
-    ) -> Result<(), ScriptError> {
+    fn save_store(&self, store: &ScriptStore) -> Result<(), ScriptError> {
         fs::create_dir_all(&self.config_dir)?;
         let json = serde_json::to_string_pretty(store)?;
         let path = self.config_dir.join(INDEX_FILENAME);
@@ -535,32 +483,20 @@ impl ScriptManager {
         #[cfg(unix)]
         {
             use std::os::unix::fs::PermissionsExt;
-            let _ = fs::set_permissions(
-                &path,
-                fs::Permissions::from_mode(0o600),
-            );
+            let _ = fs::set_permissions(&path, fs::Permissions::from_mode(0o600));
         }
 
         Ok(())
     }
 
-    fn read_script_file(
-        &self,
-        filename: &str,
-    ) -> Result<String, ScriptError> {
+    fn read_script_file(&self, filename: &str) -> Result<String, ScriptError> {
         let path = self.config_dir.join(filename);
         fs::read_to_string(&path).map_err(|e| {
-            ScriptError::IoError(format!(
-                "Failed to read script file {filename}: {e}"
-            ))
+            ScriptError::IoError(format!("Failed to read script file {filename}: {e}"))
         })
     }
 
-    fn write_script_file(
-        &self,
-        filename: &str,
-        content: &str,
-    ) -> Result<(), ScriptError> {
+    fn write_script_file(&self, filename: &str, content: &str) -> Result<(), ScriptError> {
         fs::create_dir_all(&self.config_dir)?;
         let path = self.config_dir.join(filename);
         fs::write(&path, content)?;
@@ -568,26 +504,18 @@ impl ScriptManager {
         #[cfg(unix)]
         {
             use std::os::unix::fs::PermissionsExt;
-            let _ = fs::set_permissions(
-                &path,
-                fs::Permissions::from_mode(0o600),
-            );
+            let _ = fs::set_permissions(&path, fs::Permissions::from_mode(0o600));
         }
 
         Ok(())
     }
 
-    fn generate_unique_filename(
-        &self,
-        name: &str,
-        store: &ScriptStore,
-    ) -> String {
+    fn generate_unique_filename(&self, name: &str, store: &ScriptStore) -> String {
         let base = validation::sanitize_filename(name);
         let stem = base.trim_end_matches(".js");
 
         // Check if filename already exists
-        let existing: Vec<&str> =
-            store.scripts.iter().map(|s| s.filename.as_str()).collect();
+        let existing: Vec<&str> = store.scripts.iter().map(|s| s.filename.as_str()).collect();
 
         if !existing.contains(&base.as_str()) {
             return base;
@@ -618,9 +546,7 @@ fn decode_output_payload(payload: &str) -> Option<String> {
 
     // Try base64 decode
     use base64::Engine;
-    if let Ok(bytes) =
-        base64::engine::general_purpose::STANDARD.decode(cleaned)
-    {
+    if let Ok(bytes) = base64::engine::general_purpose::STANDARD.decode(cleaned) {
         return Some(String::from_utf8_lossy(&bytes).to_string());
     }
 
@@ -647,8 +573,7 @@ mod tests {
 
     fn test_manager() -> (ScriptManager, tempfile::TempDir) {
         let dir = tempfile::tempdir().unwrap();
-        let manager =
-            ScriptManager::with_config_dir(dir.path().to_path_buf());
+        let manager = ScriptManager::with_config_dir(dir.path().to_path_buf());
         (manager, dir)
     }
 
@@ -764,9 +689,7 @@ mod tests {
     #[test]
     fn get_nonexistent_script() {
         let (mgr, _dir) = test_manager();
-        let err = mgr
-            .get("550e8400-e29b-41d4-a716-446655440000")
-            .unwrap_err();
+        let err = mgr.get("550e8400-e29b-41d4-a716-446655440000").unwrap_err();
         assert!(matches!(err, ScriptError::NotFound(_)));
     }
 
@@ -803,14 +726,12 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let id;
         {
-            let mgr =
-                ScriptManager::with_config_dir(dir.path().to_path_buf());
+            let mgr = ScriptManager::with_config_dir(dir.path().to_path_buf());
             id = mgr.save(sample_input()).unwrap();
         }
         // Reload from same directory
         {
-            let mgr =
-                ScriptManager::with_config_dir(dir.path().to_path_buf());
+            let mgr = ScriptManager::with_config_dir(dir.path().to_path_buf());
             let scripts = mgr.list();
             assert_eq!(scripts.len(), 1);
             assert_eq!(scripts[0].id, id);
@@ -821,22 +742,26 @@ mod tests {
     fn generates_unique_filenames() {
         let (mgr, _dir) = test_manager();
 
-        let id1 = mgr.save(SaveScriptInput {
-            id: None,
-            name: "My Script".into(),
-            description: None,
-            content: "putz.log('1');".into(),
-            is_login_script: None,
-        }).unwrap();
+        let id1 = mgr
+            .save(SaveScriptInput {
+                id: None,
+                name: "My Script".into(),
+                description: None,
+                content: "putz.log('1');".into(),
+                is_login_script: None,
+            })
+            .unwrap();
 
         // Save another with a different name
-        let id2 = mgr.save(SaveScriptInput {
-            id: None,
-            name: "Other Script".into(),
-            description: None,
-            content: "putz.log('2');".into(),
-            is_login_script: None,
-        }).unwrap();
+        let id2 = mgr
+            .save(SaveScriptInput {
+                id: None,
+                name: "Other Script".into(),
+                description: None,
+                content: "putz.log('2');".into(),
+                is_login_script: None,
+            })
+            .unwrap();
 
         let s1 = mgr.get(&id1).unwrap();
         let s2 = mgr.get(&id2).unwrap();
@@ -885,8 +810,7 @@ mod tests {
     #[test]
     fn decode_base64_payload() {
         use base64::Engine;
-        let b64 = base64::engine::general_purpose::STANDARD
-            .encode("Hello, world!");
+        let b64 = base64::engine::general_purpose::STANDARD.encode("Hello, world!");
         let result = decode_output_payload(&b64);
         assert_eq!(result, Some("Hello, world!".to_string()));
     }

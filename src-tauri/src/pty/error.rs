@@ -104,19 +104,13 @@ mod tests {
     #[test]
     fn display_invalid_working_directory() {
         let err = PtyError::InvalidWorkingDirectory("/nonexistent".into());
-        assert_eq!(
-            err.to_string(),
-            "Invalid working directory: /nonexistent"
-        );
+        assert_eq!(err.to_string(), "Invalid working directory: /nonexistent");
     }
 
     #[test]
     fn display_session_limit_reached() {
         let err = PtyError::SessionLimitReached;
-        assert_eq!(
-            err.to_string(),
-            "Maximum number of sessions reached (64)"
-        );
+        assert_eq!(err.to_string(), "Maximum number of sessions reached (64)");
     }
 
     #[test]

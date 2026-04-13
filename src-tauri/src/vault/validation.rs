@@ -48,9 +48,7 @@ pub fn validate_credential_name(name: &str) -> Result<(), VaultError> {
 pub fn validate_credential_username(username: &str) -> Result<(), VaultError> {
     let trimmed = username.trim();
     if trimmed.is_empty() {
-        return Err(VaultError::InvalidInput(
-            "Username cannot be empty".into(),
-        ));
+        return Err(VaultError::InvalidInput("Username cannot be empty".into()));
     }
     if trimmed.len() > MAX_USERNAME_LENGTH {
         return Err(VaultError::InvalidInput(format!(
@@ -74,9 +72,7 @@ const MAX_SECRET_LENGTH: usize = 10_000;
 /// The secret value MUST NOT appear in error messages.
 pub fn validate_secret(secret: &str) -> Result<(), VaultError> {
     if secret.is_empty() {
-        return Err(VaultError::InvalidInput(
-            "Secret cannot be empty".into(),
-        ));
+        return Err(VaultError::InvalidInput("Secret cannot be empty".into()));
     }
     if secret.len() > MAX_SECRET_LENGTH {
         return Err(VaultError::InvalidInput(format!(

@@ -14,9 +14,7 @@ use crate::vault::{Credential, CredentialMeta, SetCredentialInput, VaultManager}
 
 /// Lists all stored credentials (metadata only — NO secrets).
 #[tauri::command]
-pub fn vault_list(
-    state: State<'_, VaultManager>,
-) -> Result<Vec<CredentialMeta>, String> {
+pub fn vault_list(state: State<'_, VaultManager>) -> Result<Vec<CredentialMeta>, String> {
     state.list().map_err(|e| e.to_string())
 }
 
@@ -27,10 +25,7 @@ pub fn vault_list(
 /// the editor use case. `get_for_session` (backend-only) is the method
 /// used by protocol implementations.
 #[tauri::command]
-pub fn vault_get(
-    state: State<'_, VaultManager>,
-    id: String,
-) -> Result<Credential, String> {
+pub fn vault_get(state: State<'_, VaultManager>, id: String) -> Result<Credential, String> {
     state.get(&id).map_err(|e| e.to_string())
 }
 
@@ -47,10 +42,7 @@ pub fn vault_set(
 
 /// Deletes a credential from both the index and the OS keychain.
 #[tauri::command]
-pub fn vault_delete(
-    state: State<'_, VaultManager>,
-    id: String,
-) -> Result<(), String> {
+pub fn vault_delete(state: State<'_, VaultManager>, id: String) -> Result<(), String> {
     state.delete(&id).map_err(|e| e.to_string())
 }
 

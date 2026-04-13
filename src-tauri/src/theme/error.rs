@@ -96,7 +96,10 @@ mod tests {
     #[test]
     fn display_builtin_protected() {
         let err = ThemeError::BuiltinProtected("Solarized Dark".into());
-        assert_eq!(err.to_string(), "Cannot modify built-in theme: Solarized Dark");
+        assert_eq!(
+            err.to_string(),
+            "Cannot modify built-in theme: Solarized Dark"
+        );
     }
 
     #[test]

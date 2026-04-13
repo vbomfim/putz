@@ -23,8 +23,7 @@ use russh::client;
 
 use super::SshHandler;
 use crate::protocol::{
-    ConnectionParams, ConnectionStatus, ConnectionStatusPayload,
-    EventEmitter, ProtocolError,
+    ConnectionParams, ConnectionStatus, ConnectionStatusPayload, EventEmitter, ProtocolError,
 };
 use crate::session::models::Protocol;
 use crate::session::SessionManager;
@@ -94,13 +93,9 @@ pub fn resolve_jump_chain(
         }
 
         // Look up the session profile
-        let profile = session_manager
-            .get_session(&current_id)
-            .map_err(|e| {
-                ProtocolError::InvalidParams(format!(
-                    "Jump host session '{current_id}' not found: {e}"
-                ))
-            })?;
+        let profile = session_manager.get_session(&current_id).map_err(|e| {
+            ProtocolError::InvalidParams(format!("Jump host session '{current_id}' not found: {e}"))
+        })?;
 
         // Validate it's an SSH session
         if profile.protocol != Protocol::Ssh {
@@ -126,24 +121,21 @@ pub fn resolve_jump_chain(
         }
 
         // Resolve vault password for this hop
-        let vault_password =
-            if let Some(ref cred_id) = profile.credential_id {
-                vault
-                    .get_for_session(cred_id)
-                    .ok()
-                    .map(|c| c.secret.clone())
-            } else {
-                None
-            };
+        let vault_password = if let Some(ref cred_id) = profile.credential_id {
+            vault
+                .get_for_session(cred_id)
+                .ok()
+                .map(|c| c.secret.clone())
+        } else {
+            None
+        };
 
         chain.push(JumpHostHop {
             session_id: profile.id.clone(),
             name: profile.name.clone(),
             host: host.to_string(),
             port: profile.port.unwrap_or(22),
-            username: profile
-                .username
-                .unwrap_or_else(|| "root".to_string()),
+            username: profile.username.unwrap_or_else(|| "root".to_string()),
             credential_id: profile.credential_id.clone(),
             vault_password,
             key_path: None, // Key path not stored in session profile
@@ -183,13 +175,7 @@ pub async fn connect_through_jump_hosts(
     connection_id: String,
     emitter: Arc<dyn EventEmitter>,
     target_vault_password: Option<String>,
-) -> Result<
-    (
-        super::SshConnection,
-        Vec<client::Handle<SshHandler>>,
-    ),
-    ProtocolError,
-> {
+) -> Result<(super::SshConnection, Vec<client::Handle<SshHandler>>), ProtocolError> {
     if hops.is_empty() {
         return Err(ProtocolError::InvalidParams(
             "Jump host chain is empty".into(),
@@ -201,9 +187,7 @@ pub async fn connect_through_jump_hosts(
 
     // The current stream to use for the next connection.
     // None = use TCP (first hop), Some = use tunneled stream.
-    let mut current_stream: Option<
-        russh::ChannelStream<client::Msg>,
-    > = None;
+    let mut current_stream: Option<russh::ChannelStream<client::Msg>> = None;
 
     for (i, hop) in hops.iter().enumerate() {
         let hop_number = i + 1;
@@ -286,32 +270,18 @@ pub async fn connect_through_jump_hosts(
             next_host = target_params
                 .host
                 .as_deref()
-                .ok_or_else(|| {
-                    ProtocolError::InvalidParams(
-                        "Target host is required".into(),
-                    )
-                })?
+                .ok_or_else(|| ProtocolError::InvalidParams("Target host is required".into()))?
                 .to_string();
             next_port = target_params.port.unwrap_or(22) as u32;
         }
 
         // Get the session handle to open the channel
-        let session_handle = hop_conn
-            .session_handle()
-            .ok_or_else(|| {
-                ProtocolError::ChannelClosed(format!(
-                    "Jump host '{}' session not available",
-                    hop.name
-                ))
-            })?;
+        let session_handle = hop_conn.session_handle().ok_or_else(|| {
+            ProtocolError::ChannelClosed(format!("Jump host '{}' session not available", hop.name))
+        })?;
 
         let channel = session_handle
-            .channel_open_direct_tcpip(
-                next_host,
-                next_port,
-                "127.0.0.1",
-                0,
-            )
+            .channel_open_direct_tcpip(next_host, next_port, "127.0.0.1", 0)
             .await
             .map_err(|e| {
                 ProtocolError::ChannelClosed(format!(
@@ -348,9 +318,7 @@ pub async fn connect_through_jump_hosts(
     );
 
     let stream = current_stream.ok_or_else(|| {
-        ProtocolError::ChannelClosed(
-            "No tunnel stream available for target".into(),
-        )
+        ProtocolError::ChannelClosed("No tunnel stream available for target".into())
     })?;
 
     let mut target_conn = super::SshConnection::new();
@@ -428,9 +396,7 @@ mod tests {
 
     #[tokio::test]
     async fn connect_through_empty_chain_returns_error() {
-        let emitter = Arc::new(
-            crate::protocol::test_utils::MockEmitter::new(),
-        );
+        let emitter = Arc::new(crate::protocol::test_utils::MockEmitter::new());
         let params = ConnectionParams {
             host: Some("target.local".into()),
             port: Some(22),
@@ -441,14 +407,8 @@ mod tests {
             key_path: None,
         };
 
-        let result = connect_through_jump_hosts(
-            &[],
-            params,
-            "test-conn".into(),
-            emitter,
-            None,
-        )
-        .await;
+        let result =
+            connect_through_jump_hosts(&[], params, "test-conn".into(), emitter, None).await;
 
         assert!(result.is_err());
         let err = match result {
@@ -462,17 +422,13 @@ mod tests {
                     "Error should mention empty chain: {msg}"
                 );
             }
-            other => panic!(
-                "Expected InvalidParams, got: {other:?}"
-            ),
+            other => panic!("Expected InvalidParams, got: {other:?}"),
         }
     }
 
     #[tokio::test]
     async fn connect_emits_hop_progress_events() {
-        let emitter = Arc::new(
-            crate::protocol::test_utils::MockEmitter::new(),
-        );
+        let emitter = Arc::new(crate::protocol::test_utils::MockEmitter::new());
         let params = ConnectionParams {
             host: Some("target.local".into()),
             port: Some(22),
@@ -496,14 +452,9 @@ mod tests {
             key_path: None,
         };
 
-        let _ = connect_through_jump_hosts(
-            &[hop],
-            params,
-            "test-conn".into(),
-            emitter.clone(),
-            None,
-        )
-        .await;
+        let _ =
+            connect_through_jump_hosts(&[hop], params, "test-conn".into(), emitter.clone(), None)
+                .await;
 
         // Verify progress event was emitted
         let statuses = emitter.statuses.lock().unwrap();
@@ -515,19 +466,11 @@ mod tests {
         assert_eq!(conn_id, "test-conn");
         assert_eq!(payload.status, ConnectionStatus::Connecting);
         assert!(
-            payload
-                .message
-                .as_ref()
-                .unwrap()
-                .contains("Bastion-1"),
+            payload.message.as_ref().unwrap().contains("Bastion-1"),
             "Progress message should contain hop name"
         );
         assert!(
-            payload
-                .message
-                .as_ref()
-                .unwrap()
-                .contains("hop 1"),
+            payload.message.as_ref().unwrap().contains("hop 1"),
             "Progress message should contain hop number"
         );
     }
@@ -584,11 +527,9 @@ mod tests {
     #[test]
     fn resolve_single_hop_chain() {
         let (sm, vm, dir) = setup_managers();
-        let bastion_id =
-            create_ssh_session(&sm, "Bastion-1", "10.0.0.1", None);
+        let bastion_id = create_ssh_session(&sm, "Bastion-1", "10.0.0.1", None);
 
-        let chain =
-            resolve_jump_chain(&bastion_id, &sm, &vm).unwrap();
+        let chain = resolve_jump_chain(&bastion_id, &sm, &vm).unwrap();
         assert_eq!(chain.len(), 1);
         assert_eq!(chain[0].name, "Bastion-1");
         assert_eq!(chain[0].host, "10.0.0.1");
@@ -603,18 +544,11 @@ mod tests {
         let (sm, vm, dir) = setup_managers();
 
         // Create chain: Bastion-1 (no jump) → JumpBox-2 (jumps through Bastion-1)
-        let bastion_id =
-            create_ssh_session(&sm, "Bastion-1", "10.0.0.1", None);
-        let jumpbox_id = create_ssh_session(
-            &sm,
-            "JumpBox-2",
-            "10.0.1.1",
-            Some(bastion_id.clone()),
-        );
+        let bastion_id = create_ssh_session(&sm, "Bastion-1", "10.0.0.1", None);
+        let jumpbox_id = create_ssh_session(&sm, "JumpBox-2", "10.0.1.1", Some(bastion_id.clone()));
 
         // Resolve from jumpbox (the last hop before target)
-        let chain =
-            resolve_jump_chain(&jumpbox_id, &sm, &vm).unwrap();
+        let chain = resolve_jump_chain(&jumpbox_id, &sm, &vm).unwrap();
 
         // Chain should be [Bastion-1, JumpBox-2] (connection order)
         assert_eq!(chain.len(), 2);
@@ -630,23 +564,11 @@ mod tests {
     fn resolve_three_hop_chain() {
         let (sm, vm, dir) = setup_managers();
 
-        let hop1_id =
-            create_ssh_session(&sm, "Hop-1", "10.0.0.1", None);
-        let hop2_id = create_ssh_session(
-            &sm,
-            "Hop-2",
-            "10.0.1.1",
-            Some(hop1_id.clone()),
-        );
-        let hop3_id = create_ssh_session(
-            &sm,
-            "Hop-3",
-            "10.0.2.1",
-            Some(hop2_id.clone()),
-        );
+        let hop1_id = create_ssh_session(&sm, "Hop-1", "10.0.0.1", None);
+        let hop2_id = create_ssh_session(&sm, "Hop-2", "10.0.1.1", Some(hop1_id.clone()));
+        let hop3_id = create_ssh_session(&sm, "Hop-3", "10.0.2.1", Some(hop2_id.clone()));
 
-        let chain =
-            resolve_jump_chain(&hop3_id, &sm, &vm).unwrap();
+        let chain = resolve_jump_chain(&hop3_id, &sm, &vm).unwrap();
 
         assert_eq!(chain.len(), 3);
         assert_eq!(chain[0].name, "Hop-1");
@@ -661,14 +583,8 @@ mod tests {
         let (sm, vm, dir) = setup_managers();
 
         // Create two sessions that point to each other
-        let id1 =
-            create_ssh_session(&sm, "Loop-A", "10.0.0.1", None);
-        let id2 = create_ssh_session(
-            &sm,
-            "Loop-B",
-            "10.0.0.2",
-            Some(id1.clone()),
-        );
+        let id1 = create_ssh_session(&sm, "Loop-A", "10.0.0.1", None);
+        let id2 = create_ssh_session(&sm, "Loop-B", "10.0.0.2", Some(id1.clone()));
 
         // Update Loop-A to point to Loop-B (creating a cycle)
         use crate::session::models::UpdateSessionInput;
@@ -703,9 +619,7 @@ mod tests {
                     "Error should mention circular: {msg}"
                 );
             }
-            other => panic!(
-                "Expected InvalidParams, got: {other:?}"
-            ),
+            other => panic!("Expected InvalidParams, got: {other:?}"),
         }
 
         cleanup(&dir);
@@ -747,9 +661,7 @@ mod tests {
                     "Error should mention SSH requirement: {msg}"
                 );
             }
-            other => panic!(
-                "Expected InvalidParams, got: {other:?}"
-            ),
+            other => panic!("Expected InvalidParams, got: {other:?}"),
         }
 
         cleanup(&dir);
@@ -787,10 +699,7 @@ mod tests {
         match sm.create_session(input) {
             Ok(id) => {
                 let result = resolve_jump_chain(&id, &sm, &vm);
-                assert!(
-                    result.is_err(),
-                    "Should reject empty host"
-                );
+                assert!(result.is_err(), "Should reject empty host");
                 match result.unwrap_err() {
                     ProtocolError::InvalidParams(msg) => {
                         assert!(
@@ -798,9 +707,7 @@ mod tests {
                             "Error should mention empty host: {msg}"
                         );
                     }
-                    other => panic!(
-                        "Expected InvalidParams, got: {other:?}"
-                    ),
+                    other => panic!("Expected InvalidParams, got: {other:?}"),
                 }
             }
             Err(_) => {
@@ -816,11 +723,7 @@ mod tests {
     fn resolve_rejects_nonexistent_session() {
         let (sm, vm, dir) = setup_managers();
 
-        let result = resolve_jump_chain(
-            "550e8400-e29b-41d4-a716-446655440000",
-            &sm,
-            &vm,
-        );
+        let result = resolve_jump_chain("550e8400-e29b-41d4-a716-446655440000", &sm, &vm);
         assert!(result.is_err());
         match result.unwrap_err() {
             ProtocolError::InvalidParams(msg) => {
@@ -829,9 +732,7 @@ mod tests {
                     "Error should mention not found: {msg}"
                 );
             }
-            other => panic!(
-                "Expected InvalidParams, got: {other:?}"
-            ),
+            other => panic!("Expected InvalidParams, got: {other:?}"),
         }
 
         cleanup(&dir);

@@ -89,11 +89,7 @@ impl EventEmitter for TauriEventEmitter {
         let _ = tauri::Emitter::emit(&self.app, &event, data);
     }
 
-    fn emit_status(
-        &self,
-        connection_id: &str,
-        payload: &ConnectionStatusPayload,
-    ) {
+    fn emit_status(&self, connection_id: &str, payload: &ConnectionStatusPayload) {
         let event = format!("connection-status-{connection_id}");
         let _ = tauri::Emitter::emit(&self.app, &event, payload);
     }

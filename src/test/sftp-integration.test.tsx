@@ -8,7 +8,7 @@
  * Tags: [AC-1]–[AC-6], [INTEGRATION]
  */
 import { describe, it, expect, vi, beforeEach, type Mock } from "vitest";
-import { render, screen, fireEvent, waitFor, within, act } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { SFTPPanel } from "../components/SFTP/SFTPPanel";
 import { TransferQueue } from "../components/SFTP/TransferQueue";

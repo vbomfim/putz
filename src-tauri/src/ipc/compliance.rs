@@ -52,9 +52,7 @@ pub fn change_window_delete(
 ///
 /// Used by the frontend to show the green/red lock indicator.
 #[tauri::command]
-pub fn change_window_active(
-    state: State<'_, ChangeWindowManager>,
-) -> Result<bool, String> {
+pub fn change_window_active(state: State<'_, ChangeWindowManager>) -> Result<bool, String> {
     state.is_window_active().map_err(|e| e.to_string())
 }
 

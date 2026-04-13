@@ -43,7 +43,13 @@ const ALLOWED_SHELLS_WINDOWS: &[&str] = &["powershell.exe", "pwsh.exe", "cmd.exe
 /// Allowed environment variable name patterns.
 /// Only these prefixes/exact names may be passed to the PTY.
 const ALLOWED_ENV_NAMES: &[&str] = &[
-    "TERM", "LANG", "COLORTERM", "EDITOR", "VISUAL", "PAGER", "TZ",
+    "TERM",
+    "LANG",
+    "COLORTERM",
+    "EDITOR",
+    "VISUAL",
+    "PAGER",
+    "TZ",
 ];
 const ALLOWED_ENV_PREFIXES: &[&str] = &["LC_", "PUTZ_"];
 
@@ -418,8 +424,7 @@ fn default_shell() -> String {
 
 /// Validates that a session ID is a valid UUID v4 format.
 fn validate_session_id(session_id: &str) -> Result<(), PtyError> {
-    Uuid::parse_str(session_id)
-        .map_err(|_| PtyError::InvalidSessionId(session_id.to_string()))?;
+    Uuid::parse_str(session_id).map_err(|_| PtyError::InvalidSessionId(session_id.to_string()))?;
     Ok(())
 }
 
@@ -479,7 +484,9 @@ fn get_process_cwd(pid: u32) -> Result<String, PtyError> {
         let link = format!("/proc/{}/cwd", pid);
         std::fs::read_link(&link)
             .map(|p| p.to_string_lossy().to_string())
-            .map_err(|e| PtyError::WriteFailed(format!("Failed to read CWD for PID {}: {}", pid, e)))
+            .map_err(|e| {
+                PtyError::WriteFailed(format!("Failed to read CWD for PID {}: {}", pid, e))
+            })
     }
 
     #[cfg(target_os = "macos")]
@@ -499,12 +506,17 @@ fn get_process_cwd(pid: u32) -> Result<String, PtyError> {
                 }
             }
         }
-        Err(PtyError::WriteFailed(format!("Could not determine CWD for PID {}", pid)))
+        Err(PtyError::WriteFailed(format!(
+            "Could not determine CWD for PID {}",
+            pid
+        )))
     }
 
     #[cfg(windows)]
     {
-        Err(PtyError::WriteFailed("CWD lookup not supported on Windows".to_string()))
+        Err(PtyError::WriteFailed(
+            "CWD lookup not supported on Windows".to_string(),
+        ))
     }
 }
 
@@ -703,8 +715,7 @@ mod tests {
 
     #[test]
     fn validate_cwd_rejects_nonexistent_dir() {
-        let result =
-            validate_working_directory("/definitely/nonexistent/path/xyz123");
+        let result = validate_working_directory("/definitely/nonexistent/path/xyz123");
         assert!(result.is_err());
         match result.unwrap_err() {
             PtyError::InvalidWorkingDirectory(_) => {}

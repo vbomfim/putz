@@ -10,8 +10,7 @@ use tauri::State;
 
 use crate::protocol::connection_manager::ConnectionManager;
 use crate::protocol::ssh::forwarding::{
-    ForwardingManager, ForwardingRuleInput, ForwardingStatus,
-    ForwardingType,
+    ForwardingManager, ForwardingRuleInput, ForwardingStatus, ForwardingType,
 };
 
 /// Adds a port forwarding rule to an active SSH connection.
@@ -29,48 +28,25 @@ pub async fn forwarding_add(
     connection_id: String,
     rule: ForwardingRuleInput,
 ) -> Result<String, String> {
-    let emitter = std::sync::Arc::new(
-        crate::protocol::TauriEventEmitter::new(app),
-    );
+    let emitter = std::sync::Arc::new(crate::protocol::TauriEventEmitter::new(app));
 
     // Clone the ConnectionManager (cheap — inner state is Arc-wrapped).
     // Background tasks need an owned reference to open channels on-demand.
     let conn_mgr = conn_manager.inner().clone();
 
     match rule.forwarding_type {
-        ForwardingType::Local => {
-            fwd_manager
-                .add_local_forward(
-                    connection_id,
-                    rule,
-                    std::sync::Arc::new(conn_mgr),
-                    emitter,
-                )
-                .await
-                .map_err(|e| e.to_string())
-        }
-        ForwardingType::Remote => {
-            fwd_manager
-                .add_remote_forward(
-                    connection_id,
-                    rule,
-                    &conn_mgr,
-                    emitter,
-                )
-                .await
-                .map_err(|e| e.to_string())
-        }
-        ForwardingType::Dynamic => {
-            fwd_manager
-                .add_dynamic_forward(
-                    connection_id,
-                    rule,
-                    std::sync::Arc::new(conn_mgr),
-                    emitter,
-                )
-                .await
-                .map_err(|e| e.to_string())
-        }
+        ForwardingType::Local => fwd_manager
+            .add_local_forward(connection_id, rule, std::sync::Arc::new(conn_mgr), emitter)
+            .await
+            .map_err(|e| e.to_string()),
+        ForwardingType::Remote => fwd_manager
+            .add_remote_forward(connection_id, rule, &conn_mgr, emitter)
+            .await
+            .map_err(|e| e.to_string()),
+        ForwardingType::Dynamic => fwd_manager
+            .add_dynamic_forward(connection_id, rule, std::sync::Arc::new(conn_mgr), emitter)
+            .await
+            .map_err(|e| e.to_string()),
     }
 }
 
@@ -112,9 +88,7 @@ pub async fn forwarding_status(
 
 #[cfg(test)]
 mod tests {
-    use crate::protocol::ssh::forwarding::{
-        ForwardingRuleInput, ForwardingType,
-    };
+    use crate::protocol::ssh::forwarding::{ForwardingRuleInput, ForwardingType};
     use crate::protocol::ssh::x11::X11ForwardingConfig;
 
     #[test]
@@ -125,14 +99,10 @@ mod tests {
             "remoteHost": "db.internal",
             "remotePort": 5432
         }"#;
-        let rule: ForwardingRuleInput =
-            serde_json::from_str(json).unwrap();
+        let rule: ForwardingRuleInput = serde_json::from_str(json).unwrap();
         assert_eq!(rule.forwarding_type, ForwardingType::Local);
         assert_eq!(rule.local_port, 8080);
-        assert_eq!(
-            rule.remote_host,
-            Some("db.internal".into())
-        );
+        assert_eq!(rule.remote_host, Some("db.internal".into()));
         assert_eq!(rule.remote_port, Some(5432));
     }
 
@@ -142,12 +112,8 @@ mod tests {
             "forwardingType": "dynamic",
             "localPort": 1080
         }"#;
-        let rule: ForwardingRuleInput =
-            serde_json::from_str(json).unwrap();
-        assert_eq!(
-            rule.forwarding_type,
-            ForwardingType::Dynamic
-        );
+        let rule: ForwardingRuleInput = serde_json::from_str(json).unwrap();
+        assert_eq!(rule.forwarding_type, ForwardingType::Dynamic);
         assert_eq!(rule.local_port, 1080);
         assert_eq!(rule.remote_host, None);
     }
@@ -160,12 +126,8 @@ mod tests {
             "remoteHost": "0.0.0.0",
             "remotePort": 8080
         }"#;
-        let rule: ForwardingRuleInput =
-            serde_json::from_str(json).unwrap();
-        assert_eq!(
-            rule.forwarding_type,
-            ForwardingType::Remote
-        );
+        let rule: ForwardingRuleInput = serde_json::from_str(json).unwrap();
+        assert_eq!(rule.forwarding_type, ForwardingType::Remote);
         assert_eq!(rule.local_port, 3000);
         assert_eq!(rule.remote_port, Some(8080));
     }
@@ -179,12 +141,8 @@ mod tests {
             "remotePort": 80,
             "bindAddress": "192.168.1.100"
         }"#;
-        let rule: ForwardingRuleInput =
-            serde_json::from_str(json).unwrap();
-        assert_eq!(
-            rule.bind_address,
-            Some("192.168.1.100".into())
-        );
+        let rule: ForwardingRuleInput = serde_json::from_str(json).unwrap();
+        assert_eq!(rule.bind_address, Some("192.168.1.100".into()));
     }
 
     #[test]
@@ -193,8 +151,7 @@ mod tests {
             "forwardingType": "invalid",
             "localPort": 8080
         }"#;
-        let result =
-            serde_json::from_str::<ForwardingRuleInput>(json);
+        let result = serde_json::from_str::<ForwardingRuleInput>(json);
         assert!(result.is_err());
     }
 
@@ -205,8 +162,7 @@ mod tests {
             "displayNumber": 10,
             "trusted": true
         }"#;
-        let config: X11ForwardingConfig =
-            serde_json::from_str(json).unwrap();
+        let config: X11ForwardingConfig = serde_json::from_str(json).unwrap();
         assert!(config.enabled);
         assert_eq!(config.display_number, Some(10));
         assert!(config.trusted);
@@ -218,8 +174,7 @@ mod tests {
             "enabled": false,
             "trusted": false
         }"#;
-        let config: X11ForwardingConfig =
-            serde_json::from_str(json).unwrap();
+        let config: X11ForwardingConfig = serde_json::from_str(json).unwrap();
         assert!(!config.enabled);
         assert_eq!(config.display_number, None);
         assert!(!config.trusted);

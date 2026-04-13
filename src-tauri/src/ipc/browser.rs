@@ -1,6 +1,6 @@
 /// IPC commands for browser webview operations.
 /// Uses WebviewWindow for pop-out, and attempts WebviewBuilder for in-tab.
-use tauri::{AppHandle, Manager, State, Url, WebviewUrl, WebviewWindowBuilder, WebviewBuilder};
+use tauri::{AppHandle, Manager, State, Url, WebviewBuilder, WebviewUrl, WebviewWindowBuilder};
 
 use crate::browser::BrowserManager;
 
@@ -34,7 +34,9 @@ pub fn browser_open(
     if let Some(existing) = app.get_webview_window(&label) {
         existing.show().map_err(|e| e.to_string())?;
         existing.set_focus().map_err(|e| e.to_string())?;
-        existing.navigate(parsed_url).map_err(|e| format!("Navigation failed: {e}"))?;
+        existing
+            .navigate(parsed_url)
+            .map_err(|e| format!("Navigation failed: {e}"))?;
         return Ok(());
     }
 
@@ -88,14 +90,17 @@ pub fn browser_navigate(
     url: String,
 ) -> Result<(), String> {
     let parsed_url = validate_url(&url)?;
-    let label = state.get_label(&tab_id)
+    let label = state
+        .get_label(&tab_id)
         .ok_or_else(|| format!("No browser for tab {tab_id}"))?;
-    
+
     // Try webview first (child), then window
     if let Some(wv) = app.get_webview(&label) {
-        wv.navigate(parsed_url).map_err(|e| format!("Navigation failed: {e}"))?;
+        wv.navigate(parsed_url)
+            .map_err(|e| format!("Navigation failed: {e}"))?;
     } else if let Some(win) = app.get_webview_window(&label) {
-        win.navigate(parsed_url).map_err(|e| format!("Navigation failed: {e}"))?;
+        win.navigate(parsed_url)
+            .map_err(|e| format!("Navigation failed: {e}"))?;
     } else {
         return Err(format!("Browser '{label}' not found"));
     }
@@ -149,20 +154,25 @@ pub fn browser_set_visible(
 ) -> Result<(), String> {
     let label = state.get_label(&tab_id).ok_or("Not found")?;
     if let Some(wv) = app.get_webview(&label) {
-        if visible { let _ = wv.show(); } else { let _ = wv.hide(); }
+        if visible {
+            let _ = wv.show();
+        } else {
+            let _ = wv.hide();
+        }
     }
     if let Some(win) = app.get_webview_window(&label) {
-        if visible { let _ = win.show(); } else { let _ = win.hide(); }
+        if visible {
+            let _ = win.show();
+        } else {
+            let _ = win.hide();
+        }
     }
     Ok(())
 }
 
 /// Hides ALL registered browser webviews. Called during workspace switch.
 #[tauri::command]
-pub fn browser_hide_all(
-    app: AppHandle,
-    state: State<'_, BrowserManager>,
-) -> Result<(), String> {
+pub fn browser_hide_all(app: AppHandle, state: State<'_, BrowserManager>) -> Result<(), String> {
     for label in state.all_labels() {
         if let Some(wv) = app.get_webview(&label) {
             let _ = wv.hide();
@@ -183,7 +193,11 @@ pub fn log_debug(msg: String) {
 mod tests {
     use super::*;
     #[test]
-    fn validate_url_accepts_https() { assert!(validate_url("https://example.com").is_ok()); }
+    fn validate_url_accepts_https() {
+        assert!(validate_url("https://example.com").is_ok());
+    }
     #[test]
-    fn validate_url_rejects_javascript() { assert!(validate_url("javascript:alert(1)").is_err()); }
+    fn validate_url_rejects_javascript() {
+        assert!(validate_url("javascript:alert(1)").is_err());
+    }
 }

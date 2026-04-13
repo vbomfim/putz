@@ -6,8 +6,8 @@ use tauri::{AppHandle, State};
 
 use crate::nettools::backup::{self, SaveBackupRequest, SaveBackupResponse};
 use crate::nettools::ping::{
-    self, build_ping_command, parse_reply_line, parse_rtt_stats_line,
-    parse_summary_line, PingManager, PingRequest, PingResult, PingSummary,
+    self, build_ping_command, parse_reply_line, parse_rtt_stats_line, parse_summary_line,
+    PingManager, PingRequest, PingResult, PingSummary,
 };
 
 use tokio::io::{AsyncBufReadExt, BufReader};
@@ -139,10 +139,7 @@ pub async fn ping_start(
 
 /// Stops a running ping session.
 #[tauri::command]
-pub fn ping_stop(
-    state: State<'_, PingManager>,
-    id: String,
-) -> Result<(), String> {
+pub fn ping_stop(state: State<'_, PingManager>, id: String) -> Result<(), String> {
     state.stop(&id)
 }
 
@@ -150,8 +147,6 @@ pub fn ping_stop(
 ///
 /// Writes to `~/putz-backups/{hostname}_{timestamp}.txt`.
 #[tauri::command]
-pub fn save_backup(
-    request: SaveBackupRequest,
-) -> Result<SaveBackupResponse, String> {
+pub fn save_backup(request: SaveBackupRequest) -> Result<SaveBackupResponse, String> {
     backup::save_backup(&request)
 }

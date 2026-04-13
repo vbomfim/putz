@@ -148,8 +148,7 @@ mod tests {
 
     #[test]
     fn from_io_error() {
-        let io_err =
-            std::io::Error::new(std::io::ErrorKind::NotFound, "file missing");
+        let io_err = std::io::Error::new(std::io::ErrorKind::NotFound, "file missing");
         let script_err: ScriptError = io_err.into();
         assert!(matches!(script_err, ScriptError::IoError(_)));
         assert!(script_err.to_string().contains("file missing"));
@@ -157,8 +156,7 @@ mod tests {
 
     #[test]
     fn from_serde_error() {
-        let json_err =
-            serde_json::from_str::<serde_json::Value>("{{bad}}").unwrap_err();
+        let json_err = serde_json::from_str::<serde_json::Value>("{{bad}}").unwrap_err();
         let script_err: ScriptError = json_err.into();
         assert!(matches!(script_err, ScriptError::ParseError(_)));
     }

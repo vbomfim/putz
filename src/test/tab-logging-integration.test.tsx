@@ -10,7 +10,7 @@
  * Tags: [AC-1], [AC-3], [AC-7], [INTEGRATION], [EDGE]
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { render, screen, fireEvent, within, act } from "@testing-library/react";
+import { render, screen, act } from "@testing-library/react";
 
 // ── Mocks ─────────────────────────────────────────────────────────────
 
@@ -272,7 +272,8 @@ describe("Tab Logging Indicator Integration", () => {
       });
 
       // Render all three tabs
-      const { container } = render(
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const { _container } = render(
         <div role="tablist">
           <Tab
             tab={tab1}

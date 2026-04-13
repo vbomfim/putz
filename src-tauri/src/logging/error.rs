@@ -64,10 +64,7 @@ mod tests {
     #[test]
     fn display_not_found() {
         let err = LogError::NotFound("abc-123".into());
-        assert_eq!(
-            err.to_string(),
-            "No active logger for session: abc-123"
-        );
+        assert_eq!(err.to_string(), "No active logger for session: abc-123");
     }
 
     #[test]

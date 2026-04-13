@@ -22,12 +22,14 @@ vi.mock("@tauri-apps/api/event", () => ({
 }));
 
 // Mock MonacoEditor — renders a textarea for testability
-let mockMonacoValue = "";
-let mockMonacoOnChange: ((val: string) => void) | null = null;
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+let _mockMonacoValue = "";
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+let _mockMonacoOnChange: ((val: string) => void) | null = null;
 vi.mock("../components/Scripting/MonacoEditor", () => ({
   MonacoEditor: ({ value, onChange, readOnly }: { value: string; onChange: (v: string) => void; readOnly?: boolean }) => {
-    mockMonacoValue = value;
-    mockMonacoOnChange = onChange;
+    _mockMonacoValue = value;
+    _mockMonacoOnChange = onChange;
     return (
       <textarea
         data-testid="script-content-textarea"

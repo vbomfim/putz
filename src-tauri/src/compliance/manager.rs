@@ -145,12 +145,10 @@ impl ChangeWindowManager {
             // Check hour range
             let hour_matches = if window.start_hour <= window.end_hour {
                 // Normal range: e.g., 09–17
-                current_hour >= window.start_hour as u32
-                    && current_hour < window.end_hour as u32
+                current_hour >= window.start_hour as u32 && current_hour < window.end_hour as u32
             } else {
                 // Wrapping range: e.g., 22–06 (overnight)
-                current_hour >= window.start_hour as u32
-                    || current_hour < window.end_hour as u32
+                current_hour >= window.start_hour as u32 || current_hour < window.end_hour as u32
             };
 
             if hour_matches {
@@ -185,11 +183,9 @@ impl ChangeWindowManager {
                 continue;
             }
             let hour_matches = if window.start_hour <= window.end_hour {
-                current_hour >= window.start_hour as u32
-                    && current_hour < window.end_hour as u32
+                current_hour >= window.start_hour as u32 && current_hour < window.end_hour as u32
             } else {
-                current_hour >= window.start_hour as u32
-                    || current_hour < window.end_hour as u32
+                current_hour >= window.start_hour as u32 || current_hour < window.end_hour as u32
             };
             if hour_matches {
                 return Ok(true);
@@ -327,7 +323,11 @@ mod tests {
     use tempfile::TempDir;
 
     /// Helper: creates a manager with a temp dir and an always-open window.
-    fn manager_with_window(start_hour: u8, end_hour: u8, days: Vec<u8>) -> (ChangeWindowManager, TempDir) {
+    fn manager_with_window(
+        start_hour: u8,
+        end_hour: u8,
+        days: Vec<u8>,
+    ) -> (ChangeWindowManager, TempDir) {
         let tmp = TempDir::new().unwrap();
         let mgr = ChangeWindowManager::with_config_dir(tmp.path().to_path_buf());
         mgr.set(SetChangeWindowInput {
@@ -450,7 +450,12 @@ mod tests {
     fn show_command_not_dangerous() {
         let tmp = TempDir::new().unwrap();
         let mgr = ChangeWindowManager::with_config_dir(tmp.path().to_path_buf());
-        for cmd in &["show run", "show interfaces", "ping 10.0.0.1", "traceroute 8.8.8.8"] {
+        for cmd in &[
+            "show run",
+            "show interfaces",
+            "ping 10.0.0.1",
+            "traceroute 8.8.8.8",
+        ] {
             let result = mgr.check_command(cmd).unwrap();
             assert!(result.allowed, "Expected '{}' to be allowed", cmd);
         }

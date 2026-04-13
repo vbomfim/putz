@@ -33,9 +33,8 @@ impl CommandHistoryManager {
             })?;
         }
 
-        let conn = Connection::open(&db_path).map_err(|e| {
-            HistoryError::DatabaseError(format!("Cannot open database: {e}"))
-        })?;
+        let conn = Connection::open(&db_path)
+            .map_err(|e| HistoryError::DatabaseError(format!("Cannot open database: {e}")))?;
 
         Self::initialize_schema(&conn)?;
 
@@ -47,8 +46,8 @@ impl CommandHistoryManager {
     /// Creates a new manager with an in-memory database (for testing).
     #[cfg(test)]
     pub fn new_in_memory() -> Result<Self, HistoryError> {
-        let conn = Connection::open_in_memory()
-            .map_err(|e| HistoryError::DatabaseError(e.to_string()))?;
+        let conn =
+            Connection::open_in_memory().map_err(|e| HistoryError::DatabaseError(e.to_string()))?;
         Self::initialize_schema(&conn)?;
         Ok(Self {
             db: Mutex::new(conn),
@@ -245,16 +244,14 @@ impl CommandHistoryManager {
             .lock()
             .map_err(|_| HistoryError::LockError("mutex poisoned".into()))?;
 
-        let count: u32 =
-            db.query_row("SELECT COUNT(*) FROM commands", [], |row| row.get(0))?;
+        let count: u32 = db.query_row("SELECT COUNT(*) FROM commands", [], |row| row.get(0))?;
 
         Ok(count)
     }
 
     /// Prunes oldest entries if the total exceeds `MAX_HISTORY_ENTRIES`.
     fn prune_if_needed(&self, db: &Connection) -> Result<(), HistoryError> {
-        let count: u32 =
-            db.query_row("SELECT COUNT(*) FROM commands", [], |row| row.get(0))?;
+        let count: u32 = db.query_row("SELECT COUNT(*) FROM commands", [], |row| row.get(0))?;
 
         if count > MAX_HISTORY_ENTRIES {
             let excess = count - MAX_HISTORY_ENTRIES;
@@ -347,7 +344,8 @@ mod tests {
     fn search_finds_matching_commands() {
         let mgr = make_manager();
         mgr.add(make_input("show ip route", "s1")).unwrap();
-        mgr.add(make_input("show ip interface brief", "s1")).unwrap();
+        mgr.add(make_input("show ip interface brief", "s1"))
+            .unwrap();
         mgr.add(make_input("configure terminal", "s1")).unwrap();
 
         let results = mgr

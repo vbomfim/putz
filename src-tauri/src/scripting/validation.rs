@@ -212,9 +212,7 @@ mod tests {
 
     #[test]
     fn valid_uuid() {
-        assert!(
-            validate_uuid("550e8400-e29b-41d4-a716-446655440000").is_ok()
-        );
+        assert!(validate_uuid("550e8400-e29b-41d4-a716-446655440000").is_ok());
     }
 
     #[test]
@@ -232,10 +230,7 @@ mod tests {
 
     #[test]
     fn sanitize_name_with_special_chars() {
-        assert_eq!(
-            sanitize_filename("Script #1 (prod)"),
-            "script-1-prod.js"
-        );
+        assert_eq!(sanitize_filename("Script #1 (prod)"), "script-1-prod.js");
     }
 
     #[test]
@@ -248,10 +243,7 @@ mod tests {
 
     #[test]
     fn sanitize_name_with_underscores() {
-        assert_eq!(
-            sanitize_filename("my_script_v2"),
-            "my_script_v2.js"
-        );
+        assert_eq!(sanitize_filename("my_script_v2"), "my_script_v2.js");
     }
 
     #[test]
@@ -266,17 +258,11 @@ mod tests {
 
     #[test]
     fn sanitize_preserves_hyphens() {
-        assert_eq!(
-            sanitize_filename("my-script"),
-            "my-script.js"
-        );
+        assert_eq!(sanitize_filename("my-script"), "my-script.js");
     }
 
     #[test]
     fn sanitize_trims_whitespace() {
-        assert_eq!(
-            sanitize_filename("  my script  "),
-            "my-script.js"
-        );
+        assert_eq!(sanitize_filename("  my script  "), "my-script.js");
     }
 }

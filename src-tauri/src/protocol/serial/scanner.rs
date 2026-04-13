@@ -28,9 +28,7 @@ pub struct SerialPortInfo {
 /// Returns the list of ports, or an error message if enumeration fails.
 pub fn list_serial_ports() -> Result<Vec<SerialPortInfo>, String> {
     match serialport::available_ports() {
-        Ok(ports) => {
-            Ok(ports.into_iter().map(map_port_info).collect())
-        }
+        Ok(ports) => Ok(ports.into_iter().map(map_port_info).collect()),
         Err(e) => {
             eprintln!("Failed to enumerate serial ports: {e}");
             Err(format!("Failed to enumerate serial ports: {e}"))
@@ -133,15 +131,13 @@ mod tests {
     fn map_usb_port_extracts_metadata() {
         let port = serialport::SerialPortInfo {
             port_name: "/dev/ttyUSB0".into(),
-            port_type: serialport::SerialPortType::UsbPort(
-                serialport::UsbPortInfo {
-                    vid: 0x0403,
-                    pid: 0x6001,
-                    serial_number: Some("A12345".into()),
-                    manufacturer: Some("FTDI".into()),
-                    product: Some("FT232R".into()),
-                },
-            ),
+            port_type: serialport::SerialPortType::UsbPort(serialport::UsbPortInfo {
+                vid: 0x0403,
+                pid: 0x6001,
+                serial_number: Some("A12345".into()),
+                manufacturer: Some("FTDI".into()),
+                product: Some("FT232R".into()),
+            }),
         };
         let info = map_port_info(port);
         assert_eq!(info.name, "/dev/ttyUSB0");
@@ -155,15 +151,13 @@ mod tests {
     fn map_usb_port_without_product_uses_default() {
         let port = serialport::SerialPortInfo {
             port_name: "COM3".into(),
-            port_type: serialport::SerialPortType::UsbPort(
-                serialport::UsbPortInfo {
-                    vid: 0x10C4,
-                    pid: 0xEA60,
-                    serial_number: None,
-                    manufacturer: None,
-                    product: None,
-                },
-            ),
+            port_type: serialport::SerialPortType::UsbPort(serialport::UsbPortInfo {
+                vid: 0x10C4,
+                pid: 0xEA60,
+                serial_number: None,
+                manufacturer: None,
+                product: None,
+            }),
         };
         let info = map_port_info(port);
         assert_eq!(info.description, "USB Serial Device");

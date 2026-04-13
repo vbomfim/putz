@@ -23,7 +23,6 @@ vi.mock("@tauri-apps/api/event", () => ({
 
 // Import after mocks are set up
 import { useLayoutStore } from "../stores/layoutStore";
-import type { LayoutNode, Region } from "../types";
 
 /** Helper to reset store to a clean initial state. */
 function resetStore(): void {
@@ -352,7 +351,8 @@ describe("layoutStore", () => {
         await useLayoutStore.getState().addTerminalTab();
       });
 
-      const originalRegionId = useLayoutStore.getState().focusedRegionId;
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const _originalRegionId = useLayoutStore.getState().focusedRegionId;
       mockInvoke.mockResolvedValueOnce("session-new");
       await act(async () => {
         await useLayoutStore.getState().splitRegion("vertical");
@@ -369,7 +369,8 @@ describe("layoutStore", () => {
         await useLayoutStore.getState().addTerminalTab();
       });
 
-      const originalRegionId = useLayoutStore.getState().focusedRegionId;
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const _originalRegionId = useLayoutStore.getState().focusedRegionId;
       mockInvoke.mockResolvedValueOnce("session-new");
       await act(async () => {
         await useLayoutStore.getState().splitRegion("vertical");
@@ -735,7 +736,8 @@ describe("layoutStore", () => {
         await useLayoutStore.getState().addTerminalTab();
       });
 
-      const originalRegionId = useLayoutStore.getState().focusedRegionId;
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const _originalRegionId = useLayoutStore.getState().focusedRegionId;
 
       mockInvoke.mockResolvedValueOnce("session-split");
       await act(async () => {

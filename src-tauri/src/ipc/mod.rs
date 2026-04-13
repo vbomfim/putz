@@ -22,13 +22,20 @@ pub use autologin::{
     autologin_cancel, autologin_delete_profile, autologin_get_profile, autologin_process,
     autologin_set_profile, autologin_start,
 };
+pub use browser::{
+    browser_close, browser_hide_all, browser_navigate, browser_open, browser_resize,
+    browser_set_visible, log_debug,
+};
+pub use compliance::{
+    change_window_active, change_window_check, change_window_delete, change_window_list,
+    change_window_set,
+};
 pub use connection::{
     connection_close, connection_open, connection_resize, connection_write, serial_list_ports,
     serial_send_break,
 };
-pub use forwarding::{
-    forwarding_add, forwarding_list, forwarding_remove, forwarding_status,
-};
+pub use editor::{file_mtime, file_read, file_replace, file_replace_all, file_search, file_write};
+pub use forwarding::{forwarding_add, forwarding_list, forwarding_remove, forwarding_status};
 pub use highlight::{
     highlight_create_set, highlight_delete_set, highlight_get_set, highlight_list_sets,
     highlight_update_set,
@@ -47,8 +54,8 @@ pub use session::{
     session_search, session_update,
 };
 pub use sftp::{
-    sftp_close, sftp_delete, sftp_download, sftp_list, sftp_mkdir,
-    sftp_open, sftp_rename, sftp_stat, sftp_upload,
+    sftp_close, sftp_delete, sftp_download, sftp_list, sftp_mkdir, sftp_open, sftp_rename,
+    sftp_stat, sftp_upload,
 };
 pub use templates::{
     template_create, template_delete, template_execute, template_get, template_list,
@@ -58,12 +65,3 @@ pub use theme::{
     theme_create, theme_delete, theme_export, theme_get, theme_import, theme_list, theme_update,
 };
 pub use vault::{vault_check_expiring, vault_delete, vault_get, vault_list, vault_set};
-pub use compliance::{
-    change_window_active, change_window_check, change_window_delete, change_window_list,
-    change_window_set,
-};
-pub use browser::{
-    browser_close, browser_navigate, browser_open, browser_resize, browser_set_visible,
-    browser_hide_all, log_debug,
-};
-pub use editor::{file_mtime, file_read, file_replace, file_replace_all, file_search, file_write};

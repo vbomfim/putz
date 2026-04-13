@@ -154,7 +154,7 @@ export const terraformTokensProvider: monaco.languages.IMonarchLanguage = {
       [/=>/, "operator.arrow"],
 
       // Braces
-      [/[{}()\[\]]/, "@brackets"],
+      [/[{}()[\]]/, "@brackets"],
 
       // Whitespace
       [/\s+/, "white"],

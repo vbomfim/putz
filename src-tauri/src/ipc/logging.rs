@@ -32,21 +32,13 @@ pub fn logging_start(
 ///
 /// Flushes remaining data and closes the log file.
 #[tauri::command]
-pub fn logging_stop(
-    state: State<'_, LogManager>,
-    session_id: String,
-) -> Result<(), String> {
-    state
-        .stop_logging(&session_id)
-        .map_err(|e| e.to_string())
+pub fn logging_stop(state: State<'_, LogManager>, session_id: String) -> Result<(), String> {
+    state.stop_logging(&session_id).map_err(|e| e.to_string())
 }
 
 /// Returns the logging status for a terminal session.
 #[tauri::command]
-pub fn logging_status(
-    state: State<'_, LogManager>,
-    session_id: String,
-) -> LogStatus {
+pub fn logging_status(state: State<'_, LogManager>, session_id: String) -> LogStatus {
     state.get_status(&session_id)
 }
 

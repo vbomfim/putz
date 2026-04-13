@@ -11,8 +11,8 @@ pub fn file_read(path: String) -> Result<String, String> {
 /// Get the modification timestamp of a file (ms since epoch).
 #[tauri::command]
 pub fn file_mtime(path: String) -> Result<u64, String> {
-    let metadata = std::fs::metadata(&path)
-        .map_err(|e| format!("Failed to stat {}: {}", path, e))?;
+    let metadata =
+        std::fs::metadata(&path).map_err(|e| format!("Failed to stat {}: {}", path, e))?;
     let modified = metadata
         .modified()
         .map_err(|e| format!("Failed to get mtime {}: {}", path, e))?;
@@ -174,17 +174,18 @@ pub fn file_replace(
             .map_err(|e| format!("Regex error: {}", e))?
     };
 
-    let content = std::fs::read_to_string(&path)
-        .map_err(|e| format!("Failed to read {}: {}", path, e))?;
+    let content =
+        std::fs::read_to_string(&path).map_err(|e| format!("Failed to read {}: {}", path, e))?;
 
     let count = regex.find_iter(&content).count();
     if count == 0 {
         return Ok(0);
     }
 
-    let replaced = regex.replace_all(&content, replacement.as_str()).to_string();
-    std::fs::write(&path, &replaced)
-        .map_err(|e| format!("Failed to write {}: {}", path, e))?;
+    let replaced = regex
+        .replace_all(&content, replacement.as_str())
+        .to_string();
+    std::fs::write(&path, &replaced).map_err(|e| format!("Failed to write {}: {}", path, e))?;
 
     Ok(count)
 }

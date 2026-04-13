@@ -22,9 +22,7 @@ use tokio::net::TcpListener;
 use tokio::sync::Mutex as TokioMutex;
 use uuid::Uuid;
 
-use crate::protocol::{
-    ConnectionStatusPayload, EventEmitter, ProtocolError,
-};
+use crate::protocol::{ConnectionStatusPayload, EventEmitter, ProtocolError};
 
 /// Maximum number of forwarding rules per SSH connection.
 const MAX_FORWARDING_RULES: usize = 32;
@@ -194,9 +192,7 @@ impl ForwardingManager {
     }
 
     /// Validates a forwarding rule input.
-    pub fn validate_rule(
-        rule: &ForwardingRuleInput,
-    ) -> Result<(), ProtocolError> {
+    pub fn validate_rule(rule: &ForwardingRuleInput) -> Result<(), ProtocolError> {
         if rule.local_port == 0 {
             return Err(ProtocolError::InvalidParams(
                 "Local port must be non-zero".into(),
@@ -206,43 +202,29 @@ impl ForwardingManager {
         match rule.forwarding_type {
             ForwardingType::Local => {
                 if rule.remote_host.is_none()
-                    || rule
-                        .remote_host
-                        .as_deref()
-                        .map_or(true, str::is_empty)
+                    || rule.remote_host.as_deref().map_or(true, str::is_empty)
                 {
                     return Err(ProtocolError::InvalidParams(
-                        "Remote host is required for local forwarding"
-                            .into(),
+                        "Remote host is required for local forwarding".into(),
                     ));
                 }
-                if rule.remote_port.is_none()
-                    || rule.remote_port == Some(0)
-                {
+                if rule.remote_port.is_none() || rule.remote_port == Some(0) {
                     return Err(ProtocolError::InvalidParams(
-                        "Remote port is required for local forwarding"
-                            .into(),
+                        "Remote port is required for local forwarding".into(),
                     ));
                 }
             }
             ForwardingType::Remote => {
                 if rule.remote_host.is_none()
-                    || rule
-                        .remote_host
-                        .as_deref()
-                        .map_or(true, str::is_empty)
+                    || rule.remote_host.as_deref().map_or(true, str::is_empty)
                 {
                     return Err(ProtocolError::InvalidParams(
-                        "Remote host is required for remote forwarding"
-                            .into(),
+                        "Remote host is required for remote forwarding".into(),
                     ));
                 }
-                if rule.remote_port.is_none()
-                    || rule.remote_port == Some(0)
-                {
+                if rule.remote_port.is_none() || rule.remote_port == Some(0) {
                     return Err(ProtocolError::InvalidParams(
-                        "Remote port is required for remote forwarding"
-                            .into(),
+                        "Remote port is required for remote forwarding".into(),
                     ));
                 }
             }
@@ -255,9 +237,7 @@ impl ForwardingManager {
         if let Some(ref addr) = rule.bind_address {
             if !addr.is_empty() {
                 addr.parse::<std::net::IpAddr>().map_err(|_| {
-                    ProtocolError::InvalidParams(format!(
-                        "Invalid bind address: {addr}"
-                    ))
+                    ProtocolError::InvalidParams(format!("Invalid bind address: {addr}"))
                 })?;
             }
         }
@@ -266,9 +246,7 @@ impl ForwardingManager {
     }
 
     /// Returns the effective bind address for a rule.
-    pub fn effective_bind_address(
-        rule: &ForwardingRuleInput,
-    ) -> String {
+    pub fn effective_bind_address(rule: &ForwardingRuleInput) -> String {
         rule.bind_address
             .as_deref()
             .filter(|a| !a.is_empty())
@@ -309,8 +287,7 @@ impl ForwardingManager {
 
         let bind_addr = Self::effective_bind_address(&rule);
         let local_port = rule.local_port;
-        let remote_host =
-            rule.remote_host.clone().unwrap_or_default();
+        let remote_host = rule.remote_host.clone().unwrap_or_default();
         let remote_port = rule.remote_port.unwrap_or(0);
 
         // Emit security warning for all-interfaces bind
@@ -322,21 +299,14 @@ impl ForwardingManager {
                 "warning": "Forwarding rule binds to all interfaces. \
                             This exposes the tunnel to the network.",
             });
-            emitter.emit_event(
-                "forwarding-security-warning",
-                &payload.to_string(),
-            );
+            emitter.emit_event("forwarding-security-warning", &payload.to_string());
         }
 
         // Bind the local TCP listener
         let bind_target = format!("{bind_addr}:{local_port}");
         let listener = TcpListener::bind(&bind_target)
             .await
-            .map_err(|e| {
-                ProtocolError::IoError(format!(
-                    "Failed to bind {bind_target}: {e}"
-                ))
-            })?;
+            .map_err(|e| ProtocolError::IoError(format!("Failed to bind {bind_target}: {e}")))?;
 
         let tunnel_id = Uuid::new_v4().to_string();
         let bytes_tx = Arc::new(AtomicU64::new(0));
@@ -407,18 +377,13 @@ impl ForwardingManager {
             )));
         }
 
-        let remote_host =
-            rule.remote_host.clone().unwrap_or_default();
+        let remote_host = rule.remote_host.clone().unwrap_or_default();
         let remote_port = rule.remote_port.unwrap_or(0) as u32;
         let bind_addr = Self::effective_bind_address(&rule);
 
         // Request the server to forward a port via ConnectionManager
         let actual_port = conn_manager
-            .request_tcpip_forward(
-                &connection_id,
-                &remote_host,
-                remote_port,
-            )
+            .request_tcpip_forward(&connection_id, &remote_host, remote_port)
             .await?;
 
         let tunnel_id = Uuid::new_v4().to_string();
@@ -434,10 +399,7 @@ impl ForwardingManager {
             "remotePort": actual_port,
             "status": "active",
         });
-        emitter.emit_event(
-            "forwarding-status",
-            &payload.to_string(),
-        );
+        emitter.emit_event("forwarding-status", &payload.to_string());
 
         let mut updated_rule = rule;
         if actual_port != remote_port {
@@ -499,20 +461,13 @@ impl ForwardingManager {
                 "warning": "SOCKS5 proxy binds to all interfaces. \
                             This exposes the tunnel to the network.",
             });
-            emitter.emit_event(
-                "forwarding-security-warning",
-                &payload.to_string(),
-            );
+            emitter.emit_event("forwarding-security-warning", &payload.to_string());
         }
 
         let bind_target = format!("{bind_addr}:{local_port}");
-        let listener = TcpListener::bind(&bind_target)
-            .await
-            .map_err(|e| {
-                ProtocolError::IoError(format!(
-                    "Failed to bind SOCKS5 proxy on {bind_target}: {e}"
-                ))
-            })?;
+        let listener = TcpListener::bind(&bind_target).await.map_err(|e| {
+            ProtocolError::IoError(format!("Failed to bind SOCKS5 proxy on {bind_target}: {e}"))
+        })?;
 
         let tunnel_id = Uuid::new_v4().to_string();
         let bytes_tx = Arc::new(AtomicU64::new(0));
@@ -525,17 +480,16 @@ impl ForwardingManager {
         let tid = tunnel_id.clone();
         let cid = connection_id.clone();
 
-        let listener_task =
-            tokio::spawn(socks5_accept_loop(
-                listener,
-                conn_manager,
-                cid,
-                tx,
-                rx,
-                conns,
-                tid,
-                emitter,
-            ));
+        let listener_task = tokio::spawn(socks5_accept_loop(
+            listener,
+            conn_manager,
+            cid,
+            tx,
+            rx,
+            conns,
+            tid,
+            emitter,
+        ));
 
         let tunnel = ActiveTunnel {
             rule,
@@ -558,15 +512,10 @@ impl ForwardingManager {
     /// Removes a forwarding tunnel by ID.
     ///
     /// Aborts the listener task and cleans up resources.
-    pub async fn remove(
-        &self,
-        tunnel_id: &str,
-    ) -> Result<(), ProtocolError> {
+    pub async fn remove(&self, tunnel_id: &str) -> Result<(), ProtocolError> {
         let mut tunnels = self.tunnels.lock().await;
         let tunnel = tunnels.remove(tunnel_id).ok_or_else(|| {
-            ProtocolError::InvalidParams(format!(
-                "Forwarding tunnel not found: {tunnel_id}"
-            ))
+            ProtocolError::InvalidParams(format!("Forwarding tunnel not found: {tunnel_id}"))
         })?;
 
         if let Some(task) = tunnel.listener_task {
@@ -580,10 +529,7 @@ impl ForwardingManager {
     ///
     /// Called when an SSH connection is closed.
     #[allow(dead_code)] // Called from connection teardown at runtime
-    pub async fn remove_all_for_connection(
-        &self,
-        connection_id: &str,
-    ) {
+    pub async fn remove_all_for_connection(&self, connection_id: &str) {
         let mut tunnels = self.tunnels.lock().await;
         let ids: Vec<String> = tunnels
             .iter()
@@ -601,10 +547,7 @@ impl ForwardingManager {
     }
 
     /// Lists all forwarding tunnels for a connection.
-    pub async fn list(
-        &self,
-        connection_id: &str,
-    ) -> Vec<ForwardingStatus> {
+    pub async fn list(&self, connection_id: &str) -> Vec<ForwardingStatus> {
         let tunnels = self.tunnels.lock().await;
         tunnels
             .iter()
@@ -619,10 +562,7 @@ impl ForwardingManager {
                 bind_address: t.bind_address.clone(),
                 bytes_tx: t.bytes_tx.load(Ordering::Relaxed),
                 bytes_rx: t.bytes_rx.load(Ordering::Relaxed),
-                active_connections: t
-                    .active_connections
-                    .load(Ordering::Relaxed)
-                    as u32,
+                active_connections: t.active_connections.load(Ordering::Relaxed) as u32,
                 status: t.status,
                 error: t.error.clone(),
             })
@@ -644,10 +584,7 @@ impl ForwardingManager {
                 bind_address: t.bind_address.clone(),
                 bytes_tx: t.bytes_tx.load(Ordering::Relaxed),
                 bytes_rx: t.bytes_rx.load(Ordering::Relaxed),
-                active_connections: t
-                    .active_connections
-                    .load(Ordering::Relaxed)
-                    as u32,
+                active_connections: t.active_connections.load(Ordering::Relaxed) as u32,
                 status: t.status,
                 error: t.error.clone(),
             })
@@ -674,11 +611,8 @@ impl ForwardingManager {
                         && t.rule
                             .remote_host
                             .as_deref()
-                            .map_or(false, |h| {
-                                h == connected_address
-                            })
-                        && t.rule.remote_port
-                            == Some(connected_port as u16)
+                            .map_or(false, |h| h == connected_address)
+                        && t.rule.remote_port == Some(connected_port as u16)
                 })
                 .map(|(_, t)| {
                     (
@@ -691,26 +625,16 @@ impl ForwardingManager {
                 })
         };
 
-        let Some((
-            local_port,
-            bind_addr,
-            bytes_tx,
-            bytes_rx,
-            active_conns,
-        )) = tunnel_info
-        else {
+        let Some((local_port, bind_addr, bytes_tx, bytes_rx, active_conns)) = tunnel_info else {
             return;
         };
 
         // Connect to the local target
-        let local_addr =
-            format!("{bind_addr}:{local_port}");
-        let tcp_stream =
-            match tokio::net::TcpStream::connect(&local_addr).await
-            {
-                Ok(s) => s,
-                Err(_) => return,
-            };
+        let local_addr = format!("{bind_addr}:{local_port}");
+        let tcp_stream = match tokio::net::TcpStream::connect(&local_addr).await {
+            Ok(s) => s,
+            Err(_) => return,
+        };
 
         active_conns.fetch_add(1, Ordering::Relaxed);
 
@@ -743,8 +667,7 @@ async fn local_forward_accept_loop(
     _emitter: Arc<dyn EventEmitter>,
 ) {
     loop {
-        let (tcp_stream, peer_addr) = match listener.accept().await
-        {
+        let (tcp_stream, peer_addr) = match listener.accept().await {
             Ok(conn) => conn,
             Err(_) => break, // Listener closed
         };
@@ -776,8 +699,7 @@ async fn local_forward_accept_loop(
                 }
             };
 
-            relay_channel_to_tcp(channel, tcp_stream, tx, rx, conns)
-                .await;
+            relay_channel_to_tcp(channel, tcp_stream, tx, rx, conns).await;
         });
     }
 }
@@ -797,8 +719,7 @@ async fn socks5_accept_loop(
     _emitter: Arc<dyn EventEmitter>,
 ) {
     loop {
-        let (tcp_stream, peer_addr) = match listener.accept().await
-        {
+        let (tcp_stream, peer_addr) = match listener.accept().await {
             Ok(conn) => conn,
             Err(_) => break,
         };
@@ -812,10 +733,8 @@ async fn socks5_accept_loop(
         conns.fetch_add(1, Ordering::Relaxed);
 
         tokio::spawn(async move {
-            if let Err(_) = handle_socks5_client(
-                tcp_stream, mgr, &cid, peer_addr, tx, rx, &conns,
-            )
-            .await
+            if let Err(_) =
+                handle_socks5_client(tcp_stream, mgr, &cid, peer_addr, tx, rx, &conns).await
             {
                 conns.fetch_sub(1, Ordering::Relaxed);
             }
@@ -837,8 +756,7 @@ async fn handle_socks5_client(
     active_conns: &Arc<AtomicU64>,
 ) -> Result<(), ProtocolError> {
     // Phase 1: Method negotiation
-    let (dest_host, dest_port) =
-        socks5_handshake(&mut stream).await?;
+    let (dest_host, dest_port) = socks5_handshake(&mut stream).await?;
 
     // Phase 2: Open direct-tcpip channel via ConnectionManager
     let channel = conn_manager
@@ -862,25 +780,21 @@ async fn handle_socks5_client(
         SOCKS5_REPLY_SUCCESS,
         0x00, // reserved
         SOCKS5_ATYP_IPV4,
-        0, 0, 0, 0, // bind address (0.0.0.0)
-        0, 0, // bind port (0)
+        0,
+        0,
+        0,
+        0, // bind address (0.0.0.0)
+        0,
+        0, // bind port (0)
     ];
-    stream.write_all(&reply).await.map_err(|e| {
-        ProtocolError::IoError(format!(
-            "SOCKS5 reply write failed: {e}"
-        ))
-    })?;
+    stream
+        .write_all(&reply)
+        .await
+        .map_err(|e| ProtocolError::IoError(format!("SOCKS5 reply write failed: {e}")))?;
 
     // Phase 3: Relay data
     let conns_clone = active_conns.clone();
-    relay_channel_to_tcp(
-        channel,
-        stream,
-        bytes_tx,
-        bytes_rx,
-        conns_clone,
-    )
-    .await;
+    relay_channel_to_tcp(channel, stream, bytes_tx, bytes_rx, conns_clone).await;
 
     Ok(())
 }
@@ -894,11 +808,10 @@ pub async fn socks5_handshake(
 ) -> Result<(String, u16), ProtocolError> {
     // Read version + method count
     let mut header = [0u8; 2];
-    stream.read_exact(&mut header).await.map_err(|e| {
-        ProtocolError::IoError(format!(
-            "SOCKS5 header read failed: {e}"
-        ))
-    })?;
+    stream
+        .read_exact(&mut header)
+        .await
+        .map_err(|e| ProtocolError::IoError(format!("SOCKS5 header read failed: {e}")))?;
 
     if header[0] != SOCKS5_VERSION {
         return Err(ProtocolError::InvalidParams(format!(
@@ -916,11 +829,10 @@ pub async fn socks5_handshake(
 
     // Read methods
     let mut methods = vec![0u8; method_count];
-    stream.read_exact(&mut methods).await.map_err(|e| {
-        ProtocolError::IoError(format!(
-            "SOCKS5 methods read failed: {e}"
-        ))
-    })?;
+    stream
+        .read_exact(&mut methods)
+        .await
+        .map_err(|e| ProtocolError::IoError(format!("SOCKS5 methods read failed: {e}")))?;
 
     // Check for no-auth method
     if !methods.contains(&SOCKS5_AUTH_NONE) {
@@ -933,22 +845,17 @@ pub async fn socks5_handshake(
 
     // Reply: use no-auth
     let reply = [SOCKS5_VERSION, SOCKS5_AUTH_NONE];
-    stream.write_all(&reply).await.map_err(|e| {
-        ProtocolError::IoError(format!(
-            "SOCKS5 auth reply failed: {e}"
-        ))
-    })?;
+    stream
+        .write_all(&reply)
+        .await
+        .map_err(|e| ProtocolError::IoError(format!("SOCKS5 auth reply failed: {e}")))?;
 
     // Read request header: VER CMD RSV ATYP
     let mut req_header = [0u8; 4];
     stream
         .read_exact(&mut req_header)
         .await
-        .map_err(|e| {
-            ProtocolError::IoError(format!(
-                "SOCKS5 request read failed: {e}"
-            ))
-        })?;
+        .map_err(|e| ProtocolError::IoError(format!("SOCKS5 request read failed: {e}")))?;
 
     if req_header[0] != SOCKS5_VERSION {
         return Err(ProtocolError::InvalidParams(
@@ -963,8 +870,12 @@ pub async fn socks5_handshake(
             SOCKS5_REPLY_CMD_NOT_SUPPORTED,
             0x00,
             SOCKS5_ATYP_IPV4,
-            0, 0, 0, 0,
-            0, 0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
         ];
         let _ = stream.write_all(&reply).await;
         return Err(ProtocolError::InvalidParams(format!(
@@ -977,23 +888,17 @@ pub async fn socks5_handshake(
     let dest_host = match req_header[3] {
         SOCKS5_ATYP_IPV4 => {
             let mut addr = [0u8; 4];
-            stream.read_exact(&mut addr).await.map_err(|e| {
-                ProtocolError::IoError(format!(
-                    "SOCKS5 IPv4 read failed: {e}"
-                ))
-            })?;
+            stream
+                .read_exact(&mut addr)
+                .await
+                .map_err(|e| ProtocolError::IoError(format!("SOCKS5 IPv4 read failed: {e}")))?;
             format!("{}.{}.{}.{}", addr[0], addr[1], addr[2], addr[3])
         }
         SOCKS5_ATYP_DOMAIN => {
             let mut len_buf = [0u8; 1];
-            stream
-                .read_exact(&mut len_buf)
-                .await
-                .map_err(|e| {
-                    ProtocolError::IoError(format!(
-                        "SOCKS5 domain length read failed: {e}"
-                    ))
-                })?;
+            stream.read_exact(&mut len_buf).await.map_err(|e| {
+                ProtocolError::IoError(format!("SOCKS5 domain length read failed: {e}"))
+            })?;
             let len = len_buf[0] as usize;
             if len == 0 {
                 return Err(ProtocolError::InvalidParams(
@@ -1004,24 +909,17 @@ pub async fn socks5_handshake(
             stream
                 .read_exact(&mut domain)
                 .await
-                .map_err(|e| {
-                    ProtocolError::IoError(format!(
-                        "SOCKS5 domain read failed: {e}"
-                    ))
-                })?;
+                .map_err(|e| ProtocolError::IoError(format!("SOCKS5 domain read failed: {e}")))?;
             String::from_utf8(domain).map_err(|_| {
-                ProtocolError::InvalidParams(
-                    "SOCKS5 invalid domain encoding".into(),
-                )
+                ProtocolError::InvalidParams("SOCKS5 invalid domain encoding".into())
             })?
         }
         SOCKS5_ATYP_IPV6 => {
             let mut addr = [0u8; 16];
-            stream.read_exact(&mut addr).await.map_err(|e| {
-                ProtocolError::IoError(format!(
-                    "SOCKS5 IPv6 read failed: {e}"
-                ))
-            })?;
+            stream
+                .read_exact(&mut addr)
+                .await
+                .map_err(|e| ProtocolError::IoError(format!("SOCKS5 IPv6 read failed: {e}")))?;
             let ipv6 = std::net::Ipv6Addr::from(addr);
             ipv6.to_string()
         }
@@ -1031,8 +929,12 @@ pub async fn socks5_handshake(
                 SOCKS5_REPLY_ATYP_NOT_SUPPORTED,
                 0x00,
                 SOCKS5_ATYP_IPV4,
-                0, 0, 0, 0,
-                0, 0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
             ];
             let _ = stream.write_all(&reply).await;
             return Err(ProtocolError::InvalidParams(format!(
@@ -1046,11 +948,7 @@ pub async fn socks5_handshake(
     stream
         .read_exact(&mut port_buf)
         .await
-        .map_err(|e| {
-            ProtocolError::IoError(format!(
-                "SOCKS5 port read failed: {e}"
-            ))
-        })?;
+        .map_err(|e| ProtocolError::IoError(format!("SOCKS5 port read failed: {e}")))?;
     let dest_port = u16::from_be_bytes(port_buf);
 
     Ok((dest_host, dest_port))
@@ -1069,8 +967,7 @@ async fn relay_channel_to_tcp(
     bytes_rx: Arc<AtomicU64>,
     active_conns: Arc<AtomicU64>,
 ) {
-    let (mut tcp_read, mut tcp_write) =
-        tcp_stream.split();
+    let (mut tcp_read, mut tcp_write) = tcp_stream.split();
     let mut tcp_buf = vec![0u8; RELAY_BUFFER_SIZE];
 
     loop {
@@ -1136,8 +1033,7 @@ mod tests {
 
     #[test]
     fn forwarding_type_deserializes_lowercase() {
-        let t: ForwardingType =
-            serde_json::from_str(r#""local""#).unwrap();
+        let t: ForwardingType = serde_json::from_str(r#""local""#).unwrap();
         assert_eq!(t, ForwardingType::Local);
     }
 
@@ -1149,8 +1045,7 @@ mod tests {
             ForwardingType::Dynamic,
         ] {
             let json = serde_json::to_string(&variant).unwrap();
-            let restored: ForwardingType =
-                serde_json::from_str(&json).unwrap();
+            let restored: ForwardingType = serde_json::from_str(&json).unwrap();
             assert_eq!(variant, restored);
         }
     }
@@ -1178,8 +1073,7 @@ mod tests {
             TunnelStatus::Error,
         ] {
             let json = serde_json::to_string(&variant).unwrap();
-            let restored: TunnelStatus =
-                serde_json::from_str(&json).unwrap();
+            let restored: TunnelStatus = serde_json::from_str(&json).unwrap();
             assert_eq!(variant, restored);
         }
     }
@@ -1228,14 +1122,10 @@ mod tests {
             "remoteHost": "mysql.internal",
             "remotePort": 3306
         }"#;
-        let rule: ForwardingRuleInput =
-            serde_json::from_str(json).unwrap();
+        let rule: ForwardingRuleInput = serde_json::from_str(json).unwrap();
         assert_eq!(rule.forwarding_type, ForwardingType::Local);
         assert_eq!(rule.local_port, 3306);
-        assert_eq!(
-            rule.remote_host,
-            Some("mysql.internal".into())
-        );
+        assert_eq!(rule.remote_host, Some("mysql.internal".into()));
         assert_eq!(rule.remote_port, Some(3306));
         assert_eq!(rule.bind_address, None);
     }
@@ -1249,12 +1139,8 @@ mod tests {
             "remotePort": 80,
             "bindAddress": "0.0.0.0"
         }"#;
-        let rule: ForwardingRuleInput =
-            serde_json::from_str(json).unwrap();
-        assert_eq!(
-            rule.bind_address,
-            Some("0.0.0.0".into())
-        );
+        let rule: ForwardingRuleInput = serde_json::from_str(json).unwrap();
+        assert_eq!(rule.bind_address, Some("0.0.0.0".into()));
     }
 
     // ── ForwardingStatus serialization ───────────────────────────
@@ -1316,10 +1202,7 @@ mod tests {
         };
         let result = ForwardingManager::validate_rule(&rule);
         assert!(result.is_err());
-        assert!(result
-            .unwrap_err()
-            .to_string()
-            .contains("non-zero"));
+        assert!(result.unwrap_err().to_string().contains("non-zero"));
     }
 
     #[test]
@@ -1333,10 +1216,7 @@ mod tests {
         };
         let result = ForwardingManager::validate_rule(&rule);
         assert!(result.is_err());
-        assert!(result
-            .unwrap_err()
-            .to_string()
-            .contains("Remote host"));
+        assert!(result.unwrap_err().to_string().contains("Remote host"));
     }
 
     #[test]
@@ -1363,10 +1243,7 @@ mod tests {
         };
         let result = ForwardingManager::validate_rule(&rule);
         assert!(result.is_err());
-        assert!(result
-            .unwrap_err()
-            .to_string()
-            .contains("Remote port"));
+        assert!(result.unwrap_err().to_string().contains("Remote port"));
     }
 
     #[test]
@@ -1505,10 +1382,7 @@ mod tests {
             remote_port: Some(80),
             bind_address: Some("0.0.0.0".into()),
         };
-        assert_eq!(
-            ForwardingManager::effective_bind_address(&rule),
-            "0.0.0.0"
-        );
+        assert_eq!(ForwardingManager::effective_bind_address(&rule), "0.0.0.0");
     }
 
     #[test]
@@ -1528,9 +1402,7 @@ mod tests {
 
     #[test]
     fn is_all_interfaces_detects_ipv4_wildcard() {
-        assert!(ForwardingManager::is_all_interfaces_bind(
-            "0.0.0.0"
-        ));
+        assert!(ForwardingManager::is_all_interfaces_bind("0.0.0.0"));
     }
 
     #[test]
@@ -1540,9 +1412,7 @@ mod tests {
 
     #[test]
     fn is_all_interfaces_rejects_loopback() {
-        assert!(!ForwardingManager::is_all_interfaces_bind(
-            "127.0.0.1"
-        ));
+        assert!(!ForwardingManager::is_all_interfaces_bind("127.0.0.1"));
         assert!(!ForwardingManager::is_all_interfaces_bind("::1"));
     }
 
@@ -1567,10 +1437,7 @@ mod tests {
         let mgr = ForwardingManager::new();
         let result = mgr.remove("nonexistent").await;
         assert!(result.is_err());
-        assert!(result
-            .unwrap_err()
-            .to_string()
-            .contains("not found"));
+        assert!(result.unwrap_err().to_string().contains("not found"));
     }
 
     #[tokio::test]

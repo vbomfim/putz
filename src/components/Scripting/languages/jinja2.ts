@@ -175,7 +175,7 @@ export const jinja2TokensProvider: monaco.languages.IMonarchLanguage = {
       }],
 
       // Brackets
-      [/[{}()\[\]]/, "delimiter.jinja"],
+      [/[{}()[\]]/, "delimiter.jinja"],
 
       // Comma
       [/,/, "delimiter.jinja"],

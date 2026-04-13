@@ -95,12 +95,7 @@ pub struct ParseResult {
 /// * `state` — Mutable parser state (preserved across calls).
 /// * `cols` — Current terminal width (for NAWS responses).
 /// * `rows` — Current terminal height (for NAWS responses).
-pub fn parse_telnet(
-    input: &[u8],
-    state: &mut ParserState,
-    cols: u16,
-    rows: u16,
-) -> ParseResult {
+pub fn parse_telnet(input: &[u8], state: &mut ParserState, cols: u16, rows: u16) -> ParseResult {
     let mut data = Vec::with_capacity(input.len());
     let mut responses = Vec::new();
 
@@ -138,13 +133,7 @@ pub fn parse_telnet(
             }
             ParserState::NegotiateOption(command) => {
                 let cmd = *command;
-                handle_option_negotiation(
-                    cmd,
-                    byte,
-                    cols,
-                    rows,
-                    &mut responses,
-                );
+                handle_option_negotiation(cmd, byte, cols, rows, &mut responses);
                 *state = ParserState::Data;
             }
             ParserState::Subnegotiation(ref mut buf) => {
@@ -259,11 +248,7 @@ fn handle_subnegotiation(buf: &[u8], responses: &mut Vec<u8>) {
 ///
 /// Format: IAC SB NAWS <cols_hi> <cols_lo> <rows_hi> <rows_lo> IAC SE
 /// Values of 0xFF in the size bytes must be escaped as 0xFF 0xFF.
-pub fn build_naws_subnegotiation(
-    cols: u16,
-    rows: u16,
-    output: &mut Vec<u8>,
-) {
+pub fn build_naws_subnegotiation(cols: u16, rows: u16, output: &mut Vec<u8>) {
     output.extend_from_slice(&[IAC, SB, OPT_NAWS]);
 
     // Encode cols (big-endian) with IAC escaping
@@ -503,8 +488,7 @@ mod tests {
         assert_eq!(
             output,
             vec![
-                IAC, SB, OPT_NAWS,
-                0x00, 0x50, // 80
+                IAC, SB, OPT_NAWS, 0x00, 0x50, // 80
                 0x00, 0x18, // 24
                 IAC, SE
             ]
@@ -518,8 +502,7 @@ mod tests {
         assert_eq!(
             output,
             vec![
-                IAC, SB, OPT_NAWS,
-                0x00, 0xC8, // 200
+                IAC, SB, OPT_NAWS, 0x00, 0xC8, // 200
                 0x00, 0x32, // 50
                 IAC, SE
             ]
@@ -535,9 +518,8 @@ mod tests {
         assert_eq!(
             output,
             vec![
-                IAC, SB, OPT_NAWS,
-                0x00, IAC, IAC, // 0x00FF with escape
-                0x00, 0x18,     // 24
+                IAC, SB, OPT_NAWS, 0x00, IAC, IAC, // 0x00FF with escape
+                0x00, 0x18, // 24
                 IAC, SE
             ]
         );
@@ -550,8 +532,7 @@ mod tests {
         assert_eq!(
             output,
             vec![
-                IAC, SB, OPT_NAWS,
-                0x00, 0x00, // 0
+                IAC, SB, OPT_NAWS, 0x00, 0x00, // 0
                 0x00, 0x00, // 0
                 IAC, SE
             ]
@@ -622,8 +603,7 @@ mod tests {
     fn parse_partial_subnegotiation_across_buffers() {
         let mut state = ParserState::Data;
         // First buffer: start of subneg
-        let result1 =
-            parse_telnet(&[IAC, SB, OPT_TTYPE, TTYPE_SEND], &mut state, 80, 24);
+        let result1 = parse_telnet(&[IAC, SB, OPT_TTYPE, TTYPE_SEND], &mut state, 80, 24);
         assert!(result1.data.is_empty());
         assert!(result1.responses.is_empty());
         assert!(matches!(state, ParserState::Subnegotiation(_)));
@@ -643,7 +623,7 @@ mod tests {
         let input = [
             b'H', b'i', // Data
             IAC, WILL, OPT_ECHO, // Negotiation
-            b'!', // More data
+            b'!',     // More data
         ];
         let result = parse_telnet(&input, &mut state, 80, 24);
         assert_eq!(result.data, b"Hi!");
@@ -653,11 +633,7 @@ mod tests {
     #[test]
     fn parse_multiple_negotiations_in_sequence() {
         let mut state = ParserState::Data;
-        let input = [
-            IAC, WILL, OPT_ECHO,
-            IAC, WILL, OPT_SGA,
-            IAC, DO, OPT_NAWS,
-        ];
+        let input = [IAC, WILL, OPT_ECHO, IAC, WILL, OPT_SGA, IAC, DO, OPT_NAWS];
         let result = parse_telnet(&input, &mut state, 80, 24);
         assert!(result.data.is_empty());
         // Should have responses for all three

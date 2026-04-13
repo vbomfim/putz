@@ -23,8 +23,8 @@ use base64::Engine;
 
 use super::telnet::EventEmitter;
 use super::{
-    ConnectionParams, ConnectionStatus, ConnectionStatusPayload, Protocol,
-    ProtocolError, ProtocolType,
+    ConnectionParams, ConnectionStatus, ConnectionStatusPayload, Protocol, ProtocolError,
+    ProtocolType,
 };
 use config::SerialConfig;
 
@@ -76,9 +76,7 @@ impl SerialConnection {
         connection_id: String,
         emitter: Arc<dyn EventEmitter>,
     ) -> Result<(), ProtocolError> {
-        config
-            .validate()
-            .map_err(ProtocolError::InvalidParams)?;
+        config.validate().map_err(ProtocolError::InvalidParams)?;
 
         self.config = config.clone();
 
@@ -87,10 +85,7 @@ impl SerialConnection {
             &connection_id,
             &ConnectionStatusPayload {
                 status: ConnectionStatus::Connecting,
-                message: Some(format!(
-                    "Opening {}...",
-                    config.port
-                )),
+                message: Some(format!("Opening {}...", config.port)),
             },
         );
 
@@ -107,9 +102,7 @@ impl SerialConnection {
         // Clone for read thread — shares the underlying OS file descriptor
         let reader = port
             .try_clone()
-            .map_err(|e| ProtocolError::IoError(format!(
-                "Failed to clone serial port: {e}"
-            )))?;
+            .map_err(|e| ProtocolError::IoError(format!("Failed to clone serial port: {e}")))?;
 
         let writer = Arc::new(StdMutex::new(port));
         self.writer = Some(writer);
@@ -131,11 +124,7 @@ impl SerialConnection {
             .spawn(move || {
                 read_loop(reader, connection_id, emitter, connected_flag);
             })
-            .map_err(|e| {
-                ProtocolError::IoError(format!(
-                    "Failed to spawn read thread: {e}"
-                ))
-            })?;
+            .map_err(|e| ProtocolError::IoError(format!("Failed to spawn read thread: {e}")))?;
 
         self.read_thread.lock().unwrap().replace(read_thread);
         Ok(())
@@ -147,26 +136,23 @@ impl SerialConnection {
     /// equipment (Cisco routers) to enter ROM monitor mode.
     #[allow(dead_code)]
     pub fn send_break(&self) -> Result<(), ProtocolError> {
-        let writer = self.writer.as_ref().ok_or_else(|| {
-            ProtocolError::ChannelClosed("Not connected".into())
-        })?;
+        let writer = self
+            .writer
+            .as_ref()
+            .ok_or_else(|| ProtocolError::ChannelClosed("Not connected".into()))?;
 
-        let port = writer.lock().map_err(|e| {
-            ProtocolError::IoError(format!("Lock poisoned: {e}"))
-        })?;
+        let port = writer
+            .lock()
+            .map_err(|e| ProtocolError::IoError(format!("Lock poisoned: {e}")))?;
 
-        port.set_break().map_err(|e| {
-            ProtocolError::IoError(format!("Failed to set break: {e}"))
-        })?;
+        port.set_break()
+            .map_err(|e| ProtocolError::IoError(format!("Failed to set break: {e}")))?;
 
         // Hold break for ~300ms (standard break duration)
         std::thread::sleep(Duration::from_millis(300));
 
-        port.clear_break().map_err(|e| {
-            ProtocolError::IoError(format!(
-                "Failed to clear break: {e}"
-            ))
-        })?;
+        port.clear_break()
+            .map_err(|e| ProtocolError::IoError(format!("Failed to clear break: {e}")))?;
 
         Ok(())
     }
@@ -175,9 +161,7 @@ impl SerialConnection {
     ///
     /// Used by ConnectionManager to run blocking send_break on
     /// a tokio spawn_blocking thread.
-    pub fn writer_handle(
-        &self,
-    ) -> Option<Arc<StdMutex<Box<dyn serialport::SerialPort>>>> {
+    pub fn writer_handle(&self) -> Option<Arc<StdMutex<Box<dyn serialport::SerialPort>>>> {
         self.writer.clone()
     }
 
@@ -190,10 +174,7 @@ impl SerialConnection {
 
 #[async_trait]
 impl Protocol for SerialConnection {
-    async fn connect(
-        &mut self,
-        _params: ConnectionParams,
-    ) -> Result<(), ProtocolError> {
+    async fn connect(&mut self, _params: ConnectionParams) -> Result<(), ProtocolError> {
         // Serial connections use connect_with_emitter() instead.
         // This is here to satisfy the Protocol trait.
         Err(ProtocolError::InvalidParams(
@@ -202,30 +183,25 @@ impl Protocol for SerialConnection {
     }
 
     async fn write(&mut self, data: &[u8]) -> Result<(), ProtocolError> {
-        let writer = self.writer.as_ref().ok_or_else(|| {
-            ProtocolError::ChannelClosed("Not connected".into())
-        })?;
+        let writer = self
+            .writer
+            .as_ref()
+            .ok_or_else(|| ProtocolError::ChannelClosed("Not connected".into()))?;
 
-        let mut port = writer.lock().map_err(|e| {
-            ProtocolError::IoError(format!("Lock poisoned: {e}"))
-        })?;
+        let mut port = writer
+            .lock()
+            .map_err(|e| ProtocolError::IoError(format!("Lock poisoned: {e}")))?;
 
-        port.write_all(data).map_err(|e| {
-            ProtocolError::IoError(format!("Write failed: {e}"))
-        })?;
+        port.write_all(data)
+            .map_err(|e| ProtocolError::IoError(format!("Write failed: {e}")))?;
 
-        port.flush().map_err(|e| {
-            ProtocolError::IoError(format!("Flush failed: {e}"))
-        })?;
+        port.flush()
+            .map_err(|e| ProtocolError::IoError(format!("Flush failed: {e}")))?;
 
         Ok(())
     }
 
-    async fn resize(
-        &mut self,
-        _cols: u16,
-        _rows: u16,
-    ) -> Result<(), ProtocolError> {
+    async fn resize(&mut self, _cols: u16, _rows: u16) -> Result<(), ProtocolError> {
         // Serial connections have no terminal size concept — no-op.
         Ok(())
     }
@@ -237,9 +213,7 @@ impl Protocol for SerialConnection {
         self.writer.take();
 
         // Wait for the read thread to finish
-        if let Some(handle) =
-            self.read_thread.lock().unwrap().take()
-        {
+        if let Some(handle) = self.read_thread.lock().unwrap().take() {
             // The read thread should exit quickly once connected is false
             // and the port is closed
             let _ = handle.join();
@@ -283,29 +257,23 @@ fn read_loop(
                     &connection_id,
                     &ConnectionStatusPayload {
                         status: ConnectionStatus::Disconnected,
-                        message: Some(
-                            "Serial port closed".into(),
-                        ),
+                        message: Some("Serial port closed".into()),
                     },
                 );
                 break;
             }
             Ok(n) => {
-                let data = base64::engine::general_purpose::STANDARD
-                    .encode(&buf[..n]);
+                let data = base64::engine::general_purpose::STANDARD.encode(&buf[..n]);
                 emitter.emit_output(&connection_id, &data);
             }
-            Err(ref e)
-                if e.kind() == std::io::ErrorKind::TimedOut =>
-            {
+            Err(ref e) if e.kind() == std::io::ErrorKind::TimedOut => {
                 // Read timeout — normal for serial with timeout set.
                 // Just loop again to check the connected flag.
                 continue;
             }
             Err(ref e)
                 if e.kind() == std::io::ErrorKind::BrokenPipe
-                    || e.kind()
-                        == std::io::ErrorKind::PermissionDenied =>
+                    || e.kind() == std::io::ErrorKind::PermissionDenied =>
             {
                 // USB adapter disconnected or port forcibly closed
                 connected.store(false, Ordering::SeqCst);
@@ -313,10 +281,7 @@ fn read_loop(
                     &connection_id,
                     &ConnectionStatusPayload {
                         status: ConnectionStatus::Disconnected,
-                        message: Some(
-                            "Serial port disconnected (USB adapter removed?)"
-                                .into(),
-                        ),
+                        message: Some("Serial port disconnected (USB adapter removed?)".into()),
                     },
                 );
                 break;
@@ -327,9 +292,7 @@ fn read_loop(
                     &connection_id,
                     &ConnectionStatusPayload {
                         status: ConnectionStatus::Error,
-                        message: Some(format!(
-                            "Serial read error: {e}"
-                        )),
+                        message: Some(format!("Serial read error: {e}")),
                     },
                 );
                 break;
@@ -339,20 +302,13 @@ fn read_loop(
 }
 
 /// Maps serialport crate errors to ProtocolError with helpful messages.
-fn map_serial_error(
-    port_path: &str,
-    error: serialport::Error,
-) -> ProtocolError {
+fn map_serial_error(port_path: &str, error: serialport::Error) -> ProtocolError {
     match error.kind {
         serialport::ErrorKind::NoDevice => {
-            ProtocolError::ConnectionRefused(format!(
-                "Serial port not found: {port_path}"
-            ))
+            ProtocolError::ConnectionRefused(format!("Serial port not found: {port_path}"))
         }
         serialport::ErrorKind::InvalidInput => {
-            ProtocolError::InvalidParams(format!(
-                "Invalid serial port parameters: {error}"
-            ))
+            ProtocolError::InvalidParams(format!("Invalid serial port parameters: {error}"))
         }
         serialport::ErrorKind::Io(io_kind) => match io_kind {
             std::io::ErrorKind::PermissionDenied => {
@@ -369,19 +325,14 @@ fn map_serial_error(
                 );
                 ProtocolError::ConnectionRefused(hint)
             }
-            std::io::ErrorKind::AddrInUse
-            | std::io::ErrorKind::AlreadyExists => {
+            std::io::ErrorKind::AddrInUse | std::io::ErrorKind::AlreadyExists => {
                 ProtocolError::ConnectionRefused(format!(
                     "Port {port_path} is already in use by another application"
                 ))
             }
-            _ => ProtocolError::IoError(format!(
-                "Failed to open {port_path}: {error}"
-            )),
+            _ => ProtocolError::IoError(format!("Failed to open {port_path}: {error}")),
         },
-        _ => ProtocolError::IoError(format!(
-            "Failed to open {port_path}: {error}"
-        )),
+        _ => ProtocolError::IoError(format!("Failed to open {port_path}: {error}")),
     }
 }
 
@@ -456,8 +407,7 @@ mod tests {
         let mut conn = SerialConnection::new();
         let emitter = Arc::new(MockEmitter::new());
         let config = SerialConfig::default(); // empty port
-        let result =
-            conn.connect_with_emitter(config, "test-id".into(), emitter);
+        let result = conn.connect_with_emitter(config, "test-id".into(), emitter);
         assert!(result.is_err());
         match result.unwrap_err() {
             ProtocolError::InvalidParams(msg) => {
@@ -476,8 +426,7 @@ mod tests {
             baud_rate: 0,
             ..Default::default()
         };
-        let result =
-            conn.connect_with_emitter(config, "test-id".into(), emitter);
+        let result = conn.connect_with_emitter(config, "test-id".into(), emitter);
         assert!(result.is_err());
     }
 
@@ -489,11 +438,7 @@ mod tests {
             port: "/dev/ttyNONEXISTENT99".into(),
             ..Default::default()
         };
-        let result = conn.connect_with_emitter(
-            config,
-            "test-id".into(),
-            emitter.clone(),
-        );
+        let result = conn.connect_with_emitter(config, "test-id".into(), emitter.clone());
         assert!(result.is_err());
 
         // Should have emitted connecting status before failing
@@ -502,10 +447,7 @@ mod tests {
             !statuses.is_empty(),
             "Expected at least one status emission"
         );
-        assert_eq!(
-            statuses[0].1.status,
-            ConnectionStatus::Connecting
-        );
+        assert_eq!(statuses[0].1.status, ConnectionStatus::Connecting);
     }
 
     // ====================================================================
@@ -550,9 +492,7 @@ mod tests {
     #[test]
     fn map_error_permission_denied() {
         let err = serialport::Error {
-            kind: serialport::ErrorKind::Io(
-                std::io::ErrorKind::PermissionDenied,
-            ),
+            kind: serialport::ErrorKind::Io(std::io::ErrorKind::PermissionDenied),
             description: "permission denied".into(),
         };
         let result = map_serial_error("/dev/ttyUSB0", err);
@@ -569,9 +509,7 @@ mod tests {
     #[test]
     fn map_error_port_in_use() {
         let err = serialport::Error {
-            kind: serialport::ErrorKind::Io(
-                std::io::ErrorKind::AlreadyExists,
-            ),
+            kind: serialport::ErrorKind::Io(std::io::ErrorKind::AlreadyExists),
             description: "in use".into(),
         };
         let result = map_serial_error("COM3", err);
@@ -588,9 +526,7 @@ mod tests {
     #[test]
     fn map_error_generic_io() {
         let err = serialport::Error {
-            kind: serialport::ErrorKind::Io(
-                std::io::ErrorKind::Other,
-            ),
+            kind: serialport::ErrorKind::Io(std::io::ErrorKind::Other),
             description: "something failed".into(),
         };
         let result = map_serial_error("/dev/ttyS0", err);
@@ -709,18 +645,11 @@ mod tests {
             port: "/dev/ttyNONEXISTENT_QA".into(),
             ..Default::default()
         };
-        let _ = conn.connect_with_emitter(
-            config,
-            "qa-test-id".into(),
-            emitter.clone(),
-        );
+        let _ = conn.connect_with_emitter(config, "qa-test-id".into(), emitter.clone());
 
         let statuses = emitter.statuses.lock().unwrap();
         assert!(!statuses.is_empty());
-        assert_eq!(
-            statuses[0].1.status,
-            ConnectionStatus::Connecting
-        );
+        assert_eq!(statuses[0].1.status, ConnectionStatus::Connecting);
         // Should include port name in the connecting message
         if let Some(ref msg) = statuses[0].1.message {
             assert!(msg.contains("NONEXISTENT_QA"));
@@ -731,9 +660,7 @@ mod tests {
     #[test]
     fn map_error_addr_in_use() {
         let err = serialport::Error {
-            kind: serialport::ErrorKind::Io(
-                std::io::ErrorKind::AddrInUse,
-            ),
+            kind: serialport::ErrorKind::Io(std::io::ErrorKind::AddrInUse),
             description: "address in use".into(),
         };
         let result = map_serial_error("COM1", err);

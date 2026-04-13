@@ -63,8 +63,7 @@ impl ScriptRecorder {
     /// after commands (Enter key presses).
     pub fn generate_script(&self) -> String {
         if self.events.is_empty() {
-            return "// Empty recording — no keystrokes captured\n"
-                .to_string();
+            return "// Empty recording — no keystrokes captured\n".to_string();
         }
 
         let mut lines = Vec::new();
@@ -82,13 +81,10 @@ impl ScriptRecorder {
         let mut prev_timestamp: Option<Instant> = None;
 
         for event in &self.events {
-            let is_enter = event.data == "\r"
-                || event.data == "\n"
-                || event.data == "\r\n";
+            let is_enter = event.data == "\r" || event.data == "\n" || event.data == "\r\n";
 
             let should_flush = if let Some(prev) = prev_timestamp {
-                let elapsed =
-                    event.timestamp.duration_since(prev).as_millis();
+                let elapsed = event.timestamp.duration_since(prev).as_millis();
                 elapsed > MERGE_THRESHOLD_MS || is_enter
             } else {
                 is_enter
@@ -110,8 +106,7 @@ impl ScriptRecorder {
                 }
                 // Add a waitFor for the prompt (user can customize)
                 lines.push(
-                    "putz.waitFor('>', 10000); // Adjust prompt pattern and timeout"
-                        .to_string(),
+                    "putz.waitFor('>', 10000); // Adjust prompt pattern and timeout".to_string(),
                 );
                 lines.push(String::new());
             } else if is_control_sequence(&event.data) {
@@ -122,9 +117,7 @@ impl ScriptRecorder {
                     current_text.clear();
                 }
                 let escaped = escape_js_string(&event.data);
-                lines.push(format!(
-                    "putz.send('{escaped}'); // Control sequence"
-                ));
+                lines.push(format!("putz.send('{escaped}'); // Control sequence"));
             } else {
                 // Regular character — accumulate
                 current_text.push_str(&event.data);
@@ -290,10 +283,7 @@ mod tests {
 
     #[test]
     fn escape_plain_text_unchanged() {
-        assert_eq!(
-            escape_js_string("show version"),
-            "show version"
-        );
+        assert_eq!(escape_js_string("show version"), "show version");
     }
 
     // ─── is_control_sequence tests ─────────────────────────────

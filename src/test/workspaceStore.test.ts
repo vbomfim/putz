@@ -216,7 +216,8 @@ describe("workspaceStore", () => {
     });
 
     useWorkspaceStore.getState().addWorkspace("Dev");
-    const devId = useWorkspaceStore.getState().workspaces.find((w) => w.name === "Dev")!.id;
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const _devId = useWorkspaceStore.getState().workspaces.find((w) => w.name === "Dev")!.id;
 
     // The old workspace (default) should have saved the layout
     const defaultWs = useWorkspaceStore
@@ -230,7 +231,8 @@ describe("workspaceStore", () => {
   it("switchWorkspace restores target workspace layout to layoutStore", () => {
     // Add a workspace with pre-saved layout
     useWorkspaceStore.getState().addWorkspace("Dev");
-    const devId = useWorkspaceStore.getState().workspaces.find((w) => w.name === "Dev")!.id;
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const _devId = useWorkspaceStore.getState().workspaces.find((w) => w.name === "Dev")!.id;
 
     // Manually set saved layout in the default workspace (simulating previous state)
     useWorkspaceStore.setState((state) => ({

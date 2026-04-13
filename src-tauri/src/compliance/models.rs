@@ -175,11 +175,15 @@ mod tests {
         let config = ChangeWindowConfig::default();
         assert_eq!(config.version, 1);
         assert!(config.windows.is_empty());
-        assert!(config.dangerous_commands.contains(&"configure terminal".to_string()));
+        assert!(config
+            .dangerous_commands
+            .contains(&"configure terminal".to_string()));
         assert!(config.dangerous_commands.contains(&"conf t".to_string()));
         assert!(config.dangerous_commands.contains(&"commit".to_string()));
         assert!(config.dangerous_commands.contains(&"write mem".to_string()));
-        assert!(config.dangerous_commands.contains(&"copy run start".to_string()));
+        assert!(config
+            .dangerous_commands
+            .contains(&"copy run start".to_string()));
     }
 
     #[test]
@@ -218,7 +222,8 @@ mod tests {
 
     #[test]
     fn set_change_window_input_with_id() {
-        let json = r#"{"id":"abc","name":"Updated","days":[],"startHour":0,"endHour":6,"enabled":false}"#;
+        let json =
+            r#"{"id":"abc","name":"Updated","days":[],"startHour":0,"endHour":6,"enabled":false}"#;
         let input: SetChangeWindowInput = serde_json::from_str(json).unwrap();
         assert_eq!(input.id, Some("abc".into()));
         assert!(!input.enabled);

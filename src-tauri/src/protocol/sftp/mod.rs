@@ -134,17 +134,11 @@ impl SftpManager {
     }
 
     /// Closes and removes an SFTP session.
-    pub async fn close(
-        &self,
-        sftp_session_id: &str,
-    ) -> Result<(), ProtocolError> {
+    pub async fn close(&self, sftp_session_id: &str) -> Result<(), ProtocolError> {
         let mut sessions = self.sessions.lock().await;
-        let handle =
-            sessions.remove(sftp_session_id).ok_or_else(|| {
-                ProtocolError::ChannelClosed(format!(
-                    "SFTP session not found: {sftp_session_id}"
-                ))
-            })?;
+        let handle = sessions.remove(sftp_session_id).ok_or_else(|| {
+            ProtocolError::ChannelClosed(format!("SFTP session not found: {sftp_session_id}"))
+        })?;
 
         // Close the SFTP session (best-effort)
         let _ = handle.session.close().await;
@@ -155,10 +149,7 @@ impl SftpManager {
     ///
     /// Called when an SSH connection is closed to clean up SFTP sessions.
     #[allow(dead_code)]
-    pub async fn close_by_connection(
-        &self,
-        connection_id: &str,
-    ) -> usize {
+    pub async fn close_by_connection(&self, connection_id: &str) -> usize {
         let mut sessions = self.sessions.lock().await;
         let to_remove: Vec<String> = sessions
             .iter()
@@ -185,31 +176,18 @@ impl SftpManager {
     ///
     /// Acquires the session lock, runs the closure, and releases it.
     /// This pattern avoids exposing the internal mutex to callers.
-    pub async fn with_session<F, R>(
-        &self,
-        sftp_session_id: &str,
-        f: F,
-    ) -> Result<R, ProtocolError>
+    pub async fn with_session<F, R>(&self, sftp_session_id: &str, f: F) -> Result<R, ProtocolError>
     where
         F: FnOnce(
             &SftpSessionHandle,
-        )
-            -> std::pin::Pin<
-            Box<
-                dyn std::future::Future<
-                        Output = Result<R, ProtocolError>,
-                    > + Send
-                    + '_,
-            >,
+        ) -> std::pin::Pin<
+            Box<dyn std::future::Future<Output = Result<R, ProtocolError>> + Send + '_>,
         >,
     {
         let sessions = self.sessions.lock().await;
-        let handle =
-            sessions.get(sftp_session_id).ok_or_else(|| {
-                ProtocolError::ChannelClosed(format!(
-                    "SFTP session not found: {sftp_session_id}"
-                ))
-            })?;
+        let handle = sessions.get(sftp_session_id).ok_or_else(|| {
+            ProtocolError::ChannelClosed(format!("SFTP session not found: {sftp_session_id}"))
+        })?;
         f(handle).await
     }
 
@@ -217,8 +195,7 @@ impl SftpManager {
     pub async fn get_transfers(
         &self,
         sftp_session_id: &str,
-    ) -> Result<Arc<TokioMutex<HashMap<String, SftpSessionHandle>>>, ProtocolError>
-    {
+    ) -> Result<Arc<TokioMutex<HashMap<String, SftpSessionHandle>>>, ProtocolError> {
         // We return the sessions Arc so the caller can access transfers
         // This is a temporary pattern — will be refactored if needed
         let sessions = self.sessions.lock().await;
@@ -337,8 +314,7 @@ mod tests {
             gid: None,
         };
         let json = serde_json::to_string(&entry).unwrap();
-        let restored: RemoteFileEntry =
-            serde_json::from_str(&json).unwrap();
+        let restored: RemoteFileEntry = serde_json::from_str(&json).unwrap();
         assert_eq!(restored.name, "config.json");
         assert_eq!(restored.size, 512);
         assert!(!restored.is_dir);
@@ -432,27 +408,18 @@ mod tests {
 
     #[test]
     fn format_size_gb() {
-        assert_eq!(
-            format_file_size(1024 * 1024 * 1024),
-            "1.0 GB"
-        );
+        assert_eq!(format_file_size(1024 * 1024 * 1024), "1.0 GB");
     }
 
     #[test]
     fn format_size_tb() {
-        assert_eq!(
-            format_file_size(1024_u64 * 1024 * 1024 * 1024),
-            "1.0 TB"
-        );
+        assert_eq!(format_file_size(1024_u64 * 1024 * 1024 * 1024), "1.0 TB");
     }
 
     #[test]
     fn format_size_large_file() {
         // 4.7 GB
-        assert_eq!(
-            format_file_size(5_046_586_573),
-            "4.7 GB"
-        );
+        assert_eq!(format_file_size(5_046_586_573), "4.7 GB");
     }
 
     // ── SftpManager ──────────────────────────────────────────────

@@ -76,7 +76,10 @@ impl TemplateManager {
 
         // Seed built-in templates if not already present
         for (name, description, content) in builtin_templates() {
-            let already_exists = store.templates.iter().any(|t| t.is_builtin && t.name == name);
+            let already_exists = store
+                .templates
+                .iter()
+                .any(|t| t.is_builtin && t.name == name);
             if already_exists {
                 continue;
             }
@@ -213,10 +216,7 @@ impl TemplateManager {
     }
 
     /// Executes a template by substituting variables. Returns the rendered text.
-    pub fn execute(
-        &self,
-        input: ExecuteTemplateInput,
-    ) -> Result<String, TemplateError> {
+    pub fn execute(&self, input: ExecuteTemplateInput) -> Result<String, TemplateError> {
         let template = self.get(&input.template_id)?;
         let rendered = substitute_variables(&template.content, &input.variables);
         Ok(rendered)
@@ -587,7 +587,10 @@ mod tests {
             })
             .unwrap();
 
-        assert_eq!(result, "interface Gi0/1\n ip address 10.0.0.1 255.255.255.0");
+        assert_eq!(
+            result,
+            "interface Gi0/1\n ip address 10.0.0.1 255.255.255.0"
+        );
     }
 
     #[test]

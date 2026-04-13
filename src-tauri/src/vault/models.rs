@@ -313,7 +313,8 @@ mod tests {
 
     #[test]
     fn set_credential_input_deserializes_create() {
-        let json = r#"{"name":"Test","username":"admin","secret":"pass","credentialType":"password"}"#;
+        let json =
+            r#"{"name":"Test","username":"admin","secret":"pass","credentialType":"password"}"#;
         let input: SetCredentialInput = serde_json::from_str(json).unwrap();
         assert!(input.id.is_none());
         assert_eq!(input.name, "Test");

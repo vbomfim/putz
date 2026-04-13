@@ -51,8 +51,7 @@ fn sanitize_hostname(hostname: &str) -> String {
 
 /// Returns the backup directory path (`~/putz-backups/`), creating it if needed.
 fn ensure_backup_dir() -> Result<std::path::PathBuf, String> {
-    let home = dirs::home_dir()
-        .ok_or_else(|| "Cannot determine home directory".to_string())?;
+    let home = dirs::home_dir().ok_or_else(|| "Cannot determine home directory".to_string())?;
     let backup_dir = home.join("putz-backups");
 
     if !backup_dir.exists() {
@@ -81,14 +80,16 @@ pub fn save_backup(req: &SaveBackupRequest) -> Result<SaveBackupResponse, String
     let filepath = backup_dir.join(&filename);
 
     // Verify the resolved path is still inside the backup directory
-    let canonical_dir = backup_dir.canonicalize()
+    let canonical_dir = backup_dir
+        .canonicalize()
         .map_err(|e| format!("Failed to resolve backup directory: {e}"))?;
 
     // Write first, then verify (the file must exist for canonicalize)
     std::fs::write(&filepath, &req.content)
         .map_err(|e| format!("Failed to write backup file: {e}"))?;
 
-    let canonical_file = filepath.canonicalize()
+    let canonical_file = filepath
+        .canonicalize()
         .map_err(|e| format!("Failed to resolve backup file path: {e}"))?;
 
     if !canonical_file.starts_with(&canonical_dir) {
@@ -153,7 +154,8 @@ mod tests {
     fn save_backup_writes_file_successfully() {
         let req = SaveBackupRequest {
             hostname: "test-router".into(),
-            content: "hostname test-router\ninterface Gi0/0\n ip address 10.0.0.1 255.255.255.0\n".into(),
+            content: "hostname test-router\ninterface Gi0/0\n ip address 10.0.0.1 255.255.255.0\n"
+                .into(),
         };
         let result = save_backup(&req).unwrap();
         assert!(result.path.contains("test-router"));

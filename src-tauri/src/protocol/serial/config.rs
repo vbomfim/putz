@@ -77,8 +77,7 @@ pub enum SerialFlowControl {
 
 /// Standard baud rates supported by most serial hardware.
 pub const STANDARD_BAUD_RATES: &[u32] = &[
-    300, 1200, 2400, 4800, 9600, 19200, 38400, 57600, 115200, 230400,
-    460800, 921600,
+    300, 1200, 2400, 4800, 9600, 19200, 38400, 57600, 115200, 230400, 460800, 921600,
 ];
 
 impl SerialConfig {
@@ -313,22 +312,16 @@ mod tests {
             SerialDataBits::Eight,
         ] {
             let json = serde_json::to_string(&variant).unwrap();
-            let restored: SerialDataBits =
-                serde_json::from_str(&json).unwrap();
+            let restored: SerialDataBits = serde_json::from_str(&json).unwrap();
             assert_eq!(variant, restored);
         }
     }
 
     #[test]
     fn all_parity_variants_roundtrip() {
-        for variant in [
-            SerialParity::None,
-            SerialParity::Even,
-            SerialParity::Odd,
-        ] {
+        for variant in [SerialParity::None, SerialParity::Even, SerialParity::Odd] {
             let json = serde_json::to_string(&variant).unwrap();
-            let restored: SerialParity =
-                serde_json::from_str(&json).unwrap();
+            let restored: SerialParity = serde_json::from_str(&json).unwrap();
             assert_eq!(variant, restored);
         }
     }
@@ -341,8 +334,7 @@ mod tests {
             SerialFlowControl::Software,
         ] {
             let json = serde_json::to_string(&variant).unwrap();
-            let restored: SerialFlowControl =
-                serde_json::from_str(&json).unwrap();
+            let restored: SerialFlowControl = serde_json::from_str(&json).unwrap();
             assert_eq!(variant, restored);
         }
     }
@@ -440,9 +432,7 @@ mod tests {
 
     #[test]
     fn standard_baud_rates_contains_expected_values() {
-        let expected = [
-            300, 1200, 2400, 4800, 9600, 19200, 38400, 57600, 115200,
-        ];
+        let expected = [300, 1200, 2400, 4800, 9600, 19200, 38400, 57600, 115200];
         for rate in &expected {
             assert!(
                 STANDARD_BAUD_RATES.contains(rate),
@@ -580,8 +570,7 @@ mod tests {
     fn all_stop_bits_variants_roundtrip() {
         for variant in [SerialStopBits::One, SerialStopBits::Two] {
             let json = serde_json::to_string(&variant).unwrap();
-            let restored: SerialStopBits =
-                serde_json::from_str(&json).unwrap();
+            let restored: SerialStopBits = serde_json::from_str(&json).unwrap();
             assert_eq!(variant, restored);
         }
     }
@@ -598,8 +587,7 @@ mod tests {
             flow_control: SerialFlowControl::Software,
         };
         let json = serde_json::to_string(&config).unwrap();
-        let restored: SerialConfig =
-            serde_json::from_str(&json).unwrap();
+        let restored: SerialConfig = serde_json::from_str(&json).unwrap();
         assert_eq!(config, restored);
     }
 }

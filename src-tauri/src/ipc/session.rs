@@ -18,10 +18,7 @@ pub fn session_list(state: State<'_, SessionManager>) -> Vec<SessionNode> {
 
 /// Gets a single session profile by ID.
 #[tauri::command]
-pub fn session_get(
-    state: State<'_, SessionManager>,
-    id: String,
-) -> Result<SessionProfile, String> {
+pub fn session_get(state: State<'_, SessionManager>, id: String) -> Result<SessionProfile, String> {
     state.get_session(&id).map_err(|e| e.to_string())
 }
 
@@ -48,10 +45,7 @@ pub fn session_update(
 
 /// Deletes a session profile by ID.
 #[tauri::command]
-pub fn session_delete(
-    state: State<'_, SessionManager>,
-    id: String,
-) -> Result<(), String> {
+pub fn session_delete(state: State<'_, SessionManager>, id: String) -> Result<(), String> {
     state.delete_session(&id).map_err(|e| e.to_string())
 }
 
@@ -68,27 +62,19 @@ pub fn session_move(
 ///
 /// Returns the UUID of the new copy.
 #[tauri::command]
-pub fn session_duplicate(
-    state: State<'_, SessionManager>,
-    id: String,
-) -> Result<String, String> {
+pub fn session_duplicate(state: State<'_, SessionManager>, id: String) -> Result<String, String> {
     state.duplicate_session(&id).map_err(|e| e.to_string())
 }
 
 /// Searches sessions by query string (matches name, host, username).
 #[tauri::command]
-pub fn session_search(
-    state: State<'_, SessionManager>,
-    query: String,
-) -> Vec<SessionProfile> {
+pub fn session_search(state: State<'_, SessionManager>, query: String) -> Vec<SessionProfile> {
     state.search(&query)
 }
 
 /// Exports the entire session store as a JSON string.
 #[tauri::command]
-pub fn session_export(
-    state: State<'_, SessionManager>,
-) -> Result<String, String> {
+pub fn session_export(state: State<'_, SessionManager>) -> Result<String, String> {
     state.export().map_err(|e| e.to_string())
 }
 
@@ -96,10 +82,7 @@ pub fn session_export(
 ///
 /// Returns the number of sessions imported.
 #[tauri::command]
-pub fn session_import(
-    state: State<'_, SessionManager>,
-    data: String,
-) -> Result<usize, String> {
+pub fn session_import(state: State<'_, SessionManager>, data: String) -> Result<usize, String> {
     state.import(&data).map_err(|e| e.to_string())
 }
 
@@ -119,10 +102,7 @@ pub fn session_create_folder(
 
 /// Deletes a folder by ID (must be empty).
 #[tauri::command]
-pub fn session_delete_folder(
-    state: State<'_, SessionManager>,
-    id: String,
-) -> Result<(), String> {
+pub fn session_delete_folder(state: State<'_, SessionManager>, id: String) -> Result<(), String> {
     state.delete_folder(&id).map_err(|e| e.to_string())
 }
 

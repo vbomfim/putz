@@ -130,9 +130,8 @@ impl AutoLoginManager {
                 )));
             }
             // Validate regex compiles
-            Regex::new(&step.expect).map_err(|e| {
-                AutoLoginError::PatternError(format!("step {i}: {e}"))
-            })?;
+            Regex::new(&step.expect)
+                .map_err(|e| AutoLoginError::PatternError(format!("step {i}: {e}")))?;
         }
 
         let profile = AutoLoginProfile {
@@ -260,8 +259,8 @@ impl AutoLoginManager {
         }
 
         let step = &state.steps[current_step];
-        let pattern = Regex::new(&step.expect)
-            .map_err(|e| AutoLoginError::PatternError(e.to_string()))?;
+        let pattern =
+            Regex::new(&step.expect).map_err(|e| AutoLoginError::PatternError(e.to_string()))?;
 
         if pattern.is_match(&state.output_buffer) {
             // Pattern matched — determine what to send
@@ -583,9 +582,7 @@ mod tests {
             _ => panic!("Expected Send"),
         }
 
-        let action = mgr
-            .process_output("conn-1", "device> ", "", "")
-            .unwrap();
+        let action = mgr.process_output("conn-1", "device> ", "", "").unwrap();
         assert!(matches!(action, LoginAction::Complete));
     }
 }

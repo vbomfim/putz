@@ -57,10 +57,7 @@ impl VaultManager {
 
     /// Creates a VaultManager with a custom keyring backend and config dir (for testing).
     #[cfg(test)]
-    pub fn with_backend(
-        keyring: Box<dyn KeyringBackend>,
-        config_dir: PathBuf,
-    ) -> Self {
+    pub fn with_backend(keyring: Box<dyn KeyringBackend>, config_dir: PathBuf) -> Self {
         let index = Self::load_from_disk(&config_dir);
         Self {
             index: Mutex::new(index),
@@ -83,9 +80,9 @@ impl VaultManager {
 
     /// Acquires the internal mutex, returning a graceful error on poisoning.
     fn lock_index(&self) -> Result<MutexGuard<'_, VaultIndex>, VaultError> {
-        self.index.lock().map_err(|e| {
-            VaultError::LockError(format!("Vault index mutex poisoned: {e}"))
-        })
+        self.index
+            .lock()
+            .map_err(|e| VaultError::LockError(format!("Vault index mutex poisoned: {e}")))
     }
 
     /// Loads the vault index from disk, with backup fallback.
@@ -161,9 +158,7 @@ impl VaultManager {
 
         // Shift backups: N-1 → N
         for i in (1..MAX_BACKUPS).rev() {
-            let from = self
-                .config_dir
-                .join(format!("vault-index.backup.{i}.json"));
+            let from = self.config_dir.join(format!("vault-index.backup.{i}.json"));
             let to = self
                 .config_dir
                 .join(format!("vault-index.backup.{}.json", i + 1));
@@ -397,10 +392,8 @@ mod tests {
     /// Creates a VaultManager with a temp directory and returns the dir handle.
     fn test_manager_with_dir() -> (VaultManager, tempfile::TempDir) {
         let dir = tempfile::tempdir().unwrap();
-        let manager = VaultManager::with_backend(
-            Box::new(MockKeyring::new()),
-            dir.path().to_path_buf(),
-        );
+        let manager =
+            VaultManager::with_backend(Box::new(MockKeyring::new()), dir.path().to_path_buf());
         (manager, dir)
     }
 
@@ -631,10 +624,7 @@ mod tests {
 
         // Create and save
         {
-            let mgr = VaultManager::with_backend(
-                Box::new(MockKeyring::new()),
-                config_dir.clone(),
-            );
+            let mgr = VaultManager::with_backend(Box::new(MockKeyring::new()), config_dir.clone());
             mgr.set(sample_input()).unwrap();
         }
 
@@ -654,17 +644,11 @@ mod tests {
         let config_dir = dir.path().to_path_buf();
 
         // Create manager 1 and save a credential
-        let mgr1 = VaultManager::with_backend(
-            Box::new(MockKeyring::new()),
-            config_dir.clone(),
-        );
+        let mgr1 = VaultManager::with_backend(Box::new(MockKeyring::new()), config_dir.clone());
         mgr1.set(sample_input()).unwrap();
 
         // Create manager 2 from the same directory — should load the index
-        let mgr2 = VaultManager::with_backend(
-            Box::new(MockKeyring::new()),
-            config_dir.clone(),
-        );
+        let mgr2 = VaultManager::with_backend(Box::new(MockKeyring::new()), config_dir.clone());
         let list = mgr2.list().unwrap();
         assert_eq!(list.len(), 1);
         assert_eq!(list[0].name, "DC1 Admin");
@@ -674,10 +658,7 @@ mod tests {
     fn backup_rotation_creates_backups() {
         let dir = tempfile::tempdir().unwrap();
         let config_dir = dir.path().to_path_buf();
-        let mgr = VaultManager::with_backend(
-            Box::new(MockKeyring::new()),
-            config_dir.clone(),
-        );
+        let mgr = VaultManager::with_backend(Box::new(MockKeyring::new()), config_dir.clone());
 
         // Create two credentials to trigger two saves
         mgr.set(sample_input()).unwrap();
@@ -696,10 +677,7 @@ mod tests {
         use std::os::unix::fs::PermissionsExt;
         let dir = tempfile::tempdir().unwrap();
         let config_dir = dir.path().to_path_buf();
-        let mgr = VaultManager::with_backend(
-            Box::new(MockKeyring::new()),
-            config_dir.clone(),
-        );
+        let mgr = VaultManager::with_backend(Box::new(MockKeyring::new()), config_dir.clone());
         mgr.set(sample_input()).unwrap();
 
         let index_path = config_dir.join(VAULT_INDEX_FILE);
@@ -712,10 +690,8 @@ mod tests {
     #[test]
     fn max_credentials_limit_enforced() {
         let dir = tempfile::tempdir().unwrap();
-        let mgr = VaultManager::with_backend(
-            Box::new(MockKeyring::new()),
-            dir.path().to_path_buf(),
-        );
+        let mgr =
+            VaultManager::with_backend(Box::new(MockKeyring::new()), dir.path().to_path_buf());
 
         // Directly inject MAX_CREDENTIALS items into the index
         {
@@ -793,26 +769,27 @@ mod tests {
     #[test]
     fn set_keyring_failure_does_not_mutate_index() {
         let dir = tempfile::tempdir().unwrap();
-        let mgr = VaultManager::with_backend(
-            Box::new(FailingKeyring),
-            dir.path().to_path_buf(),
-        );
+        let mgr = VaultManager::with_backend(Box::new(FailingKeyring), dir.path().to_path_buf());
 
         let result = mgr.set(sample_input());
-        assert!(result.is_err(), "set() should fail when keyring is unavailable");
+        assert!(
+            result.is_err(),
+            "set() should fail when keyring is unavailable"
+        );
 
         let list = mgr.list().unwrap();
-        assert!(list.is_empty(), "index must remain empty after keyring failure");
+        assert!(
+            list.is_empty(),
+            "index must remain empty after keyring failure"
+        );
     }
 
     #[test]
     fn update_keyring_failure_does_not_mutate_index() {
         // First, create a credential with a working keyring
         let dir = tempfile::tempdir().unwrap();
-        let working_mgr = VaultManager::with_backend(
-            Box::new(MockKeyring::new()),
-            dir.path().to_path_buf(),
-        );
+        let working_mgr =
+            VaultManager::with_backend(Box::new(MockKeyring::new()), dir.path().to_path_buf());
         let id = working_mgr.set(sample_input()).unwrap();
         let original = working_mgr.list().unwrap();
         assert_eq!(original.len(), 1);
@@ -820,20 +797,24 @@ mod tests {
         drop(working_mgr);
 
         // Now create a manager with a failing keyring pointing at the same dir
-        let failing_mgr = VaultManager::with_backend(
-            Box::new(FailingKeyring),
-            dir.path().to_path_buf(),
-        );
+        let failing_mgr =
+            VaultManager::with_backend(Box::new(FailingKeyring), dir.path().to_path_buf());
 
         let mut update = sample_input();
         update.id = Some(id);
         update.name = "Updated Name".into();
         let result = failing_mgr.set(update);
-        assert!(result.is_err(), "update should fail when keyring is unavailable");
+        assert!(
+            result.is_err(),
+            "update should fail when keyring is unavailable"
+        );
 
         // Verify index was not mutated
         let list = failing_mgr.list().unwrap();
         assert_eq!(list.len(), 1);
-        assert_eq!(list[0].name, original_name, "name must not change after keyring failure");
+        assert_eq!(
+            list[0].name, original_name,
+            "name must not change after keyring failure"
+        );
     }
 }

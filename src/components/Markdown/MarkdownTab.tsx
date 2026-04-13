@@ -35,7 +35,7 @@ export function MarkdownTab({ filePath, regionId, tabId }: MarkdownTabProps) {
         const text = await invoke<string>("file_read", { path: filePath });
         if (cancelled) return;
         setContent(text);
-        try { lastMtimeRef.current = await invoke<number>("file_mtime", { path: filePath }); } catch {}
+        try { lastMtimeRef.current = await invoke<number>("file_mtime", { path: filePath }); } catch { /* no-op */ }
         const name = filePath.split("/").pop() || filePath;
         renameTab(regionId, tabId, `📖 ${name}`);
       } catch (err: unknown) {
@@ -59,7 +59,7 @@ export function MarkdownTab({ filePath, regionId, tabId }: MarkdownTabProps) {
           setContent(text);
           lastMtimeRef.current = mtime;
         }
-      } catch {}
+      } catch { /* no-op */ }
     }, 2000);
     return () => clearInterval(interval);
   }, [filePath]);

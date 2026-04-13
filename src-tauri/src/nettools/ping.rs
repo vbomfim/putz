@@ -119,22 +119,19 @@ pub fn validate_target(target: &str) -> Result<(), String> {
     }
 
     // Reject shell metacharacters — prevent command injection
-    let forbidden = [';', '&', '|', '$', '`', '(', ')', '{', '}', '<', '>', '!', '\\', '"', '\'', '\n', '\r', '\t', ' '];
+    let forbidden = [
+        ';', '&', '|', '$', '`', '(', ')', '{', '}', '<', '>', '!', '\\', '"', '\'', '\n', '\r',
+        '\t', ' ',
+    ];
     for ch in forbidden {
         if target.contains(ch) {
-            return Err(format!(
-                "Target contains forbidden character: '{ch}'"
-            ));
+            return Err(format!("Target contains forbidden character: '{ch}'"));
         }
     }
 
     // Must match hostname or IP pattern
-    let hostname_re = Regex::new(
-        r"^[a-zA-Z0-9]([a-zA-Z0-9\-\.]*[a-zA-Z0-9])?$"
-    ).unwrap();
-    let ipv6_re = Regex::new(
-        r"^[0-9a-fA-F:]+$"
-    ).unwrap();
+    let hostname_re = Regex::new(r"^[a-zA-Z0-9]([a-zA-Z0-9\-\.]*[a-zA-Z0-9])?$").unwrap();
+    let ipv6_re = Regex::new(r"^[0-9a-fA-F:]+$").unwrap();
 
     if !hostname_re.is_match(target) && !ipv6_re.is_match(target) {
         return Err(format!(
@@ -208,10 +205,14 @@ pub fn build_ping_command(target: &str, count: u32, interval: f64) -> tokio::pro
 /// - Timeout: `Request timeout for icmp_seq 1` / `Request timed out.`
 pub fn parse_reply_line(line: &str) -> Option<(u32, Option<f64>)> {
     // Check for timeout first
-    if line.contains("Request timeout") || line.contains("Request timed out") || line.contains("timed out") {
+    if line.contains("Request timeout")
+        || line.contains("Request timed out")
+        || line.contains("timed out")
+    {
         // Try to extract seq from timeout line
         let seq_re = Regex::new(r"icmp_seq[= ](\d+)").unwrap();
-        let seq = seq_re.captures(line)
+        let seq = seq_re
+            .captures(line)
             .and_then(|c| c.get(1))
             .and_then(|m| m.as_str().parse::<u32>().ok())
             .unwrap_or(0);
@@ -224,7 +225,8 @@ pub fn parse_reply_line(line: &str) -> Option<(u32, Option<f64>)> {
 
     if let Some(time_cap) = unix_time_re.captures(line) {
         let rtt: f64 = time_cap.get(1)?.as_str().parse().ok()?;
-        let seq = unix_seq_re.captures(line)
+        let seq = unix_seq_re
+            .captures(line)
             .and_then(|c| c.get(1))
             .and_then(|m| m.as_str().parse::<u32>().ok())
             .unwrap_or(0);
@@ -251,8 +253,9 @@ pub fn parse_reply_line(line: &str) -> Option<(u32, Option<f64>)> {
 pub fn parse_summary_line(line: &str) -> Option<(u32, u32, f64)> {
     // Unix format
     let unix_re = Regex::new(
-        r"(\d+) packets? transmitted, (\d+) (?:packets? )?received.*?(\d+\.?\d*)% (?:packet )?loss"
-    ).unwrap();
+        r"(\d+) packets? transmitted, (\d+) (?:packets? )?received.*?(\d+\.?\d*)% (?:packet )?loss",
+    )
+    .unwrap();
     if let Some(caps) = unix_re.captures(line) {
         let sent: u32 = caps.get(1)?.as_str().parse().ok()?;
         let received: u32 = caps.get(2)?.as_str().parse().ok()?;
@@ -261,9 +264,7 @@ pub fn parse_summary_line(line: &str) -> Option<(u32, u32, f64)> {
     }
 
     // Windows format
-    let win_re = Regex::new(
-        r"Sent = (\d+), Received = (\d+), Lost = (\d+)"
-    ).unwrap();
+    let win_re = Regex::new(r"Sent = (\d+), Received = (\d+), Lost = (\d+)").unwrap();
     if let Some(caps) = win_re.captures(line) {
         let sent: u32 = caps.get(1)?.as_str().parse().ok()?;
         let received: u32 = caps.get(2)?.as_str().parse().ok()?;
@@ -286,9 +287,7 @@ pub fn parse_summary_line(line: &str) -> Option<(u32, u32, f64)> {
 /// - Windows: `Minimum = 11ms, Maximum = 13ms, Average = 12ms`
 pub fn parse_rtt_stats_line(line: &str) -> Option<(f64, f64, f64)> {
     // Unix format: min/avg/max/stddev = 1.2/3.4/5.6/0.1 ms
-    let unix_re = Regex::new(
-        r"=\s*(\d+\.?\d*)/(\d+\.?\d*)/(\d+\.?\d*)"
-    ).unwrap();
+    let unix_re = Regex::new(r"=\s*(\d+\.?\d*)/(\d+\.?\d*)/(\d+\.?\d*)").unwrap();
     if let Some(caps) = unix_re.captures(line) {
         let min: f64 = caps.get(1)?.as_str().parse().ok()?;
         let avg: f64 = caps.get(2)?.as_str().parse().ok()?;
@@ -297,9 +296,7 @@ pub fn parse_rtt_stats_line(line: &str) -> Option<(f64, f64, f64)> {
     }
 
     // Windows format
-    let win_re = Regex::new(
-        r"Minimum = (\d+)ms.*Maximum = (\d+)ms.*Average = (\d+)ms"
-    ).unwrap();
+    let win_re = Regex::new(r"Minimum = (\d+)ms.*Maximum = (\d+)ms.*Average = (\d+)ms").unwrap();
     if let Some(caps) = win_re.captures(line) {
         let min: f64 = caps.get(1)?.as_str().parse().ok()?;
         let max: f64 = caps.get(2)?.as_str().parse().ok()?;

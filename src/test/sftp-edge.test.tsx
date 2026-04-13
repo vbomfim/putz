@@ -524,7 +524,8 @@ describe("SFTP Edge Case Tests", () => {
 
   describe("[EDGE] IPC error handling", () => {
     it("handles sftp_list failure gracefully after successful open", async () => {
-      let callCount = 0;
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const _callCount = 0;
       mockInvoke = vi.fn().mockImplementation(async (cmd: string) => {
         if (cmd === "sftp_open") return "sftp-err-session";
         if (cmd === "sftp_list") throw new Error("Permission denied");
@@ -818,7 +819,8 @@ describe("SFTP Edge Case Tests", () => {
       });
 
       // Submit empty
-      const input = screen.getByLabelText("New folder name");
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const _input = screen.getByLabelText("New folder name");
       await user.keyboard("{Enter}");
 
       await new Promise((r) => setTimeout(r, 50));

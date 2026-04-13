@@ -14,7 +14,6 @@
 // Many items are only called at runtime through Tauri's event system
 // and SshHandler callbacks, so the compiler marks them as unused in
 // `cargo test`.  They are exercised via integration / manual testing.
-
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 
@@ -120,7 +119,8 @@ fn rand_bytes_16() -> [u8; 16] {
     let mut bytes = [0u8; 16];
     let mut state = seed;
     for b in &mut bytes {
-        state = state.wrapping_mul(6364136223846793005)
+        state = state
+            .wrapping_mul(6364136223846793005)
             .wrapping_add(1442695040888963407);
         *b = (state >> 33) as u8;
     }
@@ -153,11 +153,8 @@ pub fn parse_display_string(display: &str) -> u32 {
     // Handle host:display.screen format
     if let Some(after_colon) = display.split(':').nth(1) {
         // Take everything before the dot (screen number)
-        let display_str =
-            after_colon.split('.').next().unwrap_or("0");
-        return display_str
-            .parse()
-            .unwrap_or(DEFAULT_X11_DISPLAY);
+        let display_str = after_colon.split('.').next().unwrap_or("0");
+        return display_str.parse().unwrap_or(DEFAULT_X11_DISPLAY);
     }
 
     DEFAULT_X11_DISPLAY
@@ -170,25 +167,19 @@ pub async fn setup_x11_forwarding(
     channel: &russh::Channel<russh::client::Msg>,
     config: &X11ForwardingConfig,
 ) -> Result<X11State, ProtocolError> {
-    let display_number = config
-        .display_number
-        .unwrap_or_else(parse_display_number);
+    let display_number = config.display_number.unwrap_or_else(parse_display_number);
     let auth_cookie = generate_auth_cookie();
 
     channel
         .request_x11(
-            false, // want_reply
+            false,           // want_reply
             !config.trusted, // single_connection (true for untrusted)
             X11_AUTH_PROTOCOL,
             &auth_cookie,
             display_number,
         )
         .await
-        .map_err(|e| {
-            ProtocolError::IoError(format!(
-                "X11 forwarding request failed: {e}"
-            ))
-        })?;
+        .map_err(|e| ProtocolError::IoError(format!("X11 forwarding request failed: {e}")))?;
 
     Ok(X11State {
         config: config.clone(),
@@ -213,44 +204,29 @@ pub async fn handle_x11_channel(
     let local_addr = format!("127.0.0.1:{local_port}");
 
     // Try TCP connection first, then Unix socket
-    let tcp_stream =
-        match tokio::net::TcpStream::connect(&local_addr).await {
-            Ok(s) => s,
-            Err(_) => {
-                // Try Unix socket (Linux/macOS)
-                #[cfg(unix)]
-                {
-                    let socket_path = format!(
-                        "/tmp/.X11-unix/X{display_number}"
-                    );
-                    match tokio::net::UnixStream::connect(
-                        &socket_path,
-                    )
-                    .await
-                    {
-                        Ok(unix_stream) => {
-                            active_channels
-                                .fetch_add(1, Ordering::Relaxed);
-                            relay_x11_unix(
-                                channel,
-                                unix_stream,
-                                active_channels,
-                                bytes_relayed,
-                            )
-                            .await;
-                            return;
-                        }
-                        Err(_) => return,
+    let tcp_stream = match tokio::net::TcpStream::connect(&local_addr).await {
+        Ok(s) => s,
+        Err(_) => {
+            // Try Unix socket (Linux/macOS)
+            #[cfg(unix)]
+            {
+                let socket_path = format!("/tmp/.X11-unix/X{display_number}");
+                match tokio::net::UnixStream::connect(&socket_path).await {
+                    Ok(unix_stream) => {
+                        active_channels.fetch_add(1, Ordering::Relaxed);
+                        relay_x11_unix(channel, unix_stream, active_channels, bytes_relayed).await;
+                        return;
                     }
+                    Err(_) => return,
                 }
-                #[cfg(not(unix))]
-                return;
             }
-        };
+            #[cfg(not(unix))]
+            return;
+        }
+    };
 
     active_channels.fetch_add(1, Ordering::Relaxed);
-    relay_x11_tcp(channel, tcp_stream, active_channels, bytes_relayed)
-        .await;
+    relay_x11_tcp(channel, tcp_stream, active_channels, bytes_relayed).await;
 }
 
 /// Relays X11 data between an SSH channel and a TCP stream.
@@ -345,12 +321,8 @@ pub fn get_x11_status(state: &X11State) -> X11ForwardingStatus {
     X11ForwardingStatus {
         active: true,
         display_number: state.display_number,
-        active_channels: state
-            .active_channels
-            .load(Ordering::Relaxed) as u32,
-        bytes_relayed: state
-            .bytes_relayed
-            .load(Ordering::Relaxed),
+        active_channels: state.active_channels.load(Ordering::Relaxed) as u32,
+        bytes_relayed: state.bytes_relayed.load(Ordering::Relaxed),
     }
 }
 
@@ -398,8 +370,7 @@ mod tests {
             trusted: false,
         };
         let json = serde_json::to_string(&config).unwrap();
-        let restored: X11ForwardingConfig =
-            serde_json::from_str(&json).unwrap();
+        let restored: X11ForwardingConfig = serde_json::from_str(&json).unwrap();
         assert_eq!(restored.enabled, true);
         assert_eq!(restored.display_number, Some(5));
         assert_eq!(restored.trusted, false);
@@ -445,26 +416,17 @@ mod tests {
 
     #[test]
     fn parse_display_host_colon_display() {
-        assert_eq!(
-            parse_display_string("remote.host:5.0"),
-            5
-        );
+        assert_eq!(parse_display_string("remote.host:5.0"), 5);
     }
 
     #[test]
     fn parse_display_unix_socket() {
-        assert_eq!(
-            parse_display_string("/tmp/.X11-unix/X0"),
-            0
-        );
+        assert_eq!(parse_display_string("/tmp/.X11-unix/X0"), 0);
     }
 
     #[test]
     fn parse_display_unix_socket_display_2() {
-        assert_eq!(
-            parse_display_string("/tmp/.X11-unix/X2"),
-            2
-        );
+        assert_eq!(parse_display_string("/tmp/.X11-unix/X2"), 2);
     }
 
     #[test]

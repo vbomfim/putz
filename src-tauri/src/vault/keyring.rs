@@ -73,9 +73,7 @@ impl KeyringBackend for OsKeyring {
 
     fn delete(&self, id: &str) -> Result<(), VaultError> {
         let entry = Self::entry(id)?;
-        entry
-            .delete_credential()
-            .map_err(Self::map_keyring_error)
+        entry.delete_credential().map_err(Self::map_keyring_error)
     }
 }
 
@@ -172,10 +170,7 @@ mod tests {
         let kr = MockKeyring::new();
         let result = kr.retrieve("nonexistent");
         assert!(result.is_err());
-        assert!(matches!(
-            result.unwrap_err(),
-            VaultError::NotFound(_)
-        ));
+        assert!(matches!(result.unwrap_err(), VaultError::NotFound(_)));
     }
 
     #[test]

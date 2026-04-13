@@ -10,8 +10,7 @@ use tauri::{AppHandle, State};
 
 use crate::protocol::connection_manager::ConnectionManager;
 use crate::protocol::serial::config::{
-    SerialConfig, SerialDataBits, SerialFlowControl, SerialParity,
-    SerialStopBits,
+    SerialConfig, SerialDataBits, SerialFlowControl, SerialParity, SerialStopBits,
 };
 use crate::protocol::serial::scanner;
 use crate::protocol::ProtocolType;
@@ -47,8 +46,7 @@ fn validate_serial_port_path(path: &str) -> Result<(), String> {
     #[cfg(target_os = "macos")]
     {
         // macOS: /dev/tty.* or /dev/cu.*
-        let valid =
-            path.starts_with("/dev/tty.") || path.starts_with("/dev/cu.");
+        let valid = path.starts_with("/dev/tty.") || path.starts_with("/dev/cu.");
         if !valid {
             return Err(format!(
                 "Invalid serial port path: {path}. \
@@ -61,8 +59,7 @@ fn validate_serial_port_path(path: &str) -> Result<(), String> {
     {
         // Windows: COM1..COM256 (case-insensitive)
         let upper = path.to_uppercase();
-        let valid = upper.starts_with("COM")
-            && upper[3..].parse::<u16>().is_ok();
+        let valid = upper.starts_with("COM") && upper[3..].parse::<u16>().is_ok();
         if !valid {
             return Err(format!(
                 "Invalid serial port path: {path}. \
@@ -149,9 +146,7 @@ pub async fn connection_open(
             data_bits: input.data_bits.unwrap_or(SerialDataBits::Eight),
             parity: input.parity.unwrap_or(SerialParity::None),
             stop_bits: input.stop_bits.unwrap_or(SerialStopBits::One),
-            flow_control: input
-                .flow_control
-                .unwrap_or(SerialFlowControl::None),
+            flow_control: input.flow_control.unwrap_or(SerialFlowControl::None),
         };
 
         return state
@@ -177,45 +172,34 @@ pub async fn connection_open(
         ProtocolType::Ssh => {
             // Retrieve the password from vault before connecting,
             // so the async connection doesn't need owned VaultManager.
-            let vault_password =
-                if let Some(ref cred_id) = input.credential_id {
-                    vault
-                        .get_for_session(cred_id)
-                        .ok()
-                        .map(|c| c.secret.clone())
-                } else {
-                    None
-                };
+            let vault_password = if let Some(ref cred_id) = input.credential_id {
+                vault
+                    .get_for_session(cred_id)
+                    .ok()
+                    .map(|c| c.secret.clone())
+            } else {
+                None
+            };
 
             // Check for jump host — resolve chain and tunnel
             if let Some(ref jump_host_id) = input.jump_host_id {
                 if !jump_host_id.is_empty() {
-                    let hops =
-                        crate::protocol::ssh::proxy::resolve_jump_chain(
-                            jump_host_id,
-                            &sessions,
-                            &vault,
-                        )
-                        .map_err(|e| e.to_string())?;
+                    let hops = crate::protocol::ssh::proxy::resolve_jump_chain(
+                        jump_host_id,
+                        &sessions,
+                        &vault,
+                    )
+                    .map_err(|e| e.to_string())?;
 
                     return state
-                        .open_ssh_through_jump_hosts(
-                            params,
-                            app,
-                            vault_password,
-                            hops,
-                        )
+                        .open_ssh_through_jump_hosts(params, app, vault_password, hops)
                         .await
                         .map_err(|e| e.to_string());
                 }
             }
 
             state
-                .open_ssh_with_password(
-                    params,
-                    app,
-                    vault_password,
-                )
+                .open_ssh_with_password(params, app, vault_password)
                 .await
                 .map_err(|e| e.to_string())
         }
@@ -271,10 +255,7 @@ pub async fn connection_close(
     state: State<'_, ConnectionManager>,
     connection_id: String,
 ) -> Result<(), String> {
-    state
-        .close(&connection_id)
-        .await
-        .map_err(|e| e.to_string())
+    state.close(&connection_id).await.map_err(|e| e.to_string())
 }
 
 /// Lists all available serial ports on the system.
@@ -333,8 +314,7 @@ mod tests {
             "cols": 80,
             "rows": 24
         }"#;
-        let input: super::ConnectionOpenInput =
-            serde_json::from_str(json).unwrap();
+        let input: super::ConnectionOpenInput = serde_json::from_str(json).unwrap();
         assert_eq!(input.host, Some("192.168.1.1".into()));
         assert_eq!(input.port, Some(23));
         assert_eq!(input.cols, 80);
@@ -351,8 +331,7 @@ mod tests {
             "cols": 80,
             "rows": 24
         }"#;
-        let input: super::ConnectionOpenInput =
-            serde_json::from_str(json).unwrap();
+        let input: super::ConnectionOpenInput = serde_json::from_str(json).unwrap();
         assert_eq!(input.host, None);
         assert_eq!(input.port, None);
         assert_eq!(input.username, None);
@@ -368,8 +347,7 @@ mod tests {
             "cols": 132,
             "rows": 43
         }"#;
-        let input: super::ConnectionOpenInput =
-            serde_json::from_str(json).unwrap();
+        let input: super::ConnectionOpenInput = serde_json::from_str(json).unwrap();
         assert_eq!(input.username, Some("admin".into()));
         assert_eq!(input.cols, 132);
         assert_eq!(input.rows, 43);
@@ -388,17 +366,13 @@ mod tests {
             "stopBits": "two",
             "flowControl": "hardware"
         }"#;
-        let input: super::ConnectionOpenInput =
-            serde_json::from_str(json).unwrap();
+        let input: super::ConnectionOpenInput = serde_json::from_str(json).unwrap();
         assert_eq!(input.host, Some("/dev/ttyUSB0".into()));
         assert_eq!(input.baud_rate, Some(115200));
         assert_eq!(input.data_bits, Some(SerialDataBits::Seven));
         assert_eq!(input.parity, Some(SerialParity::Even));
         assert_eq!(input.stop_bits, Some(SerialStopBits::Two));
-        assert_eq!(
-            input.flow_control,
-            Some(SerialFlowControl::Hardware)
-        );
+        assert_eq!(input.flow_control, Some(SerialFlowControl::Hardware));
     }
 
     #[test]
@@ -409,8 +383,7 @@ mod tests {
             "cols": 80,
             "rows": 24
         }"#;
-        let input: super::ConnectionOpenInput =
-            serde_json::from_str(json).unwrap();
+        let input: super::ConnectionOpenInput = serde_json::from_str(json).unwrap();
         assert_eq!(input.host, Some("COM3".into()));
         // All serial-specific fields default to None (will use 9600/8/N/1)
         assert_eq!(input.baud_rate, None);
@@ -435,69 +408,49 @@ mod tests {
 
     #[test]
     fn validate_rejects_path_traversal() {
-        assert!(
-            super::validate_serial_port_path("/dev/../etc/passwd")
-                .is_err()
-        );
+        assert!(super::validate_serial_port_path("/dev/../etc/passwd").is_err());
     }
 
     #[cfg(target_os = "linux")]
     #[test]
     fn validate_accepts_linux_ttyusb() {
-        assert!(
-            super::validate_serial_port_path("/dev/ttyUSB0").is_ok()
-        );
+        assert!(super::validate_serial_port_path("/dev/ttyUSB0").is_ok());
     }
 
     #[cfg(target_os = "linux")]
     #[test]
     fn validate_accepts_linux_ttyacm() {
-        assert!(
-            super::validate_serial_port_path("/dev/ttyACM0").is_ok()
-        );
+        assert!(super::validate_serial_port_path("/dev/ttyACM0").is_ok());
     }
 
     #[cfg(target_os = "linux")]
     #[test]
     fn validate_accepts_linux_serial() {
-        assert!(super::validate_serial_port_path(
-            "/dev/serial/by-id/usb-FTDI"
-        )
-        .is_ok());
+        assert!(super::validate_serial_port_path("/dev/serial/by-id/usb-FTDI").is_ok());
     }
 
     #[cfg(target_os = "linux")]
     #[test]
     fn validate_rejects_arbitrary_linux_path() {
-        assert!(
-            super::validate_serial_port_path("/dev/sda1").is_err()
-        );
+        assert!(super::validate_serial_port_path("/dev/sda1").is_err());
     }
 
     #[cfg(target_os = "macos")]
     #[test]
     fn validate_accepts_macos_cu() {
-        assert!(
-            super::validate_serial_port_path("/dev/cu.usbserial-1420")
-                .is_ok()
-        );
+        assert!(super::validate_serial_port_path("/dev/cu.usbserial-1420").is_ok());
     }
 
     #[cfg(target_os = "macos")]
     #[test]
     fn validate_accepts_macos_tty() {
-        assert!(
-            super::validate_serial_port_path("/dev/tty.usbserial-1420")
-                .is_ok()
-        );
+        assert!(super::validate_serial_port_path("/dev/tty.usbserial-1420").is_ok());
     }
 
     #[cfg(target_os = "macos")]
     #[test]
     fn validate_rejects_arbitrary_macos_path() {
-        assert!(
-            super::validate_serial_port_path("/dev/disk0").is_err()
-        );
+        assert!(super::validate_serial_port_path("/dev/disk0").is_err());
     }
 
     #[cfg(target_os = "windows")]
@@ -510,18 +463,14 @@ mod tests {
     #[cfg(target_os = "windows")]
     #[test]
     fn validate_rejects_non_com_windows() {
-        assert!(
-            super::validate_serial_port_path("C:\\Windows\\system32")
-                .is_err()
-        );
+        assert!(super::validate_serial_port_path("C:\\Windows\\system32").is_err());
     }
 
     #[test]
     fn base64_decode_valid_data() {
         use base64::Engine;
         let original = b"hello world";
-        let encoded = base64::engine::general_purpose::STANDARD
-            .encode(original);
+        let encoded = base64::engine::general_purpose::STANDARD.encode(original);
         let decoded = base64::engine::general_purpose::STANDARD
             .decode(&encoded)
             .unwrap();
@@ -531,8 +480,7 @@ mod tests {
     #[test]
     fn base64_decode_invalid_data_returns_error() {
         use base64::Engine;
-        let result = base64::engine::general_purpose::STANDARD
-            .decode("not-valid-base64!!!");
+        let result = base64::engine::general_purpose::STANDARD.decode("not-valid-base64!!!");
         assert!(result.is_err());
     }
 
@@ -548,8 +496,7 @@ mod tests {
             "rows": 24,
             "baudRate": 115200
         }"#;
-        let input: super::ConnectionOpenInput =
-            serde_json::from_str(json).unwrap();
+        let input: super::ConnectionOpenInput = serde_json::from_str(json).unwrap();
         assert_eq!(input.baud_rate, Some(115200));
         // Other serial fields default to None
         assert_eq!(input.data_bits, None);
@@ -573,15 +520,11 @@ mod tests {
             "stopBits": "one",
             "flowControl": "software"
         }"#;
-        let input: super::ConnectionOpenInput =
-            serde_json::from_str(json).unwrap();
+        let input: super::ConnectionOpenInput = serde_json::from_str(json).unwrap();
         assert_eq!(input.data_bits, Some(SerialDataBits::Five));
         assert_eq!(input.parity, Some(SerialParity::Odd));
         assert_eq!(input.stop_bits, Some(SerialStopBits::One));
-        assert_eq!(
-            input.flow_control,
-            Some(SerialFlowControl::Software)
-        );
+        assert_eq!(input.flow_control, Some(SerialFlowControl::Software));
     }
 
     /// [EDGE] ConnectionOpenInput with invalid serial enum variant
@@ -595,12 +538,8 @@ mod tests {
             "rows": 24,
             "baudRate": "fast"
         }"#;
-        let result =
-            serde_json::from_str::<super::ConnectionOpenInput>(json);
-        assert!(
-            result.is_err(),
-            "Should reject string baud rate"
-        );
+        let result = serde_json::from_str::<super::ConnectionOpenInput>(json);
+        assert!(result.is_err(), "Should reject string baud rate");
     }
 
     /// [EDGE] ConnectionOpenInput with invalid protocol variant.
@@ -611,12 +550,8 @@ mod tests {
             "cols": 80,
             "rows": 24
         }"#;
-        let result =
-            serde_json::from_str::<super::ConnectionOpenInput>(json);
-        assert!(
-            result.is_err(),
-            "Should reject unknown protocol"
-        );
+        let result = serde_json::from_str::<super::ConnectionOpenInput>(json);
+        assert!(result.is_err(), "Should reject unknown protocol");
     }
 
     /// [CONTRACT] All ProtocolError variants produce non-empty strings.
@@ -650,8 +585,7 @@ mod tests {
             "rows": 24,
             "jumpHostId": "550e8400-e29b-41d4-a716-446655440000"
         }"#;
-        let input: super::ConnectionOpenInput =
-            serde_json::from_str(json).unwrap();
+        let input: super::ConnectionOpenInput = serde_json::from_str(json).unwrap();
         assert_eq!(
             input.jump_host_id,
             Some("550e8400-e29b-41d4-a716-446655440000".into())
@@ -668,8 +602,7 @@ mod tests {
             "cols": 80,
             "rows": 24
         }"#;
-        let input: super::ConnectionOpenInput =
-            serde_json::from_str(json).unwrap();
+        let input: super::ConnectionOpenInput = serde_json::from_str(json).unwrap();
         assert_eq!(input.jump_host_id, None);
     }
 
@@ -686,8 +619,7 @@ mod tests {
             "credentialId": "cred-abc",
             "jumpHostId": "jump-uuid"
         }"#;
-        let input: super::ConnectionOpenInput =
-            serde_json::from_str(json).unwrap();
+        let input: super::ConnectionOpenInput = serde_json::from_str(json).unwrap();
         assert_eq!(input.credential_id, Some("cred-abc".into()));
         assert_eq!(input.jump_host_id, Some("jump-uuid".into()));
     }

@@ -18,9 +18,7 @@ const MAX_NAME_LENGTH: usize = 200;
 pub fn validate_key_name(name: &str) -> Result<(), KeyError> {
     let trimmed = name.trim();
     if trimmed.is_empty() {
-        return Err(KeyError::InvalidInput(
-            "Key name cannot be empty".into(),
-        ));
+        return Err(KeyError::InvalidInput("Key name cannot be empty".into()));
     }
     if trimmed.len() > MAX_NAME_LENGTH {
         return Err(KeyError::InvalidInput(format!(
@@ -57,9 +55,7 @@ pub fn validate_private_key_pem(pem: &str) -> Result<(), KeyError> {
 /// Validates a UUID string format.
 pub fn validate_uuid(id: &str) -> Result<(), KeyError> {
     if uuid::Uuid::parse_str(id).is_err() {
-        return Err(KeyError::InvalidInput(format!(
-            "Invalid UUID format: {id}"
-        )));
+        return Err(KeyError::InvalidInput(format!("Invalid UUID format: {id}")));
     }
     Ok(())
 }
@@ -118,14 +114,16 @@ mod tests {
     fn valid_pem_openssh() {
         assert!(validate_private_key_pem(
             "-----BEGIN OPENSSH PRIVATE KEY-----\ndata\n-----END OPENSSH PRIVATE KEY-----"
-        ).is_ok());
+        )
+        .is_ok());
     }
 
     #[test]
     fn valid_pem_rsa() {
         assert!(validate_private_key_pem(
             "-----BEGIN RSA PRIVATE KEY-----\ndata\n-----END RSA PRIVATE KEY-----"
-        ).is_ok());
+        )
+        .is_ok());
     }
 
     #[test]

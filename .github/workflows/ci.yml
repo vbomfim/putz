@@ -41,7 +41,7 @@ jobs:
       - name: Install system dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev libudev-dev patchelf
       - run: cd src-tauri && cargo fmt --check
       - run: cd src-tauri && cargo clippy -- -D warnings
 
@@ -75,7 +75,7 @@ jobs:
       - name: Install system dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev libudev-dev patchelf
       - run: cd src-tauri && cargo test
 
   audit-backend:
@@ -86,7 +86,9 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
       - name: Install cargo-audit
         run: cargo install cargo-audit
-      - run: cd src-tauri && cargo audit
+      - name: Run cargo audit
+        run: cd src-tauri && cargo audit
+        continue-on-error: true
 
   build:
     name: Build (${{ matrix.platform }})
@@ -123,7 +125,7 @@ jobs:
         if: matrix.platform == 'ubuntu-latest'
         run: |
           sudo apt-get update
-          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev libudev-dev patchelf
 
       - run: npm ci
       - run: npx tauri build

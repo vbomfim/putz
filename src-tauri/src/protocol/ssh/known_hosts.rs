@@ -39,9 +39,7 @@ pub enum HostKeyStatus {
 /// Falls back to `$HOME/.putz/known_hosts` if config dir is unavailable.
 /// Returns an error-safe path using the HOME env var — never /tmp.
 pub fn default_known_hosts_path() -> PathBuf {
-    if let Some(dirs) =
-        directories::ProjectDirs::from("", "", "putz")
-    {
+    if let Some(dirs) = directories::ProjectDirs::from("", "", "putz") {
         dirs.config_dir().join("known_hosts")
     } else if let Ok(home) = std::env::var("HOME") {
         // Fallback to $HOME/.putz/known_hosts
@@ -61,8 +59,7 @@ pub fn default_known_hosts_path() -> PathBuf {
 pub fn fingerprint_key(key: &PublicKey) -> String {
     let key_bytes = key_to_bytes(key);
     let hash = Sha256::digest(&key_bytes);
-    let b64 = base64::engine::general_purpose::STANDARD
-        .encode(hash.as_slice());
+    let b64 = base64::engine::general_purpose::STANDARD.encode(hash.as_slice());
     format!("SHA256:{b64}")
 }
 
@@ -82,13 +79,9 @@ fn key_to_bytes(key: &PublicKey) -> Vec<u8> {
             let key_data = k.as_bytes();
             let mut buf = Vec::new();
             // SSH wire format: u32 name_len + name + u32 key_len + key
-            buf.extend_from_slice(
-                &(name.len() as u32).to_be_bytes(),
-            );
+            buf.extend_from_slice(&(name.len() as u32).to_be_bytes());
             buf.extend_from_slice(name);
-            buf.extend_from_slice(
-                &(key_data.len() as u32).to_be_bytes(),
-            );
+            buf.extend_from_slice(&(key_data.len() as u32).to_be_bytes());
             buf.extend_from_slice(key_data);
             buf
         }
@@ -142,36 +135,26 @@ pub fn check_known_host(
         Err(_) => return HostKeyStatus::Unknown,
     };
 
-    let server_key_b64 = base64::engine::general_purpose::STANDARD
-        .encode(key_to_bytes(server_key));
+    let server_key_b64 = base64::engine::general_purpose::STANDARD.encode(key_to_bytes(server_key));
     let server_key_type = key_type_name(server_key);
 
     for line in content.lines() {
-        if let Some((entry_host, entry_algo, entry_key)) =
-            parse_entry(line)
-        {
-            if entry_host == host_entry
-                && entry_algo == server_key_type
-            {
+        if let Some((entry_host, entry_algo, entry_key)) = parse_entry(line) {
+            if entry_host == host_entry && entry_algo == server_key_type {
                 // Found matching host + algorithm
                 if entry_key.trim() == server_key_b64 {
                     return HostKeyStatus::Known;
                 } else {
                     // Key changed — compute expected fingerprint
-                    let expected_fingerprint =
-                        if let Ok(expected_bytes) =
-                            base64::engine::general_purpose::STANDARD
-                                .decode(entry_key.trim())
-                        {
-                            let hash =
-                                Sha256::digest(&expected_bytes);
-                            let b64 =
-                                base64::engine::general_purpose::STANDARD
-                                    .encode(hash.as_slice());
-                            format!("SHA256:{b64}")
-                        } else {
-                            "unknown".into()
-                        };
+                    let expected_fingerprint = if let Ok(expected_bytes) =
+                        base64::engine::general_purpose::STANDARD.decode(entry_key.trim())
+                    {
+                        let hash = Sha256::digest(&expected_bytes);
+                        let b64 = base64::engine::general_purpose::STANDARD.encode(hash.as_slice());
+                        format!("SHA256:{b64}")
+                    } else {
+                        "unknown".into()
+                    };
                     return HostKeyStatus::Changed {
                         expected_fingerprint,
                     };
@@ -204,8 +187,7 @@ pub fn add_known_host(
 
     let host_entry = format_host_entry(host, port);
     let key_type = key_type_name(server_key);
-    let key_b64 = base64::engine::general_purpose::STANDARD
-        .encode(key_to_bytes(server_key));
+    let key_b64 = base64::engine::general_purpose::STANDARD.encode(key_to_bytes(server_key));
 
     let line = format!("{host_entry} {key_type} {key_b64}\n");
 
@@ -231,18 +213,12 @@ pub fn add_known_host(
 ///
 /// Removes all entries matching the given host and port.
 #[allow(dead_code)]
-pub fn remove_known_host(
-    path: &Path,
-    host: &str,
-    port: u16,
-) -> Result<(), std::io::Error> {
+pub fn remove_known_host(path: &Path, host: &str, port: u16) -> Result<(), std::io::Error> {
     let host_entry = format_host_entry(host, port);
 
     let content = match fs::read_to_string(path) {
         Ok(c) => c,
-        Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
-            return Ok(())
-        }
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(()),
         Err(e) => return Err(e),
     };
 
@@ -295,10 +271,7 @@ mod tests {
 
     #[test]
     fn format_host_entry_non_standard_port() {
-        assert_eq!(
-            format_host_entry("example.com", 2222),
-            "[example.com]:2222"
-        );
+        assert_eq!(format_host_entry("example.com", 2222), "[example.com]:2222");
     }
 
     #[test]
@@ -308,19 +281,14 @@ mod tests {
 
     #[test]
     fn format_host_entry_ip_non_standard_port() {
-        assert_eq!(
-            format_host_entry("192.168.1.1", 2222),
-            "[192.168.1.1]:2222"
-        );
+        assert_eq!(format_host_entry("192.168.1.1", 2222), "[192.168.1.1]:2222");
     }
 
     // ── parse_entry ──
 
     #[test]
     fn parse_entry_valid_line() {
-        let result = parse_entry(
-            "example.com ssh-ed25519 AAAAC3NzaC1lZDI1NTE5",
-        );
+        let result = parse_entry("example.com ssh-ed25519 AAAAC3NzaC1lZDI1NTE5");
         assert!(result.is_some());
         let (host, algo, key) = result.unwrap();
         assert_eq!(host, "example.com");
@@ -347,9 +315,7 @@ mod tests {
 
     #[test]
     fn parse_entry_with_non_standard_port() {
-        let result = parse_entry(
-            "[server.local]:2222 ssh-ed25519 AAAA...",
-        );
+        let result = parse_entry("[server.local]:2222 ssh-ed25519 AAAA...");
         assert!(result.is_some());
         let (host, _, _) = result.unwrap();
         assert_eq!(host, "[server.local]:2222");
@@ -417,8 +383,7 @@ mod tests {
             use std::os::unix::fs::PermissionsExt;
             let perms = fs::Permissions::from_mode(0o600);
             fs::set_permissions(&path, perms).unwrap();
-            let actual =
-                fs::metadata(&path).unwrap().permissions().mode();
+            let actual = fs::metadata(&path).unwrap().permissions().mode();
             assert_eq!(actual & 0o777, 0o600);
         }
     }
@@ -499,8 +464,7 @@ other.com ssh-ed25519 BBBB
         // Test that our fingerprint format is correct
         let test_data = b"test key data";
         let hash = Sha256::digest(test_data);
-        let b64 = base64::engine::general_purpose::STANDARD
-            .encode(hash.as_slice());
+        let b64 = base64::engine::general_purpose::STANDARD.encode(hash.as_slice());
         let fp = format!("SHA256:{b64}");
         assert!(fp.starts_with("SHA256:"));
         assert!(fp.len() > 10);

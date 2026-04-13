@@ -14,9 +14,7 @@ use crate::vault::VaultManager;
 
 /// Lists all saved scripts (metadata only).
 #[tauri::command]
-pub fn script_list(
-    state: State<'_, ScriptManager>,
-) -> Vec<ScriptMeta> {
+pub fn script_list(state: State<'_, ScriptManager>) -> Vec<ScriptMeta> {
     state.list()
 }
 
@@ -40,10 +38,7 @@ pub fn script_save(
 
 /// Deletes a script by ID.
 #[tauri::command]
-pub fn script_delete(
-    state: State<'_, ScriptManager>,
-    id: String,
-) -> Result<(), String> {
+pub fn script_delete(state: State<'_, ScriptManager>, id: String) -> Result<(), String> {
     state.delete(&id).map_err(|e| e.to_string())
 }
 
@@ -86,8 +81,7 @@ pub async fn script_run(
 
                     // Try connection (async)
                     let conn = app.state::<ConnectionManager>();
-                    let conn_result =
-                        conn.write(&session_id, &data_bytes).await;
+                    let conn_result = conn.write(&session_id, &data_bytes).await;
                     match conn_result {
                         Ok(()) => {
                             let _ = result_tx.send(Ok(()));
@@ -118,9 +112,7 @@ pub async fn script_run(
                             let _ = result_tx.send(Ok(()));
                         }
                         Err(e) => {
-                            let _ = result_tx.send(Err(format!(
-                                "Failed to disconnect: {e}"
-                            )));
+                            let _ = result_tx.send(Err(format!("Failed to disconnect: {e}")));
                         }
                     }
                 }
@@ -130,20 +122,15 @@ pub async fn script_run(
                 } => {
                     let vault = app.state::<VaultManager>();
                     let creds = vault.list().unwrap_or_default();
-                    let found = creds
-                        .iter()
-                        .find(|c| c.name == credential_name);
+                    let found = creds.iter().find(|c| c.name == credential_name);
 
                     match found {
                         Some(meta) => match vault.get(&meta.id) {
                             Ok(cred) => {
-                                let _ = result_tx.send(Ok(Some(
-                                    cred.secret.clone(),
-                                )));
+                                let _ = result_tx.send(Ok(Some(cred.secret.clone())));
                             }
                             Err(e) => {
-                                let _ = result_tx
-                                    .send(Err(e.to_string()));
+                                let _ = result_tx.send(Err(e.to_string()));
                             }
                         },
                         None => {
@@ -152,11 +139,8 @@ pub async fn script_run(
                     }
                 }
                 ScriptCommand::Log { entry } => {
-                    let _ = tauri::Emitter::emit(
-                        &app,
-                        &format!("script-log-{}", session_id),
-                        &entry,
-                    );
+                    let _ =
+                        tauri::Emitter::emit(&app, &format!("script-log-{}", session_id), &entry);
                 }
             }
         }) as std::pin::Pin<Box<dyn std::future::Future<Output = ()> + Send>>
@@ -199,29 +183,22 @@ pub async fn script_run_multi(
                         data,
                         result_tx,
                     } => {
-                        let data_bytes =
-                            format!("{data}\r\n").into_bytes();
+                        let data_bytes = format!("{data}\r\n").into_bytes();
                         let pty = app.state::<PtyManager>();
-                        let pty_result =
-                            pty.write(&session_id, &data_bytes);
+                        let pty_result = pty.write(&session_id, &data_bytes);
                         if pty_result.is_ok() {
                             let _ = result_tx.send(Ok(()));
                             return;
                         }
 
-                        let conn =
-                            app.state::<ConnectionManager>();
-                        let conn_result = conn
-                            .write(&session_id, &data_bytes)
-                            .await;
+                        let conn = app.state::<ConnectionManager>();
+                        let conn_result = conn.write(&session_id, &data_bytes).await;
                         match conn_result {
                             Ok(()) => {
                                 let _ = result_tx.send(Ok(()));
                             }
                             Err(e) => {
-                                let _ = result_tx.send(Err(
-                                    e.to_string(),
-                                ));
+                                let _ = result_tx.send(Err(e.to_string()));
                             }
                         }
                     }
@@ -236,17 +213,14 @@ pub async fn script_run_multi(
                             return;
                         }
 
-                        let conn =
-                            app.state::<ConnectionManager>();
-                        let conn_result =
-                            conn.close(&session_id).await;
+                        let conn = app.state::<ConnectionManager>();
+                        let conn_result = conn.close(&session_id).await;
                         match conn_result {
                             Ok(()) => {
                                 let _ = result_tx.send(Ok(()));
                             }
                             Err(e) => {
-                                let _ = result_tx
-                                    .send(Err(e.to_string()));
+                                let _ = result_tx.send(Err(e.to_string()));
                             }
                         }
                     }
@@ -255,63 +229,38 @@ pub async fn script_run_multi(
                         result_tx,
                     } => {
                         let vault = app.state::<VaultManager>();
-                        let creds =
-                            vault.list().unwrap_or_default();
-                        let found = creds
-                            .iter()
-                            .find(|c| c.name == credential_name);
+                        let creds = vault.list().unwrap_or_default();
+                        let found = creds.iter().find(|c| c.name == credential_name);
 
                         match found {
-                            Some(meta) => {
-                                match vault.get(&meta.id) {
-                                    Ok(cred) => {
-                                        let _ = result_tx.send(
-                                            Ok(Some(
-                                                cred.secret.clone(),
-                                            )),
-                                        );
-                                    }
-                                    Err(e) => {
-                                        let _ = result_tx.send(
-                                            Err(e.to_string()),
-                                        );
-                                    }
+                            Some(meta) => match vault.get(&meta.id) {
+                                Ok(cred) => {
+                                    let _ = result_tx.send(Ok(Some(cred.secret.clone())));
                                 }
-                            }
+                                Err(e) => {
+                                    let _ = result_tx.send(Err(e.to_string()));
+                                }
+                            },
                             None => {
-                                let _ =
-                                    result_tx.send(Ok(None));
+                                let _ = result_tx.send(Ok(None));
                             }
                         }
                     }
                     ScriptCommand::Log { entry } => {
                         let _ = tauri::Emitter::emit(
                             &app,
-                            &format!(
-                                "script-log-{}",
-                                session_id
-                            ),
+                            &format!("script-log-{}", session_id),
                             &entry,
                         );
                     }
                 }
-            })
-                as std::pin::Pin<
-                    Box<
-                        dyn std::future::Future<Output = ()>
-                            + Send,
-                    >,
-                >
+            }) as std::pin::Pin<Box<dyn std::future::Future<Output = ()> + Send>>
         };
 
         let run_id = state
             .run(single_input, handler, app_clone)
             .await
-            .map_err(|e| {
-                format!(
-                    "Failed to start script for session {session_id}: {e}"
-                )
-            })?;
+            .map_err(|e| format!("Failed to start script for session {session_id}: {e}"))?;
         run_ids.push(run_id);
     }
 
@@ -332,10 +281,7 @@ pub async fn script_status(
 
 /// Stops a running script.
 #[tauri::command]
-pub async fn script_stop(
-    state: State<'_, ScriptManager>,
-    run_id: String,
-) -> Result<(), String> {
+pub async fn script_stop(state: State<'_, ScriptManager>, run_id: String) -> Result<(), String> {
     state.stop(&run_id).await.map_err(|e| e.to_string())
 }
 
@@ -345,9 +291,7 @@ pub fn script_record_start(
     state: State<'_, ScriptManager>,
     session_id: String,
 ) -> Result<(), String> {
-    state
-        .record_start(&session_id)
-        .map_err(|e| e.to_string())
+    state.record_start(&session_id).map_err(|e| e.to_string())
 }
 
 /// Stops recording and returns the generated script content.
@@ -356,7 +300,5 @@ pub fn script_record_stop(
     state: State<'_, ScriptManager>,
     session_id: String,
 ) -> Result<String, String> {
-    state
-        .record_stop(&session_id)
-        .map_err(|e| e.to_string())
+    state.record_stop(&session_id).map_err(|e| e.to_string())
 }

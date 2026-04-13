@@ -204,9 +204,7 @@ impl ThemeManager {
             .ok_or_else(|| ThemeError::NotFound(id.into()))?;
 
         if store.themes[idx].is_builtin {
-            return Err(ThemeError::BuiltinProtected(
-                store.themes[idx].name.clone(),
-            ));
+            return Err(ThemeError::BuiltinProtected(store.themes[idx].name.clone()));
         }
 
         store.themes.remove(idx);
@@ -1253,6 +1251,9 @@ mod tests {
         }
 
         let bak1 = tmp.path().join("themes.json.bak.1");
-        assert!(bak1.exists(), "Backup file should exist after multiple saves");
+        assert!(
+            bak1.exists(),
+            "Backup file should exist after multiple saves"
+        );
     }
 }

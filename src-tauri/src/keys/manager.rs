@@ -70,9 +70,9 @@ impl KeyManager {
 
     /// Acquires the internal mutex, returning a graceful error on poisoning.
     fn lock_index(&self) -> Result<MutexGuard<'_, SSHKeyIndex>, KeyError> {
-        self.index.lock().map_err(|e| {
-            KeyError::LockError(format!("Key index mutex poisoned: {e}"))
-        })
+        self.index
+            .lock()
+            .map_err(|e| KeyError::LockError(format!("Key index mutex poisoned: {e}")))
     }
 
     // ─── Persistence ───────────────────────────────────────────
@@ -138,7 +138,9 @@ impl KeyManager {
     fn rotate_backups(&self) -> Result<(), KeyError> {
         let path = self.keys_dir.join(KEY_INDEX_FILE);
 
-        let oldest = self.keys_dir.join(format!("index.backup.{MAX_BACKUPS}.json"));
+        let oldest = self
+            .keys_dir
+            .join(format!("index.backup.{MAX_BACKUPS}.json"));
         let _ = fs::remove_file(&oldest);
 
         for i in (1..MAX_BACKUPS).rev() {
@@ -226,7 +228,9 @@ impl KeyManager {
         match passphrase {
             Some(pass) => {
                 russh_keys::encode_pkcs8_pem_encrypted(key, pass.as_bytes(), 100, &mut buf)
-                    .map_err(|e| KeyError::CryptoError(format!("Failed to encode encrypted key: {e}")))?;
+                    .map_err(|e| {
+                        KeyError::CryptoError(format!("Failed to encode encrypted key: {e}"))
+                    })?;
             }
             None => {
                 russh_keys::encode_pkcs8_pem(key, &mut buf)
@@ -279,17 +283,17 @@ impl KeyManager {
 
         // Generate key pair using russh-keys with OsRng
         let key_pair = match input.algorithm {
-            KeyAlgorithm::Ed25519 => {
-                russh_keys::key::KeyPair::generate_ed25519()
-            }
-            KeyAlgorithm::Rsa4096 => {
-                russh_keys::key::KeyPair::generate_rsa(4096, russh_keys::key::SignatureHash::SHA2_256)
-                    .ok_or_else(|| KeyError::CryptoError("Failed to generate RSA-4096 key".into()))?
-            }
+            KeyAlgorithm::Ed25519 => russh_keys::key::KeyPair::generate_ed25519(),
+            KeyAlgorithm::Rsa4096 => russh_keys::key::KeyPair::generate_rsa(
+                4096,
+                russh_keys::key::SignatureHash::SHA2_256,
+            )
+            .ok_or_else(|| KeyError::CryptoError("Failed to generate RSA-4096 key".into()))?,
         };
 
         // Extract public key info
-        let public_key = key_pair.clone_public_key()
+        let public_key = key_pair
+            .clone_public_key()
             .map_err(|e| KeyError::CryptoError(format!("Failed to extract public key: {e}")))?;
         let fingerprint = Self::format_fingerprint(&public_key);
         let public_key_str = Self::encode_public_key_openssh(&public_key);
@@ -347,8 +351,11 @@ impl KeyManager {
             .map_err(|e| KeyError::CryptoError(format!("Failed to parse private key: {e}")))?;
 
         // Extract public key info
-        let public_key = key_pair.clone_public_key()
-            .map_err(|e| KeyError::CryptoError(format!("Failed to extract public key from imported key: {e}")))?;
+        let public_key = key_pair.clone_public_key().map_err(|e| {
+            KeyError::CryptoError(format!(
+                "Failed to extract public key from imported key: {e}"
+            ))
+        })?;
         let fingerprint = Self::format_fingerprint(&public_key);
         let public_key_str = Self::encode_public_key_openssh(&public_key);
 
@@ -542,8 +549,7 @@ mod tests {
         assert!(meta.fingerprint.starts_with("SHA256:"));
         // RSA keys may use ssh-rsa or rsa-sha2-256 depending on hash algorithm
         assert!(
-            meta.public_key.starts_with("ssh-rsa ")
-                || meta.public_key.starts_with("rsa-sha2-256 "),
+            meta.public_key.starts_with("ssh-rsa ") || meta.public_key.starts_with("rsa-sha2-256 "),
             "Expected RSA public key prefix, got: {}",
             &meta.public_key[..meta.public_key.len().min(20)]
         );
@@ -569,16 +575,20 @@ mod tests {
     #[test]
     fn two_different_keys_have_different_fingerprints() {
         let (mgr, _dir) = test_manager();
-        let meta1 = mgr.generate(GenerateKeyInput {
-            name: "Key 1".into(),
-            algorithm: KeyAlgorithm::Ed25519,
-            passphrase: None,
-        }).unwrap();
-        let meta2 = mgr.generate(GenerateKeyInput {
-            name: "Key 2".into(),
-            algorithm: KeyAlgorithm::Ed25519,
-            passphrase: None,
-        }).unwrap();
+        let meta1 = mgr
+            .generate(GenerateKeyInput {
+                name: "Key 1".into(),
+                algorithm: KeyAlgorithm::Ed25519,
+                passphrase: None,
+            })
+            .unwrap();
+        let meta2 = mgr
+            .generate(GenerateKeyInput {
+                name: "Key 2".into(),
+                algorithm: KeyAlgorithm::Ed25519,
+                passphrase: None,
+            })
+            .unwrap();
         assert_ne!(meta1.fingerprint, meta2.fingerprint);
     }
 
@@ -587,11 +597,13 @@ mod tests {
     #[test]
     fn delete_removes_key_from_index() {
         let (mgr, _dir) = test_manager();
-        let meta = mgr.generate(GenerateKeyInput {
-            name: "To Delete".into(),
-            algorithm: KeyAlgorithm::Ed25519,
-            passphrase: None,
-        }).unwrap();
+        let meta = mgr
+            .generate(GenerateKeyInput {
+                name: "To Delete".into(),
+                algorithm: KeyAlgorithm::Ed25519,
+                passphrase: None,
+            })
+            .unwrap();
 
         mgr.delete(&meta.id).unwrap();
         assert!(mgr.list().unwrap().is_empty());
@@ -600,11 +612,13 @@ mod tests {
     #[test]
     fn delete_removes_key_file() {
         let (mgr, dir) = test_manager();
-        let meta = mgr.generate(GenerateKeyInput {
-            name: "File Delete".into(),
-            algorithm: KeyAlgorithm::Ed25519,
-            passphrase: None,
-        }).unwrap();
+        let meta = mgr
+            .generate(GenerateKeyInput {
+                name: "File Delete".into(),
+                algorithm: KeyAlgorithm::Ed25519,
+                passphrase: None,
+            })
+            .unwrap();
 
         let key_path = dir.path().join(format!("{}.key", meta.id));
         assert!(key_path.exists());
@@ -632,11 +646,13 @@ mod tests {
     #[test]
     fn get_public_key_returns_openssh_format() {
         let (mgr, _dir) = test_manager();
-        let meta = mgr.generate(GenerateKeyInput {
-            name: "PubKey Test".into(),
-            algorithm: KeyAlgorithm::Ed25519,
-            passphrase: None,
-        }).unwrap();
+        let meta = mgr
+            .generate(GenerateKeyInput {
+                name: "PubKey Test".into(),
+                algorithm: KeyAlgorithm::Ed25519,
+                passphrase: None,
+            })
+            .unwrap();
 
         let pub_key = mgr.get_public_key(&meta.id).unwrap();
         assert!(pub_key.starts_with("ssh-ed25519 "));
@@ -654,11 +670,13 @@ mod tests {
     #[test]
     fn get_key_path_returns_valid_path() {
         let (mgr, dir) = test_manager();
-        let meta = mgr.generate(GenerateKeyInput {
-            name: "Path Test".into(),
-            algorithm: KeyAlgorithm::Ed25519,
-            passphrase: None,
-        }).unwrap();
+        let meta = mgr
+            .generate(GenerateKeyInput {
+                name: "Path Test".into(),
+                algorithm: KeyAlgorithm::Ed25519,
+                passphrase: None,
+            })
+            .unwrap();
 
         let path = mgr.get_key_path(&meta.id).unwrap();
         assert!(path.exists());
@@ -699,11 +717,13 @@ mod tests {
     #[test]
     fn generate_trims_name_whitespace() {
         let (mgr, _dir) = test_manager();
-        let meta = mgr.generate(GenerateKeyInput {
-            name: "  My Key  ".into(),
-            algorithm: KeyAlgorithm::Ed25519,
-            passphrase: None,
-        }).unwrap();
+        let meta = mgr
+            .generate(GenerateKeyInput {
+                name: "  My Key  ".into(),
+                algorithm: KeyAlgorithm::Ed25519,
+                passphrase: None,
+            })
+            .unwrap();
         assert_eq!(meta.name, "My Key");
     }
 
@@ -720,7 +740,8 @@ mod tests {
                 name: "Persist Test".into(),
                 algorithm: KeyAlgorithm::Ed25519,
                 passphrase: None,
-            }).unwrap();
+            })
+            .unwrap();
         }
 
         // Reload from disk
@@ -796,22 +817,26 @@ mod tests {
         let (mgr, dir) = test_manager();
 
         // First generate a key so we have valid PEM
-        let gen_meta = mgr.generate(GenerateKeyInput {
-            name: "Source Key".into(),
-            algorithm: KeyAlgorithm::Ed25519,
-            passphrase: None,
-        }).unwrap();
+        let gen_meta = mgr
+            .generate(GenerateKeyInput {
+                name: "Source Key".into(),
+                algorithm: KeyAlgorithm::Ed25519,
+                passphrase: None,
+            })
+            .unwrap();
 
         // Read the generated key file
         let key_path = dir.path().join(format!("{}.key", gen_meta.id));
         let pem = fs::read_to_string(&key_path).unwrap();
 
         // Import the same PEM
-        let import_meta = mgr.import(ImportKeyInput {
-            name: "Imported Copy".into(),
-            private_key_pem: pem,
-            passphrase: None,
-        }).unwrap();
+        let import_meta = mgr
+            .import(ImportKeyInput {
+                name: "Imported Copy".into(),
+                private_key_pem: pem,
+                passphrase: None,
+            })
+            .unwrap();
 
         assert_eq!(import_meta.name, "Imported Copy");
         assert_eq!(import_meta.algorithm, KeyAlgorithm::Ed25519);
@@ -839,11 +864,13 @@ mod tests {
     #[test]
     fn meta_serialization_has_no_private_key() {
         let (mgr, _dir) = test_manager();
-        let meta = mgr.generate(GenerateKeyInput {
-            name: "Security Test".into(),
-            algorithm: KeyAlgorithm::Ed25519,
-            passphrase: None,
-        }).unwrap();
+        let meta = mgr
+            .generate(GenerateKeyInput {
+                name: "Security Test".into(),
+                algorithm: KeyAlgorithm::Ed25519,
+                passphrase: None,
+            })
+            .unwrap();
 
         let json = serde_json::to_string(&meta).unwrap();
         assert!(!json.contains("PRIVATE KEY"));

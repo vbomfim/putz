@@ -260,7 +260,8 @@ mod tests {
 
     #[test]
     fn import_input_deserializes() {
-        let json = r#"{"name":"Imported","privateKeyPem":"-----BEGIN OPENSSH PRIVATE KEY-----\n..."}"#;
+        let json =
+            r#"{"name":"Imported","privateKeyPem":"-----BEGIN OPENSSH PRIVATE KEY-----\n..."}"#;
         let input: ImportKeyInput = serde_json::from_str(json).unwrap();
         assert_eq!(input.name, "Imported");
         assert!(input.private_key_pem.contains("BEGIN OPENSSH"));

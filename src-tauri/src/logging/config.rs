@@ -104,7 +104,10 @@ mod tests {
         assert!(config.strip_ansi);
         assert_eq!(config.max_file_size, 100 * 1024 * 1024);
         assert_eq!(config.flush_interval_ms, 100);
-        assert!(config.directory.to_string_lossy().contains(DEFAULT_LOG_DIR_NAME));
+        assert!(config
+            .directory
+            .to_string_lossy()
+            .contains(DEFAULT_LOG_DIR_NAME));
     }
 
     #[test]

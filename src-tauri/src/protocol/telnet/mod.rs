@@ -21,12 +21,10 @@ use tokio::sync::Mutex as TokioMutex;
 use tokio::time::{timeout, Duration};
 
 use super::{
-    ConnectionParams, ConnectionStatus, ConnectionStatusPayload, Protocol,
-    ProtocolError, ProtocolType,
+    ConnectionParams, ConnectionStatus, ConnectionStatusPayload, Protocol, ProtocolError,
+    ProtocolType,
 };
-use negotiation::{
-    build_naws_subnegotiation, escape_iac, parse_telnet, ParserState,
-};
+use negotiation::{build_naws_subnegotiation, escape_iac, parse_telnet, ParserState};
 
 /// Connection timeout in seconds.
 const CONNECT_TIMEOUT_SECS: u64 = 30;
@@ -96,9 +94,7 @@ impl TelnetConnection {
             .ok_or_else(|| ProtocolError::InvalidParams("host is required".into()))?;
 
         if host.is_empty() {
-            return Err(ProtocolError::InvalidParams(
-                "host cannot be empty".into(),
-            ));
+            return Err(ProtocolError::InvalidParams("host cannot be empty".into()));
         }
 
         let port = params.port.unwrap_or(DEFAULT_TELNET_PORT);
@@ -127,9 +123,7 @@ impl TelnetConnection {
             ))
         })?
         .map_err(|e| {
-            ProtocolError::ConnectionRefused(format!(
-                "Failed to connect to {addr}: {e}"
-            ))
+            ProtocolError::ConnectionRefused(format!("Failed to connect to {addr}: {e}"))
         })?;
 
         // Enable TCP keepalive — detects dead connections in ~90s
@@ -204,11 +198,7 @@ impl TelnetConnection {
 
     /// Sends a NAWS update to the remote server.
     #[allow(dead_code)]
-    pub async fn send_resize(
-        &mut self,
-        cols: u16,
-        rows: u16,
-    ) -> Result<(), ProtocolError> {
+    pub async fn send_resize(&mut self, cols: u16, rows: u16) -> Result<(), ProtocolError> {
         self.cols = cols;
         self.rows = rows;
 
@@ -250,10 +240,7 @@ impl TelnetConnection {
 
 #[async_trait]
 impl Protocol for TelnetConnection {
-    async fn connect(
-        &mut self,
-        _params: ConnectionParams,
-    ) -> Result<(), ProtocolError> {
+    async fn connect(&mut self, _params: ConnectionParams) -> Result<(), ProtocolError> {
         // This method satisfies the trait but real connections should use
         // connect_with_emitter() which takes the event emitter.
         Err(ProtocolError::InvalidParams(
@@ -265,11 +252,7 @@ impl Protocol for TelnetConnection {
         self.write_bytes(data).await
     }
 
-    async fn resize(
-        &mut self,
-        cols: u16,
-        rows: u16,
-    ) -> Result<(), ProtocolError> {
+    async fn resize(&mut self, cols: u16, rows: u16) -> Result<(), ProtocolError> {
         self.send_resize(cols, rows).await
     }
 
@@ -319,8 +302,7 @@ async fn read_loop(
                 break;
             }
             Ok(n) => {
-                let result =
-                    parse_telnet(&buf[..n], &mut parser_state, cols, rows);
+                let result = parse_telnet(&buf[..n], &mut parser_state, cols, rows);
 
                 // Send negotiation responses back to server
                 if !result.responses.is_empty() {
@@ -516,8 +498,7 @@ mod tests {
     #[tokio::test]
     async fn connect_to_local_tcp_server() {
         // Start a mock TCP server
-        let listener =
-            tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
         let port = listener.local_addr().unwrap().port();
 
         // Server task: accept connection, send some data, close
@@ -576,8 +557,7 @@ mod tests {
 
     #[tokio::test]
     async fn write_to_connected_server() {
-        let listener =
-            tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
         let port = listener.local_addr().unwrap().port();
 
         let server = tokio::spawn(async move {
@@ -615,8 +595,7 @@ mod tests {
 
     #[tokio::test]
     async fn resize_sends_naws_to_server() {
-        let listener =
-            tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
         let port = listener.local_addr().unwrap().port();
 
         let server = tokio::spawn(async move {
@@ -660,8 +639,7 @@ mod tests {
 
     #[tokio::test]
     async fn server_negotiation_gets_responded() {
-        let listener =
-            tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
         let port = listener.local_addr().unwrap().port();
 
         let server = tokio::spawn(async move {

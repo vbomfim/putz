@@ -63,13 +63,18 @@ pub struct OutputBuffer {
 
 impl OutputBuffer {
     pub fn new() -> Self {
-        Self { data: String::new() }
+        Self {
+            data: String::new(),
+        }
     }
 
     pub fn append(&mut self, new_data: &str) {
         self.data.push_str(new_data);
         if self.data.len() > MAX_BUFFER_SIZE {
-            let keep_from = self.data.len().saturating_sub(MAX_BUFFER_SIZE - OVERLAP_SIZE);
+            let keep_from = self
+                .data
+                .len()
+                .saturating_sub(MAX_BUFFER_SIZE - OVERLAP_SIZE);
             let safe_from = self.data.ceil_char_boundary(keep_from);
             self.data = self.data[safe_from..].to_string();
         }
@@ -119,7 +124,9 @@ pub struct ScriptContext {
 impl ScriptContext {
     fn check_cancelled(&self) -> Result<(), ScriptError> {
         if self.cancelled.load(Ordering::SeqCst) {
-            Err(ScriptError::ScriptStopped("Script execution was stopped".into()))
+            Err(ScriptError::ScriptStopped(
+                "Script execution was stopped".into(),
+            ))
         } else {
             Ok(())
         }
@@ -265,7 +272,10 @@ fn register_putz_api(context: &mut Context, ctx: Arc<ScriptContext>) -> JsResult
 
                 ctx.add_log(
                     LogLevel::Info,
-                    format!("Waiting for pattern: '{}' (timeout: {}ms)", pattern, timeout_ms),
+                    format!(
+                        "Waiting for pattern: '{}' (timeout: {}ms)",
+                        pattern, timeout_ms
+                    ),
                 );
 
                 if let Ok(mut buf) = ctx.output_buffer.lock() {
@@ -538,12 +548,7 @@ fn register_putz_api(context: &mut Context, ctx: Arc<ScriptContext>) -> JsResult
             context,
         )?;
 
-        putz_obj.set(
-            boa_engine::js_string!("vault"),
-            vault_obj,
-            false,
-            context,
-        )?;
+        putz_obj.set(boa_engine::js_string!("vault"), vault_obj, false, context)?;
     }
 
     // ── Register putz as read-only global ──────────────────────
@@ -719,9 +724,7 @@ mod tests {
             cancelled: Arc::new(AtomicBool::new(false)),
             log_entries: Arc::new(Mutex::new(Vec::new())),
         });
-        let _drain = std::thread::spawn(move || {
-            while rx.recv().is_ok() {}
-        });
+        let _drain = std::thread::spawn(move || while rx.recv().is_ok() {});
         let result = execute_script("putz.log('Hello from script');", ctx.clone());
         assert!(result.is_ok());
         let logs = ctx.log_entries.lock().unwrap();
@@ -739,9 +742,7 @@ mod tests {
             cancelled: Arc::new(AtomicBool::new(false)),
             log_entries: Arc::new(Mutex::new(Vec::new())),
         });
-        let _drain = std::thread::spawn(move || {
-            while rx.recv().is_ok() {}
-        });
+        let _drain = std::thread::spawn(move || while rx.recv().is_ok() {});
         let result = execute_script("this is not valid javascript {{{", ctx);
         assert!(result.is_err());
         assert!(matches!(result.unwrap_err(), ScriptError::EngineError(_)));

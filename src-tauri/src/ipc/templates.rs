@@ -8,9 +8,7 @@ use crate::templates::TemplateManager;
 
 /// Lists all saved templates (metadata only).
 #[tauri::command]
-pub fn template_list(
-    state: State<'_, TemplateManager>,
-) -> Vec<TemplateMeta> {
+pub fn template_list(state: State<'_, TemplateManager>) -> Vec<TemplateMeta> {
     state.list()
 }
 
@@ -34,10 +32,7 @@ pub fn template_create(
 
 /// Deletes a template by ID (built-in templates cannot be deleted).
 #[tauri::command]
-pub fn template_delete(
-    state: State<'_, TemplateManager>,
-    id: String,
-) -> Result<(), String> {
+pub fn template_delete(state: State<'_, TemplateManager>, id: String) -> Result<(), String> {
     state.delete(&id).map_err(|e| e.to_string())
 }
 

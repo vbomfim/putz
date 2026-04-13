@@ -17,16 +17,12 @@ use uuid::Uuid;
 
 use crate::protocol::connection_manager::ConnectionManager;
 use crate::protocol::sftp::path::{
-    normalize_remote_path, validate_local_path,
-    validate_remote_path, MAX_TRANSFER_SIZE,
+    normalize_remote_path, validate_local_path, validate_remote_path, MAX_TRANSFER_SIZE,
 };
 use crate::protocol::sftp::transfer::{
-    TransferCompletePayload, TransferDirection, TransferInfo,
-    TransferStatus, TRANSFER_BUFFER_SIZE,
+    TransferCompletePayload, TransferDirection, TransferInfo, TransferStatus, TRANSFER_BUFFER_SIZE,
 };
-use crate::protocol::sftp::{
-    RemoteFileEntry, RemoteFileStat, SftpManager, SftpSessionHandle,
-};
+use crate::protocol::sftp::{RemoteFileEntry, RemoteFileStat, SftpManager, SftpSessionHandle};
 
 /// Opens an SFTP session on an existing SSH connection.
 ///
@@ -45,12 +41,9 @@ pub async fn sftp_open(
         .map_err(|e| e.to_string())?;
 
     // Initialize the SFTP session from the channel stream
-    let sftp_session =
-        russh_sftp::client::SftpSession::new(stream)
-            .await
-            .map_err(|e| {
-                format!("Failed to initialize SFTP session: {e}")
-            })?;
+    let sftp_session = russh_sftp::client::SftpSession::new(stream)
+        .await
+        .map_err(|e| format!("Failed to initialize SFTP session: {e}"))?;
 
     let sftp_session_id = Uuid::new_v4().to_string();
 
@@ -82,17 +75,11 @@ pub async fn sftp_list(
         .with_session(&sftp_session_id, |handle| {
             let normalized = normalized.clone();
             Box::pin(async move {
-                let entries = handle
-                    .session
-                    .read_dir(&normalized)
-                    .await
-                    .map_err(|e| {
-                        crate::protocol::ProtocolError::IoError(
-                            format!(
-                                "Failed to list directory {normalized}: {e}"
-                            ),
-                        )
-                    })?;
+                let entries = handle.session.read_dir(&normalized).await.map_err(|e| {
+                    crate::protocol::ProtocolError::IoError(format!(
+                        "Failed to list directory {normalized}: {e}"
+                    ))
+                })?;
 
                 let mut results: Vec<RemoteFileEntry> = entries
                     .map(|entry| {
@@ -102,10 +89,7 @@ pub async fn sftp_list(
                         let entry_path = if normalized == "/" {
                             format!("/{name}")
                         } else {
-                            format!(
-                                "{}/{name}",
-                                normalized
-                            )
+                            format!("{}/{name}", normalized)
                         };
 
                         RemoteFileEntry {
@@ -125,11 +109,7 @@ pub async fn sftp_list(
                 results.sort_by(|a, b| {
                     b.is_dir
                         .cmp(&a.is_dir)
-                        .then_with(|| {
-                            a.name
-                                .to_lowercase()
-                                .cmp(&b.name.to_lowercase())
-                        })
+                        .then_with(|| a.name.to_lowercase().cmp(&b.name.to_lowercase()))
                 });
 
                 Ok(results)
@@ -153,17 +133,11 @@ pub async fn sftp_stat(
         .with_session(&sftp_session_id, |handle| {
             let normalized = normalized.clone();
             Box::pin(async move {
-                let metadata = handle
-                    .session
-                    .metadata(&normalized)
-                    .await
-                    .map_err(|e| {
-                        crate::protocol::ProtocolError::IoError(
-                            format!(
-                                "Failed to stat {normalized}: {e}"
-                            ),
-                        )
-                    })?;
+                let metadata = handle.session.metadata(&normalized).await.map_err(|e| {
+                    crate::protocol::ProtocolError::IoError(format!(
+                        "Failed to stat {normalized}: {e}"
+                    ))
+                })?;
 
                 Ok(RemoteFileStat {
                     path: normalized,
@@ -205,15 +179,11 @@ pub async fn sftp_download(
         .with_session(&sftp_session_id, |handle| {
             let normalized = normalized.clone();
             Box::pin(async move {
-                let metadata = handle
-                    .session
-                    .metadata(&normalized)
-                    .await
-                    .map_err(|e| {
-                        crate::protocol::ProtocolError::IoError(
-                            format!("Failed to stat {normalized}: {e}"),
-                        )
-                    })?;
+                let metadata = handle.session.metadata(&normalized).await.map_err(|e| {
+                    crate::protocol::ProtocolError::IoError(format!(
+                        "Failed to stat {normalized}: {e}"
+                    ))
+                })?;
                 Ok(metadata.size.unwrap_or(0))
             })
         })
@@ -249,9 +219,9 @@ pub async fn sftp_download(
     // Register transfer
     {
         let sessions = sessions_arc.lock().await;
-        let handle = sessions.get(&sftp_session_id).ok_or_else(|| {
-            "SFTP session not found".to_string()
-        })?;
+        let handle = sessions
+            .get(&sftp_session_id)
+            .ok_or_else(|| "SFTP session not found".to_string())?;
         handle.transfers.register(info).await?;
     }
 
@@ -282,10 +252,7 @@ pub async fn sftp_download(
                 if let Some(h) = s.get(&sid) {
                     let _ = h
                         .transfers
-                        .mark_failed(
-                            &tid,
-                            "Transfer semaphore closed".into(),
-                        )
+                        .mark_failed(&tid, "Transfer semaphore closed".into())
                         .await;
                 }
                 return;
@@ -321,10 +288,7 @@ pub async fn sftp_download(
                 if let Some(h) = s.get(&sid) {
                     let _ = h
                         .transfers
-                        .mark_failed(
-                            &tid,
-                            format!("Failed to open remote file: {e}"),
-                        )
+                        .mark_failed(&tid, format!("Failed to open remote file: {e}"))
                         .await;
                 }
                 let _ = app_clone.emit(
@@ -341,36 +305,28 @@ pub async fn sftp_download(
         };
 
         // Create local file
-        let mut local_file =
-            match tokio::fs::File::create(&download_local_path).await {
-                Ok(f) => f,
-                Err(e) => {
-                    let s = sessions.lock().await;
-                    if let Some(h) = s.get(&sid) {
-                        let _ = h
-                            .transfers
-                            .mark_failed(
-                                &tid,
-                                format!(
-                                    "Failed to create local file: {e}"
-                                ),
-                            )
-                            .await;
-                    }
-                    let _ = app_clone.emit(
-                        &format!("sftp-complete-{tid}"),
-                        TransferCompletePayload {
-                            transfer_id: tid,
-                            status: TransferStatus::Failed,
-                            error: Some(format!(
-                                "Failed to create local file: {e}"
-                            )),
-                            bytes_transferred: 0,
-                        },
-                    );
-                    return;
+        let mut local_file = match tokio::fs::File::create(&download_local_path).await {
+            Ok(f) => f,
+            Err(e) => {
+                let s = sessions.lock().await;
+                if let Some(h) = s.get(&sid) {
+                    let _ = h
+                        .transfers
+                        .mark_failed(&tid, format!("Failed to create local file: {e}"))
+                        .await;
                 }
-            };
+                let _ = app_clone.emit(
+                    &format!("sftp-complete-{tid}"),
+                    TransferCompletePayload {
+                        transfer_id: tid,
+                        status: TransferStatus::Failed,
+                        error: Some(format!("Failed to create local file: {e}")),
+                        bytes_transferred: 0,
+                    },
+                );
+                return;
+            }
+        };
 
         // Transfer loop
         let mut buffer = vec![0u8; TRANSFER_BUFFER_SIZE];
@@ -384,18 +340,12 @@ pub async fn sftp_download(
                 Err(e) => {
                     // Clean up partial download on read error
                     drop(local_file);
-                    let _ = tokio::fs::remove_file(
-                        &download_local_path,
-                    )
-                    .await;
+                    let _ = tokio::fs::remove_file(&download_local_path).await;
                     let s = sessions.lock().await;
                     if let Some(h) = s.get(&sid) {
                         let _ = h
                             .transfers
-                            .mark_failed(
-                                &tid,
-                                format!("Read error: {e}"),
-                            )
+                            .mark_failed(&tid, format!("Read error: {e}"))
                             .await;
                     }
                     let _ = app_clone.emit(
@@ -411,23 +361,15 @@ pub async fn sftp_download(
                 }
             };
 
-            if let Err(e) =
-                local_file.write_all(&buffer[..n]).await
-            {
+            if let Err(e) = local_file.write_all(&buffer[..n]).await {
                 // Clean up partial download on write error
                 drop(local_file);
-                let _ = tokio::fs::remove_file(
-                    &download_local_path,
-                )
-                .await;
+                let _ = tokio::fs::remove_file(&download_local_path).await;
                 let s = sessions.lock().await;
                 if let Some(h) = s.get(&sid) {
                     let _ = h
                         .transfers
-                        .mark_failed(
-                            &tid,
-                            format!("Write error: {e}"),
-                        )
+                        .mark_failed(&tid, format!("Write error: {e}"))
                         .await;
                 }
                 let _ = app_clone.emit(
@@ -451,17 +393,10 @@ pub async fn sftp_download(
                 if let Some(h) = s.get(&sid) {
                     if let Ok(payload) = h
                         .transfers
-                        .update_progress(
-                            &tid,
-                            bytes_transferred,
-                            elapsed,
-                        )
+                        .update_progress(&tid, bytes_transferred, elapsed)
                         .await
                     {
-                        let _ = app_clone.emit(
-                            &format!("sftp-progress-{tid}"),
-                            &payload,
-                        );
+                        let _ = app_clone.emit(&format!("sftp-progress-{tid}"), &payload);
                     }
                 }
                 last_progress = Instant::now();
@@ -471,17 +406,12 @@ pub async fn sftp_download(
         // Flush and sync to ensure all data is written to disk
         if let Err(e) = local_file.flush().await {
             drop(local_file);
-            let _ =
-                tokio::fs::remove_file(&download_local_path)
-                    .await;
+            let _ = tokio::fs::remove_file(&download_local_path).await;
             let s = sessions.lock().await;
             if let Some(h) = s.get(&sid) {
                 let _ = h
                     .transfers
-                    .mark_failed(
-                        &tid,
-                        format!("Flush error: {e}"),
-                    )
+                    .mark_failed(&tid, format!("Flush error: {e}"))
                     .await;
             }
             let _ = app_clone.emit(
@@ -498,17 +428,12 @@ pub async fn sftp_download(
 
         if let Err(e) = local_file.sync_all().await {
             drop(local_file);
-            let _ =
-                tokio::fs::remove_file(&download_local_path)
-                    .await;
+            let _ = tokio::fs::remove_file(&download_local_path).await;
             let s = sessions.lock().await;
             if let Some(h) = s.get(&sid) {
                 let _ = h
                     .transfers
-                    .mark_failed(
-                        &tid,
-                        format!("Sync error: {e}"),
-                    )
+                    .mark_failed(&tid, format!("Sync error: {e}"))
                     .await;
             }
             let _ = app_clone.emit(
@@ -566,12 +491,9 @@ pub async fn sftp_upload(
     let canonical_local = validate_local_path(&local_path)?;
 
     // Get local file size
-    let local_metadata =
-        tokio::fs::metadata(&canonical_local)
-            .await
-            .map_err(|e| {
-                format!("Failed to read local file: {e}")
-            })?;
+    let local_metadata = tokio::fs::metadata(&canonical_local)
+        .await
+        .map_err(|e| format!("Failed to read local file: {e}"))?;
     let total_bytes = local_metadata.len();
 
     // Enforce file size limit
@@ -601,9 +523,9 @@ pub async fn sftp_upload(
     // Register transfer
     {
         let sessions = sessions_arc.lock().await;
-        let handle = sessions.get(&sftp_session_id).ok_or_else(|| {
-            "SFTP session not found".to_string()
-        })?;
+        let handle = sessions
+            .get(&sftp_session_id)
+            .ok_or_else(|| "SFTP session not found".to_string())?;
         handle.transfers.register(info).await?;
     }
 
@@ -634,10 +556,7 @@ pub async fn sftp_upload(
                 if let Some(h) = s.get(&sid) {
                     let _ = h
                         .transfers
-                        .mark_failed(
-                            &tid,
-                            "Transfer semaphore closed".into(),
-                        )
+                        .mark_failed(&tid, "Transfer semaphore closed".into())
                         .await;
                 }
                 return;
@@ -658,36 +577,28 @@ pub async fn sftp_upload(
         }
 
         // Open local file
-        let mut local_file =
-            match tokio::fs::File::open(&upload_local_path).await {
-                Ok(f) => f,
-                Err(e) => {
-                    let s = sessions.lock().await;
-                    if let Some(h) = s.get(&sid) {
-                        let _ = h
-                            .transfers
-                            .mark_failed(
-                                &tid,
-                                format!(
-                                    "Failed to open local file: {e}"
-                                ),
-                            )
-                            .await;
-                    }
-                    let _ = app_clone.emit(
-                        &format!("sftp-complete-{tid}"),
-                        TransferCompletePayload {
-                            transfer_id: tid,
-                            status: TransferStatus::Failed,
-                            error: Some(format!(
-                                "Failed to open local file: {e}"
-                            )),
-                            bytes_transferred: 0,
-                        },
-                    );
-                    return;
+        let mut local_file = match tokio::fs::File::open(&upload_local_path).await {
+            Ok(f) => f,
+            Err(e) => {
+                let s = sessions.lock().await;
+                if let Some(h) = s.get(&sid) {
+                    let _ = h
+                        .transfers
+                        .mark_failed(&tid, format!("Failed to open local file: {e}"))
+                        .await;
                 }
-            };
+                let _ = app_clone.emit(
+                    &format!("sftp-complete-{tid}"),
+                    TransferCompletePayload {
+                        transfer_id: tid,
+                        status: TransferStatus::Failed,
+                        error: Some(format!("Failed to open local file: {e}")),
+                        bytes_transferred: 0,
+                    },
+                );
+                return;
+            }
+        };
 
         // Create remote file
         let remote_file_result = {
@@ -705,12 +616,7 @@ pub async fn sftp_upload(
                 if let Some(h) = s.get(&sid) {
                     let _ = h
                         .transfers
-                        .mark_failed(
-                            &tid,
-                            format!(
-                                "Failed to create remote file: {e}"
-                            ),
-                        )
+                        .mark_failed(&tid, format!("Failed to create remote file: {e}"))
                         .await;
                 }
                 let _ = app_clone.emit(
@@ -718,9 +624,7 @@ pub async fn sftp_upload(
                     TransferCompletePayload {
                         transfer_id: tid,
                         status: TransferStatus::Failed,
-                        error: Some(format!(
-                            "Failed to create remote file: {e}"
-                        )),
+                        error: Some(format!("Failed to create remote file: {e}")),
                         bytes_transferred: 0,
                     },
                 );
@@ -742,10 +646,7 @@ pub async fn sftp_upload(
                     if let Some(h) = s.get(&sid) {
                         let _ = h
                             .transfers
-                            .mark_failed(
-                                &tid,
-                                format!("Read error: {e}"),
-                            )
+                            .mark_failed(&tid, format!("Read error: {e}"))
                             .await;
                     }
                     let _ = app_clone.emit(
@@ -761,17 +662,12 @@ pub async fn sftp_upload(
                 }
             };
 
-            if let Err(e) =
-                remote_file.write_all(&buffer[..n]).await
-            {
+            if let Err(e) = remote_file.write_all(&buffer[..n]).await {
                 let s = sessions.lock().await;
                 if let Some(h) = s.get(&sid) {
                     let _ = h
                         .transfers
-                        .mark_failed(
-                            &tid,
-                            format!("Write error: {e}"),
-                        )
+                        .mark_failed(&tid, format!("Write error: {e}"))
                         .await;
                 }
                 let _ = app_clone.emit(
@@ -794,17 +690,10 @@ pub async fn sftp_upload(
                 if let Some(h) = s.get(&sid) {
                     if let Ok(payload) = h
                         .transfers
-                        .update_progress(
-                            &tid,
-                            bytes_transferred,
-                            elapsed,
-                        )
+                        .update_progress(&tid, bytes_transferred, elapsed)
                         .await
                     {
-                        let _ = app_clone.emit(
-                            &format!("sftp-progress-{tid}"),
-                            &payload,
-                        );
+                        let _ = app_clone.emit(&format!("sftp-progress-{tid}"), &payload);
                     }
                 }
                 last_progress = Instant::now();
@@ -854,15 +743,11 @@ pub async fn sftp_rename(
             let old = old_normalized.clone();
             let new = new_normalized.clone();
             Box::pin(async move {
-                handle
-                    .session
-                    .rename(&old, &new)
-                    .await
-                    .map_err(|e| {
-                        crate::protocol::ProtocolError::IoError(
-                            format!("Failed to rename {old} → {new}: {e}"),
-                        )
-                    })
+                handle.session.rename(&old, &new).await.map_err(|e| {
+                    crate::protocol::ProtocolError::IoError(format!(
+                        "Failed to rename {old} → {new}: {e}"
+                    ))
+                })
             })
         })
         .await
@@ -889,27 +774,18 @@ pub async fn sftp_delete(
             let normalized = normalized.clone();
             Box::pin(async move {
                 // Try remove file first, then directory
-                let file_result = handle
-                    .session
-                    .remove_file(&normalized)
-                    .await;
+                let file_result = handle.session.remove_file(&normalized).await;
 
                 if file_result.is_ok() {
                     return Ok(());
                 }
 
                 // If file removal failed, try removing as directory
-                handle
-                    .session
-                    .remove_dir(&normalized)
-                    .await
-                    .map_err(|e| {
-                        crate::protocol::ProtocolError::IoError(
-                            format!(
-                                "Failed to delete {normalized}: {e}"
-                            ),
-                        )
-                    })
+                handle.session.remove_dir(&normalized).await.map_err(|e| {
+                    crate::protocol::ProtocolError::IoError(format!(
+                        "Failed to delete {normalized}: {e}"
+                    ))
+                })
             })
         })
         .await
@@ -930,17 +806,11 @@ pub async fn sftp_mkdir(
         .with_session(&sftp_session_id, |handle| {
             let normalized = normalized.clone();
             Box::pin(async move {
-                handle
-                    .session
-                    .create_dir(&normalized)
-                    .await
-                    .map_err(|e| {
-                        crate::protocol::ProtocolError::IoError(
-                            format!(
-                                "Failed to create directory {normalized}: {e}"
-                            ),
-                        )
-                    })
+                handle.session.create_dir(&normalized).await.map_err(|e| {
+                    crate::protocol::ProtocolError::IoError(format!(
+                        "Failed to create directory {normalized}: {e}"
+                    ))
+                })
             })
         })
         .await

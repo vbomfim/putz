@@ -245,7 +245,8 @@ mod tests {
 
     #[test]
     fn set_auto_login_input_deserializes() {
-        let json = r#"{"sessionId":"s1","enabled":true,"deviceType":"cisco_ios","credentialId":"c1"}"#;
+        let json =
+            r#"{"sessionId":"s1","enabled":true,"deviceType":"cisco_ios","credentialId":"c1"}"#;
         let input: SetAutoLoginInput = serde_json::from_str(json).unwrap();
         assert_eq!(input.session_id, "s1");
         assert!(input.enabled);

@@ -11,15 +11,11 @@
 /// - `key_generate` and `key_import` NEVER return private key data.
 use tauri::State;
 
-use crate::keys::{
-    GenerateKeyInput, ImportKeyInput, KeyManager, SSHKeyMeta,
-};
+use crate::keys::{GenerateKeyInput, ImportKeyInput, KeyManager, SSHKeyMeta};
 
 /// Lists all stored SSH keys (metadata only — NO private keys).
 #[tauri::command]
-pub fn key_list(
-    state: State<'_, KeyManager>,
-) -> Result<Vec<SSHKeyMeta>, String> {
+pub fn key_list(state: State<'_, KeyManager>) -> Result<Vec<SSHKeyMeta>, String> {
     state.list().map_err(|e| e.to_string())
 }
 
@@ -49,10 +45,7 @@ pub fn key_import(
 
 /// Deletes an SSH key from both the index and disk.
 #[tauri::command]
-pub fn key_delete(
-    state: State<'_, KeyManager>,
-    id: String,
-) -> Result<(), String> {
+pub fn key_delete(state: State<'_, KeyManager>, id: String) -> Result<(), String> {
     state.delete(&id).map_err(|e| e.to_string())
 }
 
@@ -61,10 +54,7 @@ pub fn key_delete(
 /// Used for "Copy Public Key" functionality — safe for clipboard.
 /// SECURITY: Only returns the public key — private key stays on disk.
 #[tauri::command]
-pub fn key_get_public(
-    state: State<'_, KeyManager>,
-    id: String,
-) -> Result<String, String> {
+pub fn key_get_public(state: State<'_, KeyManager>, id: String) -> Result<String, String> {
     state.get_public_key(&id).map_err(|e| e.to_string())
 }
 

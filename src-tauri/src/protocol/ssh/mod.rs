@@ -27,8 +27,8 @@ use russh::keys::key::PublicKey;
 use russh::{ChannelMsg, Disconnect};
 
 use super::{
-    ConnectionParams, ConnectionStatus, ConnectionStatusPayload, EventEmitter,
-    Protocol, ProtocolError, ProtocolType,
+    ConnectionParams, ConnectionStatus, ConnectionStatusPayload, EventEmitter, Protocol,
+    ProtocolError, ProtocolType,
 };
 
 /// Default SSH port (RFC 4253).
@@ -94,18 +94,14 @@ impl SshConnection {
     /// Used by SFTP to open a subsystem channel on the same SSH connection.
     /// Returns `None` if the connection is not established.
     #[allow(dead_code)]
-    pub fn session_handle(
-        &self,
-    ) -> Option<&client::Handle<SshHandler>> {
+    pub fn session_handle(&self) -> Option<&client::Handle<SshHandler>> {
         self.session.as_ref()
     }
 
     /// Returns a mutable reference to the SSH session handle.
     ///
     /// Used by ConnectionManager to open additional channels (e.g., SFTP).
-    pub fn session_handle_mut(
-        &mut self,
-    ) -> Option<&mut client::Handle<SshHandler>> {
+    pub fn session_handle_mut(&mut self) -> Option<&mut client::Handle<SshHandler>> {
         self.session.as_mut()
     }
 
@@ -113,9 +109,7 @@ impl SshConnection {
     ///
     /// Used by the jump host proxy to extract the handle for lifecycle
     /// management without disconnecting the SSH session.
-    pub fn take_session_handle(
-        &mut self,
-    ) -> Option<client::Handle<SshHandler>> {
+    pub fn take_session_handle(&mut self) -> Option<client::Handle<SshHandler>> {
         self.session.take()
     }
 
@@ -123,10 +117,7 @@ impl SshConnection {
     ///
     /// These handles are kept alive so the tunneled channels remain open.
     /// They are disconnected when this connection closes.
-    pub fn set_jump_sessions(
-        &mut self,
-        sessions: Vec<client::Handle<SshHandler>>,
-    ) {
+    pub fn set_jump_sessions(&mut self, sessions: Vec<client::Handle<SshHandler>>) {
         self.jump_sessions = sessions;
     }
 
@@ -148,19 +139,17 @@ impl SshConnection {
         emitter: Arc<dyn EventEmitter>,
         vault_password: Option<String>,
     ) -> Result<(), ProtocolError> {
-        let host = params.host.as_deref().ok_or_else(|| {
-            ProtocolError::InvalidParams("host is required for SSH".into())
-        })?;
+        let host = params
+            .host
+            .as_deref()
+            .ok_or_else(|| ProtocolError::InvalidParams("host is required for SSH".into()))?;
 
         if host.is_empty() {
-            return Err(ProtocolError::InvalidParams(
-                "host cannot be empty".into(),
-            ));
+            return Err(ProtocolError::InvalidParams("host cannot be empty".into()));
         }
 
         let port = params.port.unwrap_or(DEFAULT_SSH_PORT);
-        let username =
-            params.username.as_deref().unwrap_or("root").to_string();
+        let username = params.username.as_deref().unwrap_or("root").to_string();
         self.cols = params.cols;
         self.rows = params.rows;
 
@@ -169,9 +158,7 @@ impl SshConnection {
             &connection_id,
             &ConnectionStatusPayload {
                 status: ConnectionStatus::Connecting,
-                message: Some(format!(
-                    "Connecting to {host}:{port} as {username}..."
-                )),
+                message: Some(format!("Connecting to {host}:{port} as {username}...")),
             },
         );
 
@@ -207,18 +194,14 @@ impl SshConnection {
                 russh::mac::HMAC_SHA256,
                 // HMAC-SHA1 variants deliberately excluded
             ]),
-            compression: std::borrow::Cow::Borrowed(&[
-                russh::compression::NONE,
-            ]),
+            compression: std::borrow::Cow::Borrowed(&[russh::compression::NONE]),
         };
 
         let config = Arc::new(client::Config {
             inactivity_timeout: Some(std::time::Duration::from_secs(
                 KEEPALIVE_INTERVAL_SECS * (KEEPALIVE_MAX_MISSED as u64 + 1),
             )),
-            keepalive_interval: Some(std::time::Duration::from_secs(
-                KEEPALIVE_INTERVAL_SECS,
-            )),
+            keepalive_interval: Some(std::time::Duration::from_secs(KEEPALIVE_INTERVAL_SECS)),
             keepalive_max: KEEPALIVE_MAX_MISSED,
             preferred,
             ..Default::default()
@@ -248,9 +231,7 @@ impl SshConnection {
             ))
         })?
         .map_err(|e| {
-            ProtocolError::ConnectionRefused(format!(
-                "SSH connection to {addr} failed: {e}"
-            ))
+            ProtocolError::ConnectionRefused(format!("SSH connection to {addr} failed: {e}"))
         })?;
 
         let mut handle = session;
@@ -275,9 +256,7 @@ impl SshConnection {
 
         // Open a session channel
         let channel = handle.channel_open_session().await.map_err(|e| {
-            ProtocolError::ChannelClosed(format!(
-                "Failed to open SSH channel: {e}"
-            ))
+            ProtocolError::ChannelClosed(format!("Failed to open SSH channel: {e}"))
         })?;
 
         let _channel_id = channel.id();
@@ -294,18 +273,13 @@ impl SshConnection {
                 &[],
             )
             .await
-            .map_err(|e| {
-                ProtocolError::ChannelClosed(format!(
-                    "Failed to request PTY: {e}"
-                ))
-            })?;
+            .map_err(|e| ProtocolError::ChannelClosed(format!("Failed to request PTY: {e}")))?;
 
         // Request interactive shell
-        channel.request_shell(false).await.map_err(|e| {
-            ProtocolError::ChannelClosed(format!(
-                "Failed to request shell: {e}"
-            ))
-        })?;
+        channel
+            .request_shell(false)
+            .await
+            .map_err(|e| ProtocolError::ChannelClosed(format!("Failed to request shell: {e}")))?;
 
         self.session = Some(handle);
         let channel = Arc::new(tokio::sync::Mutex::new(channel));
@@ -351,27 +325,19 @@ impl SshConnection {
         vault_password: Option<String>,
     ) -> Result<(), ProtocolError>
     where
-        S: tokio::io::AsyncRead
-            + tokio::io::AsyncWrite
-            + Unpin
-            + Send
-            + 'static,
+        S: tokio::io::AsyncRead + tokio::io::AsyncWrite + Unpin + Send + 'static,
     {
-        let host = params.host.as_deref().ok_or_else(|| {
-            ProtocolError::InvalidParams(
-                "host is required for SSH".into(),
-            )
-        })?;
+        let host = params
+            .host
+            .as_deref()
+            .ok_or_else(|| ProtocolError::InvalidParams("host is required for SSH".into()))?;
 
         if host.is_empty() {
-            return Err(ProtocolError::InvalidParams(
-                "host cannot be empty".into(),
-            ));
+            return Err(ProtocolError::InvalidParams("host cannot be empty".into()));
         }
 
         let port = params.port.unwrap_or(DEFAULT_SSH_PORT);
-        let username =
-            params.username.as_deref().unwrap_or("root").to_string();
+        let username = params.username.as_deref().unwrap_or("root").to_string();
         self.cols = params.cols;
         self.rows = params.rows;
 
@@ -416,29 +382,21 @@ impl SshConnection {
                 russh::mac::HMAC_SHA512,
                 russh::mac::HMAC_SHA256,
             ]),
-            compression: std::borrow::Cow::Borrowed(&[
-                russh::compression::NONE,
-            ]),
+            compression: std::borrow::Cow::Borrowed(&[russh::compression::NONE]),
         };
 
         let config = Arc::new(client::Config {
             inactivity_timeout: Some(std::time::Duration::from_secs(
-                KEEPALIVE_INTERVAL_SECS
-                    * (KEEPALIVE_MAX_MISSED as u64 + 1),
+                KEEPALIVE_INTERVAL_SECS * (KEEPALIVE_MAX_MISSED as u64 + 1),
             )),
-            keepalive_interval: Some(
-                std::time::Duration::from_secs(
-                    KEEPALIVE_INTERVAL_SECS,
-                ),
-            ),
+            keepalive_interval: Some(std::time::Duration::from_secs(KEEPALIVE_INTERVAL_SECS)),
             keepalive_max: KEEPALIVE_MAX_MISSED,
             preferred,
             ..Default::default()
         });
 
         // Create handler (host key verification still applies)
-        let known_hosts_path =
-            known_hosts::default_known_hosts_path();
+        let known_hosts_path = known_hosts::default_known_hosts_path();
         let handler = SshHandler::new(
             connection_id.clone(),
             host.to_string(),
@@ -449,16 +407,14 @@ impl SshConnection {
 
         // Connect SSH over the tunneled stream (no TCP timeout needed
         // — the stream is already established through the jump host)
-        let session = client::connect_stream(
-            config, stream, handler,
-        )
-        .await
-        .map_err(|e| {
-            ProtocolError::ConnectionRefused(format!(
-                "SSH connection to {host}:{port} through tunnel \
+        let session = client::connect_stream(config, stream, handler)
+            .await
+            .map_err(|e| {
+                ProtocolError::ConnectionRefused(format!(
+                    "SSH connection to {host}:{port} through tunnel \
                  failed: {e}"
-            ))
-        })?;
+                ))
+            })?;
 
         let mut handle = session;
 
@@ -475,22 +431,15 @@ impl SshConnection {
 
         if let Err(e) = auth_result {
             let _ = handle
-                .disconnect(
-                    Disconnect::ByApplication,
-                    "auth failed",
-                    "en",
-                )
+                .disconnect(Disconnect::ByApplication, "auth failed", "en")
                 .await;
             return Err(e);
         }
 
         // Open session channel, request PTY and shell
-        let channel =
-            handle.channel_open_session().await.map_err(|e| {
-                ProtocolError::ChannelClosed(format!(
-                    "Failed to open SSH channel: {e}"
-                ))
-            })?;
+        let channel = handle.channel_open_session().await.map_err(|e| {
+            ProtocolError::ChannelClosed(format!("Failed to open SSH channel: {e}"))
+        })?;
 
         channel
             .request_pty(
@@ -503,17 +452,12 @@ impl SshConnection {
                 &[],
             )
             .await
-            .map_err(|e| {
-                ProtocolError::ChannelClosed(format!(
-                    "Failed to request PTY: {e}"
-                ))
-            })?;
+            .map_err(|e| ProtocolError::ChannelClosed(format!("Failed to request PTY: {e}")))?;
 
-        channel.request_shell(false).await.map_err(|e| {
-            ProtocolError::ChannelClosed(format!(
-                "Failed to request shell: {e}"
-            ))
-        })?;
+        channel
+            .request_shell(false)
+            .await
+            .map_err(|e| ProtocolError::ChannelClosed(format!("Failed to request shell: {e}")))?;
 
         self.session = Some(handle);
         let channel = Arc::new(tokio::sync::Mutex::new(channel));
@@ -543,47 +487,34 @@ impl SshConnection {
     }
 
     /// Writes data to the SSH channel.
-    pub async fn write_bytes(
-        &self,
-        data: &[u8],
-    ) -> Result<(), ProtocolError> {
-        let channel = self.channel.as_ref().ok_or_else(|| {
-            ProtocolError::ChannelClosed(
-                "SSH session not connected".into(),
-            )
-        })?;
+    pub async fn write_bytes(&self, data: &[u8]) -> Result<(), ProtocolError> {
+        let channel = self
+            .channel
+            .as_ref()
+            .ok_or_else(|| ProtocolError::ChannelClosed("SSH session not connected".into()))?;
 
         let ch = channel.lock().await;
-        ch.data(data).await.map_err(|e| {
-            ProtocolError::IoError(format!("SSH write failed: {e}"))
-        })?;
+        ch.data(data)
+            .await
+            .map_err(|e| ProtocolError::IoError(format!("SSH write failed: {e}")))?;
 
         Ok(())
     }
 
     /// Sends a window size change to the SSH channel.
-    pub async fn send_resize(
-        &mut self,
-        cols: u16,
-        rows: u16,
-    ) -> Result<(), ProtocolError> {
+    pub async fn send_resize(&mut self, cols: u16, rows: u16) -> Result<(), ProtocolError> {
         self.cols = cols;
         self.rows = rows;
 
-        let channel = self.channel.as_ref().ok_or_else(|| {
-            ProtocolError::ChannelClosed(
-                "SSH session not connected".into(),
-            )
-        })?;
+        let channel = self
+            .channel
+            .as_ref()
+            .ok_or_else(|| ProtocolError::ChannelClosed("SSH session not connected".into()))?;
 
         let ch = channel.lock().await;
         ch.window_change(cols as u32, rows as u32, 0, 0)
             .await
-            .map_err(|e| {
-                ProtocolError::IoError(format!(
-                    "SSH resize failed: {e}"
-                ))
-            })?;
+            .map_err(|e| ProtocolError::IoError(format!("SSH resize failed: {e}")))?;
 
         Ok(())
     }
@@ -598,22 +529,14 @@ impl SshConnection {
         // Close the SSH session
         if let Some(session) = self.session.take() {
             let _ = session
-                .disconnect(
-                    Disconnect::ByApplication,
-                    "user disconnect",
-                    "en",
-                )
+                .disconnect(Disconnect::ByApplication, "user disconnect", "en")
                 .await;
         }
 
         // Close jump host sessions (reverse order — innermost first)
         for session in self.jump_sessions.drain(..).rev() {
             let _ = session
-                .disconnect(
-                    Disconnect::ByApplication,
-                    "jump host cleanup",
-                    "en",
-                )
+                .disconnect(Disconnect::ByApplication, "jump host cleanup", "en")
                 .await;
         }
 
@@ -625,27 +548,17 @@ impl SshConnection {
 
 #[async_trait]
 impl Protocol for SshConnection {
-    async fn connect(
-        &mut self,
-        _params: ConnectionParams,
-    ) -> Result<(), ProtocolError> {
+    async fn connect(&mut self, _params: ConnectionParams) -> Result<(), ProtocolError> {
         Err(ProtocolError::InvalidParams(
             "Use connect_with_emitter() for SSH connections".into(),
         ))
     }
 
-    async fn write(
-        &mut self,
-        data: &[u8],
-    ) -> Result<(), ProtocolError> {
+    async fn write(&mut self, data: &[u8]) -> Result<(), ProtocolError> {
         self.write_bytes(data).await
     }
 
-    async fn resize(
-        &mut self,
-        cols: u16,
-        rows: u16,
-    ) -> Result<(), ProtocolError> {
+    async fn resize(&mut self, cols: u16, rows: u16) -> Result<(), ProtocolError> {
         self.send_resize(cols, rows).await
     }
 
@@ -702,10 +615,7 @@ impl SshHandler {
 
     /// Sets the forwarding manager for remote forward callbacks.
     #[allow(dead_code)] // Called during SSH connection setup at runtime
-    pub fn set_forwarding_manager(
-        &mut self,
-        mgr: Arc<forwarding::ForwardingManager>,
-    ) {
+    pub fn set_forwarding_manager(&mut self, mgr: Arc<forwarding::ForwardingManager>) {
         self.forwarding_manager = Some(mgr);
     }
 
@@ -730,8 +640,7 @@ impl client::Handler for SshHandler {
         &mut self,
         server_public_key: &PublicKey,
     ) -> Result<bool, Self::Error> {
-        let fingerprint =
-            known_hosts::fingerprint_key(server_public_key);
+        let fingerprint = known_hosts::fingerprint_key(server_public_key);
         let key_type = known_hosts::key_type_name(server_public_key);
 
         match known_hosts::check_known_host(
@@ -753,12 +662,8 @@ impl client::Handler for SshHandler {
                     "fingerprint": fingerprint,
                     "action": "new",
                 });
-                let event = format!(
-                    "connection-hostkey-{}",
-                    self.connection_id
-                );
-                self.emitter
-                    .emit_event(&event, &payload.to_string());
+                let event = format!("connection-hostkey-{}", self.connection_id);
+                self.emitter.emit_event(&event, &payload.to_string());
 
                 // Reject — user must explicitly accept unknown keys
                 // through the frontend dialog (future IPC command).
@@ -776,12 +681,8 @@ impl client::Handler for SshHandler {
                     "expectedFingerprint": expected_fingerprint,
                     "action": "changed",
                 });
-                let event = format!(
-                    "connection-hostkey-warning-{}",
-                    self.connection_id
-                );
-                self.emitter
-                    .emit_event(&event, &payload.to_string());
+                let event = format!("connection-hostkey-warning-{}", self.connection_id);
+                self.emitter.emit_event(&event, &payload.to_string());
 
                 Ok(false)
             }
@@ -805,12 +706,8 @@ impl client::Handler for SshHandler {
             let mgr = mgr.clone();
             let addr = connected_address.to_string();
             tokio::spawn(async move {
-                mgr.handle_remote_forward_channel(
-                    channel,
-                    &addr,
-                    connected_port,
-                )
-                .await;
+                mgr.handle_remote_forward_channel(channel, &addr, connected_port)
+                    .await;
             });
         }
         Ok(())
@@ -833,10 +730,7 @@ impl client::Handler for SshHandler {
             let channels = state.active_channels.clone();
             let bytes = state.bytes_relayed.clone();
             tokio::spawn(async move {
-                x11::handle_x11_channel(
-                    channel, display, channels, bytes,
-                )
-                .await;
+                x11::handle_x11_channel(channel, display, channels, bytes).await;
             });
         }
         Ok(())
@@ -882,9 +776,7 @@ async fn ssh_read_loop(
                     &connection_id,
                     &ConnectionStatusPayload {
                         status: ConnectionStatus::Disconnected,
-                        message: Some(format!(
-                            "Process exited with status {exit_status}"
-                        )),
+                        message: Some(format!("Process exited with status {exit_status}")),
                     },
                 );
                 break;
@@ -895,9 +787,7 @@ async fn ssh_read_loop(
                     &connection_id,
                     &ConnectionStatusPayload {
                         status: ConnectionStatus::Disconnected,
-                        message: Some(
-                            "Connection closed by remote host".into(),
-                        ),
+                        message: Some("Connection closed by remote host".into()),
                     },
                 );
                 break;
@@ -1003,9 +893,7 @@ mod tests {
     #[tokio::test]
     async fn connect_rejects_missing_host() {
         let mut conn = SshConnection::new();
-        let emitter = Arc::new(
-            crate::protocol::test_utils::MockEmitter::new(),
-        );
+        let emitter = Arc::new(crate::protocol::test_utils::MockEmitter::new());
         let params = ConnectionParams {
             host: None,
             port: Some(22),
@@ -1016,12 +904,7 @@ mod tests {
             key_path: None,
         };
         let result = conn
-            .connect_with_emitter(
-                params,
-                "test-id".into(),
-                emitter,
-                None,
-            )
+            .connect_with_emitter(params, "test-id".into(), emitter, None)
             .await;
         assert!(result.is_err());
         match result.unwrap_err() {
@@ -1037,9 +920,7 @@ mod tests {
     #[tokio::test]
     async fn connect_rejects_empty_host() {
         let mut conn = SshConnection::new();
-        let emitter = Arc::new(
-            crate::protocol::test_utils::MockEmitter::new(),
-        );
+        let emitter = Arc::new(crate::protocol::test_utils::MockEmitter::new());
         let params = ConnectionParams {
             host: Some("".into()),
             port: Some(22),
@@ -1050,12 +931,7 @@ mod tests {
             key_path: None,
         };
         let result = conn
-            .connect_with_emitter(
-                params,
-                "test-id".into(),
-                emitter,
-                None,
-            )
+            .connect_with_emitter(params, "test-id".into(), emitter, None)
             .await;
         assert!(result.is_err());
         match result.unwrap_err() {

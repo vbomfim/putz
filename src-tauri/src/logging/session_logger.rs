@@ -48,9 +48,7 @@ impl SessionLogger {
     /// Directory is created recursively if it doesn't exist.
     /// File permissions set to 0600 on Unix (owner-only; logs may contain sensitive data).
     pub fn new(config: LogConfig) -> Result<Self, LogError> {
-        config
-            .validate()
-            .map_err(LogError::InvalidSessionName)?;
+        config.validate().map_err(LogError::InvalidSessionName)?;
 
         // Create log directory
         fs::create_dir_all(&config.directory)
@@ -249,10 +247,7 @@ pub fn strip_ansi_sequences(data: &[u8]) -> Vec<u8> {
                         i += 2;
                         while i < data.len() && data[i] != 0x07 {
                             // Check for ST (ESC \)
-                            if data[i] == 0x1b
-                                && i + 1 < data.len()
-                                && data[i + 1] == b'\\'
-                            {
+                            if data[i] == 0x1b && i + 1 < data.len() && data[i + 1] == b'\\' {
                                 i += 2;
                                 break;
                             }
@@ -276,10 +271,7 @@ pub fn strip_ansi_sequences(data: &[u8]) -> Vec<u8> {
                                 i += 1;
                                 break;
                             }
-                            if data[i] == 0x1b
-                                && i + 1 < data.len()
-                                && data[i + 1] == b'\\'
-                            {
+                            if data[i] == 0x1b && i + 1 < data.len() && data[i + 1] == b'\\' {
                                 i += 2;
                                 break;
                             }
@@ -380,9 +372,11 @@ fn rotate_file(inner: &mut LoggerInner) -> Result<(), LogError> {
     inner.rotation_count += 1;
 
     // Generate new file path using the ORIGINAL stem (avoids compounding _partN suffixes)
-    let new_path = inner
-        .current_file_path
-        .with_file_name(format!("{}_part{}.log", inner.original_stem, inner.rotation_count + 1));
+    let new_path = inner.current_file_path.with_file_name(format!(
+        "{}_part{}.log",
+        inner.original_stem,
+        inner.rotation_count + 1
+    ));
 
     // Create new file
     let new_file = create_log_file(&new_path)?;
@@ -440,7 +434,10 @@ mod tests {
 
         let path = logger.file_path();
         let mut content = String::new();
-        File::open(path).unwrap().read_to_string(&mut content).unwrap();
+        File::open(path)
+            .unwrap()
+            .read_to_string(&mut content)
+            .unwrap();
         assert_eq!(content, "Hello, World!\n");
     }
 
@@ -457,7 +454,10 @@ mod tests {
 
         let path = logger.file_path();
         let mut content = String::new();
-        File::open(path).unwrap().read_to_string(&mut content).unwrap();
+        File::open(path)
+            .unwrap()
+            .read_to_string(&mut content)
+            .unwrap();
         assert_eq!(content, "line 1\nline 2\nline 3\n");
     }
 
@@ -476,7 +476,10 @@ mod tests {
 
         let path = logger.file_path();
         let mut content = String::new();
-        File::open(path).unwrap().read_to_string(&mut content).unwrap();
+        File::open(path)
+            .unwrap()
+            .read_to_string(&mut content)
+            .unwrap();
         assert_eq!(content, "Green text normal\n");
     }
 
@@ -509,14 +512,23 @@ mod tests {
 
         let path = logger.file_path();
         let mut content = String::new();
-        File::open(path).unwrap().read_to_string(&mut content).unwrap();
+        File::open(path)
+            .unwrap()
+            .read_to_string(&mut content)
+            .unwrap();
 
         let lines: Vec<&str> = content.lines().collect();
         assert_eq!(lines.len(), 2);
         // Each line should start with [YYYY-MM-DD HH:MM:SS.mmm]
         for line in &lines {
-            assert!(line.starts_with('['), "Line should start with timestamp: {line}");
-            assert!(line.contains("] "), "Line should have timestamp separator: {line}");
+            assert!(
+                line.starts_with('['),
+                "Line should start with timestamp: {line}"
+            );
+            assert!(
+                line.contains("] "),
+                "Line should have timestamp separator: {line}"
+            );
         }
     }
 
@@ -533,7 +545,10 @@ mod tests {
 
         let path = logger.file_path();
         let mut content = String::new();
-        File::open(path).unwrap().read_to_string(&mut content).unwrap();
+        File::open(path)
+            .unwrap()
+            .read_to_string(&mut content)
+            .unwrap();
 
         // Should have timestamp on "hello" line but not on empty line
         assert!(content.contains("] hello"));
@@ -558,7 +573,10 @@ mod tests {
         logger.flush().unwrap();
 
         let status = logger.status();
-        assert!(status.rotation_count > 0, "Should have rotated at least once");
+        assert!(
+            status.rotation_count > 0,
+            "Should have rotated at least once"
+        );
 
         // New file path should differ from original
         let new_path = logger.file_path();
@@ -687,7 +705,11 @@ mod tests {
         assert!(ts.ends_with("] "));
         // Length: [2025-01-15 14:32:01.123] = 26 chars + space = 27 chars
         // But if milliseconds < 100, format may vary. Check reasonable range.
-        assert!(ts.len() >= 26 && ts.len() <= 28, "Timestamp length was {}: {ts}", ts.len());
+        assert!(
+            ts.len() >= 26 && ts.len() <= 28,
+            "Timestamp length was {}: {ts}",
+            ts.len()
+        );
     }
 
     // --- Edge cases ---
@@ -738,7 +760,11 @@ mod tests {
             .unwrap()
             .filter_map(|e| {
                 let name = e.ok()?.file_name().to_string_lossy().to_string();
-                if name.contains("_part") { Some(name) } else { None }
+                if name.contains("_part") {
+                    Some(name)
+                } else {
+                    None
+                }
             })
             .collect();
 

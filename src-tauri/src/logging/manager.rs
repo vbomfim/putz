@@ -39,11 +39,7 @@ impl LogManager {
     ///
     /// Creates a new log file and registers the logger. Returns an error
     /// if logging is already active for this session.
-    pub fn start_logging(
-        &self,
-        session_id: &str,
-        config: LogConfig,
-    ) -> Result<String, LogError> {
+    pub fn start_logging(&self, session_id: &str, config: LogConfig) -> Result<String, LogError> {
         let mut loggers = self
             .loggers
             .lock()

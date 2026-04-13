@@ -17,9 +17,7 @@ use russh::client;
 use zeroize::Zeroizing;
 
 use super::SshHandler;
-use crate::protocol::{
-    ConnectionParams, EventEmitter, ProtocolError,
-};
+use crate::protocol::{ConnectionParams, EventEmitter, ProtocolError};
 
 /// Attempts SSH authentication using available methods.
 ///
@@ -38,8 +36,7 @@ pub async fn authenticate(
     emitter: Arc<dyn EventEmitter>,
 ) -> Result<(), ProtocolError> {
     // Wrap the vault password for automatic zeroization on drop
-    let vault_password: Option<Zeroizing<String>> =
-        vault_password.map(Zeroizing::new);
+    let vault_password: Option<Zeroizing<String>> = vault_password.map(Zeroizing::new);
     let mut last_error = None;
 
     // 1. Try SSH agent authentication
@@ -59,14 +56,7 @@ pub async fn authenticate(
         // Use vault password as passphrase for encrypted keys
         let passphrase = vault_password.as_deref().map(|s| s.as_str());
 
-        match try_key_auth(
-            session,
-            username,
-            key_path,
-            passphrase,
-        )
-        .await
-        {
+        match try_key_auth(session, username, key_path, passphrase).await {
             Ok(true) => return Ok(()),
             Ok(false) => {
                 // Key rejected — try next method
@@ -79,9 +69,7 @@ pub async fn authenticate(
 
     // 3. Try password authentication
     if let Some(ref password) = vault_password {
-        match try_password_auth(session, username, password)
-            .await
-        {
+        match try_password_auth(session, username, password).await {
             Ok(true) => return Ok(()),
             Ok(false) => {
                 last_error = Some(ProtocolError::AuthFailed(
@@ -101,8 +89,7 @@ pub async fn authenticate(
             "username": username,
             "methods": ["password"],
         });
-        let event =
-            format!("connection-auth-prompt-{connection_id}");
+        let event = format!("connection-auth-prompt-{connection_id}");
         emitter.emit_event(&event, &payload.to_string());
     }
 
@@ -129,39 +116,26 @@ async fn try_agent_auth(
 ) -> Result<bool, ProtocolError> {
     // Check if SSH_AUTH_SOCK is set
     let sock_path = std::env::var("SSH_AUTH_SOCK").map_err(|_| {
-        ProtocolError::AuthFailed(
-            "SSH agent not available (SSH_AUTH_SOCK not set)".into(),
-        )
+        ProtocolError::AuthFailed("SSH agent not available (SSH_AUTH_SOCK not set)".into())
     })?;
 
     if sock_path.is_empty() {
-        return Err(ProtocolError::AuthFailed(
-            "SSH_AUTH_SOCK is empty".into(),
-        ));
+        return Err(ProtocolError::AuthFailed("SSH_AUTH_SOCK is empty".into()));
     }
 
     // Connect to agent
-    let mut agent =
-        russh_keys::agent::client::AgentClient::connect_uds(&sock_path)
-            .await
-            .map_err(|e| {
-                ProtocolError::AuthFailed(format!(
-                    "Failed to connect to SSH agent: {e}"
-                ))
-            })?;
+    let mut agent = russh_keys::agent::client::AgentClient::connect_uds(&sock_path)
+        .await
+        .map_err(|e| ProtocolError::AuthFailed(format!("Failed to connect to SSH agent: {e}")))?;
 
     // Request identities from agent
-    let identities =
-        agent.request_identities().await.map_err(|e| {
-            ProtocolError::AuthFailed(format!(
-                "Failed to list agent keys: {e}"
-            ))
-        })?;
+    let identities = agent
+        .request_identities()
+        .await
+        .map_err(|e| ProtocolError::AuthFailed(format!("Failed to list agent keys: {e}")))?;
 
     if identities.is_empty() {
-        return Err(ProtocolError::AuthFailed(
-            "SSH agent has no keys".into(),
-        ));
+        return Err(ProtocolError::AuthFailed("SSH agent has no keys".into()));
     }
 
     // Try each agent key
@@ -214,25 +188,21 @@ fn validate_key_path(key_path: &str) -> Result<PathBuf, ProtocolError> {
     for component in path.components() {
         if let std::path::Component::ParentDir = component {
             return Err(ProtocolError::InvalidParams(
-                "SSH key path must not contain '..' components"
-                    .into(),
+                "SSH key path must not contain '..' components".into(),
             ));
         }
     }
 
     // Resolve to canonical path (follows symlinks, resolves `.`)
     let canonical = path.canonicalize().map_err(|e| {
-        ProtocolError::AuthFailed(format!(
-            "SSH key path not found or inaccessible: {e}"
-        ))
+        ProtocolError::AuthFailed(format!("SSH key path not found or inaccessible: {e}"))
     })?;
 
     // Ensure the key is within the user's home directory
     if let Some(home) = dirs_home() {
         if !canonical.starts_with(&home) {
             return Err(ProtocolError::InvalidParams(
-                "SSH key path must be within user home directory"
-                    .into(),
+                "SSH key path must be within user home directory".into(),
             ));
         }
     }
@@ -242,8 +212,7 @@ fn validate_key_path(key_path: &str) -> Result<PathBuf, ProtocolError> {
 
 /// Returns the user's home directory.
 fn dirs_home() -> Option<PathBuf> {
-    directories::BaseDirs::new()
-        .map(|d| d.home_dir().to_path_buf())
+    directories::BaseDirs::new().map(|d| d.home_dir().to_path_buf())
 }
 
 /// Attempts public key authentication with a key file.
@@ -263,30 +232,22 @@ async fn try_key_auth(
 
     // Load the key file
     let key_pair = if let Some(passphrase) = passphrase {
-        russh_keys::load_secret_key(&canonical_path, Some(passphrase))
-            .map_err(|e| {
-                ProtocolError::AuthFailed(format!(
-                    "Failed to load SSH key (wrong passphrase?): {e}"
-                ))
-            })?
+        russh_keys::load_secret_key(&canonical_path, Some(passphrase)).map_err(|e| {
+            ProtocolError::AuthFailed(format!("Failed to load SSH key (wrong passphrase?): {e}"))
+        })?
     } else {
-        russh_keys::load_secret_key(&canonical_path, None)
-            .map_err(|e| {
-                ProtocolError::AuthFailed(format!(
-                    "Failed to load SSH key \
+        russh_keys::load_secret_key(&canonical_path, None).map_err(|e| {
+            ProtocolError::AuthFailed(format!(
+                "Failed to load SSH key \
                      (encrypted key needs passphrase): {e}"
-                ))
-            })?
+            ))
+        })?
     };
 
     let auth_result = session
         .authenticate_publickey(username, Arc::new(key_pair))
         .await
-        .map_err(|e| {
-            ProtocolError::AuthFailed(format!(
-                "Public key auth failed: {e}"
-            ))
-        })?;
+        .map_err(|e| ProtocolError::AuthFailed(format!("Public key auth failed: {e}")))?;
 
     Ok(auth_result)
 }
@@ -302,11 +263,7 @@ async fn try_password_auth(
     let auth_result = session
         .authenticate_password(username, password)
         .await
-        .map_err(|e| {
-            ProtocolError::AuthFailed(format!(
-                "Password auth failed: {e}"
-            ))
-        })?;
+        .map_err(|e| ProtocolError::AuthFailed(format!("Password auth failed: {e}")))?;
 
     Ok(auth_result)
 }
@@ -321,30 +278,21 @@ mod tests {
     fn validate_key_path_rejects_parent_traversal() {
         let result = validate_key_path("/home/user/../etc/passwd");
         assert!(result.is_err());
-        assert!(
-            result.unwrap_err().to_string().contains("..")
-        );
+        assert!(result.unwrap_err().to_string().contains(".."));
     }
 
     #[test]
     fn validate_key_path_rejects_relative_traversal() {
         let result = validate_key_path("../../etc/shadow");
         assert!(result.is_err());
-        assert!(
-            result.unwrap_err().to_string().contains("..")
-        );
+        assert!(result.unwrap_err().to_string().contains(".."));
     }
 
     #[test]
     fn validate_key_path_rejects_nonexistent_file() {
-        let result = validate_key_path(
-            "/nonexistent/path/id_ed25519",
-        );
+        let result = validate_key_path("/nonexistent/path/id_ed25519");
         assert!(result.is_err());
-        assert!(result
-            .unwrap_err()
-            .to_string()
-            .contains("not found"));
+        assert!(result.unwrap_err().to_string().contains("not found"));
     }
 
     #[test]
@@ -356,9 +304,7 @@ mod tests {
                 // Only test if ~/.ssh exists (CI may not have it)
                 let known_hosts = test_dir.join("known_hosts");
                 if known_hosts.exists() {
-                    let result = validate_key_path(
-                        known_hosts.to_str().unwrap(),
-                    );
+                    let result = validate_key_path(known_hosts.to_str().unwrap());
                     assert!(result.is_ok());
                 }
             }
@@ -369,9 +315,7 @@ mod tests {
 
     #[test]
     fn auth_failed_error_format() {
-        let err = ProtocolError::AuthFailed(
-            "No authentication method succeeded".into(),
-        );
+        let err = ProtocolError::AuthFailed("No authentication method succeeded".into());
         assert!(err
             .to_string()
             .contains("No authentication method succeeded"));
@@ -379,9 +323,7 @@ mod tests {
 
     #[test]
     fn password_rejected_error() {
-        let err = ProtocolError::AuthFailed(
-            "Password rejected by server".into(),
-        );
+        let err = ProtocolError::AuthFailed("Password rejected by server".into());
         assert!(err.to_string().contains("rejected"));
     }
 
