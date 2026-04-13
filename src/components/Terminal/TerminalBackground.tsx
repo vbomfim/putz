@@ -336,14 +336,16 @@ function copilotAvatar(ctx: CanvasRenderingContext2D, w: number, h: number, stat
   state.timer += speed;
 
   if (state.phase === "idle") {
-    state.blinkTimer += speed;
-    state.idleTimer += speed;
-    if (state.blinkTimer > 480 / speed) {
+    state.blinkTimer += 1;
+    state.idleTimer += 1;
+    // Blink every ~480 frames (~8s at 60fps)
+    if (state.blinkTimer > 480) {
       state.phase = "blinking";
       state.phaseStep = 0;
       state.blinkTimer = 0;
     }
-    if (state.idleTimer > 1200 / speed) {
+    // Yawn after ~1200 frames (~20s idle)
+    if (state.idleTimer > 1200) {
       state.phase = "yawning";
       state.phaseStep = 0;
       state.idleTimer = 0;
