@@ -20,6 +20,7 @@ interface PersistedSettings {
   backgroundColorMode: string;
   backgroundCustomColor: string;
   backgroundSpeed: number;
+  backgroundSize: string;
 }
 
 /** Loads persisted settings from localStorage, returning defaults on failure. */
@@ -36,12 +37,13 @@ function loadPersistedSettings(): PersistedSettings {
         backgroundColorMode: parsed.backgroundColorMode ?? "theme",
         backgroundCustomColor: parsed.backgroundCustomColor ?? "#50fa7b",
         backgroundSpeed: parsed.backgroundSpeed ?? 1,
+        backgroundSize: parsed.backgroundSize ?? "large",
       };
     }
   } catch {
     // Corrupted localStorage — fall through to defaults
   }
-  return { toolbarVisible: false, workspaceBarVisible: true, backgroundEffect: "none", backgroundOpacity: 0.15, backgroundColorMode: "theme", backgroundCustomColor: "#50fa7b", backgroundSpeed: 1 };
+  return { toolbarVisible: false, workspaceBarVisible: true, backgroundEffect: "none", backgroundOpacity: 0.15, backgroundColorMode: "theme", backgroundCustomColor: "#50fa7b", backgroundSpeed: 1, backgroundSize: "large" };
 }
 
 /** Saves settings to localStorage. */
@@ -80,6 +82,9 @@ interface SettingsState {
   /** Animation speed multiplier (0.2 - 3). */
   backgroundSpeed: number;
 
+  /** Avatar/effect size: small, medium, large. */
+  backgroundSize: string;
+
   /** Toggles toolbar visibility and persists to localStorage. */
   toggleToolbar: () => void;
 
@@ -109,6 +114,9 @@ interface SettingsState {
 
   /** Sets the animation speed. */
   setBackgroundSpeed: (speed: number) => void;
+
+  /** Sets the avatar/effect size. */
+  setBackgroundSize: (size: string) => void;
 }
 
 export const useSettingsStore = create<SettingsState>((set, get) => {
@@ -124,6 +132,7 @@ export const useSettingsStore = create<SettingsState>((set, get) => {
       backgroundColorMode: s.backgroundColorMode,
       backgroundCustomColor: s.backgroundCustomColor,
       backgroundSpeed: s.backgroundSpeed,
+      backgroundSize: s.backgroundSize,
     });
   };
 
@@ -135,6 +144,7 @@ export const useSettingsStore = create<SettingsState>((set, get) => {
     backgroundColorMode: persisted.backgroundColorMode,
     backgroundCustomColor: persisted.backgroundCustomColor,
     backgroundSpeed: persisted.backgroundSpeed,
+    backgroundSize: persisted.backgroundSize,
     shortcutsPanelOpen: false,
 
     toggleToolbar: () => {
@@ -182,6 +192,11 @@ export const useSettingsStore = create<SettingsState>((set, get) => {
 
     setBackgroundSpeed: (speed: number) => {
       set({ backgroundSpeed: speed });
+      persist();
+    },
+
+    setBackgroundSize: (size: string) => {
+      set({ backgroundSize: size });
       persist();
     },
   };

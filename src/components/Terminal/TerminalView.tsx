@@ -69,6 +69,7 @@ export function TerminalView({
   const backgroundColorMode = useSettingsStore((s) => s.backgroundColorMode);
   const backgroundCustomColor = useSettingsStore((s) => s.backgroundCustomColor);
   const backgroundSpeed = useSettingsStore((s) => s.backgroundSpeed);
+  const backgroundSize = useSettingsStore((s) => s.backgroundSize) as "small" | "medium" | "large";
   const termColors = useThemeStore((s) => s.activeColors);
   const fgColor = (termColors as Record<string, string> | null)?.foreground || "#cdd6f4";
 
@@ -177,6 +178,7 @@ export function TerminalView({
         opacity={backgroundOpacity}
         color={effectColor}
         speed={backgroundSpeed}
+        size={backgroundSize}
         hostname={isConnected ? hostname : undefined}
       />
       {searchOpen && (

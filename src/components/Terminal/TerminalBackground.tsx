@@ -18,6 +18,8 @@ interface TerminalBackgroundProps {
   opacity?: number;
   color?: string;
   speed?: number;
+  /** Avatar/effect size: small, medium, large. */
+  size?: "small" | "medium" | "large";
   /** Hostname/label watermark — shown as large faded text behind terminal. */
   hostname?: string;
 }
@@ -330,7 +332,7 @@ interface CopilotState {
   phaseStep: number;
 }
 
-function copilotAvatar(ctx: CanvasRenderingContext2D, w: number, h: number, state: CopilotState, color: string, speed: number) {
+function copilotAvatar(ctx: CanvasRenderingContext2D, w: number, h: number, state: CopilotState, color: string, speed: number, size: "small" | "medium" | "large") {
   ctx.clearRect(0, 0, w, h);
 
   state.timer += speed;
@@ -368,8 +370,10 @@ function copilotAvatar(ctx: CanvasRenderingContext2D, w: number, h: number, stat
 
   const lines = AVATAR_FRAMES[state.frame];
   const maxLineLen = Math.max(...lines.map((l) => l.length));
-  const targetH = h * 0.4;
-  const fontSize = Math.min(targetH / lines.length, w / (maxLineLen * 0.6), 32);
+  const sizeConfig = { small: { ratio: 0.15, maxFont: 18 }, medium: { ratio: 0.25, maxFont: 24 }, large: { ratio: 0.4, maxFont: 32 } };
+  const { ratio, maxFont } = sizeConfig[size];
+  const targetH = h * ratio;
+  const fontSize = Math.min(targetH / lines.length, w / (maxLineLen * 0.6), maxFont);
 
   ctx.font = `${fontSize}px monospace`;
   ctx.textBaseline = "middle";
@@ -441,6 +445,7 @@ export function TerminalBackground({
   opacity = 0.15,
   color = "#50fa7b",
   speed = 1,
+  size = "large",
   hostname,
 }: TerminalBackgroundProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -508,7 +513,7 @@ export function TerminalBackground({
         networkParticles(ctx, w, h, s as unknown as { particles: Particle[] }, resolvedColor, speed);
         break;
       case "copilot":
-        copilotAvatar(ctx, w, h, s as unknown as CopilotState, resolvedColor, speed);
+        copilotAvatar(ctx, w, h, s as unknown as CopilotState, resolvedColor, speed, size);
         break;
     }
 

@@ -39,6 +39,8 @@ export function SettingsTab() {
   const setBackgroundColorMode = useSettingsStore((s) => s.setBackgroundColorMode);
   const setBackgroundCustomColor = useSettingsStore((s) => s.setBackgroundCustomColor);
   const setBackgroundSpeed = useSettingsStore((s) => s.setBackgroundSpeed);
+  const backgroundSize = useSettingsStore((s) => s.backgroundSize);
+  const setBackgroundSize = useSettingsStore((s) => s.setBackgroundSize);
   const activeThemeId = useThemeStore((s) => s.activeThemeId);
   const setActiveTheme = useThemeStore((s) => s.setActiveTheme);
   const [themes, setThemes] = useState<Theme[]>([]);
@@ -141,6 +143,28 @@ export function SettingsTab() {
                 <input type="range" min="0.2" max="3" step="0.1" value={backgroundSpeed}
                   onChange={(e) => setBackgroundSpeed(parseFloat(e.target.value))} style={{ flex: 1 }} />
                 <span style={{ fontSize: 11, color: "var(--text-secondary)", minWidth: 30 }}>{backgroundSpeed.toFixed(1)}×</span>
+              </div>
+
+              <div style={{ marginTop: 12, display: "flex", flexDirection: "column", gap: 6 }}>
+                <label style={{ fontSize: 12, color: "var(--text-secondary)" }}>Size</label>
+                <div style={{ display: "flex", gap: 4 }}>
+                  {(["small", "medium", "large"] as const).map((s) => (
+                    <button
+                      key={s}
+                      onClick={() => setBackgroundSize(s)}
+                      style={{
+                        padding: "4px 10px",
+                        border: backgroundSize === s ? "2px solid var(--accent)" : "1px solid var(--hover-bg)",
+                        borderRadius: 6,
+                        background: backgroundSize === s ? "var(--accent)" : "var(--bg-secondary)",
+                        color: backgroundSize === s ? "white" : "var(--text-primary)",
+                        cursor: "pointer", fontSize: 12, fontFamily: "inherit", textTransform: "capitalize",
+                      }}
+                    >
+                      {s}
+                    </button>
+                  ))}
+                </div>
               </div>
 
               <div style={{ marginTop: 12, display: "flex", flexDirection: "column", gap: 6 }}>
