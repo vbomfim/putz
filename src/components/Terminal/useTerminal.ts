@@ -429,9 +429,10 @@ export function useTerminal({
         if (event.type !== "keydown") return true;
 
         const isMod = event.metaKey || event.ctrlKey;
+        const key = event.key.toLowerCase();
 
         // Cmd+C / Ctrl+C — copy selection (if any), otherwise send SIGINT
-        if (isMod && !event.shiftKey && event.key === "c") {
+        if (isMod && !event.shiftKey && (key === "c" || event.code === "KeyC")) {
           const selection = terminal.getSelection();
           if (selection) {
             navigator.clipboard.writeText(selection).catch(() => {});
@@ -442,13 +443,13 @@ export function useTerminal({
         }
 
         // Cmd+V / Ctrl+V — paste from clipboard
-        if (isMod && !event.shiftKey && event.key === "v") {
+        if (isMod && !event.shiftKey && (key === "v" || event.code === "KeyV")) {
           pasteToTerminal(terminal, sessionId);
           return false;
         }
 
         // Cmd+A / Ctrl+A — select all terminal content
-        if (isMod && !event.shiftKey && event.key === "a") {
+        if (isMod && !event.shiftKey && (key === "a" || event.code === "KeyA")) {
           terminal.selectAll();
           return false;
         }
