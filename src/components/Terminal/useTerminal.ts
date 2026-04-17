@@ -319,11 +319,23 @@ export function useTerminal({
     // Initial fit to container
     safeFit();
 
+    // Focus the terminal so keystrokes and the blinking cursor are active
+    // immediately on mount. On Windows/Chromium (WebView2), the xterm helper
+    // textarea does not auto-focus when inserted into the DOM, so moving a
+    // tab between region groups (which remounts TerminalView) loses the
+    // cursor until the user clicks. Staggered calls cover the case where
+    // the container isn't fully laid out yet during a layout transition.
+    const safeFocus = () => {
+      if (disposed) return;
+      try { terminal.focus(); } catch { /* container not ready */ }
+    };
+    safeFocus();
+
     // Staggered retry fits — Allotment split animation may not have
     // settled dimensions yet. Multiple retries at increasing intervals
     // ensure the terminal renders correctly in new split panes.
     const fitTimers = [
-      setTimeout(safeFit, 150),
+      setTimeout(() => { safeFit(); safeFocus(); }, 150),
       setTimeout(safeFit, 500),
       setTimeout(safeFit, 1000),
     ];
