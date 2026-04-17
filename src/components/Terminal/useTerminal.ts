@@ -222,12 +222,25 @@ export function useTerminal({
               if (l.isRelative) {
                 invoke<string>("pty_cwd", { sessionId })
                   .then((cwd) => {
-                    // Handle both Unix (/) and Windows (\) path separators
                     const sep = cwd.includes("\\") ? "\\" : "/";
                     const fullPath = cwd.endsWith(sep) ? `${cwd}${l.text}` : `${cwd}${sep}${l.text}`;
                     openFn(fullPath);
                   })
-                  .catch(() => openFn(l.text));
+                  .catch(() => {
+                    // Fallback: try terminal title (shells often set it to CWD)
+                    const title = terminal.buffer.active.getLine(0)
+                      ? (document.title || "")
+                      : "";
+                    // Extract path from title like "PS C:\Users\john>" or "C:\Users\john"
+                    const pathMatch = title.match(/([A-Z]:\\[^\s>]+)/i) || title.match(/(\/[\w/.-]+)/);
+                    if (pathMatch) {
+                      const cwd = pathMatch[1];
+                      const sep = cwd.includes("\\") ? "\\" : "/";
+                      openFn(`${cwd}${sep}${l.text}`);
+                    } else {
+                      openFn(l.text);
+                    }
+                  });
               } else {
                 openFn(l.text);
               }

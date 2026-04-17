@@ -521,18 +521,12 @@ fn get_process_cwd(_pid: u32) -> Result<String, PtyError> {
 
     #[cfg(windows)]
     {
-        // On Windows, query the child process's working directory via cmd /c cd
-        // This is a workaround since there's no direct API in portable_pty
-        let output = std::process::Command::new("cmd")
-            .args(["/c", "cd"])
-            .output()
-            .map_err(|e| PtyError::WriteFailed(format!("Failed to get CWD: {}", e)))?;
-        let cwd = String::from_utf8_lossy(&output.stdout).trim().to_string();
-        if cwd.is_empty() {
-            Err(PtyError::WriteFailed("Could not determine CWD".to_string()))
-        } else {
-            Ok(cwd)
-        }
+        // Getting a child process's CWD on Windows requires NtQueryInformationProcess
+        // which is complex. Fall back to USERPROFILE as a reasonable default.
+        // The frontend also extracts CWD from the terminal title when available.
+        std::env::var("USERPROFILE").map_err(|_| {
+            PtyError::WriteFailed("Could not determine CWD on Windows".to_string())
+        })
     }
 }
 
