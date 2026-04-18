@@ -9,6 +9,7 @@
  */
 import { useEffect, useCallback } from "react";
 import { listen } from "@tauri-apps/api/event";
+import { getCurrentWindow } from "@tauri-apps/api/window";
 import { useLayoutStore } from "../stores/layoutStore";
 import { useBroadcastStore } from "../stores/broadcastStore";
 import { useSettingsStore } from "../stores/settingsStore";
@@ -87,6 +88,15 @@ export function useMenuEvents(): void {
         }
         case "menu-close-all-tabs":
           
+          break;
+        case "menu-exit":
+          // Close the main window — Tauri shuts down when the last window closes.
+          // The on_window_event close-requested handler in lib.rs runs first
+          // and tears down PTY sessions cleanly.
+          getCurrentWindow().close().catch(() => {
+            // Fallback: ask the app to exit if window.close fails for any reason
+            import("@tauri-apps/plugin-process").then((m) => m.exit(0)).catch(() => {});
+          });
           break;
 
         // ─── Edit ──────────────────────────────────────────
