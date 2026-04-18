@@ -61,6 +61,7 @@ export function EditorTab({ filePath: initialFilePath, scriptId, regionId, tabId
   const [showCompareInput, setShowCompareInput] = useState(false);
   const [comparePath, setComparePath] = useState("");
   const [showPreview, setShowPreview] = useState(false);
+  const [showWhitespace, setShowWhitespace] = useState(false);
   const previewRef = useRef<HTMLDivElement | null>(null);
   const isSyncingRef = useRef(false);
   const addDiffTab = useLayoutStore((s) => s.addDiffTab);
@@ -330,6 +331,14 @@ export function EditorTab({ filePath: initialFilePath, scriptId, regionId, tabId
               ⇆
             </button>
           )}
+          <button
+            type="button"
+            className={`editor-tab__tool-btn ${showWhitespace ? "editor-tab__tool-btn--active" : ""}`}
+            onClick={() => setShowWhitespace((v) => !v)}
+            title={showWhitespace ? "Hide whitespace / line endings" : "Show whitespace, control chars, line endings (LF / CRLF)"}
+          >
+            ¶
+          </button>
           <div className="script-editor__language-toggle">
             {([
               ["text", "TXT", "Plain Text"],
@@ -439,6 +448,7 @@ export function EditorTab({ filePath: initialFilePath, scriptId, regionId, tabId
             readOnly={isSaving}
             onSave={handleSave}
             editorInstanceRef={editorInstanceRef}
+            showWhitespace={showWhitespace}
           />
         </div>
         {language === "markdown" && showPreview && (

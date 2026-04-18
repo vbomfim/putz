@@ -39,6 +39,8 @@ interface MonacoEditorProps {
   onRun?: () => void;
   /** Ref to expose the editor instance for triggering actions. */
   editorInstanceRef?: React.MutableRefObject<monaco.editor.IStandaloneCodeEditor | null>;
+  /** Show hidden characters (whitespace, control chars, EOL markers). */
+  showWhitespace?: boolean;
 }
 
 // Track whether languages have been registered (once per Monaco instance)
@@ -165,9 +167,11 @@ export function MonacoEditor({
   onSave,
   onRun,
   editorInstanceRef,
+  showWhitespace = false,
 }: MonacoEditorProps) {
   const editorRef = useRef<monaco.editor.IStandaloneCodeEditor | null>(null);
   const monacoRef = useRef<typeof monaco | null>(null);
+  const eolDecorationsRef = useRef<string[]>([]);
 
   // Apply theme on mount and when themeStore changes
   const applyTheme = useCallback(() => {
@@ -307,6 +311,62 @@ export function MonacoEditor({
     [onChange],
   );
 
+  // EOL marker decorations: show ↵ (LF) or ␍↵ (CRLF) at end of every line.
+  // Monaco's renderWhitespace handles spaces/tabs and renderControlCharacters
+  // handles stray CR — but neither draws anything for the line break itself.
+  useEffect(() => {
+    const editor = editorRef.current;
+    if (!editor) return;
+    const model = editor.getModel();
+    if (!model) {
+      eolDecorationsRef.current = editor.deltaDecorations(eolDecorationsRef.current, []);
+      return;
+    }
+    if (!showWhitespace) {
+      eolDecorationsRef.current = editor.deltaDecorations(eolDecorationsRef.current, []);
+      return;
+    }
+    const monacoNs = monacoRef.current;
+    if (!monacoNs) return;
+    const eol = model.getEOL();
+    const marker = eol === "\r\n" ? "␍↵" : "↵";
+    const lineCount = model.getLineCount();
+    const newDecorations: monaco.editor.IModelDeltaDecoration[] = [];
+    for (let line = 1; line < lineCount; line++) {
+      const col = model.getLineMaxColumn(line);
+      newDecorations.push({
+        range: new monacoNs.Range(line, col, line, col),
+        options: {
+          after: {
+            content: marker,
+            inlineClassName: "putz-eol-marker",
+          },
+        },
+      });
+    }
+    eolDecorationsRef.current = editor.deltaDecorations(eolDecorationsRef.current, newDecorations);
+
+    const disposable = model.onDidChangeContent(() => {
+      const ed = editorRef.current;
+      const m = ed?.getModel();
+      const ns = monacoRef.current;
+      if (!ed || !m || !ns) return;
+      const eolNow = m.getEOL();
+      const markerNow = eolNow === "\r\n" ? "␍↵" : "↵";
+      const lc = m.getLineCount();
+      const next: monaco.editor.IModelDeltaDecoration[] = [];
+      for (let line = 1; line < lc; line++) {
+        const col = m.getLineMaxColumn(line);
+        next.push({
+          range: new ns.Range(line, col, line, col),
+          options: { after: { content: markerNow, inlineClassName: "putz-eol-marker" } },
+        });
+      }
+      eolDecorationsRef.current = ed.deltaDecorations(eolDecorationsRef.current, next);
+    });
+    return () => disposable.dispose();
+  }, [showWhitespace, value]);
+
   const monacoLanguage =
     language === "text" ? "plaintext" :
     language === "cisco-ios" ? CISCO_IOS_LANGUAGE_ID :
@@ -324,6 +384,8 @@ export function MonacoEditor({
       theme={PUTZ_THEME_ID}
       options={{
         readOnly,
+        renderWhitespace: showWhitespace ? "all" : "selection",
+        renderControlCharacters: showWhitespace,
         minimap: { enabled: true, maxColumn: 80 },
         fontSize: 13,
         fontFamily: "'JetBrains Mono', 'Fira Code', 'Cascadia Code', 'Menlo', monospace",

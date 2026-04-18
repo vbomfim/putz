@@ -1152,3 +1152,9 @@
   border-radius: 2px;
   padding: 0 1px;
 }
+
+.putz-eol-marker {
+  color: var(--text-secondary, #6c7086);
+  opacity: 0.55;
+  font-style: normal;
+}
