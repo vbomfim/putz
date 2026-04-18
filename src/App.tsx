@@ -14,6 +14,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { useLayoutStore } from "./stores/layoutStore";
+import { dispatchBookmarkClick } from "./utils/bookmarkDispatch";
 import { RegionContainer } from "./components/Region";
 import { BroadcastBar } from "./components/BroadcastBar";
 import { ShortcutsPanel } from "./components/Help";
@@ -216,13 +217,11 @@ function App() {
       {workspaceBarVisible && <WorkspaceBar />}
       <main className="app-container">
         <CredentialReminder />
-        {/* BookmarksBar — positioned below toolbar, above region tree.
-            onBookmarkClick stub until T5 (#57) implements file-open + terminal cd. */}
-        {/* TODO(#57): Replace console.log stub with actual file-open and terminal-cd dispatch */}
+        {/* BookmarksBar — positioned below toolbar, above region tree. */}
         {bookmarksBarVisible && (
           <BookmarksBar
             onBookmarkClick={(bookmark) => {
-              console.log("bookmark clicked:", bookmark.id, bookmark.name);
+              void dispatchBookmarkClick(bookmark);
             }}
           />
         )}

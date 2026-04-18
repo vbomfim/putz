@@ -377,11 +377,16 @@ export const useLayoutStore = create<LayoutState>((set, get) => ({
     if (!region) return;
 
     // CSV/TSV files open in the visual CSV editor instead of Monaco
+    // Markdown files open in the markdown viewer
     // (unless caller explicitly asked for text mode)
     if (filePath && !forceText) {
       const ext = filePath.split(".").pop()?.toLowerCase() || "";
       if (ext === "csv" || ext === "tsv") {
         get().addCsvTab(targetRegionId, filePath);
+        return;
+      }
+      if (ext === "md" || ext === "markdown") {
+        get().addMarkdownTab(targetRegionId, filePath);
         return;
       }
     }

@@ -9,6 +9,11 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { act } from "@testing-library/react";
 
+// Mock monaco-editor — jsdom lacks document.queryCommandSupported
+// which monaco needs at module load (transitive import via RegionContainer).
+vi.mock("monaco-editor", () => ({}));
+vi.mock("monaco-editor/esm/vs/editor/editor.api", () => ({}));
+
 // Mock Tauri invoke before importing the store
 const mockInvoke = vi.fn();
 vi.mock("@tauri-apps/api/core", () => ({
@@ -793,6 +798,80 @@ describe("layoutStore", () => {
       const state = useLayoutStore.getState();
       const region = state.regions[state.focusedRegionId];
       expect(region.tabPosition).toBe("top");
+    });
+  });
+
+  // ─── addEditorTab extension routing ───────────────────────────────
+
+  describe("addEditorTab extension routing", () => {
+    it("routes .md files to addMarkdownTab", () => {
+      const addMarkdownTabSpy = vi.spyOn(
+        useLayoutStore.getState(),
+        "addMarkdownTab",
+      );
+
+      act(() => {
+        useLayoutStore.getState().addEditorTab(undefined, "/Users/me/README.md");
+      });
+
+      expect(addMarkdownTabSpy).toHaveBeenCalledWith(
+        expect.any(String),
+        "/Users/me/README.md",
+      );
+      // Verify it created a markdown tab, not an editor tab
+      const state = useLayoutStore.getState();
+      const region = state.regions[state.focusedRegionId];
+      const tab = region.tabs.find((t) => t.editorFilePath === "/Users/me/README.md");
+      expect(tab).toBeDefined();
+      expect(tab!.type).toBe("markdown");
+    });
+
+    it("routes .markdown files to addMarkdownTab", () => {
+      act(() => {
+        useLayoutStore.getState().addEditorTab(undefined, "/Users/me/NOTES.markdown");
+      });
+
+      const state = useLayoutStore.getState();
+      const region = state.regions[state.focusedRegionId];
+      const tab = region.tabs.find((t) => t.editorFilePath === "/Users/me/NOTES.markdown");
+      expect(tab).toBeDefined();
+      expect(tab!.type).toBe("markdown");
+    });
+
+    it("routes .csv files to addCsvTab", () => {
+      act(() => {
+        useLayoutStore.getState().addEditorTab(undefined, "/Users/me/data.csv");
+      });
+
+      const state = useLayoutStore.getState();
+      const region = state.regions[state.focusedRegionId];
+      const tab = region.tabs.find((t) => t.editorFilePath === "/Users/me/data.csv");
+      expect(tab).toBeDefined();
+      expect(tab!.type).toBe("csv");
+    });
+
+    it("routes .ts files to regular editor tab", () => {
+      act(() => {
+        useLayoutStore.getState().addEditorTab(undefined, "/Users/me/app.ts");
+      });
+
+      const state = useLayoutStore.getState();
+      const region = state.regions[state.focusedRegionId];
+      const tab = region.tabs.find((t) => t.editorFilePath === "/Users/me/app.ts");
+      expect(tab).toBeDefined();
+      expect(tab!.type).toBe("editor");
+    });
+
+    it("uses text mode for .md when forceText is true", () => {
+      act(() => {
+        useLayoutStore.getState().addEditorTab(undefined, "/Users/me/README.md", undefined, true);
+      });
+
+      const state = useLayoutStore.getState();
+      const region = state.regions[state.focusedRegionId];
+      const tab = region.tabs.find((t) => t.editorFilePath === "/Users/me/README.md");
+      expect(tab).toBeDefined();
+      expect(tab!.type).toBe("editor");
     });
   });
 });
