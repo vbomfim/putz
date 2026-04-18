@@ -19,6 +19,7 @@ import { HistoryTab } from "../History/HistoryTab";
 import { TemplateTab } from "../Templates/TemplateTab";
 import { SettingsTab } from "../Settings/SettingsTab";
 import { MarkdownTab } from "../Markdown/MarkdownTab";
+import { CsvTab } from "../Csv/CsvTab";
 import { RegionTabBar } from "./RegionTabBar";
 import { useLayoutStore } from "../../stores/layoutStore";
 import type { Region } from "../../types";
@@ -170,6 +171,13 @@ export function RegionView({ region, isFocused }: RegionViewProps) {
             return (
               <div key={tab.id} style={{ display: isTabActive ? "flex" : "none", flex: 1, flexDirection: "column", minHeight: 0, overflow: "hidden" }}>
                 <MarkdownTab filePath={tab.editorFilePath} regionId={region.id} tabId={tab.id} />
+              </div>
+            );
+          }
+          if (tab.type === "csv" && tab.editorFilePath) {
+            return (
+              <div key={tab.id} style={{ display: isTabActive ? "flex" : "none", flex: 1, flexDirection: "column", minHeight: 0, overflow: "hidden" }}>
+                <CsvTab filePath={tab.editorFilePath} regionId={region.id} tabId={tab.id} />
               </div>
             );
           }

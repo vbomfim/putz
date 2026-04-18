@@ -196,6 +196,7 @@ interface LayoutState {
 
   /** Adds a markdown preview tab. */
   addMarkdownTab: (regionId?: string, filePath?: string) => void;
+  addCsvTab: (regionId?: string, filePath?: string) => void;
 
   /** Closes a tab in a region. If last tab, closes the region. */
   closeTab: (regionId: string, tabId: string) => void;
@@ -374,6 +375,15 @@ export const useLayoutStore = create<LayoutState>((set, get) => ({
     const targetRegionId = regionId || get().focusedRegionId;
     const region = get().regions[targetRegionId];
     if (!region) return;
+
+    // CSV/TSV files open in the visual CSV editor instead of Monaco
+    if (filePath) {
+      const ext = filePath.split(".").pop()?.toLowerCase() || "";
+      if (ext === "csv" || ext === "tsv") {
+        get().addCsvTab(targetRegionId, filePath);
+        return;
+      }
+    }
 
     // If a file is already open in an editor tab, activate it instead
     if (filePath) {
@@ -584,6 +594,20 @@ export const useLayoutStore = create<LayoutState>((set, get) => ({
     }
     const name = filePath.split("/").pop() || filePath;
     const tab: RegionTab = { id: generateId(), title: `📖 ${name}`, type: "markdown", sessionId: `${EDITOR_SESSION_PREFIX}md-${generateId()}`, editorFilePath: filePath, status: "local" };
+    set((state) => ({ regions: { ...state.regions, [targetRegionId]: { ...state.regions[targetRegionId], tabs: [...state.regions[targetRegionId].tabs, tab], activeTabId: tab.id } }, tabCounter: state.tabCounter + 1 }));
+  },
+
+  addCsvTab: (regionId?: string, filePath?: string) => {
+    const targetRegionId = regionId || get().focusedRegionId;
+    const region = get().regions[targetRegionId];
+    if (!region || !filePath) return;
+    const existing = region.tabs.find((t) => t.type === "csv" && t.editorFilePath === filePath);
+    if (existing) {
+      set((state) => ({ regions: { ...state.regions, [targetRegionId]: { ...state.regions[targetRegionId], activeTabId: existing.id } } }));
+      return;
+    }
+    const name = filePath.split("/").pop() || filePath;
+    const tab: RegionTab = { id: generateId(), title: `📊 ${name}`, type: "csv", sessionId: `${EDITOR_SESSION_PREFIX}csv-${generateId()}`, editorFilePath: filePath, status: "local" };
     set((state) => ({ regions: { ...state.regions, [targetRegionId]: { ...state.regions[targetRegionId], tabs: [...state.regions[targetRegionId].tabs, tab], activeTabId: tab.id } }, tabCounter: state.tabCounter + 1 }));
   },
 
