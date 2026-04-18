@@ -75,11 +75,12 @@ export function DrawioEditor({ filePath, isActive }: DrawioEditorProps) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showStencilPalette, setShowStencilPalette] = useState(false);
+  // True once the store is loaded with THIS tab's data and Canvas can render
+  const [ready, setReady] = useState(false);
   const filePathRef = useRef(filePath);
   const initialLoadDone = useRef(false);
-  const wasActive = useRef(false);
 
-  // Initial load from disk (once)
+  // Initial load from disk (once) — stores into cache, NOT into the store
   useEffect(() => {
     if (initialLoadDone.current) return;
     initialLoadDone.current = true;
@@ -88,7 +89,6 @@ export function DrawioEditor({ filePath, isActive }: DrawioEditorProps) {
       try {
         const xml = await invoke<string>("file_read", { path: filePath });
         if (!xml.trim()) {
-          // Cache empty state so activation swap works
           snapshotCache.set(filePath, {
             expressions: {},
             expressionOrder: [],
@@ -107,7 +107,6 @@ export function DrawioEditor({ filePath, isActive }: DrawioEditorProps) {
         const cam = expressions.length > 0
           ? computeFitToContent(exprMap, order, window.innerWidth, window.innerHeight)
           : { x: 0, y: 0, zoom: 1 };
-        // Store in cache — the activation effect will push it into the store
         snapshotCache.set(filePath, { expressions: exprMap, expressionOrder: order, camera: cam });
         setLoading(false);
       } catch (err) {
@@ -117,30 +116,28 @@ export function DrawioEditor({ filePath, isActive }: DrawioEditorProps) {
     })();
   }, [filePath]);
 
-  // Swap store content on tab activation/deactivation
+  // When becoming active: restore cache → store, then set ready so Canvas mounts.
+  // When becoming inactive: save store → cache, then set ready=false so Canvas unmounts.
   useEffect(() => {
-    if (loading) return;
-
-    if (isActive && !wasActive.current) {
-      // Becoming active — restore our snapshot into the store
-      restoreFromCache(filePath);
-    } else if (!isActive && wasActive.current) {
-      // Becoming inactive — save current store state to our cache
-      snapshotToCache(filePath);
+    if (loading) {
+      setReady(false);
+      return;
     }
-    wasActive.current = isActive;
-  }, [isActive, loading, filePath]);
 
-  // Also restore on first render after loading completes if active
-  useEffect(() => {
-    if (!loading && isActive) {
+    if (isActive) {
       restoreFromCache(filePath);
-      wasActive.current = true;
+      setReady(true);
+    } else {
+      if (ready) {
+        // Was active, now going inactive — snapshot current work
+        snapshotToCache(filePath);
+      }
+      setReady(false);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [loading]);
+  }, [isActive, loading, filePath]);
 
-  // Save on Cmd+S
+  // Save on Cmd+S (only when active)
   const handleSave = useCallback(async () => {
     try {
       const { expressions, expressionOrder } = useCanvasStore.getState();
@@ -155,6 +152,7 @@ export function DrawioEditor({ filePath, isActive }: DrawioEditorProps) {
   }, []);
 
   useEffect(() => {
+    if (!isActive) return;
     const handler = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key === "s") {
         e.preventDefault();
@@ -163,7 +161,7 @@ export function DrawioEditor({ filePath, isActive }: DrawioEditorProps) {
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [handleSave]);
+  }, [handleSave, isActive]);
 
   if (error) {
     return (
@@ -174,10 +172,10 @@ export function DrawioEditor({ filePath, isActive }: DrawioEditorProps) {
     );
   }
 
-  if (loading) {
+  if (loading || !ready) {
     return (
       <div className="drawio-editor drawio-editor--loading">
-        Loading diagram…
+        {loading ? "Loading diagram…" : ""}
       </div>
     );
   }
