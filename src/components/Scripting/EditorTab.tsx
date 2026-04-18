@@ -8,6 +8,7 @@
  */
 import { useState, useCallback, useEffect, useRef } from "react";
 import Markdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import { MonacoEditor, type EditorLanguage } from "./MonacoEditor";
 import { MarkdownToolbar } from "./MarkdownToolbar";
 import { formatMarkdownTables } from "./markdownFormat";
@@ -443,7 +444,7 @@ export function EditorTab({ filePath: initialFilePath, scriptId, regionId, tabId
         {language === "markdown" && showPreview && (
           <div className="editor-tab__preview-pane" ref={previewRef}>
             <div className="editor-tab__preview-content">
-              <Markdown>{content}</Markdown>
+              <Markdown remarkPlugins={[remarkGfm]}>{content}</Markdown>
             </div>
           </div>
         )}

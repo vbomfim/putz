@@ -8,6 +8,7 @@
  */
 import { useState, useCallback, useEffect, useRef } from "react";
 import Markdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import { invoke } from "@tauri-apps/api/core";
 import { useLayoutStore } from "../../stores/layoutStore";
 import "./MarkdownTab.css";
@@ -85,7 +86,7 @@ export function MarkdownTab({ filePath, regionId, tabId }: MarkdownTabProps) {
         </button>
       </div>
       <div className="markdown-tab__content">
-        <Markdown>{content}</Markdown>
+        <Markdown remarkPlugins={[remarkGfm]}>{content}</Markdown>
       </div>
     </div>
   );
