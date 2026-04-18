@@ -10,6 +10,7 @@
  * @module
  */
 
+import { useRef, useState, useCallback, useEffect } from 'react';
 import { useCanvasStore } from '../../engine';
 import type { ToolType } from '../../engine';
 import type { ExpressionStyle } from '../../protocol';
@@ -31,6 +32,8 @@ import {
   ArrowDownToLine,
   ArrowUp,
   ArrowDown,
+  ChevronUp,
+  ChevronDown,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 
@@ -79,6 +82,32 @@ export function Toolbar({ onToggleStencilPalette, isStencilPaletteOpen, onToggle
 
   const isTransparentFill = lastUsedStyle.backgroundColor === 'transparent';
 
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const [canScrollUp, setCanScrollUp] = useState(false);
+  const [canScrollDown, setCanScrollDown] = useState(false);
+
+  const checkOverflow = useCallback(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    setCanScrollUp(el.scrollTop > 0);
+    setCanScrollDown(el.scrollTop + el.clientHeight < el.scrollHeight - 1);
+  }, []);
+
+  useEffect(() => {
+    checkOverflow();
+    const el = scrollRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver(checkOverflow);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [checkOverflow]);
+
+  const scroll = useCallback((dir: 'up' | 'down') => {
+    const el = scrollRef.current;
+    if (!el) return;
+    el.scrollBy({ top: dir === 'up' ? -BUTTON_SIZE * 2 : BUTTON_SIZE * 2, behavior: 'smooth' });
+  }, []);
+
   return (
     <div
       role="toolbar"
@@ -86,19 +115,46 @@ export function Toolbar({ onToggleStencilPalette, isStencilPaletteOpen, onToggle
       style={{
         position: 'absolute',
         left: 12,
-        top: '50%',
-        transform: 'translateY(-50%)',
+        top: 12,
+        bottom: 12,
         display: 'flex',
         flexDirection: 'column',
-        gap: 4,
+        maxHeight: 'calc(100% - 24px)',
         padding: 6,
         backgroundColor: 'var(--bg-toolbar, #ffffff)',
         borderRadius: 10,
         boxShadow: '0 2px 8px var(--shadow, rgba(0, 0, 0, 0.12))',
         border: '1px solid var(--border, #e0e0e0)',
         zIndex: 20,
+        width: BUTTON_SIZE + 12,
       }}
     >
+      {/* Scroll-up arrow */}
+      {canScrollUp && (
+        <button
+          type="button"
+          aria-label="Scroll up"
+          onClick={() => scroll('up')}
+          style={scrollArrowStyle}
+        >
+          <ChevronUp size={14} />
+        </button>
+      )}
+
+      {/* Scrollable tool area */}
+      <div
+        ref={scrollRef}
+        onScroll={checkOverflow}
+        style={{
+          flex: 1,
+          overflowY: 'auto',
+          overflowX: 'hidden',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 4,
+          scrollbarWidth: 'none',
+        }}
+      >
       {TOOLS.map((tool) => {
         const isActive = activeTool === tool.type;
         const Icon = tool.icon;
@@ -118,6 +174,7 @@ export function Toolbar({ onToggleStencilPalette, isStencilPaletteOpen, onToggle
               justifyContent: 'center',
               width: BUTTON_SIZE,
               height: BUTTON_SIZE,
+              minHeight: BUTTON_SIZE,
               border: 'none',
               borderRadius: 6,
               cursor: 'pointer',
@@ -159,6 +216,7 @@ export function Toolbar({ onToggleStencilPalette, isStencilPaletteOpen, onToggle
               justifyContent: 'center',
               width: BUTTON_SIZE,
               height: BUTTON_SIZE,
+              minHeight: BUTTON_SIZE,
               border: 'none',
               borderRadius: 6,
               cursor: 'pointer',
@@ -187,6 +245,7 @@ export function Toolbar({ onToggleStencilPalette, isStencilPaletteOpen, onToggle
             justifyContent: 'center',
             width: BUTTON_SIZE,
             height: BUTTON_SIZE,
+            minHeight: BUTTON_SIZE,
             border: 'none',
             borderRadius: 6,
             cursor: 'pointer',
@@ -202,9 +261,36 @@ export function Toolbar({ onToggleStencilPalette, isStencilPaletteOpen, onToggle
       {/* Group/Ungroup buttons — shown when 2+ expressions selected */}
       <GroupActions />
       <SelectionActions />
+      </div>
+
+      {/* Scroll-down arrow */}
+      {canScrollDown && (
+        <button
+          type="button"
+          aria-label="Scroll down"
+          onClick={() => scroll('down')}
+          style={scrollArrowStyle}
+        >
+          <ChevronDown size={14} />
+        </button>
+      )}
     </div>
   );
 }
+
+const scrollArrowStyle: React.CSSProperties = {
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  width: BUTTON_SIZE,
+  height: 20,
+  minHeight: 20,
+  border: 'none',
+  borderRadius: 4,
+  cursor: 'pointer',
+  backgroundColor: 'transparent',
+  color: 'var(--text-secondary, #888)',
+};
 
 /** Small swatch showing current stroke + fill colors. */
 function StyleIndicator({
