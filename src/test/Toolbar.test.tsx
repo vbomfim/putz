@@ -19,6 +19,29 @@ const mockToggleShortcutsPanel = vi.fn();
 
 let mockToolbarVisible = true;
 
+// Layout store mock — required because Toolbar.tsx imports useLayoutStore
+// to resolve the active tab's bookmarkability.
+let mockLayoutRegions: Record<string, unknown> = {};
+let mockFocusedRegionId = "";
+
+vi.mock("../stores/layoutStore", () => ({
+  useLayoutStore: vi.fn((selector: (state: unknown) => unknown) => {
+    const state = {
+      regions: mockLayoutRegions,
+      focusedRegionId: mockFocusedRegionId,
+    };
+    return selector(state);
+  }),
+}));
+
+// Bookmark helpers mock — prevents transitive Monaco load via layoutStore.
+const mockIsBookmarkActionAvailable = vi.fn().mockReturnValue(false);
+vi.mock("../utils/bookmarkHelpers", () => ({
+  isBookmarkActionAvailable: (...args: unknown[]) =>
+    mockIsBookmarkActionAvailable(...args),
+  getBookmarkableFromTab: vi.fn().mockReturnValue(null),
+}));
+
 vi.mock("../stores/settingsStore", () => ({
   useSettingsStore: vi.fn((selector: (state: unknown) => unknown) => {
     const state = {
@@ -56,6 +79,9 @@ describe("Toolbar", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockToolbarVisible = true;
+    mockLayoutRegions = {};
+    mockFocusedRegionId = "";
+    mockIsBookmarkActionAvailable.mockReturnValue(false);
   });
 
   it("renders when toolbarVisible is true", () => {
@@ -241,5 +267,79 @@ describe("Toolbar", () => {
     for (const button of buttons) {
       expect(button).toHaveAttribute("aria-label");
     }
+  });
+
+  // ─── F3: AC11 toolbar bookmark disabled state ─────────────────
+
+  describe("bookmark button disabled state [AC-11]", () => {
+    it("is disabled when focused tab is a browser tab", () => {
+      mockFocusedRegionId = "r-1";
+      mockLayoutRegions = {
+        "r-1": {
+          id: "r-1",
+          tabs: [{ id: "t-1", type: "browser", title: "Browser", sessionId: "b-1", status: "local" }],
+          activeTabId: "t-1",
+          tabPosition: "top",
+        },
+      };
+      // isBookmarkActionAvailable returns false for browser tabs
+      mockIsBookmarkActionAvailable.mockReturnValue(false);
+
+      const onAddBookmark = vi.fn();
+      render(<Toolbar onAddBookmark={onAddBookmark} />);
+
+      const btn = screen.getByTestId("toolbar-bookmark");
+      expect(btn).toBeDisabled();
+
+      fireEvent.click(btn);
+      expect(onAddBookmark).not.toHaveBeenCalled();
+    });
+
+    it("is enabled for editor tab with editorFilePath", () => {
+      mockFocusedRegionId = "r-1";
+      mockLayoutRegions = {
+        "r-1": {
+          id: "r-1",
+          tabs: [{
+            id: "t-1", type: "editor", title: "config.ts",
+            sessionId: "e-1", status: "local", editorFilePath: "/abs/config.ts",
+          }],
+          activeTabId: "t-1",
+          tabPosition: "top",
+        },
+      };
+      mockIsBookmarkActionAvailable.mockReturnValue(true);
+
+      const onAddBookmark = vi.fn();
+      render(<Toolbar onAddBookmark={onAddBookmark} />);
+
+      const btn = screen.getByTestId("toolbar-bookmark");
+      expect(btn).not.toBeDisabled();
+
+      fireEvent.click(btn);
+      expect(onAddBookmark).toHaveBeenCalledTimes(1);
+    });
+
+    it("is enabled for terminal tab WITHOUT cached CWD (H1 semantics)", () => {
+      // Per H1: terminal tabs are always available via isBookmarkActionAvailable,
+      // even without cached CWD — the action handler resolves via pty_cwd fallback.
+      mockFocusedRegionId = "r-1";
+      mockLayoutRegions = {
+        "r-1": {
+          id: "r-1",
+          tabs: [{
+            id: "t-1", type: "terminal", title: "Terminal",
+            sessionId: "pty-1", status: "local",
+          }],
+          activeTabId: "t-1",
+          tabPosition: "top",
+        },
+      };
+      mockIsBookmarkActionAvailable.mockReturnValue(true);
+
+      render(<Toolbar />);
+      const btn = screen.getByTestId("toolbar-bookmark");
+      expect(btn).not.toBeDisabled();
+    });
   });
 });

@@ -162,12 +162,26 @@ pub fn build_menu(app: &AppHandle<Wry>) -> Result<tauri::menu::Menu<Wry>, tauri:
             "menu-toggle-workspace-bar",
             "Toggle Workspace Bar"
         ))
+        .build()?;
+
+    // ─── Bookmarks ─────────────────────────────────────────
+    //
+    // The "Add Bookmark" item intentionally has NO accelerator.
+    // Reason: macOS menu accelerators fire before DOM keydown events
+    // and ignore DOM focus state. This means the xterm guard
+    // (bail when .xterm is focused) cannot run — Ctrl+D would
+    // always add a bookmark instead of sending EOF to the terminal.
+    // The DOM keydown handler in useKeyboardShortcuts.ts owns
+    // the Cmd+D / Ctrl+D shortcut with the focus check.
+    let bookmarks_menu = SubmenuBuilder::new(app, "Bookmarks")
         .item(&menu_item!(
             app,
             "menu-toggle-bookmarks-bar",
             "Toggle Bookmarks Bar",
             "CmdOrCtrl+Shift+J"
         ))
+        .separator()
+        .item(&menu_item!(app, "menu-add-bookmark", "Add Bookmark"))
         .build()?;
 
     let session_menu = SubmenuBuilder::new(app, "Session")
@@ -282,6 +296,7 @@ pub fn build_menu(app: &AppHandle<Wry>) -> Result<tauri::menu::Menu<Wry>, tauri:
         .item(&file_menu)
         .item(&edit_menu)
         .item(&view_menu)
+        .item(&bookmarks_menu)
         .item(&session_menu)
         .item(&tools_menu)
         .item(&window_menu)
@@ -333,6 +348,7 @@ mod tests {
             "menu-toggle-toolbar",
             "menu-split-vertical",
             "menu-keyboard-shortcuts",
+            "menu-add-bookmark",
         ];
         for id in ids {
             assert!(!id.is_empty(), "Menu item ID should not be empty");

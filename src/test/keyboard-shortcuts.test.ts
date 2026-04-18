@@ -5,7 +5,10 @@
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { renderHook } from "@testing-library/react";
-import { useKeyboardShortcuts } from "../components/TabBar/useKeyboardShortcuts";
+import {
+  useKeyboardShortcuts,
+  setKeyboardShortcutCallbacks,
+} from "../components/TabBar/useKeyboardShortcuts";
 
 const mockAddTerminalTab = vi.fn();
 const mockAddBrowserTab = vi.fn();
@@ -17,6 +20,7 @@ const mockToggleSearch = vi.fn();
 const mockToggleLogging = vi.fn();
 const mockToggleBroadcast = vi.fn();
 const mockToggleShortcutsPanel = vi.fn();
+const mockAddBookmark = vi.fn();
 
 const mockLayoutState = {
   focusedRegionId: "region-1",
@@ -61,10 +65,12 @@ vi.mock("../stores/settingsStore", () => ({
 describe("useKeyboardShortcuts", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    setKeyboardShortcutCallbacks({ onAddBookmark: mockAddBookmark });
   });
 
   afterEach(() => {
     vi.restoreAllMocks();
+    setKeyboardShortcutCallbacks({});
   });
 
   function simulateKeyDown(key: string, options: Partial<KeyboardEvent> = {}) {
@@ -132,7 +138,7 @@ describe("useKeyboardShortcuts", () => {
     expect(mockSplitRegion).toHaveBeenCalledWith("vertical");
   });
 
-  it("Ctrl+D does NOT trigger split (reserved for shell EOF)", () => {
+  it("Ctrl+D does NOT trigger split (reserved for bookmark when no xterm)", () => {
     renderHook(() => useKeyboardShortcuts());
     simulateKeyDown("d", { ctrlKey: true });
     expect(mockSplitRegion).not.toHaveBeenCalled();
@@ -161,4 +167,88 @@ describe("useKeyboardShortcuts", () => {
     simulateKeyDown("b", { ctrlKey: true, shiftKey: true });
     expect(mockAddBrowserTab).toHaveBeenCalledWith(undefined, "");
   });
+
+  // ─── Cmd+D / Ctrl+D — Add Bookmark ───────────────────────────────
+
+  it("Ctrl+D triggers add-bookmark when no xterm focused [AC1]", () => {
+    // jsdom's activeElement is <body> by default — no .xterm ancestor
+    renderHook(() => useKeyboardShortcuts());
+    simulateKeyDown("d", { ctrlKey: true });
+    expect(mockAddBookmark).toHaveBeenCalledTimes(1);
+  });
+
+  // F6: Wrap xterm DOM fixture in try/finally so cleanup runs even on
+  // assertion failure. Prevents leaked DOM elements between tests.
+  it("Ctrl+D does NOT trigger add-bookmark when xterm focused [AC4]", () => {
+    // Create a fake xterm container with a focused child
+    const xtermDiv = document.createElement("div");
+    xtermDiv.classList.add("xterm");
+    const child = document.createElement("textarea");
+    xtermDiv.appendChild(child);
+    document.body.appendChild(xtermDiv);
+
+    try {
+      child.focus();
+
+      renderHook(() => useKeyboardShortcuts());
+      simulateKeyDown("d", { ctrlKey: true });
+
+      expect(mockAddBookmark).not.toHaveBeenCalled();
+    } finally {
+      // Cleanup — runs even if assertions fail
+      document.body.removeChild(xtermDiv);
+    }
+  });
+
+  it("Meta+D (macOS) triggers add-bookmark when no xterm focused", () => {
+    renderHook(() => useKeyboardShortcuts());
+    simulateKeyDown("d", { metaKey: true });
+    expect(mockAddBookmark).toHaveBeenCalledTimes(1);
+  });
+
+  // ─── M-Sec2: xterm guard integration test ──────────────────────────
+  //
+  // Creates a real xterm-shaped DOM tree to verify isXtermFocused() guard.
+  // This tests the actual DOM selector (.xterm + .xterm-helper-textarea)
+  // used by xterm.js v5 to confirm the guard fires correctly.
+
+  it("xterm guard fires when .xterm-helper-textarea inside .xterm is focused [M-Sec2]", () => {
+    // Create a realistic xterm.js v5 DOM structure
+    const xtermDiv = document.createElement("div");
+    xtermDiv.classList.add("xterm");
+    const helperTextarea = document.createElement("textarea");
+    helperTextarea.classList.add("xterm-helper-textarea");
+    xtermDiv.appendChild(helperTextarea);
+    document.body.appendChild(xtermDiv);
+
+    try {
+      helperTextarea.focus();
+
+      renderHook(() => useKeyboardShortcuts());
+      simulateKeyDown("d", { ctrlKey: true });
+
+      // Ctrl+D should NOT trigger bookmark — xterm guard blocks it
+      expect(mockAddBookmark).not.toHaveBeenCalled();
+    } finally {
+      document.body.removeChild(xtermDiv);
+    }
+  });
+
+  it("xterm guard does NOT fire when focus is outside .xterm [M-Sec2]", () => {
+    // Regular input outside xterm — Ctrl+D should trigger bookmark
+    const input = document.createElement("input");
+    document.body.appendChild(input);
+
+    try {
+      input.focus();
+
+      renderHook(() => useKeyboardShortcuts());
+      simulateKeyDown("d", { ctrlKey: true });
+
+      expect(mockAddBookmark).toHaveBeenCalledTimes(1);
+    } finally {
+      document.body.removeChild(input);
+    }
+  });
 });
+

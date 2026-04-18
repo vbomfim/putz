@@ -13,12 +13,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import type { BookmarkItem } from "../stores/bookmarksStore";
 import { useLayoutStore } from "../stores/layoutStore";
-
-// ─── Constants ───────────────────────────────────────────────────────
-
-/** Bidi control characters stripped from display strings (Trojan Source). */
-const BIDI_CONTROL_RE =
-  /[\u200E\u200F\u061C\u2066-\u2069\u202A-\u202E]/g;
+import { stripBidiControls } from "./sanitize";
 
 // ─── Helpers ─────────────────────────────────────────────────────────
 
@@ -39,7 +34,7 @@ export function extractBasename(filePath: string): string {
  * Prevents Trojan Source attacks in user-visible strings.
  */
 function sanitizeForDisplay(text: string): string {
-  return text.replace(BIDI_CONTROL_RE, "");
+  return stripBidiControls(text);
 }
 
 /**

@@ -10,10 +10,14 @@
  *
  * @module Toolbar
  */
-import { useCallback } from "react";
+import { useCallback, useMemo } from "react";
 import { useTabStore } from "../../stores/tabStore";
 import { useBroadcastStore } from "../../stores/broadcastStore";
 import { useSettingsStore } from "../../stores/settingsStore";
+import { useLayoutStore } from "../../stores/layoutStore";
+import {
+  isBookmarkActionAvailable,
+} from "../../utils/bookmarkHelpers";
 import "./Toolbar.css";
 
 /** Callback props for actions that toggle App-level panel state. */
@@ -28,6 +32,8 @@ export interface ToolbarProps {
   onOpenConfigDiff?: () => void;
   onOpenVault?: () => void;
   onOpenKeyManager?: () => void;
+  /** Add bookmark for the currently focused tab. */
+  onAddBookmark?: () => void;
 }
 
 /** Props for individual toolbar buttons. */
@@ -80,6 +86,7 @@ export function Toolbar({
   onOpenConfigDiff,
   onOpenVault,
   onOpenKeyManager,
+  onAddBookmark,
 }: ToolbarProps = {}) {
   const toolbarVisible = useSettingsStore((s) => s.toolbarVisible);
   const toggleShortcutsPanel = useSettingsStore((s) => s.toggleShortcutsPanel);
@@ -91,6 +98,21 @@ export function Toolbar({
   const toggleBroadcast = useBroadcastStore((s) => s.toggle);
   const tabs = useTabStore((s) => s.tabs);
   const activeTabId = useTabStore((s) => s.activeTabId);
+
+  // ─── Bookmark: reactive bookmarkability from focused tab ─────────
+  // Uses `isBookmarkActionAvailable` (the looser predicate) instead of
+  // `getBookmarkableFromTab` so that terminal tabs without cached CWD
+  // still show an enabled button — the action handler in App.tsx has
+  // an async `pty_cwd` fallback to resolve CWD at invocation time.
+  const regions = useLayoutStore((s) => s.regions);
+  const focusedRegionId = useLayoutStore((s) => s.focusedRegionId);
+  const isBookmarkable = useMemo(() => {
+    const region = regions[focusedRegionId];
+    if (!region) return false;
+    const activeTab = region.tabs.find((t) => t.id === region.activeTabId);
+    if (!activeTab) return false;
+    return isBookmarkActionAvailable(activeTab);
+  }, [regions, focusedRegionId]);
 
   // Determine if active tab is a local terminal (no remote session)
   const activeTab = tabs.find((t) => t.id === activeTabId);
@@ -199,6 +221,10 @@ export function Toolbar({
     onOpenKeyManager?.();
   }, [onOpenKeyManager]);
 
+  const handleBookmark = useCallback(() => {
+    onAddBookmark?.();
+  }, [onAddBookmark]);
+
   const handleShortcuts = useCallback(() => {
     toggleShortcutsPanel();
   }, [toggleShortcutsPanel]);
@@ -261,6 +287,13 @@ export function Toolbar({
         tooltip="Split Horizontal (Ctrl+Shift+D)"
         onClick={handleSplitHorizontal}
         testId="toolbar-split-h"
+      />
+      <ToolbarButton
+        icon="★"
+        tooltip="Bookmark current file (Cmd+D)"
+        onClick={handleBookmark}
+        testId="toolbar-bookmark"
+        disabled={!isBookmarkable}
       />
 
       <ToolbarSeparator />

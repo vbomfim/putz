@@ -33,6 +33,7 @@ export interface MenuEventCallbacks {
   onNewBrowserTab?: () => void;
   onToggleWorkspaceBar?: () => void;
   onToggleBookmarksBar?: () => void;
+  onAddBookmark?: () => void;
 }
 
 // Module-level callbacks — set by App.tsx via setMenuEventCallbacks
@@ -149,6 +150,9 @@ export function useMenuEvents(): void {
           break;
         case "menu-toggle-bookmarks-bar":
           menuCallbacks.onToggleBookmarksBar?.();
+          break;
+        case "menu-add-bookmark":
+          menuCallbacks.onAddBookmark?.();
           break;
 
         // ─── Session ───────────────────────────────────────

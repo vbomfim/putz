@@ -11,6 +11,7 @@
  */
 import { useState, useCallback, useRef, useEffect } from "react";
 import { useLayoutStore, MAX_TITLE_LENGTH } from "../../stores/layoutStore";
+import { isBookmarkActionAvailable, handleAddBookmarkFromTab } from "../../utils/bookmarkHelpers";
 import type { RegionTab, TabPosition } from "../../types";
 
 // ─── Global drag state (pointer-based, not HTML5 DnD) ─────────────
@@ -335,6 +336,11 @@ export function RegionTabBar({
         case "splitUp":
           splitTabToNew(regionId, contextMenu.tabId, "horizontal", "before");
           break;
+        case "bookmarkTab": {
+          const tab = tabs.find((t) => t.id === contextMenu.tabId);
+          if (tab) handleAddBookmarkFromTab(tab);
+          break;
+        }
       }
     },
     [contextMenu, regionId, tabs, closeTab, addBrowserTab, setTabPosition, splitTabToNew],
@@ -502,6 +508,31 @@ export function RegionTabBar({
           >
             New Browser Tab
           </button>
+          {/* Bookmark context menu item — uses `isBookmarkActionAvailable`
+              (the looser predicate) so terminal tabs without cached CWD still
+              show the action. The handler in App.tsx resolves CWD via async
+              pty_cwd fallback at invocation time. */}
+          {(() => {
+            const ctxTab = tabs.find((t) => t.id === contextMenu.tabId);
+            if (!ctxTab) return null;
+            if (!isBookmarkActionAvailable(ctxTab)) return null;
+            const label = ctxTab.type === "terminal"
+              ? "⭐ Bookmark current folder"
+              : "⭐ Bookmark this file";
+            return (
+              <>
+                <div className="region-tabbar__context-separator" />
+                <button
+                  className="region-tabbar__context-item"
+                  onClick={() => handleContextAction("bookmarkTab")}
+                  role="menuitem"
+                  type="button"
+                >
+                  {label}
+                </button>
+              </>
+            );
+          })()}
           <div className="region-tabbar__context-separator" />
           <button
             className="region-tabbar__context-item"

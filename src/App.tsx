@@ -14,17 +14,29 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { useLayoutStore } from "./stores/layoutStore";
-import { dispatchBookmarkClick } from "./utils/bookmarkDispatch";
+import { useBookmarksStore } from "./stores/bookmarksStore";
+import { dispatchBookmarkClick, extractBasename } from "./utils/bookmarkDispatch";
+import { stripBidiControls } from "./utils/sanitize";
+import {
+  getBookmarkableFromFocusedTab,
+  getBookmarkableFromTab,
+  getFocusedTerminalSessionId,
+  setAddBookmarkFromTabCallback,
+} from "./utils/bookmarkHelpers";
 import { RegionContainer } from "./components/Region";
 import { BroadcastBar } from "./components/BroadcastBar";
 import { ShortcutsPanel } from "./components/Help";
 import { SessionSidebar } from "./components/SessionManager";
 
 import { useMenuEvents, setMenuEventCallbacks } from "./utils/useMenuEvents";
-import { useKeyboardShortcuts } from "./components/TabBar/useKeyboardShortcuts";
+import {
+  useKeyboardShortcuts,
+  setKeyboardShortcutCallbacks,
+} from "./components/TabBar/useKeyboardShortcuts";
 import { QuickConnect } from "./components/QuickConnect";
 import { CredentialReminder } from "./components/Vault/CredentialReminder";
 import { PingDashboard } from "./components/Ping/PingDashboard";
+import { Toast, useToast } from "./components/Toast";
 
 import { ThemeEditor } from "./components/Terminal/ThemeEditor";
 import { FontConfig } from "./components/Terminal/FontConfig";
@@ -35,8 +47,16 @@ import { useSettingsStore } from "./stores/settingsStore";
 import type { Theme } from "./components/Terminal/themeTypes";
 import type { SessionProfile } from "./components/SessionManager";
 import type { ParsedConnection } from "./components/QuickConnect";
+import type { RegionTab } from "./types";
 import "./components/SessionManager/SessionManager.css";
 import "./styles/App.css";
+
+// ─── Display helpers ─────────────────────────────────────────────────
+
+/** Strips bidi control characters and returns basename for safe toast display. */
+function safeBasename(path: string): string {
+  return stripBidiControls(extractBasename(path));
+}
 
 function App() {
   const regions = useLayoutStore((s) => s.regions);
@@ -58,12 +78,95 @@ function App() {
   const [fontConfigOpen, setFontConfigOpen] = useState(false);
   const [pingOpen, setPingOpen] = useState(false);
   const [availableThemes, setAvailableThemes] = useState<Theme[]>([]);
+  const [toastMessage, showToast, dismissToast] = useToast();
+
+  // ─── Bookmark: core "add bookmark" logic ─────────────────────────
+  /**
+   * Adds a bookmark for a given bookmarkable item.
+   * Shows appropriate toast ("Bookmarked: X" or "Already bookmarked: X").
+   */
+  const executeAddBookmark = useCallback(
+    (path: string, type: "file" | "folder") => {
+      const name = safeBasename(path);
+      const bookmarks = useBookmarksStore.getState().bookmarks;
+      const alreadyExists = bookmarks.some((b) => b.path === path);
+      if (alreadyExists) {
+        showToast(`Already bookmarked: ${name}`);
+        return;
+      }
+      useBookmarksStore.getState().addBookmark(path, type);
+      showToast(`⭐ Bookmarked: ${name}`);
+    },
+    [showToast],
+  );
+
+  /**
+   * "Add bookmark" for the currently focused tab.
+   * Handles sync (editor) and async (terminal CWD fallback) paths.
+   */
+  const handleAddBookmark = useCallback(() => {
+    const bookmarkable = getBookmarkableFromFocusedTab();
+    if (bookmarkable) {
+      executeAddBookmark(bookmarkable.path, bookmarkable.type);
+      return;
+    }
+    // Async fallback: terminal without cached CWD → try pty_cwd
+    const sessionId = getFocusedTerminalSessionId();
+    if (sessionId) {
+      invoke<string>("pty_cwd", { sessionId })
+        .then((cwd) => {
+          executeAddBookmark(cwd, "folder");
+        })
+        .catch(() => {
+          showToast("Cannot determine current directory");
+        });
+      return;
+    }
+    // Not bookmarkable — no-op (toolbar button should be disabled)
+  }, [executeAddBookmark, showToast]);
+
+  /**
+   * "Add bookmark" for a specific tab (used by context menu).
+   * Handles sync (editor) and async (terminal CWD fallback) paths.
+   */
+  const handleAddBookmarkFromTab = useCallback(
+    (tab: RegionTab) => {
+      const bookmarkable = getBookmarkableFromTab(tab);
+      if (bookmarkable) {
+        executeAddBookmark(bookmarkable.path, bookmarkable.type);
+        return;
+      }
+      // Async fallback for terminal tabs without cached CWD
+      if (tab.type === "terminal") {
+        invoke<string>("pty_cwd", { sessionId: tab.sessionId })
+          .then((cwd) => {
+            executeAddBookmark(cwd, "folder");
+          })
+          .catch(() => {
+            showToast("Cannot determine current directory");
+          });
+      }
+    },
+    [executeAddBookmark, showToast],
+  );
 
   // Listen for native menu events from the Tauri backend
   useMenuEvents();
 
   // Register keyboard shortcuts (now uses layoutStore)
   useKeyboardShortcuts();
+
+  // Wire keyboard shortcut callback for Cmd+D → add bookmark
+  useEffect(() => {
+    setKeyboardShortcutCallbacks({ onAddBookmark: handleAddBookmark });
+    return () => setKeyboardShortcutCallbacks({});
+  }, [handleAddBookmark]);
+
+  // Wire context menu bookmark callback (module-level, avoids prop drilling)
+  useEffect(() => {
+    setAddBookmarkFromTabCallback(handleAddBookmarkFromTab);
+    return () => setAddBookmarkFromTabCallback(null);
+  }, [handleAddBookmarkFromTab]);
 
   // Load available themes from the backend when the theme editor opens
   useEffect(() => {
@@ -95,9 +198,10 @@ function App() {
       onNewBrowserTab: () => addBrowserTab(undefined, ""),
       onToggleWorkspaceBar: () => toggleWorkspaceBar(),
       onToggleBookmarksBar: () => toggleBookmarksBar(),
+      onAddBookmark: handleAddBookmark,
     });
     return () => setMenuEventCallbacks({});
-  }, [addBrowserTab, addEditorTab, addVaultTab, addHistoryTab, addTemplateTab, addSettingsTab, toggleWorkspaceBar, toggleBookmarksBar]);
+  }, [addBrowserTab, addEditorTab, addVaultTab, addHistoryTab, addTemplateTab, addSettingsTab, toggleWorkspaceBar, toggleBookmarksBar, handleAddBookmark]);
 
   // Create the first tab on mount only
   useEffect(() => {
@@ -278,6 +382,9 @@ function App() {
           <div className="modal-panel modal-panel--wide"><button className="modal-close" onClick={() => setPingOpen(false)}>✕</button><PingDashboard /></div>
         </div>
       )}
+
+      {/* Toast notification — auto-dismiss, bottom-right */}
+      <Toast key={toastMessage?.key} message={toastMessage} duration={2000} onDismiss={dismissToast} />
     </main>
     </div>
   );

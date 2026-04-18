@@ -21,6 +21,7 @@ import {
 import { createPortal } from "react-dom";
 import { useSettingsStore } from "../../stores/settingsStore";
 import { useBookmarksStore } from "../../stores/bookmarksStore";
+import { stripBidiControls } from "../../utils/sanitize";
 import type {
   BookmarkItem,
   BookmarkFolder,
@@ -79,13 +80,10 @@ function isBookmarkItem(
 
 /**
  * Strips Unicode bidi control characters from display strings.
- * Prevents text-direction attacks (Trojan Source) in rendered names.
+ * Delegates to the canonical `stripBidiControls` in `sanitize.ts`.
  */
-const BIDI_CONTROL_RE =
-  /[\u200E\u200F\u061C\u2066-\u2069\u202A-\u202E]/g;
-
 function sanitizeDisplayName(name: string): string {
-  return name.replace(BIDI_CONTROL_RE, "");
+  return stripBidiControls(name);
 }
 
 // ─── Memoized Bookmark Button ────────────────────────────────────────

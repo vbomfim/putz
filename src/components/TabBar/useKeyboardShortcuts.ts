@@ -11,6 +11,37 @@ import { useLayoutStore } from "../../stores/layoutStore";
 import { useBroadcastStore } from "../../stores/broadcastStore";
 import { useSettingsStore } from "../../stores/settingsStore";
 
+/** Callback for bookmark actions triggered by keyboard shortcut. */
+export interface KeyboardShortcutCallbacks {
+  onAddBookmark?: () => void;
+}
+
+// Module-level callbacks — set by App.tsx via setKeyboardShortcutCallbacks
+let shortcutCallbacks: KeyboardShortcutCallbacks = {};
+
+/** Registers callbacks for keyboard shortcut actions managed by App.tsx. */
+export function setKeyboardShortcutCallbacks(
+  callbacks: KeyboardShortcutCallbacks,
+): void {
+  shortcutCallbacks = callbacks;
+}
+
+/**
+ * Returns true if the DOM focus is inside a terminal's xterm element.
+ * When xterm is focused, Ctrl+D must propagate to the terminal as EOF —
+ * we must NOT intercept it for bookmarks.
+ *
+ * Implementation note:
+ * - The selector `.xterm` is xterm.js v5's root container class.
+ * - xterm.js focuses an inner `.xterm-helper-textarea`, which
+ *   `closest(".xterm")` walks up to find the container.
+ * - If we ever upgrade xterm.js, re-verify this selector — the class
+ *   name is not part of xterm's public API and could change.
+ */
+function isXtermFocused(): boolean {
+  return document.activeElement?.closest(".xterm") != null;
+}
+
 /** Registers global keyboard shortcuts for tab and region management. */
 export function useKeyboardShortcuts(): void {
   const addTerminalTab = useLayoutStore((s) => s.addTerminalTab);
@@ -74,6 +105,15 @@ export function useKeyboardShortcuts(): void {
       if (key === "d" && e.shiftKey) {
         e.preventDefault();
         splitRegion("horizontal");
+        return;
+      }
+
+      // Cmd+D / Ctrl+D — Add bookmark for focused tab
+      // CRITICAL: bail when xterm is focused — Ctrl+D is EOF in terminals
+      if (key === "d" && !e.shiftKey) {
+        if (isXtermFocused()) return; // let terminal handle Ctrl+D
+        e.preventDefault();
+        shortcutCallbacks.onAddBookmark?.();
         return;
       }
 
