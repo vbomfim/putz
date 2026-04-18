@@ -742,6 +742,8 @@
   flex: 1;
   min-height: 0;
   overflow: hidden;
+  display: flex;
+  flex-direction: row;
 }
 
 .editor-tab__editor--split {
@@ -750,10 +752,14 @@
 }
 
 .editor-tab__editor-pane {
-  flex: 1 1 50%;
+  flex: 1 1 100%;
   min-width: 0;
   min-height: 0;
   overflow: hidden;
+}
+
+.editor-tab__editor--split .editor-tab__editor-pane {
+  flex: 1 1 50%;
 }
 
 .editor-tab__preview-pane {
