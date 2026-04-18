@@ -14,6 +14,7 @@
 import { useCallback } from 'react';
 import {
   useCanvasStore,
+  useCanvasStoreApi,
   clampZoom,
   computeFitToContent,
   ZOOM_STEP,
@@ -29,29 +30,30 @@ const ICON_SIZE = 16;
 
 /** ZoomControls — bottom-right zoom panel. */
 export function ZoomControls() {
+  const storeApi = useCanvasStoreApi();
   const camera = useCanvasStore((s) => s.camera);
   const gridVisible = useCanvasStore((s) => s.gridVisible);
   const snapEnabled = useCanvasStore((s) => s.snapEnabled);
   const pageVisible = useCanvasStore((s) => s.pageVisible);
 
   const handleZoomIn = useCallback(() => {
-    const { camera: cam, setCamera: setCam } = useCanvasStore.getState();
+    const { camera: cam, setCamera: setCam } = storeApi.getState();
     const newZoom = clampZoom(cam.zoom + ZOOM_STEP);
     setCam({ ...cam, zoom: newZoom });
-  }, []);
+  }, [storeApi]);
 
   const handleZoomOut = useCallback(() => {
-    const { camera: cam, setCamera: setCam } = useCanvasStore.getState();
+    const { camera: cam, setCamera: setCam } = storeApi.getState();
     const newZoom = clampZoom(cam.zoom - ZOOM_STEP);
     setCam({ ...cam, zoom: newZoom });
-  }, []);
+  }, [storeApi]);
 
   const handleFitToContent = useCallback(() => {
     const {
       expressions: exprs,
       expressionOrder: order,
       setCamera: setCam,
-    } = useCanvasStore.getState();
+    } = storeApi.getState();
 
     // Use window dimensions as viewport size
     const viewportWidth = window.innerWidth;
@@ -64,19 +66,19 @@ export function ZoomControls() {
       viewportHeight,
     );
     setCam(newCamera);
-  }, []);
+  }, [storeApi]);
 
   const handleToggleGrid = useCallback(() => {
-    useCanvasStore.getState().toggleGrid();
-  }, []);
+    storeApi.getState().toggleGrid();
+  }, [storeApi]);
 
   const handleToggleSnap = useCallback(() => {
-    useCanvasStore.getState().toggleSnapEnabled();
-  }, []);
+    storeApi.getState().toggleSnapEnabled();
+  }, [storeApi]);
 
   const handleTogglePage = useCallback(() => {
-    useCanvasStore.getState().togglePage();
-  }, []);
+    storeApi.getState().togglePage();
+  }, [storeApi]);
 
   const zoomPercent = Math.round(camera.zoom * 100);
 

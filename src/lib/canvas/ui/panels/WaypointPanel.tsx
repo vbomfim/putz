@@ -14,7 +14,7 @@
  */
 
 import { useState, useCallback, useRef, useEffect } from 'react';
-import { useCanvasStore } from '../../engine';
+import { useCanvasStore, useCanvasStoreApi } from '../../engine';
 import type { CameraWaypoint } from '../../engine';
 import {
   Plus,
@@ -53,6 +53,7 @@ export interface WaypointPanelProps {
  * Bottom bar provides "Save Current View", prev/next arrows, and a counter.
  */
 export function WaypointPanel({ isOpen }: WaypointPanelProps) {
+  const storeApi = useCanvasStoreApi();
   const waypoints = useCanvasStore((s) => s.waypoints);
   const presentationIndex = useCanvasStore((s) => s.presentationIndex);
 
@@ -62,28 +63,28 @@ export function WaypointPanel({ isOpen }: WaypointPanelProps) {
   const [dropTargetIndex, setDropTargetIndex] = useState(-1);
 
   const handleAddWaypoint = useCallback(() => {
-    useCanvasStore.getState().addWaypoint();
-  }, []);
+    storeApi.getState().addWaypoint();
+  }, [storeApi]);
 
   const handleJump = useCallback((index: number) => {
-    useCanvasStore.getState().goToWaypoint(index);
-  }, []);
+    storeApi.getState().goToWaypoint(index);
+  }, [storeApi]);
 
   const handleRemove = useCallback((index: number) => {
-    useCanvasStore.getState().removeWaypoint(index);
-  }, []);
+    storeApi.getState().removeWaypoint(index);
+  }, [storeApi]);
 
   const handleRename = useCallback((index: number, label: string) => {
-    useCanvasStore.getState().updateWaypoint(index, { label });
-  }, []);
+    storeApi.getState().updateWaypoint(index, { label });
+  }, [storeApi]);
 
   const handlePrev = useCallback(() => {
-    useCanvasStore.getState().prevWaypoint();
-  }, []);
+    storeApi.getState().prevWaypoint();
+  }, [storeApi]);
 
   const handleNext = useCallback(() => {
-    useCanvasStore.getState().nextWaypoint();
-  }, []);
+    storeApi.getState().nextWaypoint();
+  }, [storeApi]);
 
   const handleDragStart = useCallback((index: number) => {
     setDragIndex(index);
@@ -95,11 +96,11 @@ export function WaypointPanel({ isOpen }: WaypointPanelProps) {
 
   const handleDrop = useCallback((toIndex: number) => {
     if (dragIndex >= 0 && dragIndex !== toIndex) {
-      useCanvasStore.getState().reorderWaypoints(dragIndex, toIndex);
+      storeApi.getState().reorderWaypoints(dragIndex, toIndex);
     }
     setDragIndex(-1);
     setDropTargetIndex(-1);
-  }, [dragIndex]);
+  }, [dragIndex, storeApi]);
 
   const handleDragEnd = useCallback(() => {
     setDragIndex(-1);

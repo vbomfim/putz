@@ -11,7 +11,7 @@
  */
 
 import { useEffect, useRef, useCallback } from 'react';
-import { useCanvasStore } from '../store/canvasStore';
+import { useCanvasStoreApi } from '../store/canvasStore';
 import { zoomAtPoint, clampZoom } from '../camera';
 
 // ── Pure math functions (exported for testing) ───────────────
@@ -81,6 +81,7 @@ interface PointerState {
 export function useTouchGestures(
   canvasRef: React.RefObject<HTMLCanvasElement | null>,
 ): void {
+  const storeApi = useCanvasStoreApi();
   const pointersRef = useRef<Map<number, PointerState>>(new Map());
   const lastDistanceRef = useRef<number | null>(null);
   const lastMidpointRef = useRef<{ x: number; y: number } | null>(null);
@@ -117,7 +118,7 @@ export function useTouchGestures(
       if (lastDistanceRef.current !== null) {
         const scale = distance / lastDistanceRef.current;
         if (Math.abs(scale - 1) > 0.01) {
-          const { camera, setCamera } = useCanvasStore.getState();
+          const { camera, setCamera } = storeApi.getState();
           const newZoom = clampZoom(camera.zoom * scale);
           const newCamera = zoomAtPoint(camera, midpoint.x, midpoint.y, newZoom);
           setCamera(newCamera);
@@ -128,7 +129,7 @@ export function useTouchGestures(
       if (lastMidpointRef.current !== null) {
         const delta = computePanDelta(midpoint, lastMidpointRef.current);
         if (Math.abs(delta.dx) > 0.5 || Math.abs(delta.dy) > 0.5) {
-          const { camera, setCamera } = useCanvasStore.getState();
+          const { camera, setCamera } = storeApi.getState();
           setCamera({
             x: camera.x - delta.dx / camera.zoom,
             y: camera.y - delta.dy / camera.zoom,
@@ -140,7 +141,7 @@ export function useTouchGestures(
       lastDistanceRef.current = distance;
       lastMidpointRef.current = midpoint;
     }
-  }, []);
+  }, [storeApi]);
 
   const handlePointerUp = useCallback((e: PointerEvent) => {
     pointersRef.current.delete(e.pointerId);

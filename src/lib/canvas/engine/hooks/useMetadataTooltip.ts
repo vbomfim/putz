@@ -14,7 +14,7 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
 import type { VisualExpression } from '../../protocol';
 import { screenToWorld } from '../camera';
-import { useCanvasStore } from '../store/canvasStore';
+import { useCanvasStoreApi } from '../store/canvasStore';
 import { findExpressionAtPoint } from '../interaction/selectionManager';
 
 /** Tooltip delay in milliseconds. */
@@ -90,6 +90,7 @@ export interface TooltipInfo {
 export function useMetadataTooltip(
   canvasRef: React.RefObject<HTMLCanvasElement | null>,
 ): TooltipInfo | null {
+  const storeApi = useCanvasStoreApi();
   const [tooltip, setTooltip] = useState<TooltipInfo | null>(null);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastPosRef = useRef<{ x: number; y: number } | null>(null);
@@ -125,7 +126,7 @@ export function useMetadataTooltip(
 
     // Start new delay
     timerRef.current = setTimeout(() => {
-      const { camera, expressions, expressionOrder } = useCanvasStore.getState();
+      const { camera, expressions, expressionOrder } = storeApi.getState();
       const worldPoint = screenToWorld(screenX, screenY, camera);
 
       // Use 5px tolerance in world units (adjusted for zoom)
@@ -149,7 +150,7 @@ export function useMetadataTooltip(
         setTooltip(null);
       }
     }, TOOLTIP_DELAY_MS);
-  }, [clearTooltip]);
+  }, [clearTooltip, storeApi]);
 
   const handlePointerLeave = useCallback(() => {
     clearTooltip();

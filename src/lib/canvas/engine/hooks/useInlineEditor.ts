@@ -16,7 +16,7 @@
  */
 
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { useCanvasStore } from '../store/canvasStore';
+import { useCanvasStoreApi } from '../store/canvasStore';
 import { screenToWorld } from '../camera';
 import { findExpressionAtPoint } from '../interaction/selectionManager';
 
@@ -68,6 +68,7 @@ export interface InlineEditorState {
 export function useInlineEditor(
   canvasRef: React.RefObject<HTMLCanvasElement | null>,
 ): InlineEditorState {
+  const storeApi = useCanvasStoreApi();
   const [editingId, setEditingId] = useState<string | null>(null);
   const [initialChar, setInitialChar] = useState<string>('');
 
@@ -78,7 +79,7 @@ export function useInlineEditor(
   // ── Start editing ──────────────────────────────────────────
 
   const startEditing = useCallback((id: string, seedChar?: string) => {
-    const state = useCanvasStore.getState();
+    const state = storeApi.getState();
     const expression = state.expressions[id];
 
     if (!expression) return;
@@ -87,7 +88,7 @@ export function useInlineEditor(
 
     setInitialChar(seedChar ?? '');
     setEditingId(id);
-  }, []);
+  }, [storeApi]);
 
   // ── Get current text for the editing expression ────────────
 
@@ -95,7 +96,7 @@ export function useInlineEditor(
     const id = editingIdRef.current;
     if (!id) return '';
 
-    const state = useCanvasStore.getState();
+    const state = storeApi.getState();
     const expression = state.expressions[id];
     if (!expression) return '';
 
@@ -106,7 +107,7 @@ export function useInlineEditor(
     const value = data[config.field];
     const existingText = typeof value === 'string' ? value : '';
     return existingText || initialChar;
-  }, [initialChar]);
+  }, [initialChar, storeApi]);
 
   // ── Commit edit ────────────────────────────────────────────
 
@@ -114,7 +115,7 @@ export function useInlineEditor(
     const id = editingIdRef.current;
     if (!id) return;
 
-    const state = useCanvasStore.getState();
+    const state = storeApi.getState();
     const expression = state.expressions[id];
 
     if (!expression) {
@@ -156,7 +157,7 @@ export function useInlineEditor(
 
     setEditingId(null);
     setInitialChar('');
-  }, []);
+  }, [storeApi]);
 
   // ── Cancel edit ────────────────────────────────────────────
 
@@ -172,7 +173,7 @@ export function useInlineEditor(
     if (!canvas) return;
 
     const handleDblClick = (e: MouseEvent) => {
-      const state = useCanvasStore.getState();
+      const state = storeApi.getState();
 
       // Only respond in select mode
       if (state.activeTool !== 'select') return;
@@ -210,7 +211,7 @@ export function useInlineEditor(
     return () => {
       canvas.removeEventListener('dblclick', handleDblClick);
     };
-  }, [canvasRef]);
+  }, [canvasRef, storeApi]);
 
   return {
     editingId,

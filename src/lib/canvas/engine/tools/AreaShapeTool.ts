@@ -10,7 +10,7 @@
 import { nanoid } from 'nanoid';
 import type { VisualExpression, ExpressionData } from '../../protocol';
 import type { ToolHandler, DrawPreview } from './BaseTool';
-import { useCanvasStore } from '../store/canvasStore';
+import type { CanvasStoreApi } from '../store/canvasStore';
 
 /** Minimum dimension (width or height) to create a shape. */
 const MIN_DIMENSION = 10;
@@ -33,6 +33,7 @@ export type AreaShapeKind = 'rectangle' | 'ellipse' | 'diamond';
  */
 export class AreaShapeTool implements ToolHandler {
   private readonly shapeKind: AreaShapeKind;
+  private readonly store: CanvasStoreApi;
   private isDrawing = false;
   private startX = 0;
   private startY = 0;
@@ -41,8 +42,9 @@ export class AreaShapeTool implements ToolHandler {
   /** When true, constrain to equal width/height (square/circle). */
   private constrain = false;
 
-  constructor(kind: AreaShapeKind) {
+  constructor(kind: AreaShapeKind, store: CanvasStoreApi) {
     this.shapeKind = kind;
+    this.store = store;
   }
 
   onPointerDown(worldX: number, worldY: number, _event: PointerEvent): void {
@@ -83,8 +85,8 @@ export class AreaShapeTool implements ToolHandler {
 
     const data: ExpressionData = { kind: this.shapeKind };
 
-    const store = useCanvasStore.getState();
-    const style = { ...store.lastUsedStyle };
+    const state = this.store.getState();
+    const style = { ...state.lastUsedStyle };
 
     const expression: VisualExpression = {
       id,
@@ -103,8 +105,8 @@ export class AreaShapeTool implements ToolHandler {
       data,
     };
 
-    store.addExpression(expression);
-    store.setSelectedIds(new Set([id]));
+    state.addExpression(expression);
+    state.setSelectedIds(new Set([id]));
 
     this.reset();
   }

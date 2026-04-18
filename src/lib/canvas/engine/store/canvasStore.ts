@@ -10,9 +10,12 @@
  * @module
  */
 
-import { create } from 'zustand';
+import { createStore, type StoreApi } from 'zustand/vanilla';
+import { useStore } from 'zustand';
 import { immer } from 'zustand/middleware/immer';
 import { enableMapSet } from 'immer';
+import { createContext, useContext, useRef, type ReactNode } from 'react';
+import { createElement } from 'react';
 import { nanoid } from 'nanoid';
 import {
   visualExpressionSchema,
@@ -76,14 +79,12 @@ const MAX_ZOOM = 100;
 /** Fields that cannot be changed via updateExpression. */
 const IMMUTABLE_FIELDS = new Set(['id', 'kind', 'meta']);
 
-/** Shared history manager instance (lives outside Zustand to avoid serialization). */
-const historyManager = new HistoryManager();
-
-/** Auto-incrementing counter for default waypoint labels ("View 1", "View 2", …). */
-let waypointCounter = 0;
-
-/** Auto-incrementing counter for default layer names ("Layer 2", "Layer 3", …). */
-let layerCounter = 1;
+/**
+ * Per-instance mutable state — moved inside createCanvasStore() factory.
+ * Module-level references to the last-created store for test reset helpers.
+ */
+let _lastWaypointCounter = 0;
+let _lastLayerCounter = 1;
 
 /** Maximum number of layers allowed on a canvas. */
 const MAX_LAYERS = 100;
@@ -340,7 +341,22 @@ function findBestAnchor(
   return { anchor, point, ratio };
 }
 
-export const useCanvasStore = create<CanvasState & CanvasActions>()(
+/** Store API type for external consumption (includes immer-enhanced setState). */
+type StateType = CanvasState & CanvasActions;
+export type CanvasStoreApi = Omit<StoreApi<StateType>, 'setState'> & {
+  setState: StoreApi<StateType>['setState'] & ((fn: (draft: StateType) => void) => void);
+};
+
+/**
+ * Factory: creates a new independent canvas store instance.
+ * Each instance gets its own historyManager, waypointCounter, and layerCounter.
+ */
+export function createCanvasStore(): CanvasStoreApi {
+  const historyManager = new HistoryManager();
+  let waypointCounter = 0;
+  let layerCounter = 1;
+
+  const store = createStore<CanvasState & CanvasActions>()(
   immer((set, get) => ({
     // ── Initial state ────────────────────────────────────────
     expressions: {},
@@ -1203,7 +1219,7 @@ export const useCanvasStore = create<CanvasState & CanvasActions>()(
           duplicate.parentId = groupMapping.get(expr.parentId);
         }
 
-        useCanvasStore.getState().addExpression(duplicate);
+        get().addExpression(duplicate);
         newIds.push(newId);
       }
 
@@ -1952,12 +1968,48 @@ export const useCanvasStore = create<CanvasState & CanvasActions>()(
   })),
 );
 
+  // Track counters for test helpers
+  _lastWaypointCounter = waypointCounter;
+  _lastLayerCounter = layerCounter;
+
+  return store as unknown as CanvasStoreApi;
+}
+
+// ── React context + hooks ────────────────────────────────────
+
+export const CanvasStoreContext = createContext<CanvasStoreApi | null>(null);
+
+export function CanvasStoreProvider({ children }: { children: ReactNode }) {
+  const storeRef = useRef<CanvasStoreApi | null>(null);
+  if (!storeRef.current) {
+    storeRef.current = createCanvasStore();
+  }
+  return createElement(
+    CanvasStoreContext.Provider,
+    { value: storeRef.current },
+    children,
+  );
+}
+
+export function useCanvasStore<T>(selector: (state: CanvasState & CanvasActions) => T): T {
+  const store = useContext(CanvasStoreContext);
+  if (!store) throw new Error('useCanvasStore must be used within a CanvasStoreProvider');
+  return useStore(store, selector);
+}
+
+export function useCanvasStoreApi(): CanvasStoreApi {
+  const store = useContext(CanvasStoreContext);
+  if (!store) throw new Error('useCanvasStoreApi must be used within a CanvasStoreProvider');
+  return store;
+}
+
 /**
  * Reset waypoint counter. Exported for test cleanup only.
  * @internal
  */
 export function _resetWaypointCounter(): void {
-  waypointCounter = 0;
+  void _lastWaypointCounter;
+  _lastWaypointCounter = 0;
 }
 
 /**
@@ -1965,5 +2017,6 @@ export function _resetWaypointCounter(): void {
  * @internal
  */
 export function _resetLayerCounter(): void {
-  layerCounter = 1;
+  void _lastLayerCounter;
+  _lastLayerCounter = 1;
 }

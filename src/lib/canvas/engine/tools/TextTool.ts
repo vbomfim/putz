@@ -11,7 +11,7 @@
 import { nanoid } from 'nanoid';
 import type { VisualExpression } from '../../protocol';
 import type { ToolHandler, DrawPreview } from './BaseTool';
-import { useCanvasStore } from '../store/canvasStore';
+import type { CanvasStoreApi } from '../store/canvasStore';
 
 /** Default text properties. */
 const DEFAULT_FONT_SIZE = 16;
@@ -37,8 +37,13 @@ const LOCAL_AUTHOR = {
  * is no longer needed.
  */
 export class TextTool implements ToolHandler {
+  private readonly store: CanvasStoreApi;
   private inputPosition: { x: number; y: number } | null = null;
   private startEditingFn: ((id: string) => void) | null = null;
+
+  constructor(store: CanvasStoreApi) {
+    this.store = store;
+  }
 
   /**
    * Register the inline editor's startEditing callback.
@@ -107,7 +112,7 @@ export class TextTool implements ToolHandler {
       position: { x: this.inputPosition.x, y: this.inputPosition.y },
       size: { width: TEXT_WIDTH, height: TEXT_HEIGHT },
       angle: 0,
-      style: { ...useCanvasStore.getState().lastUsedStyle },
+      style: { ...this.store.getState().lastUsedStyle },
       meta: {
         author: LOCAL_AUTHOR,
         createdAt: now,
@@ -124,7 +129,7 @@ export class TextTool implements ToolHandler {
       },
     };
 
-    const store = useCanvasStore.getState();
+    const store = this.store.getState();
     store.addExpression(expression);
     store.setSelectedIds(new Set([id]));
 
@@ -139,7 +144,7 @@ export class TextTool implements ToolHandler {
   private createTextExpression(worldX: number, worldY: number): string {
     const now = Date.now();
     const id = nanoid();
-    const { camera } = useCanvasStore.getState();
+    const { camera } = this.store.getState();
 
     // Scale size and font inversely by zoom so text appears consistent on screen
     const zoom = camera.zoom;
@@ -153,7 +158,7 @@ export class TextTool implements ToolHandler {
       position: { x: worldX, y: worldY },
       size: { width: w, height: h },
       angle: 0,
-      style: { ...useCanvasStore.getState().lastUsedStyle },
+      style: { ...this.store.getState().lastUsedStyle },
       meta: {
         author: LOCAL_AUTHOR,
         createdAt: now,
@@ -170,7 +175,7 @@ export class TextTool implements ToolHandler {
       },
     };
 
-    const store = useCanvasStore.getState();
+    const store = this.store.getState();
     store.addExpression(expression);
     store.setSelectedIds(new Set([id]));
 

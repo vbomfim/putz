@@ -14,7 +14,7 @@
  */
 
 import { useState, useCallback, useRef, useEffect } from 'react';
-import { useCanvasStore } from '../../engine';
+import { useCanvasStore, useCanvasStoreApi } from '../../engine';
 import type { Layer } from '../../protocol';
 import {
   Plus,
@@ -54,32 +54,33 @@ export interface LayerPanelProps {
  * and a delete button. Click the layer name to set it as active.
  */
 export function LayerPanel({ isOpen }: LayerPanelProps) {
+  const storeApi = useCanvasStoreApi();
   const layers = useCanvasStore((s) => s.layers);
   const activeLayerId = useCanvasStore((s) => s.activeLayerId);
 
   const handleAddLayer = useCallback(() => {
-    useCanvasStore.getState().addLayer();
-  }, []);
+    storeApi.getState().addLayer();
+  }, [storeApi]);
 
   const handleSetActive = useCallback((layerId: string) => {
-    useCanvasStore.getState().setActiveLayer(layerId);
-  }, []);
+    storeApi.getState().setActiveLayer(layerId);
+  }, [storeApi]);
 
   const handleToggleVisibility = useCallback((layerId: string) => {
-    useCanvasStore.getState().toggleLayerVisibility(layerId);
-  }, []);
+    storeApi.getState().toggleLayerVisibility(layerId);
+  }, [storeApi]);
 
   const handleToggleLock = useCallback((layerId: string) => {
-    useCanvasStore.getState().toggleLayerLock(layerId);
-  }, []);
+    storeApi.getState().toggleLayerLock(layerId);
+  }, [storeApi]);
 
   const handleRemove = useCallback((layerId: string) => {
-    useCanvasStore.getState().removeLayer(layerId);
-  }, []);
+    storeApi.getState().removeLayer(layerId);
+  }, [storeApi]);
 
   const handleRename = useCallback((layerId: string, name: string) => {
-    useCanvasStore.getState().renameLayer(layerId, name);
-  }, []);
+    storeApi.getState().renameLayer(layerId, name);
+  }, [storeApi]);
 
   if (!isOpen) return null;
 

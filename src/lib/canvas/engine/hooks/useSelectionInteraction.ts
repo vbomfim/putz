@@ -15,7 +15,7 @@
  */
 
 import { useRef, useEffect, useCallback } from 'react';
-import { useCanvasStore } from '../store/canvasStore';
+import { useCanvasStoreApi } from '../store/canvasStore';
 import { screenToWorld } from '../camera';
 import { findExpressionAtPoint, findExpressionsInMarquee } from '../interaction/selectionManager';
 import { detectPointerTarget } from '../interaction/manipulationHelpers';
@@ -58,6 +58,7 @@ export interface SelectionInteraction {
 export function useSelectionInteraction(
   canvasRef: React.RefObject<HTMLCanvasElement | null>,
 ): SelectionInteraction {
+  const storeApi = useCanvasStoreApi();
   const marqueeRef = useRef<MarqueeRect | null>(null);
   const isDraggingRef = useRef(false);
   const dragStartRef = useRef<{ sx: number; sy: number } | null>(null);
@@ -66,7 +67,7 @@ export function useSelectionInteraction(
   // ── Pointer handlers ───────────────────────────────────────
 
   const handlePointerDown = useCallback((e: PointerEvent) => {
-    const state = useCanvasStore.getState();
+    const state = storeApi.getState();
     if (state.activeTool !== 'select') return;
 
     // Only react to primary button (left click)
@@ -100,12 +101,12 @@ export function useSelectionInteraction(
     dragStartRef.current = { sx: e.offsetX, sy: e.offsetY };
     isDraggingRef.current = false;
     marqueeRef.current = null;
-  }, []);
+  }, [storeApi]);
 
   const handlePointerMove = useCallback((e: PointerEvent) => {
     if (!dragStartRef.current) return;
 
-    const state = useCanvasStore.getState();
+    const state = storeApi.getState();
     if (state.activeTool !== 'select') return;
 
     const dx = e.offsetX - dragStartRef.current.sx;
@@ -123,12 +124,12 @@ export function useSelectionInteraction(
         height: dy,
       };
     }
-  }, []);
+  }, [storeApi]);
 
   const handlePointerUp = useCallback((e: PointerEvent) => {
     if (!dragStartRef.current) return;
 
-    const state = useCanvasStore.getState();
+    const state = storeApi.getState();
     if (state.activeTool !== 'select') {
       dragStartRef.current = null;
       marqueeRef.current = null;
@@ -223,12 +224,12 @@ export function useSelectionInteraction(
     // Release pointer capture [S5-4]
     const target = e.currentTarget as Element;
     target.releasePointerCapture(e.pointerId);
-  }, []);
+  }, [storeApi]);
 
   // ── Double-click: enter group ────────────────────────────────
 
   const handleDblClick = useCallback((e: MouseEvent) => {
-    const state = useCanvasStore.getState();
+    const state = storeApi.getState();
     if (state.activeTool !== 'select') return;
 
     const { camera, expressions, expressionOrder } = state;
@@ -244,7 +245,7 @@ export function useSelectionInteraction(
     // Enter the group — select only this individual member
     enteredGroupIdRef.current = hitExpr.parentId;
     state.setSelectedIds(new Set([hitId]));
-  }, []);
+  }, [storeApi]);
 
   // ── Effect: attach/detach event listeners ──────────────────
 

@@ -40,7 +40,8 @@
 import { useEffect, useCallback, useState } from 'react';
 import { nanoid } from 'nanoid';
 import type { VisualExpression } from '../../protocol';
-import { useCanvasStore } from '../store/canvasStore';
+import { useCanvasStoreApi } from '../store/canvasStore';
+import type { CanvasStoreApi } from '../store/canvasStore';
 import type { ToolType } from '../types/index';
 
 // ── Constants ──────────────────────────────────────────────
@@ -125,6 +126,7 @@ function isTextInput(target: EventTarget | null): boolean {
 export function useKeyboardShortcuts(
   options: UseKeyboardShortcutsOptions,
 ): KeyboardShortcutsState {
+  const storeApi = useCanvasStoreApi();
   const [showShortcutsHelp, setShowShortcutsHelp] = useState(false);
 
   const handleKeyDown = useCallback(
@@ -148,13 +150,13 @@ export function useKeyboardShortcuts(
         setShowShortcutsHelp(false);
 
         // Exit presentation mode if active
-        const { presentationIndex, waypointPanelOpen } = useCanvasStore.getState();
+        const { presentationIndex, waypointPanelOpen } = storeApi.getState();
         if (presentationIndex >= 0) {
-          useCanvasStore.getState().exitPresentation();
+          storeApi.getState().exitPresentation();
         }
         // Close waypoint panel if open
         if (waypointPanelOpen) {
-          useCanvasStore.getState().setWaypointPanelOpen(false);
+          storeApi.getState().setWaypointPanelOpen(false);
           return;
         }
 
@@ -162,25 +164,25 @@ export function useKeyboardShortcuts(
         options.cancelDraw();
 
         // Deselect all
-        useCanvasStore.getState().setSelectedIds(new Set());
+        storeApi.getState().setSelectedIds(new Set());
 
         // Switch to select tool
-        useCanvasStore.getState().setActiveTool('select');
+        storeApi.getState().setActiveTool('select');
         return;
       }
 
       // ── Waypoint navigation (arrow keys, no modifier, panel open) ──
       if (!isModifier && !event.shiftKey && !event.altKey) {
-        const { waypointPanelOpen: panelOpen, waypoints } = useCanvasStore.getState();
+        const { waypointPanelOpen: panelOpen, waypoints } = storeApi.getState();
         if (panelOpen && waypoints.length > 0) {
           if (key === 'ArrowRight' || key === 'ArrowDown') {
             event.preventDefault();
-            useCanvasStore.getState().nextWaypoint();
+            storeApi.getState().nextWaypoint();
             return;
           }
           if (key === 'ArrowLeft' || key === 'ArrowUp') {
             event.preventDefault();
-            useCanvasStore.getState().prevWaypoint();
+            storeApi.getState().prevWaypoint();
             return;
           }
         }
@@ -191,117 +193,117 @@ export function useKeyboardShortcuts(
         // Ctrl+Shift+Z / Cmd+Shift+Z → redo (check shift FIRST)
         if (keyLower === 'z' && event.shiftKey) {
           event.preventDefault();
-          useCanvasStore.getState().redo();
+          storeApi.getState().redo();
           return;
         }
 
         // Ctrl+Z / Cmd+Z → undo
         if (keyLower === 'z' && !event.shiftKey) {
           event.preventDefault();
-          useCanvasStore.getState().undo();
+          storeApi.getState().undo();
           return;
         }
 
         // Ctrl+Y / Cmd+Y → redo
         if (keyLower === 'y') {
           event.preventDefault();
-          useCanvasStore.getState().redo();
+          storeApi.getState().redo();
           return;
         }
 
         // Ctrl+A / Cmd+A → select all
         if (keyLower === 'a') {
           event.preventDefault();
-          const { expressionOrder } = useCanvasStore.getState();
-          useCanvasStore.getState().setSelectedIds(new Set(expressionOrder));
+          const { expressionOrder } = storeApi.getState();
+          storeApi.getState().setSelectedIds(new Set(expressionOrder));
           return;
         }
 
         // Ctrl+D / Cmd+D → duplicate selected
         if (keyLower === 'd') {
           event.preventDefault();
-          duplicateSelected();
+          duplicateSelected(storeApi);
           return;
         }
 
         // Ctrl+C / Cmd+C → copy selected to internal clipboard
         if (keyLower === 'c') {
           event.preventDefault();
-          copySelected();
+          copySelected(storeApi);
           return;
         }
 
         // Ctrl+V / Cmd+V → paste from internal clipboard
         if (keyLower === 'v') {
           event.preventDefault();
-          pasteFromClipboard();
+          pasteFromClipboard(storeApi);
           return;
         }
 
         // Ctrl+X / Cmd+X → cut selected (copy + delete)
         if (keyLower === 'x') {
           event.preventDefault();
-          cutSelected();
+          cutSelected(storeApi);
           return;
         }
 
         // Ctrl+Shift+G / Cmd+Shift+G → ungroup selected (check shift FIRST)
         if (keyLower === 'g' && event.shiftKey) {
           event.preventDefault();
-          ungroupSelected();
+          ungroupSelected(storeApi);
           return;
         }
 
         // Ctrl+G / Cmd+G → group selected
         if (keyLower === 'g' && !event.shiftKey) {
           event.preventDefault();
-          groupSelected();
+          groupSelected(storeApi);
           return;
         }
 
         // Ctrl+' / Cmd+' → toggle grid visibility
         if (key === "'" || key === "'") {
           event.preventDefault();
-          useCanvasStore.getState().toggleGrid();
+          storeApi.getState().toggleGrid();
           return;
         }
 
         // Ctrl+] → bring to front
         if (key === ']') {
           event.preventDefault();
-          const ids = Array.from(useCanvasStore.getState().selectedIds);
-          if (ids.length > 0) useCanvasStore.getState().bringToFront(ids);
+          const ids = Array.from(storeApi.getState().selectedIds);
+          if (ids.length > 0) storeApi.getState().bringToFront(ids);
           return;
         }
 
         // Ctrl+[ → send to back
         if (key === '[') {
           event.preventDefault();
-          const ids = Array.from(useCanvasStore.getState().selectedIds);
-          if (ids.length > 0) useCanvasStore.getState().sendToBack(ids);
+          const ids = Array.from(storeApi.getState().selectedIds);
+          if (ids.length > 0) storeApi.getState().sendToBack(ids);
           return;
         }
 
         // Ctrl+ArrowUp → bring forward
         if (key === 'ArrowUp') {
           event.preventDefault();
-          const ids = Array.from(useCanvasStore.getState().selectedIds);
-          if (ids.length > 0) useCanvasStore.getState().bringForward(ids);
+          const ids = Array.from(storeApi.getState().selectedIds);
+          if (ids.length > 0) storeApi.getState().bringForward(ids);
           return;
         }
 
         // Ctrl+ArrowDown → send backward
         if (key === 'ArrowDown') {
           event.preventDefault();
-          const ids = Array.from(useCanvasStore.getState().selectedIds);
-          if (ids.length > 0) useCanvasStore.getState().sendBackward(ids);
+          const ids = Array.from(storeApi.getState().selectedIds);
+          if (ids.length > 0) storeApi.getState().sendBackward(ids);
           return;
         }
 
         // Ctrl+Shift+' → toggle snap to grid
         if (key === "'" && event.shiftKey) {
           event.preventDefault();
-          useCanvasStore.getState().toggleSnapEnabled();
+          storeApi.getState().toggleSnapEnabled();
           return;
         }
 
@@ -311,7 +313,7 @@ export function useKeyboardShortcuts(
 
       // ── Delete / Backspace → delete selected (group-aware) ──
       if (key === 'Delete' || key === 'Backspace') {
-        const state = useCanvasStore.getState();
+        const state = storeApi.getState();
         if (state.activeTool !== 'select') return;
 
         const { selectedIds, expressions } = state;
@@ -324,18 +326,18 @@ export function useKeyboardShortcuts(
           (id) => !expressions[id]?.meta.locked,
         );
         if (deletableIds.length > 0) {
-          useCanvasStore.getState().deleteExpressions(deletableIds);
+          storeApi.getState().deleteExpressions(deletableIds);
         }
         return;
       }
 
       // ── Type-to-edit: printable key with selected shape ──
       if (!isModifier && key.length === 1 && !event.altKey) {
-        const { selectedIds } = useCanvasStore.getState();
+        const { selectedIds } = storeApi.getState();
         if (selectedIds.size === 1 && options.startEditing) {
           const id = selectedIds.values().next().value;
           if (id) {
-            const expr = useCanvasStore.getState().expressions[id];
+            const expr = storeApi.getState().expressions[id];
             if (expr && (expr.kind === 'text' || expr.kind === 'rectangle' || 
                 expr.kind === 'ellipse' || expr.kind === 'diamond' || 
                 expr.kind === 'sticky-note')) {
@@ -351,18 +353,18 @@ export function useKeyboardShortcuts(
       if (!event.shiftKey && !event.altKey) {
         const tool = KEY_TO_TOOL[keyLower];
         if (tool) {
-          useCanvasStore.getState().setActiveTool(tool);
+          storeApi.getState().setActiveTool(tool);
           return;
         }
       }
     },
-    [options],
+    [options, storeApi],
   );
 
   useEffect(() => {
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [handleKeyDown]);
+  }, [handleKeyDown, storeApi]);
 
   return { showShortcutsHelp, setShowShortcutsHelp };
 }
@@ -374,8 +376,8 @@ export function useKeyboardShortcuts(
  * Group-aware: expands selection to include all group members and
  * preserves group structure in the duplicates with new group IDs.
  */
-function duplicateSelected(): void {
-  const state = useCanvasStore.getState();
+function duplicateSelected(store: CanvasStoreApi): void {
+  const state = store.getState();
   const { selectedIds } = state;
   if (selectedIds.size === 0) return;
 
@@ -386,7 +388,7 @@ function duplicateSelected(): void {
   const newIds = state.duplicateGrouped(expandedIds);
 
   // Select the new duplicates
-  useCanvasStore.getState().setSelectedIds(new Set(newIds));
+  store.getState().setSelectedIds(new Set(newIds));
 }
 
 // ── Clipboard operations (exported for testing) ────────────
@@ -397,8 +399,8 @@ function duplicateSelected(): void {
  * Stores deep clones so pasting is independent of future mutations.
  * Resets the paste counter for offset tracking.
  */
-export function copySelected(): void {
-  const { selectedIds, expressions } = useCanvasStore.getState();
+export function copySelected(store: CanvasStoreApi): void {
+  const { selectedIds, expressions } = store.getState();
   if (selectedIds.size === 0) return;
 
   clipboard = [];
@@ -416,7 +418,7 @@ export function copySelected(): void {
  * Creates clones with new IDs. Each subsequent paste increases
  * the offset by +20,+20 from the original positions.
  */
-export function pasteFromClipboard(): void {
+export function pasteFromClipboard(store: CanvasStoreApi): void {
   if (clipboard.length === 0) return;
 
   pasteCount += 1;
@@ -438,11 +440,11 @@ export function pasteFromClipboard(): void {
       updatedAt: now,
     };
 
-    useCanvasStore.getState().addExpression(clone);
+    store.getState().addExpression(clone);
     newIds.push(newId);
   }
 
-  useCanvasStore.getState().setSelectedIds(new Set(newIds));
+  store.getState().setSelectedIds(new Set(newIds));
 }
 
 /**
@@ -451,13 +453,13 @@ export function pasteFromClipboard(): void {
  *
  * Locked expressions are excluded from deletion (same as Delete key).
  */
-export function cutSelected(): void {
-  const state = useCanvasStore.getState();
+export function cutSelected(store: CanvasStoreApi): void {
+  const state = store.getState();
   const { selectedIds, expressions } = state;
   if (selectedIds.size === 0) return;
 
   // Copy to clipboard first
-  copySelected();
+  copySelected(store);
 
   // Expand selection to include all group members, then delete
   const expandedIds = state.expandSelectionToGroups(selectedIds);
@@ -465,7 +467,7 @@ export function cutSelected(): void {
     (id) => !expressions[id]?.meta.locked,
   );
   if (deletableIds.length > 0) {
-    useCanvasStore.getState().deleteExpressions(deletableIds);
+    store.getState().deleteExpressions(deletableIds);
   }
 }
 
@@ -486,12 +488,12 @@ export function _resetClipboard(): void {
  * Requires at least 2 selected expressions. Creates a new group and
  * assigns a shared `parentId` to all members.
  */
-function groupSelected(): void {
-  const { selectedIds } = useCanvasStore.getState();
+function groupSelected(store: CanvasStoreApi): void {
+  const { selectedIds } = store.getState();
   if (selectedIds.size < 2) return;
 
   const ids = Array.from(selectedIds);
-  useCanvasStore.getState().groupExpressions(ids);
+  store.getState().groupExpressions(ids);
 }
 
 /**
@@ -500,8 +502,8 @@ function groupSelected(): void {
  * Only ungroups when every selected expression belongs to the same group.
  * Mixed selections (multiple groups or ungrouped items) are skipped.
  */
-function ungroupSelected(): void {
-  const { selectedIds, expressions } = useCanvasStore.getState();
+function ungroupSelected(store: CanvasStoreApi): void {
+  const { selectedIds, expressions } = store.getState();
   if (selectedIds.size === 0) return;
 
   // Collect all parentIds from selected expressions
@@ -517,5 +519,5 @@ function ungroupSelected(): void {
   if (parentIds.size !== 1) return;
 
   const groupId = [...parentIds][0]!;
-  useCanvasStore.getState().ungroupExpressions(groupId);
+  store.getState().ungroupExpressions(groupId);
 }

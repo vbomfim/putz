@@ -8,7 +8,16 @@
  */
 
 // ── State store ────────────────────────────────────────────
-export { useCanvasStore, _resetWaypointCounter, _resetLayerCounter } from './store/canvasStore';
+export {
+  useCanvasStore,
+  useCanvasStoreApi,
+  CanvasStoreProvider,
+  CanvasStoreContext,
+  createCanvasStore,
+  _resetWaypointCounter,
+  _resetLayerCounter,
+} from './store/canvasStore';
+export type { CanvasStoreApi } from './store/canvasStore';
 export { useUiStore, applyThemeToDocument, THEME_STORAGE_KEY } from './store/uiStore';
 export type { Theme, UiState, UiActions } from './store/uiStore';
 

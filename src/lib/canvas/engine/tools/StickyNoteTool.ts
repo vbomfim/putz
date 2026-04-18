@@ -10,7 +10,7 @@
 import { nanoid } from 'nanoid';
 import type { VisualExpression, ExpressionData } from '../../protocol';
 import type { ToolHandler, DrawPreview } from './BaseTool';
-import { useCanvasStore } from '../store/canvasStore';
+import type { CanvasStoreApi } from '../store/canvasStore';
 
 const MIN_DIMENSION = 10;
 
@@ -42,11 +42,16 @@ function nextColor(): string {
  * Tool handler for drawing sticky notes on the canvas.
  */
 export class StickyNoteTool implements ToolHandler {
+  private readonly store: CanvasStoreApi;
   private isDrawing = false;
   private startX = 0;
   private startY = 0;
   private currentX = 0;
   private currentY = 0;
+
+  constructor(store: CanvasStoreApi) {
+    this.store = store;
+  }
 
   onPointerDown(worldX: number, worldY: number): void {
     this.isDrawing = true;
@@ -86,7 +91,7 @@ export class StickyNoteTool implements ToolHandler {
       color,
     };
 
-    const store = useCanvasStore.getState();
+    const store = this.store.getState();
 
     const expression: VisualExpression = {
       id,

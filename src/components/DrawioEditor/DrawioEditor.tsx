@@ -5,21 +5,17 @@
  * the protocol serializer, renders the full infinicanvas editor,
  * and saves back to .drawio XML on Cmd+S.
  *
- * Each tab maintains an independent snapshot of canvas state.
- * On mount the snapshot is restored into the singleton store;
- * on unmount (tab switch / close) it is saved back. This avoids
- * a 205-site refactor of useCanvasStore imports while giving
- * each diagram tab isolated content.
+ * Each tab has its own CanvasStoreProvider — giving it fully
+ * independent state. Split-view diagrams render independently.
  *
  * @module
  */
 
 import { useEffect, useRef, useState, useCallback } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { Canvas, useCanvasStore, computeFitToContent } from "../../lib/canvas/engine";
-import type { Camera } from "../../lib/canvas/engine";
-import { drawioToExpressions, expressionsToDrawio } from "../../lib/canvas/protocol";
+import { Canvas, useCanvasStoreApi, CanvasStoreProvider, computeFitToContent } from "../../lib/canvas/engine";
 import type { VisualExpression } from "../../lib/canvas/protocol";
+import { drawioToExpressions, expressionsToDrawio } from "../../lib/canvas/protocol";
 import { Toolbar } from "../../lib/canvas/ui/toolbar/Toolbar";
 import { StylePanel } from "../../lib/canvas/ui/panels/StylePanel";
 import { FloatingConnectorPanel } from "../../lib/canvas/ui/panels/FloatingConnectorPanel";
@@ -30,40 +26,6 @@ import { StencilPalette } from "../../lib/canvas/ui/toolbar/StencilPalette";
 import "../../lib/canvas/ui/styles/theme.css";
 import "./DrawioEditor.css";
 
-/** Per-file snapshot of canvas content (survives tab switches). */
-interface DiagramSnapshot {
-  expressions: Record<string, VisualExpression>;
-  expressionOrder: string[];
-  camera: Camera;
-}
-
-/** In-memory cache keyed by absolute file path. */
-const snapshotCache = new Map<string, DiagramSnapshot>();
-
-/** Save the current store state into the cache for a given path. */
-function snapshotToCache(filePath: string): void {
-  const { expressions, expressionOrder, camera } = useCanvasStore.getState();
-  snapshotCache.set(filePath, {
-    expressions: { ...expressions },
-    expressionOrder: [...expressionOrder],
-    camera: { ...camera },
-  });
-}
-
-/** Restore a cached snapshot into the store (or clear it). */
-function restoreFromCache(filePath: string): boolean {
-  const snap = snapshotCache.get(filePath);
-  if (!snap) return false;
-  const store = useCanvasStore.getState();
-  // replaceState expects an array of VisualExpression
-  const ordered = snap.expressionOrder
-    .map((id) => snap.expressions[id])
-    .filter(Boolean) as VisualExpression[];
-  store.replaceState(ordered, snap.expressionOrder);
-  store.setCamera(snap.camera);
-  return true;
-}
-
 interface DrawioEditorProps {
   filePath: string;
   regionId: string;
@@ -71,16 +33,18 @@ interface DrawioEditorProps {
   isActive: boolean;
 }
 
-export function DrawioEditor({ filePath, isActive }: DrawioEditorProps) {
+/**
+ * Inner component that uses the canvas store (must be inside CanvasStoreProvider).
+ */
+function DrawioEditorInner({ filePath, isActive }: { filePath: string; isActive: boolean }) {
+  const storeApi = useCanvasStoreApi();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showStencilPalette, setShowStencilPalette] = useState(false);
-  // True once the store is loaded with THIS tab's data and Canvas can render
-  const [ready, setReady] = useState(false);
   const filePathRef = useRef(filePath);
   const initialLoadDone = useRef(false);
 
-  // Initial load from disk (once) — stores into cache, NOT into the store
+  // Load from disk on mount — populate THIS instance's store
   useEffect(() => {
     if (initialLoadDone.current) return;
     initialLoadDone.current = true;
@@ -89,11 +53,6 @@ export function DrawioEditor({ filePath, isActive }: DrawioEditorProps) {
       try {
         const xml = await invoke<string>("file_read", { path: filePath });
         if (!xml.trim()) {
-          snapshotCache.set(filePath, {
-            expressions: {},
-            expressionOrder: [],
-            camera: { x: 0, y: 0, zoom: 1 },
-          });
           setLoading(false);
           return;
         }
@@ -107,49 +66,31 @@ export function DrawioEditor({ filePath, isActive }: DrawioEditorProps) {
         const cam = expressions.length > 0
           ? computeFitToContent(exprMap, order, window.innerWidth, window.innerHeight)
           : { x: 0, y: 0, zoom: 1 };
-        snapshotCache.set(filePath, { expressions: exprMap, expressionOrder: order, camera: cam });
+        const state = storeApi.getState();
+        const ordered = order.map((id) => exprMap[id]).filter(Boolean) as VisualExpression[];
+        state.replaceState(ordered, order);
+        state.setCamera(cam);
         setLoading(false);
       } catch (err) {
         setError(err instanceof Error ? err.message : String(err));
         setLoading(false);
       }
     })();
-  }, [filePath]);
-
-  // When becoming active: restore cache → store, then set ready so Canvas mounts.
-  // When becoming inactive: save store → cache, then set ready=false so Canvas unmounts.
-  useEffect(() => {
-    if (loading) {
-      setReady(false);
-      return;
-    }
-
-    if (isActive) {
-      restoreFromCache(filePath);
-      setReady(true);
-    } else {
-      if (ready) {
-        // Was active, now going inactive — snapshot current work
-        snapshotToCache(filePath);
-      }
-      setReady(false);
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isActive, loading, filePath]);
+  }, [filePath, storeApi]);
 
   // Save on Cmd+S (only when active)
   const handleSave = useCallback(async () => {
     try {
-      const { expressions, expressionOrder } = useCanvasStore.getState();
+      const { expressions, expressionOrder } = storeApi.getState();
       const ordered: VisualExpression[] = expressionOrder
-        .map((id) => expressions[id])
+        .map((id: string) => expressions[id])
         .filter(Boolean) as VisualExpression[];
       const xml = expressionsToDrawio(ordered);
       await invoke("file_write", { path: filePathRef.current, content: xml });
     } catch (err) {
       console.error("Failed to save .drawio:", err);
     }
-  }, []);
+  }, [storeApi]);
 
   useEffect(() => {
     if (!isActive) return;
@@ -172,10 +113,10 @@ export function DrawioEditor({ filePath, isActive }: DrawioEditorProps) {
     );
   }
 
-  if (loading || !ready) {
+  if (loading) {
     return (
       <div className="drawio-editor drawio-editor--loading">
-        {loading ? "Loading diagram…" : ""}
+        Loading diagram…
       </div>
     );
   }
@@ -193,8 +134,8 @@ export function DrawioEditor({ filePath, isActive }: DrawioEditorProps) {
       <FloatingConnectorPanel />
       <StencilPalette
         onInsert={(expr: VisualExpression) => {
-          useCanvasStore.getState().addExpression(expr);
-          useCanvasStore.getState().setSelectedIds(new Set([expr.id]));
+          storeApi.getState().addExpression(expr);
+          storeApi.getState().setSelectedIds(new Set([expr.id]));
         }}
         isOpen={showStencilPalette}
       />
@@ -204,5 +145,16 @@ export function DrawioEditor({ filePath, isActive }: DrawioEditorProps) {
         <ExportMenu />
       </div>
     </div>
+  );
+}
+
+/**
+ * Outer component that provides an independent canvas store per editor instance.
+ */
+export function DrawioEditor({ filePath, isActive }: DrawioEditorProps) {
+  return (
+    <CanvasStoreProvider>
+      <DrawioEditorInner filePath={filePath} isActive={isActive} />
+    </CanvasStoreProvider>
   );
 }

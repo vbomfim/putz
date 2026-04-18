@@ -10,7 +10,7 @@
  */
 
 import { useRef, useState, useEffect, useCallback } from 'react';
-import { useCanvasStore } from '../store/canvasStore';
+import { useCanvasStoreApi } from '../store/canvasStore';
 import { zoomAtPoint, MIN_ZOOM, MAX_ZOOM } from '../camera';
 import { isEditableTarget } from '../utils/isEditableTarget';
 
@@ -30,6 +30,7 @@ export interface CanvasInteraction {
  * element and the current cursor style.
  */
 export function useCanvasInteraction(): CanvasInteraction {
+  const storeApi = useCanvasStoreApi();
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [cursor, setCursor] = useState('default');
 
@@ -91,13 +92,13 @@ export function useCanvasInteraction(): CanvasInteraction {
     }
 
     // [AC7] Divide pan delta by zoom for consistent speed
-    const { camera } = useCanvasStore.getState();
-    useCanvasStore.getState().setCamera({
+    const { camera } = storeApi.getState();
+    storeApi.getState().setCamera({
       x: camera.x - dx / camera.zoom,
       y: camera.y - dy / camera.zoom,
       zoom: camera.zoom,
     });
-  }, []);
+  }, [storeApi]);
 
   const handleMouseUp = useCallback(() => {
     if (isPanningRef.current) {
@@ -107,24 +108,24 @@ export function useCanvasInteraction(): CanvasInteraction {
     if (isMiddlePanningRef.current) {
       // Right-click without drag → deselect tool + deselect objects
       if (!rightClickMovedRef.current) {
-        const { activeTool } = useCanvasStore.getState();
+        const { activeTool } = storeApi.getState();
         if (activeTool !== 'select') {
-          useCanvasStore.getState().setActiveTool('select');
+          storeApi.getState().setActiveTool('select');
         }
-        useCanvasStore.getState().setSelectedIds(new Set());
+        storeApi.getState().setSelectedIds(new Set());
       }
       isMiddlePanningRef.current = false;
       rightClickMovedRef.current = false;
       setCursor('default');
     }
-  }, []);
+  }, [storeApi]);
 
   // ── Zoom: scroll wheel [AC2] ─────────────────────────────
 
   const handleWheel = useCallback((e: WheelEvent) => {
     e.preventDefault();
 
-    const { camera, setCamera } = useCanvasStore.getState();
+    const { camera, setCamera } = storeApi.getState();
 
     // Shift+scroll → horizontal pan instead of zoom
     if (e.shiftKey) {
@@ -146,7 +147,7 @@ export function useCanvasInteraction(): CanvasInteraction {
     // Use zoomAtPoint so the world point under cursor stays fixed [AC3]
     const newCamera = zoomAtPoint(camera, e.offsetX, e.offsetY, newZoom);
     setCamera(newCamera);
-  }, []);
+  }, [storeApi]);
 
   // ── Prevent context menu on canvas (right-click used for pan) ──
 

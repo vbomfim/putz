@@ -12,7 +12,7 @@
  */
 
 import { useEffect } from 'react';
-import { useCanvasStore } from '../store/canvasStore';
+import { useCanvasStoreApi } from '../store/canvasStore';
 import { isEditableTarget } from '../utils/isEditableTarget';
 
 /**
@@ -22,6 +22,8 @@ import { isEditableTarget } from '../utils/isEditableTarget';
  * its own lifecycle — listeners are added on mount, removed on unmount.
  */
 export function useUndoRedoShortcuts(): void {
+  const storeApi = useCanvasStoreApi();
+
   useEffect(() => {
     function handleKeyDown(event: KeyboardEvent): void {
       // Skip when user is typing in editable elements [S7-6]
@@ -35,26 +37,26 @@ export function useUndoRedoShortcuts(): void {
       // Ctrl+Shift+Z / Cmd+Shift+Z → redo (check shift FIRST to avoid undo match)
       if (key === 'z' && event.shiftKey) {
         event.preventDefault();
-        useCanvasStore.getState().redo();
+        storeApi.getState().redo();
         return;
       }
 
       // Ctrl+Z / Cmd+Z → undo
       if (key === 'z' && !event.shiftKey) {
         event.preventDefault();
-        useCanvasStore.getState().undo();
+        storeApi.getState().undo();
         return;
       }
 
       // Ctrl+Y / Cmd+Y → redo
       if (key === 'y') {
         event.preventDefault();
-        useCanvasStore.getState().redo();
+        storeApi.getState().redo();
         return;
       }
     }
 
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, []);
+  }, [storeApi]);
 }

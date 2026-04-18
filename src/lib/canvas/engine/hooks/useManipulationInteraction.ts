@@ -22,7 +22,7 @@
 
 import { useRef, useEffect, useCallback, useState } from 'react';
 import type { VisualExpression, ArrowBinding, ArrowData, ArrowAnchor } from '../../protocol';
-import { useCanvasStore } from '../store/canvasStore';
+import { useCanvasStoreApi } from '../store/canvasStore';
 import { screenToWorld } from '../camera';
 import { findSnapPoint, findBoundArrows, getAnchorPoint } from '../interaction/connectorHelpers';
 import {
@@ -105,13 +105,14 @@ type DragMode =
 export function useManipulationInteraction(
   canvasRef: React.RefObject<HTMLCanvasElement | null>,
 ): ManipulationInteraction {
+  const storeApi = useCanvasStoreApi();
   const [cursor, setCursor] = useState('default');
   const dragModeRef = useRef<DragMode>({ kind: 'none' });
 
   // ── Pointer handlers ───────────────────────────────────────
 
   const handlePointerDown = useCallback((e: PointerEvent) => {
-    const state = useCanvasStore.getState();
+    const state = storeApi.getState();
     if (state.activeTool !== 'select') return;
     if (e.button !== 0) return;
 
@@ -203,7 +204,7 @@ export function useManipulationInteraction(
       };
     } else if (target.kind === 'body') {
       // Expand selection to include all group members
-      const expandedIds = useCanvasStore.getState().expandSelectionToGroups(selectedIds);
+      const expandedIds = storeApi.getState().expandSelectionToGroups(selectedIds);
 
       // Check if ALL expanded expressions are locked
       const allLocked = Array.from(expandedIds).every(
@@ -226,10 +227,10 @@ export function useManipulationInteraction(
         startWorld: worldPoint,
       };
     }
-  }, []);
+  }, [storeApi]);
 
   const handlePointerMove = useCallback((e: PointerEvent) => {
-    const state = useCanvasStore.getState();
+    const state = storeApi.getState();
     if (state.activeTool !== 'select') return;
 
     const { camera, expressions, selectedIds } = state;
@@ -246,7 +247,7 @@ export function useManipulationInteraction(
         ({ dx, dy } = computeSnappedDelta(dx, dy, drag.originalPositions, state.gridSize));
       }
 
-      useCanvasStore.setState((draft) => {
+      storeApi.setState((draft) => {
         const movedIds = new Set<string>();
         for (const [id, orig] of drag.originalPositions) {
           const expr = draft.expressions[id];
@@ -335,7 +336,7 @@ export function useManipulationInteraction(
         ctrlKey: e.ctrlKey || e.metaKey,
       });
 
-      useCanvasStore.setState((draft) => {
+      storeApi.setState((draft) => {
         const expr = draft.expressions[drag.handle.expressionId];
         if (expr) {
           expr.position = resized.position;
@@ -348,7 +349,7 @@ export function useManipulationInteraction(
       // Check for snap during arrow endpoint drag
       let snapTarget = worldPoint;
       if (isDraggingArrowEndpoint) {
-        const snap = findSnapPointForDrag(worldPoint, useCanvasStore.getState().expressions, drag.handle.expressionId);
+        const snap = findSnapPointForDrag(worldPoint, storeApi.getState().expressions, drag.handle.expressionId);
         if (snap) {
           snapTarget = snap.point;
           currentDragSnapPoint = snap.point;
@@ -363,7 +364,7 @@ export function useManipulationInteraction(
         newPointPosition: snapTarget,
       });
 
-      useCanvasStore.setState((draft) => {
+      storeApi.setState((draft) => {
         const expr = draft.expressions[drag.handle.expressionId];
         if (expr && isPointBasedKind(expr.data.kind)) {
           const data = expr.data as { points: [number, number][] | [number, number, number][]; startBinding?: unknown; endBinding?: unknown };
@@ -429,7 +430,7 @@ export function useManipulationInteraction(
             ? Math.max(0.05, Math.min(0.95, (currentPos - rangeStart) / range))
             : 0.5;
 
-          useCanvasStore.setState((draft) => {
+          storeApi.setState((draft) => {
             const expr = draft.expressions[drag.handle.expressionId];
             if (expr && expr.data.kind === 'arrow') {
               (expr.data as ArrowData & { midpointOffset?: number }).midpointOffset =
@@ -443,7 +444,7 @@ export function useManipulationInteraction(
           dx * drag.handle.direction.x + dy * drag.handle.direction.y;
         const newJettySize = Math.max(0, drag.originalJettySize + dotProduct);
 
-        useCanvasStore.setState((draft) => {
+        storeApi.setState((draft) => {
           const expr = draft.expressions[drag.handle.expressionId];
           if (expr && expr.data.kind === 'arrow') {
             (expr.data as ArrowData).jettySize = Math.round(newJettySize);
@@ -473,7 +474,7 @@ export function useManipulationInteraction(
       }
       newWaypoints[drag.handle.segmentIndex] = newPosition;
 
-      useCanvasStore.setState((draft) => {
+      storeApi.setState((draft) => {
         const expr = draft.expressions[drag.handle.expressionId];
         if (expr && expr.data.kind === 'arrow') {
           (expr.data as ArrowData & { waypoints?: number[] }).waypoints = newWaypoints;
@@ -484,13 +485,13 @@ export function useManipulationInteraction(
       const target = detectPointerTarget(worldPoint, expressions, selectedIds, camera);
       setCursor(getCursorForTarget(target));
     }
-  }, []);
+  }, [storeApi]);
 
   const handlePointerUp = useCallback((e: PointerEvent) => {
     const drag = dragModeRef.current;
     if (drag.kind === 'none') return;
 
-    const state = useCanvasStore.getState();
+    const state = storeApi.getState();
     const { camera } = state;
     const worldPoint = screenToWorld(e.offsetX, e.offsetY, camera);
 
@@ -689,7 +690,7 @@ export function useManipulationInteraction(
     dragModeRef.current = { kind: 'none' };
     isDraggingArrowEndpoint = false;
     currentDragSnapPoint = null;
-  }, []);
+  }, [storeApi]);
 
   // ── Effect: attach/detach event listeners ──────────────────
 

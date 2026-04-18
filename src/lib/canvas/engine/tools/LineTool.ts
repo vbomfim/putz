@@ -11,7 +11,7 @@
 import { nanoid } from 'nanoid';
 import type { VisualExpression, ArrowBinding, ArrowAnchor } from '../../protocol';
 import type { ToolHandler, DrawPreview } from './BaseTool';
-import { useCanvasStore } from '../store/canvasStore';
+import type { CanvasStoreApi } from '../store/canvasStore';
 import { findSnapPoint } from '../interaction/connectorHelpers';
 
 /** Minimum line length in world units. */
@@ -29,11 +29,16 @@ const LOCAL_AUTHOR = {
 
 /** Tool handler for drawing straight lines (arrows with no tips). */
 export class LineTool implements ToolHandler {
+  private readonly store: CanvasStoreApi;
   private isDrawing = false;
   private startX = 0;
   private startY = 0;
   private endX = 0;
   private endY = 0;
+
+  constructor(store: CanvasStoreApi) {
+    this.store = store;
+  }
 
   onPointerDown(worldX: number, worldY: number, _event: PointerEvent): void {
     this.isDrawing = true;
@@ -68,7 +73,7 @@ export class LineTool implements ToolHandler {
     ];
 
     // Snap endpoints to nearby shapes
-    const state = useCanvasStore.getState();
+    const state = this.store.getState();
     let startBinding: ArrowBinding | undefined;
     let endBinding: ArrowBinding | undefined;
     // Scale snap distance so it stays ~15 screen pixels at any zoom

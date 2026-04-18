@@ -22,7 +22,7 @@ import { useInlineEditor } from '../hooks/useInlineEditor';
 import { useKeyboardShortcuts } from '../hooks/useKeyboardShortcuts';
 import { useTouchGestures } from '../hooks/useTouchGestures';
 import { useMetadataTooltip, formatRelativeTime } from '../hooks/useMetadataTooltip';
-import { useCanvasStore } from '../store/canvasStore';
+import { useCanvasStore, useCanvasStoreApi } from '../store/canvasStore';
 import { worldToScreen, screenToWorld } from '../camera';
 import { resolveTextConfig } from '../text/textConfig';
 import { createRenderLoop } from '../renderer/renderLoop';
@@ -40,6 +40,7 @@ const MIN_HEIGHT = 1;
 const RESIZE_DEBOUNCE_MS = 100;
 
 function CanvasInner() {
+  const storeApi = useCanvasStoreApi();
   const containerRef = useRef<HTMLDivElement>(null);
   const renderLoopRef = useRef<RenderLoop | null>(null);
   const { canvasRef, cursor: canvasCursor } = useCanvasInteraction();
@@ -125,14 +126,14 @@ function CanvasInner() {
     const width = Math.max(container?.clientWidth ?? MIN_WIDTH, MIN_WIDTH);
     const height = Math.max(container?.clientHeight ?? MIN_HEIGHT, MIN_HEIGHT);
 
-    const getCamera = () => useCanvasStore.getState().camera;
+    const getCamera = () => storeApi.getState().camera;
     const roughCanvas = rough.canvas(canvas);
     const expressionProvider = {
-      getExpressions: () => useCanvasStore.getState().expressions,
-      getExpressionOrder: () => useCanvasStore.getState().expressionOrder,
+      getExpressions: () => storeApi.getState().expressions,
+      getExpressionOrder: () => storeApi.getState().expressionOrder,
     };
     const selectionProvider = {
-      getSelectedIds: () => useCanvasStore.getState().selectedIds,
+      getSelectedIds: () => storeApi.getState().selectedIds,
     };
     const drawPreviewProvider = {
       getDrawPreview,
@@ -144,13 +145,13 @@ function CanvasInner() {
       getEditingId: () => editingIdRef.current,
     };
     const gridProvider = {
-      getGridVisible: () => useCanvasStore.getState().gridVisible,
-      getGridType: () => useCanvasStore.getState().gridType,
-      getGridSize: () => useCanvasStore.getState().gridSize,
+      getGridVisible: () => storeApi.getState().gridVisible,
+      getGridType: () => storeApi.getState().gridType,
+      getGridSize: () => storeApi.getState().gridSize,
     };
     const pageProvider = {
-      getPageVisible: () => useCanvasStore.getState().pageVisible,
-      getPageSize: () => useCanvasStore.getState().pageSize,
+      getPageVisible: () => storeApi.getState().pageVisible,
+      getPageSize: () => storeApi.getState().pageSize,
     };
     const dpr = window.devicePixelRatio || 1;
     const loop = createRenderLoop(ctx, getCamera, width, height, roughCanvas, expressionProvider, selectionProvider, drawPreviewProvider, dpr, marqueeProvider, editingProvider, gridProvider, pageProvider);
@@ -162,7 +163,7 @@ function CanvasInner() {
       loop.stop();
       renderLoopRef.current = null;
     };
-  }, [canvasRef]);
+  }, [canvasRef, getDrawPreview, getMarquee, storeApi]);
 
   // ── Screenshot capture via render loop ────────────────────
   useEffect(() => {
@@ -227,7 +228,7 @@ function CanvasInner() {
     const entry = STENCIL_CATALOG.get(stencilId);
     if (!entry) return;
 
-    const { camera } = useCanvasStore.getState();
+    const { camera } = storeApi.getState();
     const world = screenToWorld(e.clientX, e.clientY, camera);
 
     // Scale size inversely by zoom so stencils appear the same screen size
@@ -251,9 +252,9 @@ function CanvasInner() {
       data: { kind: 'stencil' as const, stencilId: entry.id, category: entry.category, label: entry.label },
     };
 
-    useCanvasStore.getState().addExpression(expression);
-    useCanvasStore.getState().setSelectedIds(new Set([expression.id]));
-  }, []);
+    storeApi.getState().addExpression(expression);
+    storeApi.getState().setSelectedIds(new Set([expression.id]));
+  }, [storeApi]);
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
     if (e.dataTransfer.types.includes('application/x-infinicanvas-stencil')) {
@@ -304,7 +305,7 @@ function CanvasInner() {
             // Only save font size if it was actually shrunk
             if (shrunkFontSize !== undefined && editingExpr) {
               const worldFontSize = shrunkFontSize / camera.zoom;
-              useCanvasStore.getState().styleExpressions(
+              storeApi.getState().styleExpressions(
                 [editingExpr.id],
                 { fontSize: worldFontSize },
               );

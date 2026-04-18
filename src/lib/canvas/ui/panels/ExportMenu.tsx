@@ -9,7 +9,7 @@
  */
 
 import { useState, useRef, useCallback } from 'react';
-import { useCanvasStore, useUiStore } from '../../engine';
+import { useCanvasStoreApi, useUiStore } from '../../engine';
 import { exportToJson, importFromJson, buildSvgString, downloadSvg, exportToPng } from '../../engine';
 import { expressionsToDrawio, drawioToExpressions } from '../../protocol';
 import { Download } from 'lucide-react';
@@ -23,12 +23,13 @@ interface MenuOption {
 
 /** Export/Import menu dropdown component. */
 export function ExportMenu() {
+  const storeApi = useCanvasStoreApi();
   const [isOpen, setIsOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const drawioFileInputRef = useRef<HTMLInputElement>(null);
 
   const handleExportJson = useCallback(() => {
-    const { expressions, expressionOrder } = useCanvasStore.getState();
+    const { expressions, expressionOrder } = storeApi.getState();
     const json = exportToJson(expressions, expressionOrder);
     const blob = new Blob([json], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
@@ -40,18 +41,18 @@ export function ExportMenu() {
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
     setIsOpen(false);
-  }, []);
+  }, [storeApi]);
 
   const handleExportSvg = useCallback(() => {
-    const { expressions, expressionOrder } = useCanvasStore.getState();
+    const { expressions, expressionOrder } = storeApi.getState();
     const theme = useUiStore.getState().theme;
     const svg = buildSvgString(expressions, expressionOrder, theme);
     downloadSvg(svg, 'infinicanvas-export.svg');
     setIsOpen(false);
-  }, []);
+  }, [storeApi]);
 
   const handleExportPng = useCallback(() => {
-    const { expressions, expressionOrder } = useCanvasStore.getState();
+    const { expressions, expressionOrder } = storeApi.getState();
     const theme = useUiStore.getState().theme;
 
     void exportToPng(
@@ -75,7 +76,7 @@ export function ExportMenu() {
       },
     );
     setIsOpen(false);
-  }, []);
+  }, [storeApi]);
 
   const handleImportJson = useCallback(() => {
     fileInputRef.current?.click();
@@ -83,7 +84,7 @@ export function ExportMenu() {
   }, []);
 
   const handleExportDrawio = useCallback(() => {
-    const { expressions, expressionOrder } = useCanvasStore.getState();
+    const { expressions, expressionOrder } = storeApi.getState();
     const expressionArray = expressionOrder
       .map((id) => expressions[id])
       .filter((e): e is NonNullable<typeof e> => e != null);
@@ -98,7 +99,7 @@ export function ExportMenu() {
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
     setIsOpen(false);
-  }, []);
+  }, [storeApi]);
 
   const handleImportDrawio = useCallback(() => {
     drawioFileInputRef.current?.click();
@@ -118,7 +119,7 @@ export function ExportMenu() {
           alert('No drawable elements found in the draw.io file.');
           return;
         }
-        const store = useCanvasStore.getState();
+        const store = storeApi.getState();
         const mergedExpressions = { ...store.expressions };
         const mergedOrder = [...store.expressionOrder];
         for (const expr of imported) {
@@ -136,7 +137,7 @@ export function ExportMenu() {
 
     // Reset input so same file can be re-imported
     e.target.value = '';
-  }, []);
+  }, [storeApi]);
 
   const handleFileSelected = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -147,7 +148,7 @@ export function ExportMenu() {
       const content = reader.result as string;
       const result = importFromJson(content);
       if (result.success) {
-        useCanvasStore.getState().replaceState(
+        storeApi.getState().replaceState(
           result.data.expressions,
           result.data.expressionOrder,
         );
@@ -162,7 +163,7 @@ export function ExportMenu() {
 
     // Reset input so same file can be re-imported
     e.target.value = '';
-  }, []);
+  }, [storeApi]);
 
   const options: MenuOption[] = [
     { action: 'export-png', label: 'Export PNG', onClick: handleExportPng },

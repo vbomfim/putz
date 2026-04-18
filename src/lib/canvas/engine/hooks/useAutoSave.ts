@@ -9,7 +9,7 @@
  * @module
  */
 
-import { useCanvasStore } from '../store/canvasStore';
+import type { CanvasStoreApi } from '../store/canvasStore';
 import { saveCanvasState } from '../persistence/localStorage';
 import type { PersistedCanvasState } from '../persistence/localStorage';
 
@@ -29,19 +29,20 @@ export const DEBOUNCE_MS = 2000;
  * This is a vanilla (non-React) subscriber so it can be used
  * outside of React components (e.g., store initialization). [SOLID: SRP]
  *
+ * @param store — the canvas store API instance to subscribe to
  * @returns Unsubscribe function to stop auto-save
  */
-export function subscribeAutoSave(): () => void {
+export function subscribeAutoSave(store: CanvasStoreApi): () => void {
   let timerId: ReturnType<typeof setTimeout> | null = null;
 
   /** Track previous values to detect actual changes. [CLEAN-CODE] */
-  let prevExpressions = useCanvasStore.getState().expressions;
-  let prevOrder = useCanvasStore.getState().expressionOrder;
-  let prevCamera = useCanvasStore.getState().camera;
+  let prevExpressions = store.getState().expressions;
+  let prevOrder = store.getState().expressionOrder;
+  let prevCamera = store.getState().camera;
 
   /** Select only the persistable fields from the store. [AC9] */
   function selectPersistedState(): PersistedCanvasState {
-    const state = useCanvasStore.getState();
+    const state = store.getState();
     return {
       expressions: state.expressions,
       expressionOrder: state.expressionOrder,
@@ -62,7 +63,7 @@ export function subscribeAutoSave(): () => void {
 
   // Zustand v5 subscribe(listener) — fires on every state change.
   // We manually check if the persisted fields actually changed.
-  const unsubscribe = useCanvasStore.subscribe((state) => {
+  const unsubscribe = store.subscribe((state) => {
     const changed =
       state.expressions !== prevExpressions ||
       state.expressionOrder !== prevOrder ||

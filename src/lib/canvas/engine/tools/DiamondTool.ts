@@ -7,10 +7,11 @@
  */
 
 import { AreaShapeTool } from './AreaShapeTool';
+import type { CanvasStoreApi } from '../store/canvasStore';
 
 /** Tool handler for drawing diamonds on the canvas. */
 export class DiamondTool extends AreaShapeTool {
-  constructor() {
-    super('diamond');
+  constructor(store: CanvasStoreApi) {
+    super('diamond', store);
   }
 }

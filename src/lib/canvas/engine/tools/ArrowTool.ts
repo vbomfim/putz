@@ -11,7 +11,7 @@
 import { nanoid } from 'nanoid';
 import type { VisualExpression, ArrowBinding, ArrowData } from '../../protocol';
 import type { ToolHandler, DrawPreview } from './BaseTool';
-import { useCanvasStore } from '../store/canvasStore';
+import type { CanvasStoreApi } from '../store/canvasStore';
 import { findSnapPoint } from '../interaction/connectorHelpers';
 import {
   getConnectionPoints,
@@ -34,6 +34,7 @@ const LOCAL_AUTHOR = {
 
 /** Tool handler for drawing arrows on the canvas. */
 export class ArrowTool implements ToolHandler {
+  private readonly store: CanvasStoreApi;
   private isDrawing = false;
   private startX = 0;
   private startY = 0;
@@ -43,6 +44,10 @@ export class ArrowTool implements ToolHandler {
   private currentSnapPoint: { x: number; y: number } | undefined = undefined;
   private currentSnapTargetId: string | undefined = undefined;
   private currentConnectionPoints: ShapeConnectionPoint[] | undefined = undefined;
+
+  constructor(store: CanvasStoreApi) {
+    this.store = store;
+  }
 
   onPointerDown(worldX: number, worldY: number, _event: PointerEvent): void {
     this.isDrawing = true;
@@ -133,7 +138,7 @@ export class ArrowTool implements ToolHandler {
       size,
       angle: 0,
       style: (() => {
-        const s = useCanvasStore.getState();
+        const s = this.store.getState();
         return { ...s.lastUsedStyle };
       })(),
       meta: {
@@ -144,7 +149,7 @@ export class ArrowTool implements ToolHandler {
         locked: false,
       },
       data: (() => {
-        const { defaultArrowStyle } = useCanvasStore.getState();
+        const { defaultArrowStyle } = this.store.getState();
         const d: ArrowData = {
           kind: 'arrow',
           points,
@@ -160,7 +165,7 @@ export class ArrowTool implements ToolHandler {
       })(),
     };
 
-    const store = useCanvasStore.getState();
+    const store = this.store.getState();
     store.addExpression(expression);
     store.setSelectedIds(new Set([id]));
 
@@ -231,7 +236,7 @@ export class ArrowTool implements ToolHandler {
     worldX: number,
     worldY: number,
   ): { point: { x: number; y: number }; anchor: string; targetId: string; ratio: number; connectionPoints: ShapeConnectionPoint[] } | null {
-    const { expressions, camera } = useCanvasStore.getState();
+    const { expressions, camera } = this.store.getState();
     // Scale snap distance: at zoom > 1, shrink so snapping feels precise;
     // at zoom ≤ 1, keep at constant ~15 screen pixels. [Bug #5]
     const snapDist = SNAP_DISTANCE / Math.max(camera.zoom, 1);

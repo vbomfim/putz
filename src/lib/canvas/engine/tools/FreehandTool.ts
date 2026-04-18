@@ -11,7 +11,7 @@
 import { nanoid } from 'nanoid';
 import type { VisualExpression } from '../../protocol';
 import type { ToolHandler, DrawPreview } from './BaseTool';
-import { useCanvasStore } from '../store/canvasStore';
+import type { CanvasStoreApi } from '../store/canvasStore';
 
 /** Minimum number of points to create a freehand stroke. */
 const MIN_POINTS = 2;
@@ -25,8 +25,13 @@ const LOCAL_AUTHOR = {
 
 /** Tool handler for freehand/pen drawing on the canvas. */
 export class FreehandTool implements ToolHandler {
+  private readonly store: CanvasStoreApi;
   private isDrawing = false;
   private points: [number, number, number][] = [];
+
+  constructor(store: CanvasStoreApi) {
+    this.store = store;
+  }
 
   onPointerDown(worldX: number, worldY: number, event: PointerEvent): void {
     this.isDrawing = true;
@@ -60,7 +65,7 @@ export class FreehandTool implements ToolHandler {
       size,
       angle: 0,
       style: (() => {
-        const s = useCanvasStore.getState();
+        const s = this.store.getState();
         return { ...s.lastUsedStyle };
       })(),
       meta: {
@@ -73,7 +78,7 @@ export class FreehandTool implements ToolHandler {
       data: { kind: 'freehand', points: [...this.points] },
     };
 
-    const store = useCanvasStore.getState();
+    const store = this.store.getState();
     store.addExpression(expression);
     store.setSelectedIds(new Set([id]));
     // Freehand stays in freehand mode — do NOT switch to select

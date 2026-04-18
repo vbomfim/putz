@@ -10,7 +10,7 @@
  */
 
 import { useRef, useEffect, useCallback, useMemo } from 'react';
-import { useCanvasStore } from '../store/canvasStore';
+import { useCanvasStoreApi } from '../store/canvasStore';
 import { screenToWorld } from '../camera';
 import { RectangleTool } from '../tools/RectangleTool';
 import { EllipseTool } from '../tools/EllipseTool';
@@ -39,28 +39,30 @@ export interface DrawingInteraction {
 export function useDrawingInteraction(
   canvasRef: React.RefObject<HTMLCanvasElement | null>,
 ): DrawingInteraction {
+  const storeApi = useCanvasStoreApi();
+
   // Create stable tool handler instances
   const toolHandlers = useMemo(() => {
-    const textTool = new TextTool();
+    const textTool = new TextTool(storeApi);
     return {
-      rectangle: new RectangleTool(),
-      ellipse: new EllipseTool(),
-      diamond: new DiamondTool(),
-      arrow: new ArrowTool(),
-      freehand: new FreehandTool(),
+      rectangle: new RectangleTool(storeApi),
+      ellipse: new EllipseTool(storeApi),
+      diamond: new DiamondTool(storeApi),
+      arrow: new ArrowTool(storeApi),
+      freehand: new FreehandTool(storeApi),
       text: textTool,
-      'sticky-note': new StickyNoteTool(),
+      'sticky-note': new StickyNoteTool(storeApi),
     } as Record<string, ToolHandler>;
-  }, []);
+  }, [storeApi]);
 
   const textTool = useMemo(() => toolHandlers.text as TextTool, [toolHandlers]);
 
   /** Get the handler for the currently active tool. */
   const getActiveHandler = useCallback((): ToolHandler | null => {
-    const { activeTool } = useCanvasStore.getState();
+    const { activeTool } = storeApi.getState();
     if (activeTool === 'select') return null;
     return toolHandlers[activeTool] ?? null;
-  }, [toolHandlers]);
+  }, [toolHandlers, storeApi]);
 
   // Track which handler was active during the current drag to prevent
   // handler switching mid-draw
@@ -76,7 +78,7 @@ export function useDrawingInteraction(
       // Only react to primary button (left click)
       if (e.button !== 0) return;
 
-      const { camera } = useCanvasStore.getState();
+      const { camera } = storeApi.getState();
       const world = screenToWorld(e.offsetX, e.offsetY, camera);
 
       // Capture pointer to receive events even when cursor leaves canvas
@@ -86,13 +88,13 @@ export function useDrawingInteraction(
       activeDrawHandlerRef.current = handler;
       handler.onPointerDown(world.x, world.y, e);
     },
-    [getActiveHandler],
+    [getActiveHandler, storeApi],
   );
 
   const handlePointerMove = useCallback(
     (e: PointerEvent) => {
       const handler = activeDrawHandlerRef.current;
-      const { camera, activeTool } = useCanvasStore.getState();
+      const { camera, activeTool } = storeApi.getState();
       const world = screenToWorld(e.offsetX, e.offsetY, camera);
 
       if (handler) {
@@ -105,7 +107,7 @@ export function useDrawingInteraction(
         }
       }
     },
-    [],
+    [storeApi, toolHandlers],
   );
 
   const handlePointerUp = useCallback(
@@ -113,7 +115,7 @@ export function useDrawingInteraction(
       const handler = activeDrawHandlerRef.current;
       if (!handler) return;
 
-      const { camera } = useCanvasStore.getState();
+      const { camera } = storeApi.getState();
       const world = screenToWorld(e.offsetX, e.offsetY, camera);
 
       handler.onPointerUp(world.x, world.y, e);
@@ -123,7 +125,7 @@ export function useDrawingInteraction(
       const target = e.currentTarget as Element;
       target.releasePointerCapture(e.pointerId);
     },
-    [],
+    [storeApi],
   );
 
   // ── Cancel draw function (exposed for useKeyboardShortcuts) ──
