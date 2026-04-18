@@ -119,9 +119,8 @@ export function useKeyboardShortcuts(): void {
       }
 
       // Cmd+Shift+O / Ctrl+Shift+O — Toggle Bookmarks Manager panel
-      // CRITICAL: bail when xterm is focused — avoid stealing focus from terminal
+      // Shift makes this unambiguous — terminals don't bind it, so no xterm guard.
       if (key === "o" && e.shiftKey) {
-        if (isXtermFocused()) return;
         e.preventDefault();
         shortcutCallbacks.onToggleBookmarksPanel?.();
         return;
