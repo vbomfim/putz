@@ -32,6 +32,7 @@ import {
   clampFontSize,
 } from "./terminalPolish";
 import { changeWindowCheck } from "../Compliance/complianceApi";
+import { setSessionCwdFromTitle, getSessionCwd } from "./cwdRegistry";
 
 interface UseTerminalOptions {
   /** UUID v4 session identifier from pty_spawn. */
@@ -219,31 +220,25 @@ export function useTerminal({
           text: l.text,
           activate() {
             const resolveAndOpen = (openFn: (path: string) => void) => {
-              if (l.isRelative) {
-                invoke<string>("pty_cwd", { sessionId })
-                  .then((cwd) => {
-                    const sep = cwd.includes("\\") ? "\\" : "/";
-                    const fullPath = cwd.endsWith(sep) ? `${cwd}${l.text}` : `${cwd}${sep}${l.text}`;
-                    openFn(fullPath);
-                  })
-                  .catch(() => {
-                    // Fallback: try terminal title (shells often set it to CWD)
-                    const title = terminal.buffer.active.getLine(0)
-                      ? (document.title || "")
-                      : "";
-                    // Extract path from title like "PS C:\Users\john>" or "C:\Users\john"
-                    const pathMatch = title.match(/([A-Z]:\\[^\s>]+)/i) || title.match(/(\/[\w/.-]+)/);
-                    if (pathMatch) {
-                      const cwd = pathMatch[1];
-                      const sep = cwd.includes("\\") ? "\\" : "/";
-                      openFn(`${cwd}${sep}${l.text}`);
-                    } else {
-                      openFn(l.text);
-                    }
-                  });
-              } else {
-                openFn(l.text);
+              if (!l.isRelative) { openFn(l.text); return; }
+
+              const joinPath = (cwd: string, name: string): string => {
+                const sep = cwd.includes("\\") ? "\\" : "/";
+                return cwd.endsWith(sep) ? `${cwd}${name}` : `${cwd}${sep}${name}`;
+              };
+
+              // Prefer the title-derived CWD when present — it tracks `cd`
+              // and is the only reliable source on Windows (pty_cwd there
+              // falls back to USERPROFILE which is almost always wrong).
+              const titleCwd = getSessionCwd(sessionId);
+              if (titleCwd) {
+                openFn(joinPath(titleCwd, l.text));
+                return;
               }
+
+              invoke<string>("pty_cwd", { sessionId })
+                .then((cwd) => openFn(joinPath(cwd, l.text)))
+                .catch(() => openFn(l.text));
             };
 
             const ext = l.text.split(".").pop()?.toLowerCase() || "";
@@ -443,8 +438,12 @@ export function useTerminal({
     );
 
     // Title change detection (via escape sequences like \e]0;title\a)
+    // Also feeds the per-session CWD registry — many shells set the title
+    // to the prompt path, which we mine to resolve relative file links
+    // when the backend cannot read the child's CWD (Windows in particular).
     terminal.onTitleChange((title: string) => {
       onTitleChangeRef.current?.(title);
+      setSessionCwdFromTitle(sessionId, title);
     });
 
     // Keyboard shortcuts: Cmd/Ctrl+C/V/A (copy/paste/select-all),

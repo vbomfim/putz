@@ -41,11 +41,13 @@ async function spawnPtySession(): Promise<string> {
 
 /** Closes a PTY session via Tauri IPC (fire-and-forget). */
 import { cleanupPortalTarget } from "../components/Region/RegionContainer";
+import { clearSessionCwd } from "../components/Terminal/cwdRegistry";
 
 function closePtySession(sessionId: string): void {
   invoke("pty_close", { sessionId }).catch(() => {
     // Ignore — session may already be closed
   });
+  clearSessionCwd(sessionId);
 }
 
 /** Closes a browser webview via Tauri IPC (fire-and-forget). */
