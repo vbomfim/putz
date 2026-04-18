@@ -206,7 +206,7 @@ export function useTerminal({
 
         // Match filenames with common config/script extensions anywhere in line
         // (covers ls output "CR4.txt", ls -lah trailing filenames, etc.)
-        const fileExts = "txt|cfg|conf|config|ios|acl|js|ts|py|sh|yaml|yml|json|xml|csv|log|bak|md";
+        const fileExts = "txt|cfg|conf|config|ios|acl|js|ts|py|sh|yaml|yml|json|xml|csv|log|bak|md|drawio|tsv";
         const fnRegex = new RegExp(`(?:^|\\s)([\\w][\\w.+-]*\\.(?:${fileExts}))(?=\\s|$)`, "gi");
         while ((match = fnRegex.exec(text)) !== null) {
           const fname = match[1];
