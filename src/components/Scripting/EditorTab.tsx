@@ -6,7 +6,7 @@
  *
  * @module EditorTab
  */
-import { useState, useCallback, useEffect, useRef } from "react";
+import { useState, useCallback, useEffect, useMemo, useRef } from "react";
 import Markdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { MonacoEditor, type EditorLanguage } from "./MonacoEditor";
@@ -49,6 +49,26 @@ export function EditorTab({ filePath: initialFilePath, scriptId, regionId, tabId
   const lastMtimeRef = useRef<number>(0);
   const editorInstanceRef = useRef<monaco.editor.IStandaloneCodeEditor | null>(null);
   const renameTab = useLayoutStore((s) => s.renameTab);
+  const closeTab = useLayoutStore((s) => s.closeTab);
+  const addCsvTab = useLayoutStore((s) => s.addCsvTab);
+
+  // CSV/TSV files: offer Grid Mode toggle to switch back to visual editor
+  const isCsvFile = useMemo(() => {
+    const path = currentPath || initialFilePath || "";
+    const ext = path.split(".").pop()?.toLowerCase();
+    return ext === "csv" || ext === "tsv";
+  }, [currentPath, initialFilePath]);
+
+  const handleSwitchToGrid = useCallback(() => {
+    const path = currentPath || initialFilePath;
+    if (!path) return;
+    if (isDirty) {
+      const ok = window.confirm("You have unsaved changes. Switch to Grid Mode anyway? Unsaved edits will be lost.");
+      if (!ok) return;
+    }
+    closeTab(regionId, tabId);
+    addCsvTab(regionId, path);
+  }, [currentPath, initialFilePath, isDirty, closeTab, regionId, tabId, addCsvTab]);
 
   const handleFind = useCallback(() => {
     editorInstanceRef.current?.getAction("actions.find")?.run();
@@ -339,6 +359,16 @@ export function EditorTab({ filePath: initialFilePath, scriptId, regionId, tabId
           >
             ¶
           </button>
+          {isCsvFile && (
+            <button
+              type="button"
+              className="editor-tab__tool-btn"
+              onClick={handleSwitchToGrid}
+              title="Switch to visual CSV/TSV grid editor"
+            >
+              ⊞ Grid Mode
+            </button>
+          )}
           <div className="script-editor__language-toggle">
             {([
               ["text", "TXT", "Plain Text"],

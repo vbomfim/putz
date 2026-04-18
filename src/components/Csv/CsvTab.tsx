@@ -193,9 +193,13 @@ export function CsvTab({ filePath, regionId, tabId }: CsvTabProps) {
 
   // Open in text mode (close this tab, open Monaco on same file)
   const handleSwitchToText = useCallback(() => {
+    if (isDirty) {
+      const ok = window.confirm("You have unsaved changes. Switch to Text Mode anyway? Unsaved edits will be lost.");
+      if (!ok) return;
+    }
     closeTab(regionId, tabId);
     addEditorTab(regionId, filePath, undefined, true);
-  }, [closeTab, regionId, tabId, addEditorTab, filePath]);
+  }, [isDirty, closeTab, regionId, tabId, addEditorTab, filePath]);
 
   // Column ops
   const insertColumn = useCallback(
