@@ -199,6 +199,7 @@ interface LayoutState {
   /** Adds a markdown preview tab. */
   addMarkdownTab: (regionId?: string, filePath?: string) => void;
   addCsvTab: (regionId?: string, filePath?: string) => void;
+  addDrawioTab: (regionId?: string, filePath?: string) => void;
 
   /** Closes a tab in a region. If last tab, closes the region. */
   closeTab: (regionId: string, tabId: string) => void;
@@ -389,6 +390,10 @@ export const useLayoutStore = create<LayoutState>((set, get) => ({
       }
       if (ext === "md" || ext === "markdown") {
         get().addMarkdownTab(targetRegionId, filePath);
+        return;
+      }
+      if (ext === "drawio") {
+        get().addDrawioTab(targetRegionId, filePath);
         return;
       }
     }
@@ -629,6 +634,20 @@ export const useLayoutStore = create<LayoutState>((set, get) => ({
     }
     const name = filePath.split("/").pop() || filePath;
     const tab: RegionTab = { id: generateId(), title: `📊 ${name}`, type: "csv", sessionId: `${EDITOR_SESSION_PREFIX}csv-${generateId()}`, editorFilePath: filePath, status: "local" };
+    set((state) => ({ regions: { ...state.regions, [targetRegionId]: { ...state.regions[targetRegionId], tabs: [...state.regions[targetRegionId].tabs, tab], activeTabId: tab.id } }, tabCounter: state.tabCounter + 1 }));
+  },
+
+  addDrawioTab: (regionId?: string, filePath?: string) => {
+    const targetRegionId = regionId || get().focusedRegionId;
+    const region = get().regions[targetRegionId];
+    if (!region || !filePath) return;
+    const existing = region.tabs.find((t) => t.type === "drawio" && t.editorFilePath === filePath);
+    if (existing) {
+      set((state) => ({ regions: { ...state.regions, [targetRegionId]: { ...state.regions[targetRegionId], activeTabId: existing.id } } }));
+      return;
+    }
+    const name = filePath.split("/").pop() || filePath;
+    const tab: RegionTab = { id: generateId(), title: `📐 ${name}`, type: "drawio", sessionId: `${EDITOR_SESSION_PREFIX}drawio-${generateId()}`, editorFilePath: filePath, status: "local" };
     set((state) => ({ regions: { ...state.regions, [targetRegionId]: { ...state.regions[targetRegionId], tabs: [...state.regions[targetRegionId].tabs, tab], activeTabId: tab.id } }, tabCounter: state.tabCounter + 1 }));
   },
 
