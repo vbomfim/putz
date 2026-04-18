@@ -7,7 +7,10 @@
  * @module EditorTab
  */
 import { useState, useCallback, useEffect, useRef } from "react";
+import Markdown from "react-markdown";
 import { MonacoEditor, type EditorLanguage } from "./MonacoEditor";
+import { MarkdownToolbar } from "./MarkdownToolbar";
+import { formatMarkdownTables } from "./markdownFormat";
 import type * as monaco from "monaco-editor";
 import { fileRead, fileWrite, fileMtime, detectLanguage } from "./editorApi";
 import { scriptGet, scriptSave } from "./scriptApi";
@@ -56,6 +59,9 @@ export function EditorTab({ filePath: initialFilePath, scriptId, regionId, tabId
 
   const [showCompareInput, setShowCompareInput] = useState(false);
   const [comparePath, setComparePath] = useState("");
+  const [showPreview, setShowPreview] = useState(false);
+  const previewRef = useRef<HTMLDivElement | null>(null);
+  const isSyncingRef = useRef(false);
   const addDiffTab = useLayoutStore((s) => s.addDiffTab);
 
   const handleCompare = useCallback(() => {
@@ -164,9 +170,20 @@ export function EditorTab({ filePath: initialFilePath, scriptId, regionId, tabId
     setIsSaving(true);
     setError(null);
     try {
+      // For markdown buffers, pretty-align pipe tables before writing.
+      // Apply the formatted text back into the editor so the visible buffer
+      // matches what hits disk and we don't immediately re-mark the file dirty.
+      let toWrite = content;
+      if (language === "markdown") {
+        const formatted = formatMarkdownTables(content);
+        if (formatted !== content) {
+          toWrite = formatted;
+          setContent(formatted);
+        }
+      }
       if (currentPath) {
-        await fileWrite(currentPath, content);
-        savedContentRef.current = content;
+        await fileWrite(currentPath, toWrite);
+        savedContentRef.current = toWrite;
         setIsDirty(false);
         try { lastMtimeRef.current = await fileMtime(currentPath); } catch { /* ignore */ }
         setStatusMessage(`Saved ${currentPath}`);
@@ -175,10 +192,10 @@ export function EditorTab({ filePath: initialFilePath, scriptId, regionId, tabId
         const input: SaveScriptInput = {
           id: scriptId,
           name: script.meta.name,
-          content,
+          content: toWrite,
         };
         await scriptSave(input);
-        savedContentRef.current = content;
+        savedContentRef.current = toWrite;
         setIsDirty(false);
         setStatusMessage(`Saved script: ${script.meta.name}`);
       }
@@ -189,7 +206,29 @@ export function EditorTab({ filePath: initialFilePath, scriptId, regionId, tabId
     } finally {
       setIsSaving(false);
     }
-  }, [currentPath, scriptId, content]);
+  }, [currentPath, scriptId, content, language]);
+
+  // Sync scroll: editor → preview when both are visible.
+  useEffect(() => {
+    if (!showPreview || language !== "markdown") return;
+    const editor = editorInstanceRef.current;
+    if (!editor) return;
+    const dispose = editor.onDidScrollChange(() => {
+      if (isSyncingRef.current) return;
+      const preview = previewRef.current;
+      if (!preview) return;
+      const scrollTop = editor.getScrollTop();
+      const scrollHeight = editor.getScrollHeight();
+      const visible = editor.getLayoutInfo().height;
+      const max = Math.max(1, scrollHeight - visible);
+      const ratio = Math.min(1, Math.max(0, scrollTop / max));
+      const previewMax = Math.max(0, preview.scrollHeight - preview.clientHeight);
+      isSyncingRef.current = true;
+      preview.scrollTop = ratio * previewMax;
+      requestAnimationFrame(() => { isSyncingRef.current = false; });
+    });
+    return () => dispose.dispose();
+  }, [showPreview, language, content]);
 
   const handleSaveAs = useCallback(async () => {
     const path = saveAsPath.trim();
@@ -278,6 +317,16 @@ export function EditorTab({ filePath: initialFilePath, scriptId, regionId, tabId
               title="Open Markdown preview in a new tab"
             >
               👁
+            </button>
+          )}
+          {language === "markdown" && (
+            <button
+              type="button"
+              className={`editor-tab__tool-btn ${showPreview ? "editor-tab__tool-btn--active" : ""}`}
+              onClick={() => setShowPreview((v) => !v)}
+              title={showPreview ? "Hide live preview" : "Show live preview side-by-side"}
+            >
+              ⇆
             </button>
           )}
           <div className="script-editor__language-toggle">
@@ -374,16 +423,30 @@ export function EditorTab({ filePath: initialFilePath, scriptId, regionId, tabId
         <div className="editor-tab__error">{error}</div>
       )}
 
-      {/* Monaco Editor */}
-      <div className="editor-tab__editor">
-        <MonacoEditor
-          value={content}
-          onChange={handleChange}
-          language={language}
-          readOnly={isSaving}
-          onSave={handleSave}
-          editorInstanceRef={editorInstanceRef}
-        />
+      {/* Markdown formatting toolbar */}
+      {language === "markdown" && (
+        <MarkdownToolbar editorRef={editorInstanceRef} />
+      )}
+
+      {/* Monaco Editor (with optional live preview pane) */}
+      <div className={`editor-tab__editor ${language === "markdown" && showPreview ? "editor-tab__editor--split" : ""}`}>
+        <div className="editor-tab__editor-pane">
+          <MonacoEditor
+            value={content}
+            onChange={handleChange}
+            language={language}
+            readOnly={isSaving}
+            onSave={handleSave}
+            editorInstanceRef={editorInstanceRef}
+          />
+        </div>
+        {language === "markdown" && showPreview && (
+          <div className="editor-tab__preview-pane" ref={previewRef}>
+            <div className="editor-tab__preview-content">
+              <Markdown>{content}</Markdown>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Status bar */}
