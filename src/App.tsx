@@ -37,6 +37,7 @@ import { QuickConnect } from "./components/QuickConnect";
 import { CredentialReminder } from "./components/Vault/CredentialReminder";
 import { PingDashboard } from "./components/Ping/PingDashboard";
 import { Toast, useToast } from "./components/Toast";
+import { BookmarksPanel } from "./components/BookmarksPanel";
 
 import { ThemeEditor } from "./components/Terminal/ThemeEditor";
 import { FontConfig } from "./components/Terminal/FontConfig";
@@ -79,6 +80,7 @@ function App() {
   const [pingOpen, setPingOpen] = useState(false);
   const [availableThemes, setAvailableThemes] = useState<Theme[]>([]);
   const [toastMessage, showToast, dismissToast] = useToast();
+  const [bookmarksPanelOpen, setBookmarksPanelOpen] = useState(false);
 
   // ─── Bookmark: core "add bookmark" logic ─────────────────────────
   /**
@@ -158,7 +160,10 @@ function App() {
 
   // Wire keyboard shortcut callback for Cmd+D → add bookmark
   useEffect(() => {
-    setKeyboardShortcutCallbacks({ onAddBookmark: handleAddBookmark });
+    setKeyboardShortcutCallbacks({
+      onAddBookmark: handleAddBookmark,
+      onToggleBookmarksPanel: () => setBookmarksPanelOpen((prev) => !prev),
+    });
     return () => setKeyboardShortcutCallbacks({});
   }, [handleAddBookmark]);
 
@@ -199,6 +204,7 @@ function App() {
       onToggleWorkspaceBar: () => toggleWorkspaceBar(),
       onToggleBookmarksBar: () => toggleBookmarksBar(),
       onAddBookmark: handleAddBookmark,
+      onToggleBookmarksPanel: () => setBookmarksPanelOpen((prev) => !prev),
     });
     return () => setMenuEventCallbacks({});
   }, [addBrowserTab, addEditorTab, addVaultTab, addHistoryTab, addTemplateTab, addSettingsTab, toggleWorkspaceBar, toggleBookmarksBar, handleAddBookmark]);
@@ -381,6 +387,11 @@ function App() {
         <div className="modal-overlay" onClick={(e) => { if (e.target === e.currentTarget) setPingOpen(false); }} role="dialog" aria-modal="true">
           <div className="modal-panel modal-panel--wide"><button className="modal-close" onClick={() => setPingOpen(false)}>✕</button><PingDashboard /></div>
         </div>
+      )}
+
+      {/* Bookmarks Manager panel — mount/unmount to avoid idle Zustand subscriptions */}
+      {bookmarksPanelOpen && (
+        <BookmarksPanel onClose={() => setBookmarksPanelOpen(false)} />
       )}
 
       {/* Toast notification — auto-dismiss, bottom-right */}

@@ -34,6 +34,7 @@ export interface MenuEventCallbacks {
   onToggleWorkspaceBar?: () => void;
   onToggleBookmarksBar?: () => void;
   onAddBookmark?: () => void;
+  onToggleBookmarksPanel?: () => void;
 }
 
 // Module-level callbacks — set by App.tsx via setMenuEventCallbacks
@@ -154,6 +155,9 @@ export function useMenuEvents(): void {
         case "menu-add-bookmark":
           menuCallbacks.onAddBookmark?.();
           break;
+        case "menu-manage-bookmarks":
+          menuCallbacks.onToggleBookmarksPanel?.();
+          break;
 
         // ─── Session ───────────────────────────────────────
         case "menu-connect":
@@ -242,16 +246,19 @@ export function useMenuEvents(): void {
   );
 
   useEffect(() => {
+    let cancelled = false;
     let unlisten: (() => void) | null = null;
 
     listen<MenuEventPayload>("menu-event", (event) => {
       handleMenuEvent(event.payload.id);
     }).then((fn) => {
+      if (cancelled) { fn(); return; }
       unlisten = fn;
     });
 
     return () => {
-      if (unlisten) unlisten();
+      cancelled = true;
+      unlisten?.();
     };
   }, [handleMenuEvent]);
 }

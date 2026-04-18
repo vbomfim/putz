@@ -21,6 +21,7 @@ const mockToggleLogging = vi.fn();
 const mockToggleBroadcast = vi.fn();
 const mockToggleShortcutsPanel = vi.fn();
 const mockAddBookmark = vi.fn();
+const mockToggleBookmarksPanel = vi.fn();
 
 const mockLayoutState = {
   focusedRegionId: "region-1",
@@ -65,7 +66,7 @@ vi.mock("../stores/settingsStore", () => ({
 describe("useKeyboardShortcuts", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    setKeyboardShortcutCallbacks({ onAddBookmark: mockAddBookmark });
+    setKeyboardShortcutCallbacks({ onAddBookmark: mockAddBookmark, onToggleBookmarksPanel: mockToggleBookmarksPanel });
   });
 
   afterEach(() => {
@@ -248,6 +249,39 @@ describe("useKeyboardShortcuts", () => {
       expect(mockAddBookmark).toHaveBeenCalledTimes(1);
     } finally {
       document.body.removeChild(input);
+    }
+  });
+
+  // ─── Cmd+Shift+O / Ctrl+Shift+O — Toggle Bookmarks Panel ────────
+
+  it("Ctrl+Shift+O triggers toggle-bookmarks-panel when no xterm focused [H3]", () => {
+    renderHook(() => useKeyboardShortcuts());
+    simulateKeyDown("o", { ctrlKey: true, shiftKey: true });
+    expect(mockToggleBookmarksPanel).toHaveBeenCalledTimes(1);
+  });
+
+  it("Meta+Shift+O (macOS) triggers toggle-bookmarks-panel when no xterm focused [H3]", () => {
+    renderHook(() => useKeyboardShortcuts());
+    simulateKeyDown("o", { metaKey: true, shiftKey: true });
+    expect(mockToggleBookmarksPanel).toHaveBeenCalledTimes(1);
+  });
+
+  it("Ctrl+Shift+O does NOT trigger toggle-bookmarks-panel when xterm focused [H3]", () => {
+    const xtermDiv = document.createElement("div");
+    xtermDiv.classList.add("xterm");
+    const child = document.createElement("textarea");
+    xtermDiv.appendChild(child);
+    document.body.appendChild(xtermDiv);
+
+    try {
+      child.focus();
+
+      renderHook(() => useKeyboardShortcuts());
+      simulateKeyDown("o", { ctrlKey: true, shiftKey: true });
+
+      expect(mockToggleBookmarksPanel).not.toHaveBeenCalled();
+    } finally {
+      document.body.removeChild(xtermDiv);
     }
   });
 });

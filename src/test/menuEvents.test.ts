@@ -276,6 +276,35 @@ describe("useMenuEvents", () => {
     expect(onNewBrowserTab).toHaveBeenCalledTimes(1);
   });
 
+  // ─── M2: Async unmount race — cancelled flag ────────────────────
+
+  it("listener is cleaned up when unmounted before listen resolves", async () => {
+    // Replace the listen mock to delay resolution
+    const { listen } = await import("@tauri-apps/api/event");
+    const mockUnlisten = vi.fn();
+    let resolvePromise: ((fn: () => void) => void) | null = null;
+
+    vi.mocked(listen).mockImplementation(() => {
+      return new Promise<() => void>((resolve) => {
+        resolvePromise = resolve;
+      });
+    });
+
+    const { unmount } = renderHook(() => useMenuEvents());
+
+    // Unmount BEFORE promise resolves
+    unmount();
+
+    // Now resolve the promise — unlisten should be called immediately
+    // (the cancelled flag causes `fn()` to be called to tear down)
+    expect(resolvePromise).not.toBeNull();
+    resolvePromise!(mockUnlisten);
+
+    // The unlisten function should have been called because we unmounted
+    await new Promise((r) => setTimeout(r, 10));
+    expect(mockUnlisten).toHaveBeenCalledTimes(1);
+  });
+
   // ─── Unknown events ───────────────────────────────────────────
 
   it("unknown menu event does not throw", () => {

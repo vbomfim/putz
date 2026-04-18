@@ -14,6 +14,7 @@ import { useSettingsStore } from "../../stores/settingsStore";
 /** Callback for bookmark actions triggered by keyboard shortcut. */
 export interface KeyboardShortcutCallbacks {
   onAddBookmark?: () => void;
+  onToggleBookmarksPanel?: () => void;
 }
 
 // Module-level callbacks — set by App.tsx via setKeyboardShortcutCallbacks
@@ -114,6 +115,15 @@ export function useKeyboardShortcuts(): void {
         if (isXtermFocused()) return; // let terminal handle Ctrl+D
         e.preventDefault();
         shortcutCallbacks.onAddBookmark?.();
+        return;
+      }
+
+      // Cmd+Shift+O / Ctrl+Shift+O — Toggle Bookmarks Manager panel
+      // CRITICAL: bail when xterm is focused — avoid stealing focus from terminal
+      if (key === "o" && e.shiftKey) {
+        if (isXtermFocused()) return;
+        e.preventDefault();
+        shortcutCallbacks.onToggleBookmarksPanel?.();
         return;
       }
 

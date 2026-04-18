@@ -182,6 +182,7 @@ pub fn build_menu(app: &AppHandle<Wry>) -> Result<tauri::menu::Menu<Wry>, tauri:
         ))
         .separator()
         .item(&menu_item!(app, "menu-add-bookmark", "Add Bookmark"))
+        .item(&menu_item!(app, "menu-manage-bookmarks", "Manage Bookmarks…"))
         .build()?;
 
     let session_menu = SubmenuBuilder::new(app, "Session")
