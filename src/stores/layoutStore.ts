@@ -174,7 +174,7 @@ interface LayoutState {
   addBrowserTab: (regionId?: string, url?: string) => void;
 
   /** Adds an editor tab to a region (defaults to focused region). */
-  addEditorTab: (regionId?: string, filePath?: string, scriptId?: string) => void;
+  addEditorTab: (regionId?: string, filePath?: string, scriptId?: string, forceText?: boolean) => void;
 
   /** Adds a diff tab comparing two files or content strings. */
   addDiffTab: (regionId?: string, leftPath?: string, rightPath?: string, leftContent?: string, rightContent?: string) => void;
@@ -371,13 +371,14 @@ export const useLayoutStore = create<LayoutState>((set, get) => ({
     }));
   },
 
-  addEditorTab: (regionId?: string, filePath?: string, scriptId?: string) => {
+  addEditorTab: (regionId?: string, filePath?: string, scriptId?: string, forceText?: boolean) => {
     const targetRegionId = regionId || get().focusedRegionId;
     const region = get().regions[targetRegionId];
     if (!region) return;
 
     // CSV/TSV files open in the visual CSV editor instead of Monaco
-    if (filePath) {
+    // (unless caller explicitly asked for text mode)
+    if (filePath && !forceText) {
       const ext = filePath.split(".").pop()?.toLowerCase() || "";
       if (ext === "csv" || ext === "tsv") {
         get().addCsvTab(targetRegionId, filePath);

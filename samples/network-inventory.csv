@@ -1,4 +1,4 @@
-id,hostname,site,role,vendor,model,os_version,mgmt_ip,uptime_days,cpu_pct,mem_pct,interfaces,last_seen,owner,notes
+id,Hostnames,site,role,vendor,model,os_version,mgmt_ip,uptime_days,cpu_pct,mem_pct,interfaces,last_seen,owner,notes
 1,core-rtr-01,nyc-dc1,core-router,Cisco,ASR-9904,7.5.2,10.10.0.1,412,18,62,128,2026-04-17,netops,primary egress NYC
 2,core-rtr-02,nyc-dc1,core-router,Cisco,ASR-9904,7.5.2,10.10.0.2,409,21,64,128,2026-04-17,netops,backup egress NYC
 3,core-rtr-03,sfo-dc1,core-router,Juniper,MX240,21.4R3,10.20.0.1,287,12,55,96,2026-04-17,netops,primary egress SFO
@@ -49,3 +49,4 @@ id,hostname,site,role,vendor,model,os_version,mgmt_ip,uptime_days,cpu_pct,mem_pc
 48,syslog-01,nyc-dc1,logging,Custom,Linux x86_64,Ubuntu 22.04,10.10.85.1,290,15,61,2,2026-04-17,sre,rsyslog + Loki
 49,syslog-02,sfo-dc1,logging,Custom,Linux x86_64,Ubuntu 22.04,10.20.85.1,290,14,60,2,2026-04-17,sre,rsyslog + Loki
 50,radius-01,nyc-dc1,aaa,Cisco,ISE 3.3,3.3 patch 5,10.10.40.1,167,9,37,2,2026-04-17,secops,802.1X + TACACS+
+,,,,,,,,,,,,,,

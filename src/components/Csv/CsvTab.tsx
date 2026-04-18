@@ -192,7 +192,7 @@ export function CsvTab({ filePath, regionId, tabId }: CsvTabProps) {
   // Open in text mode (close this tab, open Monaco on same file)
   const handleSwitchToText = useCallback(() => {
     closeTab(regionId, tabId);
-    addEditorTab(regionId, filePath);
+    addEditorTab(regionId, filePath, undefined, true);
   }, [closeTab, regionId, tabId, addEditorTab, filePath]);
 
   // Column ops
