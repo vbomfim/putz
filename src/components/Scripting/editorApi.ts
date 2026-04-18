@@ -54,6 +54,15 @@ export function detectLanguage(filePath: string, content?: string): EditorLangua
     case "jinja":
     case "jinja2":
       return "jinja2";
+    case "txt":
+    case "log":
+    case "md":
+    case "markdown":
+    case "mdx":
+    case "csv":
+    case "tsv":
+    case "":
+      return "text";
     default:
       break;
   }
@@ -103,5 +112,7 @@ export function detectLanguage(filePath: string, content?: string): EditorLangua
     if (jinjaExprCount + jinjaTagCount >= 2) return "jinja2";
   }
 
-  return "javascript";
+  // Unknown extension and no content signal — treat as plain text rather
+  // than misidentifying it as JavaScript.
+  return "text";
 }
