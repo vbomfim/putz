@@ -307,3 +307,29 @@
   background: var(--border-color, #313244);
   margin: 4px 0;
 }
+
+.csv-tab__th--selected {
+  background: var(--accent-blue, #89b4fa) !important;
+  color: #11111b;
+}
+
+.csv-tab__th--selected .csv-tab__th-sort {
+  color: #11111b;
+}
+
+.csv-tab__row--selected .csv-tab__td:not(.csv-tab__td--frozen),
+.csv-tab__row--selected .csv-tab__td--rownum {
+  background: rgba(137, 180, 250, 0.18);
+}
+
+.csv-tab__row--selected .csv-tab__td--frozen:not(.csv-tab__td--rownum) {
+  background: rgba(137, 180, 250, 0.18);
+}
+
+.csv-tab__td--col-selected:not(.csv-tab__td--rownum) {
+  background: rgba(137, 180, 250, 0.10);
+}
+
+.csv-tab__row:hover .csv-tab__td--col-selected:not(.csv-tab__td--frozen) {
+  background: rgba(137, 180, 250, 0.18);
+}

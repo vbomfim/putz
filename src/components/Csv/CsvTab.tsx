@@ -46,6 +46,8 @@ export function CsvTab({ filePath, regionId, tabId }: CsvTabProps) {
   const [renamingCol, setRenamingCol] = useState<number | null>(null);
   const [renameValue, setRenameValue] = useState("");
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; col?: number; row?: number } | null>(null);
+  const [selectedRow, setSelectedRow] = useState<number | null>(null);
+  const [selectedCol, setSelectedCol] = useState<number | null>(null);
   const lastMtimeRef = useRef<number>(0);
 
   const tableContainerRef = useRef<HTMLDivElement | null>(null);
@@ -325,11 +327,47 @@ export function CsvTab({ filePath, regionId, tabId }: CsvTabProps) {
           />
         </label>
         <span className="csv-tab__sep" />
-        <button type="button" className="csv-tab__btn" onClick={() => insertRow(parsed.rows.length - 1)}>
+        <button
+          type="button"
+          className="csv-tab__btn"
+          onClick={() => insertRow(selectedRow !== null ? selectedRow : parsed.rows.length - 1)}
+          title={selectedRow !== null ? `Insert row after row ${selectedRow + 1}` : "Append row at end"}
+        >
           + Row
         </button>
-        <button type="button" className="csv-tab__btn" onClick={() => insertColumn(totalCols - 1)}>
+        <button
+          type="button"
+          className="csv-tab__btn"
+          onClick={() => {
+            if (selectedRow === null) return;
+            deleteRow(selectedRow);
+            setSelectedRow(null);
+          }}
+          disabled={selectedRow === null}
+          title={selectedRow !== null ? `Delete row ${selectedRow + 1}` : "Click a cell to select a row first"}
+        >
+          − Row
+        </button>
+        <button
+          type="button"
+          className="csv-tab__btn"
+          onClick={() => insertColumn(selectedCol !== null ? selectedCol : totalCols - 1)}
+          title={selectedCol !== null ? `Insert column after "${parsed.headers[selectedCol] ?? ""}"` : "Append column at end"}
+        >
           + Col
+        </button>
+        <button
+          type="button"
+          className="csv-tab__btn"
+          onClick={() => {
+            if (selectedCol === null) return;
+            deleteColumn(selectedCol);
+            setSelectedCol(null);
+          }}
+          disabled={selectedCol === null}
+          title={selectedCol !== null ? `Delete column "${parsed.headers[selectedCol] ?? ""}"` : "Click a header or cell to select a column first"}
+        >
+          − Col
         </button>
         <span className="csv-tab__sep" />
         <button type="button" className="csv-tab__btn" onClick={handleSwitchToText} title="Open this file in the text editor">
@@ -359,7 +397,7 @@ export function CsvTab({ filePath, regionId, tabId }: CsvTabProps) {
                 return (
                   <th
                     key={colIdx}
-                    className={`csv-tab__th ${isFrozen ? "csv-tab__th--frozen" : ""}`}
+                    className={`csv-tab__th ${isFrozen ? "csv-tab__th--frozen" : ""} ${selectedCol === colIdx ? "csv-tab__th--selected" : ""}`}
                     style={isFrozen ? { left: frozenLeftOffsets.get(position) } : undefined}
                     draggable={renamingCol !== colIdx}
                     onDragStart={() => {
@@ -380,6 +418,7 @@ export function CsvTab({ filePath, regionId, tabId }: CsvTabProps) {
                     }}
                     onContextMenu={(e) => {
                       e.preventDefault();
+                      setSelectedCol(colIdx);
                       setContextMenu({ x: e.clientX, y: e.clientY, col: colIdx });
                     }}
                   >
@@ -404,6 +443,7 @@ export function CsvTab({ filePath, regionId, tabId }: CsvTabProps) {
                         type="button"
                         className="csv-tab__th-btn"
                         onClick={() => {
+                          setSelectedCol(colIdx);
                           setSortBy((prev) => {
                             if (prev.col !== colIdx) return { col: colIdx, dir: "asc" };
                             if (prev.dir === "asc") return { col: colIdx, dir: "desc" };
@@ -416,7 +456,7 @@ export function CsvTab({ filePath, regionId, tabId }: CsvTabProps) {
                             setRenameValue(headerLabel);
                           }
                         }}
-                        title={hasHeader ? "Click: sort · Double-click: rename · Right-click: menu" : "Click: sort · Right-click: menu"}
+                        title={hasHeader ? "Click: sort + select · Double-click: rename · Right-click: menu" : "Click: sort + select · Right-click: menu"}
                       >
                         <span className="csv-tab__th-label">{headerLabel}</span>
                         <span className="csv-tab__th-sort">{sortGlyph}</span>
@@ -435,7 +475,7 @@ export function CsvTab({ filePath, regionId, tabId }: CsvTabProps) {
               return (
                 <tr
                   key={virtualRow.key}
-                  className="csv-tab__row"
+                  className={`csv-tab__row ${selectedRow === realRowIdx ? "csv-tab__row--selected" : ""}`}
                   style={{
                     position: "absolute",
                     top: 0,
@@ -447,7 +487,12 @@ export function CsvTab({ filePath, regionId, tabId }: CsvTabProps) {
                     tableLayout: "fixed",
                   }}
                 >
-                  <td className="csv-tab__td csv-tab__td--rownum csv-tab__td--frozen" style={{ left: 0, width: 40 }}>
+                  <td
+                    className="csv-tab__td csv-tab__td--rownum csv-tab__td--frozen"
+                    style={{ left: 0, width: 40 }}
+                    onClick={() => setSelectedRow(realRowIdx)}
+                    title={`Click to select row ${realRowIdx + 1}`}
+                  >
                     {realRowIdx + 1}
                   </td>
                   {orderedCols.map((colIdx, position) => {
@@ -457,15 +502,19 @@ export function CsvTab({ filePath, regionId, tabId }: CsvTabProps) {
                     return (
                       <td
                         key={colIdx}
-                        className={`csv-tab__td ${isFrozen ? "csv-tab__td--frozen" : ""}`}
+                        className={`csv-tab__td ${isFrozen ? "csv-tab__td--frozen" : ""} ${selectedCol === colIdx ? "csv-tab__td--col-selected" : ""}`}
                         style={isFrozen ? { left: frozenLeftOffsets.get(position) } : undefined}
                         onClick={() => {
+                          setSelectedRow(realRowIdx);
+                          setSelectedCol(colIdx);
                           if (isEditing) return;
                           setEditingCell({ row: realRowIdx, col: colIdx });
                           setEditValue(cellVal);
                         }}
                         onContextMenu={(e) => {
                           e.preventDefault();
+                          setSelectedRow(realRowIdx);
+                          setSelectedCol(colIdx);
                           setContextMenu({ x: e.clientX, y: e.clientY, col: colIdx, row: realRowIdx });
                         }}
                       >
