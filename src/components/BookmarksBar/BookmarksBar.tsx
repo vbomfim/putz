@@ -143,8 +143,30 @@ function FileTreeDropdown({ rootPath, anchorRef, onClose }: FileTreeDropdownProp
     return () => document.removeEventListener("keydown", handler);
   }, [onClose]);
 
+/** Send a cd command to the focused terminal. */
+function cdInTerminal(dirPath: string) {
+  const state = useLayoutStore.getState();
+  const region = state.regions[state.focusedRegionId];
+  if (!region) return;
+  const tab = region.tabs.find((t) => t.id === region.activeTabId);
+  if (!tab || tab.type !== "terminal") return;
+  const escaped = dirPath.replace(/\\/g, "\\\\").replace(/"/g, '\\"').replace(/\$/g, "\\$").replace(/`/g, "\\`");
+  const data = Array.from(new TextEncoder().encode(`cd "${escaped}"\n`));
+  invoke("pty_write", { sessionId: tab.sessionId, data }).catch(() => {});
+}
+
   return createPortal(
     <div ref={menuRef} className="bookmarks-bar__dropdown" style={style}>
+      <button
+        className="bookmarks-bar__dropdown-item"
+        type="button"
+        role="menuitem"
+        onClick={() => { cdInTerminal(rootPath); onClose(); }}
+        style={{ borderBottom: "1px solid rgba(255,255,255,0.06)", marginBottom: 4, paddingBottom: 8 }}
+      >
+        <span className="bookmarks-bar__icon" aria-hidden="true">💻</span>
+        <span className="bookmarks-bar__label">Open in Terminal</span>
+      </button>
       <FileTreeNode path={rootPath} depth={0} onClose={onClose} />
     </div>,
     document.body,
