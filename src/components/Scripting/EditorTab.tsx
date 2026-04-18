@@ -273,6 +273,7 @@ export function EditorTab({ filePath: initialFilePath, scriptId, regionId, tabId
           <div className="script-editor__language-toggle">
             {([
               ["text", "TXT", "Plain Text"],
+              ["markdown", "MD", "Markdown"],
               ["javascript", "JS", "JavaScript"],
               ["python", "PY", "Python"],
               ["terraform", "TF", "Terraform / HCL"],
@@ -378,7 +379,7 @@ export function EditorTab({ filePath: initialFilePath, scriptId, regionId, tabId
       {/* Status bar */}
       <div className="editor-tab__status">
         <span>{statusMessage}</span>
-        <span>{{ text: "Plain Text", "cisco-ios": "Cisco IOS", python: "Python", terraform: "Terraform", jinja2: "Jinja2", json: "JSON", yaml: "YAML", javascript: "JavaScript" }[language]}</span>
+        <span>{{ text: "Plain Text", markdown: "Markdown", "cisco-ios": "Cisco IOS", python: "Python", terraform: "Terraform", jinja2: "Jinja2", json: "JSON", yaml: "YAML", javascript: "JavaScript" }[language]}</span>
       </div>
     </div>
   );

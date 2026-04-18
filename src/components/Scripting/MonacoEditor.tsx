@@ -23,7 +23,7 @@ import { useThemeStore } from "../../stores/themeStore";
 // Use locally bundled Monaco instead of CDN (required for Tauri/offline)
 loader.config({ monaco: monacoEditor });
 
-export type EditorLanguage = "text" | "javascript" | "cisco-ios" | "python" | "terraform" | "json" | "yaml" | "jinja2";
+export type EditorLanguage = "text" | "markdown" | "javascript" | "cisco-ios" | "python" | "terraform" | "json" | "yaml" | "jinja2";
 
 interface MonacoEditorProps {
   /** Current editor content. */

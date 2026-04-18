@@ -54,11 +54,12 @@ export function detectLanguage(filePath: string, content?: string): EditorLangua
     case "jinja":
     case "jinja2":
       return "jinja2";
-    case "txt":
-    case "log":
     case "md":
     case "markdown":
     case "mdx":
+      return "markdown";
+    case "txt":
+    case "log":
     case "csv":
     case "tsv":
     case "":
