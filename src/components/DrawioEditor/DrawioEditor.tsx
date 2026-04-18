@@ -42,41 +42,57 @@ function DrawioEditorInner({ filePath, isActive }: { filePath: string; isActive:
   const [error, setError] = useState<string | null>(null);
   const [showStencilPalette, setShowStencilPalette] = useState(false);
   const filePathRef = useRef(filePath);
-  const initialLoadDone = useRef(false);
+  const lastMtimeRef = useRef<number>(0);
 
-  // Load from disk on mount — populate THIS instance's store
-  useEffect(() => {
-    if (initialLoadDone.current) return;
-    initialLoadDone.current = true;
+  /** Load file from disk into the store. */
+  const loadFromDisk = useCallback(async () => {
+    try {
+      const xml = await invoke<string>("file_read", { path: filePath });
+      const mtime = await invoke<number>("file_mtime", { path: filePath });
+      lastMtimeRef.current = mtime;
 
-    (async () => {
-      try {
-        const xml = await invoke<string>("file_read", { path: filePath });
-        if (!xml.trim()) {
-          setLoading(false);
-          return;
-        }
-        const expressions = drawioToExpressions(xml);
-        const exprMap: Record<string, VisualExpression> = {};
-        const order: string[] = [];
-        for (const expr of expressions) {
-          exprMap[expr.id] = expr;
-          order.push(expr.id);
-        }
-        const cam = expressions.length > 0
-          ? computeFitToContent(exprMap, order, window.innerWidth, window.innerHeight)
-          : { x: 0, y: 0, zoom: 1 };
-        const state = storeApi.getState();
-        const ordered = order.map((id) => exprMap[id]).filter(Boolean) as VisualExpression[];
-        state.replaceState(ordered, order);
-        state.setCamera(cam);
+      if (!xml.trim()) {
+        storeApi.getState().replaceState([], []);
         setLoading(false);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : String(err));
-        setLoading(false);
+        return;
       }
-    })();
+      const expressions = drawioToExpressions(xml);
+      const exprMap: Record<string, VisualExpression> = {};
+      const order: string[] = [];
+      for (const expr of expressions) {
+        exprMap[expr.id] = expr;
+        order.push(expr.id);
+      }
+      const cam = expressions.length > 0
+        ? computeFitToContent(exprMap, order, window.innerWidth, window.innerHeight)
+        : { x: 0, y: 0, zoom: 1 };
+      const ordered = order.map((id) => exprMap[id]).filter(Boolean) as VisualExpression[];
+      storeApi.getState().replaceState(ordered, order);
+      storeApi.getState().setCamera(cam);
+      setLoading(false);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+      setLoading(false);
+    }
   }, [filePath, storeApi]);
+
+  // Initial load
+  useEffect(() => {
+    loadFromDisk();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Reload when tab becomes active if file changed on disk
+  useEffect(() => {
+    if (!isActive || loading) return;
+    invoke<number>("file_mtime", { path: filePath })
+      .then((mtime) => {
+        if (mtime > lastMtimeRef.current) {
+          loadFromDisk();
+        }
+      })
+      .catch(() => {});
+  }, [isActive, filePath, loading, loadFromDisk]);
 
   // Save on Cmd+S (only when active)
   const handleSave = useCallback(async () => {
@@ -87,6 +103,9 @@ function DrawioEditorInner({ filePath, isActive }: { filePath: string; isActive:
         .filter(Boolean) as VisualExpression[];
       const xml = expressionsToDrawio(ordered);
       await invoke("file_write", { path: filePathRef.current, content: xml });
+      // Update mtime so we don't trigger a reload for our own save
+      const mtime = await invoke<number>("file_mtime", { path: filePathRef.current });
+      lastMtimeRef.current = mtime;
     } catch (err) {
       console.error("Failed to save .drawio:", err);
     }
