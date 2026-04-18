@@ -41,8 +41,10 @@ const DRAG_THRESHOLD_SQ = DRAG_THRESHOLD * DRAG_THRESHOLD;
 // ─── Types ──────────────────────────────────────────────────────────
 
 export interface BookmarksPanelProps {
-  /** Called to close the modal. */
-  onClose: () => void;
+  /** Called to close the modal. Optional in tab mode. */
+  onClose?: () => void;
+  /** When true, render as an embedded tab (no overlay, no close button). */
+  asTab?: boolean;
 }
 
 /** Union type for items in the tree list. */
@@ -148,7 +150,7 @@ function InlineRenameInput({
 
 // ─── Main Component ─────────────────────────────────────────────────
 
-export function BookmarksPanel({ onClose }: BookmarksPanelProps) {
+export function BookmarksPanel({ onClose, asTab = false }: BookmarksPanelProps) {
   // Capture the element that had focus when modal opened — restore on close
   const openerRef = useRef<Element | null>(null);
   const panelRef = useRef<HTMLDivElement>(null);
@@ -254,7 +256,7 @@ export function BookmarksPanel({ onClose }: BookmarksPanelProps) {
 
   const handleClose = useCallback(() => {
     const opener = openerRef.current;
-    onClose();
+    onClose?.();
     // Restore focus after React processes the close
     requestAnimationFrame(() => {
       if (opener && opener instanceof HTMLElement) {
@@ -574,25 +576,31 @@ export function BookmarksPanel({ onClose }: BookmarksPanelProps) {
 
   return (
     <div
-      className="modal-overlay"
-      onClick={handleOverlayClick}
+      className={asTab ? "bookmarks-panel-tab-wrapper" : "modal-overlay"}
+      onClick={asTab ? undefined : handleOverlayClick}
       onKeyDown={handleOverlayKeyDown}
-      role="dialog"
-      aria-modal="true"
+      role={asTab ? "region" : "dialog"}
+      aria-modal={asTab ? undefined : "true"}
       aria-label="Bookmarks Manager"
     >
       <div
-        className="modal-panel modal-panel--wide bookmarks-panel"
+        className={
+          asTab
+            ? "bookmarks-panel bookmarks-panel--tab"
+            : "modal-panel modal-panel--wide bookmarks-panel"
+        }
         ref={panelRef}
       >
-        <button
-          className="modal-close"
-          onClick={handleClose}
-          aria-label="Close"
-          type="button"
-        >
-          ✕
-        </button>
+        {!asTab && (
+          <button
+            className="modal-close"
+            onClick={handleClose}
+            aria-label="Close"
+            type="button"
+          >
+            ✕
+          </button>
+        )}
 
         {/* Header */}
         <div className="bookmarks-panel__header">

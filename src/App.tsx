@@ -37,7 +37,6 @@ import { QuickConnect } from "./components/QuickConnect";
 import { CredentialReminder } from "./components/Vault/CredentialReminder";
 import { PingDashboard } from "./components/Ping/PingDashboard";
 import { Toast, useToast } from "./components/Toast";
-import { BookmarksPanel } from "./components/BookmarksPanel";
 
 import { ThemeEditor } from "./components/Terminal/ThemeEditor";
 import { FontConfig } from "./components/Terminal/FontConfig";
@@ -68,6 +67,7 @@ function App() {
   const addHistoryTab = useLayoutStore((s) => s.addHistoryTab);
   const addTemplateTab = useLayoutStore((s) => s.addTemplateTab);
   const addSettingsTab = useLayoutStore((s) => s.addSettingsTab);
+  const addBookmarksTab = useLayoutStore((s) => s.addBookmarksTab);
   const workspaceBarVisible = useSettingsStore((s) => s.workspaceBarVisible);
   const toggleWorkspaceBar = useSettingsStore((s) => s.toggleWorkspaceBar);
   const bookmarksBarVisible = useSettingsStore((s) => s.bookmarksBarVisible);
@@ -80,7 +80,6 @@ function App() {
   const [pingOpen, setPingOpen] = useState(false);
   const [availableThemes, setAvailableThemes] = useState<Theme[]>([]);
   const [toastMessage, showToast, dismissToast] = useToast();
-  const [bookmarksPanelOpen, setBookmarksPanelOpen] = useState(false);
 
   // ─── Bookmark: core "add bookmark" logic ─────────────────────────
   /**
@@ -162,10 +161,10 @@ function App() {
   useEffect(() => {
     setKeyboardShortcutCallbacks({
       onAddBookmark: handleAddBookmark,
-      onToggleBookmarksPanel: () => setBookmarksPanelOpen((prev) => !prev),
+      onToggleBookmarksPanel: () => addBookmarksTab(),
     });
     return () => setKeyboardShortcutCallbacks({});
-  }, [handleAddBookmark]);
+  }, [handleAddBookmark, addBookmarksTab]);
 
   // Wire context menu bookmark callback (module-level, avoids prop drilling)
   useEffect(() => {
@@ -204,10 +203,10 @@ function App() {
       onToggleWorkspaceBar: () => toggleWorkspaceBar(),
       onToggleBookmarksBar: () => toggleBookmarksBar(),
       onAddBookmark: handleAddBookmark,
-      onToggleBookmarksPanel: () => setBookmarksPanelOpen((prev) => !prev),
+      onToggleBookmarksPanel: () => addBookmarksTab(),
     });
     return () => setMenuEventCallbacks({});
-  }, [addBrowserTab, addEditorTab, addVaultTab, addHistoryTab, addTemplateTab, addSettingsTab, toggleWorkspaceBar, toggleBookmarksBar, handleAddBookmark]);
+  }, [addBrowserTab, addEditorTab, addVaultTab, addHistoryTab, addTemplateTab, addSettingsTab, addBookmarksTab, toggleWorkspaceBar, toggleBookmarksBar, handleAddBookmark]);
 
   // Create the first tab on mount only
   useEffect(() => {
@@ -387,11 +386,6 @@ function App() {
         <div className="modal-overlay" onClick={(e) => { if (e.target === e.currentTarget) setPingOpen(false); }} role="dialog" aria-modal="true">
           <div className="modal-panel modal-panel--wide"><button className="modal-close" onClick={() => setPingOpen(false)}>✕</button><PingDashboard /></div>
         </div>
-      )}
-
-      {/* Bookmarks Manager panel — mount/unmount to avoid idle Zustand subscriptions */}
-      {bookmarksPanelOpen && (
-        <BookmarksPanel onClose={() => setBookmarksPanelOpen(false)} />
       )}
 
       {/* Toast notification — auto-dismiss, bottom-right */}

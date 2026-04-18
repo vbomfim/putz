@@ -18,6 +18,7 @@ import { VaultTab } from "../Vault/VaultTab";
 import { HistoryTab } from "../History/HistoryTab";
 import { TemplateTab } from "../Templates/TemplateTab";
 import { SettingsTab } from "../Settings/SettingsTab";
+import { BookmarksPanel } from "../BookmarksPanel";
 import { MarkdownTab } from "../Markdown/MarkdownTab";
 import { CsvTab } from "../Csv/CsvTab";
 import { RegionTabBar } from "./RegionTabBar";
@@ -164,6 +165,13 @@ export function RegionView({ region, isFocused }: RegionViewProps) {
             return (
               <div key={tab.id} style={{ display: isTabActive ? "flex" : "none", flex: 1, flexDirection: "column", minHeight: 0, overflow: "hidden" }}>
                 <SettingsTab />
+              </div>
+            );
+          }
+          if (tab.type === "bookmarks") {
+            return (
+              <div key={tab.id} style={{ display: isTabActive ? "flex" : "none", flex: 1, flexDirection: "column", minHeight: 0, overflow: "hidden" }}>
+                <BookmarksPanel asTab />
               </div>
             );
           }
