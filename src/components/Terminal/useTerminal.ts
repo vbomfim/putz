@@ -32,7 +32,12 @@ import {
   clampFontSize,
 } from "./terminalPolish";
 import { changeWindowCheck } from "../Compliance/complianceApi";
-import { setSessionCwdFromTitle, getSessionCwdAtLine } from "./cwdRegistry";
+import {
+  recordSessionCwd,
+  getSessionCwdAtLine,
+  parseCwdFromTitle,
+  parseCwdFromOsc7,
+} from "./cwdRegistry";
 
 interface UseTerminalOptions {
   /** UUID v4 session identifier from pty_spawn. */
@@ -440,21 +445,52 @@ export function useTerminal({
     // Also feeds the per-session CWD registry — many shells set the title
     // to the prompt path, which we mine to resolve relative file links
     // when the backend cannot read the child's CWD (Windows in particular).
-    terminal.onTitleChange((title: string) => {
-      onTitleChangeRef.current?.(title);
-      // Pin a marker at the line where the cwd change is being recorded so
-      // we can later resolve relative paths clicked in old scrollback against
-      // the cwd that was active at THAT line, not the latest cwd.
+    // Helper: pin a marker at the current cursor line and record a cwd change.
+    const recordCwdAtCursor = (cwd: string) => {
       const buffer = terminal.buffer.active;
       const cursorAbsLine = buffer.baseY + buffer.cursorY;
-      let marker = null;
+      let marker: import("@xterm/xterm").IMarker | null = null;
       try {
-        marker = terminal.registerMarker(0); // marker at current cursor line
+        marker = terminal.registerMarker(0);
       } catch {
         // registerMarker can throw if cursor is out of viewport — best effort
       }
-      setSessionCwdFromTitle(sessionId, title, marker, cursorAbsLine);
+      recordSessionCwd(sessionId, cwd, marker, cursorAbsLine);
+    };
+
+    terminal.onTitleChange((title: string) => {
+      onTitleChangeRef.current?.(title);
+      const cwd = parseCwdFromTitle(title);
+      if (cwd) recordCwdAtCursor(cwd);
     });
+
+    // OSC 7 — modern cwd notification (\e]7;file://hostname/path\a).
+    // macOS Terminal.app, iTerm2, GNOME Terminal, VS Code's terminal all use
+    // this. zsh on macOS sends it from /etc/zshrc via update_terminal_cwd.
+    // xterm.js does NOT surface OSC 7 via onTitleChange — register directly.
+    try {
+      terminal.parser.registerOscHandler(7, (data: string) => {
+        // data is everything after "7;" up to ST/BEL.
+        // Format: file://hostname/percent-encoded/path
+        const cwd = parseCwdFromOsc7(data);
+        if (cwd) recordCwdAtCursor(cwd);
+        return false; // let other handlers (if any) run
+      });
+    } catch {
+      // Older xterm.js versions may not expose parser.registerOscHandler
+    }
+
+    // OSC 1337 — iTerm2's CurrentDir notification (\e]1337;CurrentDir=/path\a).
+    // Used by some shell integration scripts (oh-my-zsh, iTerm2 shell integration).
+    try {
+      terminal.parser.registerOscHandler(1337, (data: string) => {
+        const m = data.match(/^CurrentDir=(.+)$/);
+        if (m) recordCwdAtCursor(m[1]);
+        return false;
+      });
+    } catch {
+      // ignore
+    }
 
     // Keyboard shortcuts: Cmd/Ctrl+C/V/A (copy/paste/select-all),
     // Ctrl+Shift+H (highlight), Ctrl+Plus/Minus/0 (font zoom)

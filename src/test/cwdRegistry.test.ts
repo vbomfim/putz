@@ -106,3 +106,33 @@ describe("session cwd history", () => {
     expect(getSessionCwdAtLine("nonexistent", 0)).toBeUndefined();
   });
 });
+
+import { parseCwdFromOsc7 } from "../components/Terminal/cwdRegistry";
+
+describe("parseCwdFromOsc7", () => {
+  it("parses macOS Terminal/iTerm OSC 7 with hostname", () => {
+    expect(parseCwdFromOsc7("file://Mac.local/Users/foo/dev")).toBe("/Users/foo/dev");
+  });
+
+  it("parses OSC 7 with empty host (file:///path)", () => {
+    expect(parseCwdFromOsc7("file:///home/foo/proj")).toBe("/home/foo/proj");
+  });
+
+  it("decodes percent-encoded paths (spaces, special chars)", () => {
+    expect(parseCwdFromOsc7("file://host/Users/foo/dev%20stuff")).toBe(
+      "/Users/foo/dev stuff",
+    );
+    expect(parseCwdFromOsc7("file://host/path/with%23hash")).toBe(
+      "/path/with#hash",
+    );
+  });
+
+  it("handles missing file:// prefix gracefully", () => {
+    expect(parseCwdFromOsc7("host/home/foo")).toBe("/home/foo");
+  });
+
+  it("returns null for empty or malformed payload", () => {
+    expect(parseCwdFromOsc7("")).toBe(null);
+    expect(parseCwdFromOsc7("file://hostnoslash")).toBe(null);
+  });
+});

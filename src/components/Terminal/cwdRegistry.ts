@@ -36,6 +36,30 @@ const MAX_HISTORY_PER_SESSION = 500;
 const historyBySession = new Map<string, CwdEntry[]>();
 
 /**
+ * Parse OSC 7 payload: "file://hostname/percent-encoded/path".
+ * Returns the decoded absolute path, or null if not parseable.
+ *
+ * Examples:
+ *   file://Mac.local/Users/foo/dev%20stuff  →  /Users/foo/dev stuff
+ *   file:///home/foo/proj                   →  /home/foo/proj
+ */
+export function parseCwdFromOsc7(data: string): string | null {
+  if (!data) return null;
+  // Strip optional "file://" prefix and the host segment up to the first /
+  let s = data.trim();
+  if (s.startsWith("file://")) s = s.slice("file://".length);
+  // After file://, format is hostname/path — drop hostname (everything up to first /)
+  const slash = s.indexOf("/");
+  if (slash < 0) return null;
+  const path = s.slice(slash);
+  try {
+    return decodeURIComponent(path);
+  } catch {
+    return path;
+  }
+}
+
+/**
  * Try to extract an absolute filesystem path from a terminal title.
  * Returns the CWD string if recognised, otherwise null.
  */
