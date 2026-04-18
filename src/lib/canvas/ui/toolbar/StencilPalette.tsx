@@ -277,7 +277,7 @@ export function StencilPalette({ onInsert, isOpen }: StencilPaletteProps) {
       role="navigation"
       aria-label="Stencil palette"
       style={{
-        position: 'fixed',
+        position: 'absolute',
         left: 60,
         top: '50%',
         transform: 'translateY(-50%)',

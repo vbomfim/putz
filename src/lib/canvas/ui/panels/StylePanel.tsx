@@ -57,7 +57,7 @@ const STROKE_STYLES = [
 // ── Inline style constants ─────────────────────────────────
 
 const PANEL_STYLE: React.CSSProperties = {
-  position: 'fixed',
+  position: 'absolute',
   right: 12,
   top: '50%',
   transform: 'translateY(-50%)',

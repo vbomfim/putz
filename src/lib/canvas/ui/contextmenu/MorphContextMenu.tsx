@@ -75,7 +75,7 @@ export function MorphContextMenu({
       role="menu"
       aria-label="View as"
       style={{
-        position: 'fixed',
+        position: 'absolute',
         left: `${position.x}px`,
         top: `${position.y}px`,
         backgroundColor: '#ffffff',

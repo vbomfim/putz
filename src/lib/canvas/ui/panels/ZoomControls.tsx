@@ -86,7 +86,7 @@ export function ZoomControls() {
     <div
       data-testid="zoom-controls"
       style={{
-        position: 'fixed',
+        position: 'absolute',
         bottom: 12,
         right: 12,
         display: 'flex',

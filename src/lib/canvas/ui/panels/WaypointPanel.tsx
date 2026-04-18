@@ -117,7 +117,7 @@ export function WaypointPanel({ isOpen }: WaypointPanelProps) {
       role="navigation"
       aria-label="Waypoints"
       style={{
-        position: 'fixed',
+        position: 'absolute',
         left: 60,
         top: '50%',
         transform: 'translateY(-50%)',

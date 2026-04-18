@@ -93,7 +93,7 @@ export function LayerPanel({ isOpen }: LayerPanelProps) {
       role="navigation"
       aria-label="Layers"
       style={{
-        position: 'fixed',
+        position: 'absolute',
         right: 12,
         top: '50%',
         transform: 'translateY(-50%)',

@@ -91,7 +91,7 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
     <div
       data-testid="settings-panel"
       style={{
-        position: 'fixed',
+        position: 'absolute',
         inset: 0,
         display: 'flex',
         alignItems: 'center',

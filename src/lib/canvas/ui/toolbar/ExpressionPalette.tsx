@@ -285,7 +285,7 @@ export function ExpressionPalette({ onInsert }: ExpressionPaletteProps) {
   return (
     <div
       style={{
-        position: 'fixed',
+        position: 'absolute',
         left: 12,
         bottom: 16,
         zIndex: 20,

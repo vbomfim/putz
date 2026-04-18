@@ -84,7 +84,7 @@ export function Toolbar({ onToggleStencilPalette, isStencilPaletteOpen, onToggle
       role="toolbar"
       aria-label="Drawing tools"
       style={{
-        position: 'fixed',
+        position: 'absolute',
         left: 12,
         top: '50%',
         transform: 'translateY(-50%)',

@@ -342,7 +342,7 @@ export function FloatingConnectorPanel() {
       onMouseDown={(e) => e.stopPropagation()}
       style={{
         ...FLOATING_PANEL_STYLE,
-        position: 'fixed',
+        position: 'absolute',
         left: `${clamped.x}px`,
         top: `${clamped.y}px`,
       }}
