@@ -13,7 +13,6 @@ const STORAGE_KEY = "putz-settings";
 
 /** Persisted state shape. */
 interface PersistedSettings {
-  toolbarVisible: boolean;
   workspaceBarVisible: boolean;
   bookmarksBarVisible: boolean;
   backgroundEffect: string;
@@ -32,7 +31,6 @@ function loadPersistedSettings(): PersistedSettings {
     if (raw) {
       const parsed = JSON.parse(raw) as Partial<PersistedSettings>;
       return {
-        toolbarVisible: parsed.toolbarVisible ?? false,
         workspaceBarVisible: parsed.workspaceBarVisible ?? true,
         bookmarksBarVisible: parsed.bookmarksBarVisible ?? false,
         backgroundEffect: parsed.backgroundEffect ?? "none",
@@ -47,7 +45,7 @@ function loadPersistedSettings(): PersistedSettings {
   } catch {
     // Corrupted localStorage — fall through to defaults
   }
-  return { toolbarVisible: false, workspaceBarVisible: true, bookmarksBarVisible: false, backgroundEffect: "none", backgroundOpacity: 0.15, backgroundColorMode: "theme", backgroundCustomColor: "#50fa7b", backgroundSpeed: 1, backgroundSize: "large", defaultShell: "" };
+  return { workspaceBarVisible: true, bookmarksBarVisible: false, backgroundEffect: "none", backgroundOpacity: 0.15, backgroundColorMode: "theme", backgroundCustomColor: "#50fa7b", backgroundSpeed: 1, backgroundSize: "large", defaultShell: "" };
 }
 
 /** Saves settings to localStorage. */
@@ -62,9 +60,6 @@ function persistSettings(settings: PersistedSettings): void {
 // ─── Store Definition ────────────────────────────────────────────────
 
 interface SettingsState {
-  /** Whether the toolbar is visible. */
-  toolbarVisible: boolean;
-
   /** Whether the keyboard shortcuts panel is open. */
   shortcutsPanelOpen: boolean;
 
@@ -94,12 +89,6 @@ interface SettingsState {
 
   /** Default shell path (empty = system default). */
   defaultShell: string;
-
-  /** Toggles toolbar visibility and persists to localStorage. */
-  toggleToolbar: () => void;
-
-  /** Sets toolbar visibility explicitly and persists to localStorage. */
-  setToolbarVisible: (visible: boolean) => void;
 
   /** Toggles the workspace bar visibility and persists to localStorage. */
   toggleWorkspaceBar: () => void;
@@ -144,7 +133,6 @@ export const useSettingsStore = create<SettingsState>((set, get) => {
   const persist = () => {
     const s = get();
     persistSettings({
-      toolbarVisible: s.toolbarVisible,
       workspaceBarVisible: s.workspaceBarVisible,
       bookmarksBarVisible: s.bookmarksBarVisible,
       backgroundEffect: s.backgroundEffect,
@@ -158,7 +146,6 @@ export const useSettingsStore = create<SettingsState>((set, get) => {
   };
 
   return {
-    toolbarVisible: persisted.toolbarVisible,
     workspaceBarVisible: persisted.workspaceBarVisible,
     bookmarksBarVisible: persisted.bookmarksBarVisible,
     backgroundEffect: persisted.backgroundEffect,
@@ -169,16 +156,6 @@ export const useSettingsStore = create<SettingsState>((set, get) => {
     backgroundSize: persisted.backgroundSize,
     defaultShell: persisted.defaultShell,
     shortcutsPanelOpen: false,
-
-    toggleToolbar: () => {
-      set({ toolbarVisible: !get().toolbarVisible });
-      persist();
-    },
-
-    setToolbarVisible: (visible: boolean) => {
-      set({ toolbarVisible: visible });
-      persist();
-    },
 
     toggleWorkspaceBar: () => {
       set({ workspaceBarVisible: !get().workspaceBarVisible });

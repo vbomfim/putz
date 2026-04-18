@@ -71,7 +71,6 @@ export function useMenuEvents(): void {
 
   const toggleBroadcast = useBroadcastStore((s) => s.toggle);
 
-  const toggleToolbar = useSettingsStore((s) => s.toggleToolbar);
   const toggleShortcutsPanel = useSettingsStore((s) => s.toggleShortcutsPanel);
 
   const handleMenuEvent = useCallback(
@@ -120,9 +119,6 @@ export function useMenuEvents(): void {
           if (toggleBtn) toggleBtn.click();
           break;
         }
-        case "menu-toggle-toolbar":
-          toggleToolbar();
-          break;
         case "menu-split-vertical":
           splitRegion("vertical");
           break;
@@ -238,7 +234,6 @@ export function useMenuEvents(): void {
       
       
       toggleBroadcast,
-      toggleToolbar,
       toggleShortcutsPanel,
       nextTab,
       prevTab,

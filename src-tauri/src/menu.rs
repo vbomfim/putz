@@ -162,7 +162,6 @@ pub fn build_menu(app: &AppHandle<Wry>) -> Result<tauri::menu::Menu<Wry>, tauri:
             "menu-toggle-workspace-bar",
             "Toggle Workspace Bar"
         ))
-        .item(&menu_item!(app, "menu-toggle-toolbar", "Toggle Toolbar"))
         .item(&menu_item!(
             app,
             "menu-toggle-bookmarks-bar",
@@ -340,10 +339,10 @@ mod tests {
     #[test]
     fn menu_event_payload_contains_id_field() {
         let payload = MenuEventPayload {
-            id: "menu-toggle-toolbar".to_string(),
+            id: "menu-toggle-bookmarks-bar".to_string(),
         };
         let json = serde_json::to_value(&payload).unwrap();
-        assert_eq!(json["id"], "menu-toggle-toolbar");
+        assert_eq!(json["id"], "menu-toggle-bookmarks-bar");
     }
 
     /// Verifies the menu_item! macro creates valid string IDs.
@@ -352,7 +351,7 @@ mod tests {
         let ids = [
             "menu-new-terminal",
             "menu-close-tab",
-            "menu-toggle-toolbar",
+            "menu-toggle-bookmarks-bar",
             "menu-split-vertical",
             "menu-keyboard-shortcuts",
             "menu-add-bookmark",

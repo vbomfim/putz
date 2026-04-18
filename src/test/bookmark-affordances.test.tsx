@@ -110,8 +110,6 @@ vi.mock("../stores/settingsStore", () => ({
   useSettingsStore: vi.fn((selector: (state: unknown) => unknown) => {
     const state = {
       toggleShortcutsPanel: vi.fn(),
-      toolbarVisible: true,
-      toggleToolbar: vi.fn(),
     };
     return selector(state);
   }),

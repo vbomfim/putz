@@ -20,14 +20,12 @@ const mockToggleSearch = vi.fn();
 const mockToggleLogging = vi.fn();
 const mockToggleBroadcast = vi.fn();
 const mockToggleShortcutsPanel = vi.fn();
-const mockToggleToolbar = vi.fn();
 const mockRemoveTab = vi.fn();
 const mockCloseAllTabs = vi.fn();
 const mockActivateNextTab = vi.fn();
 const mockActivatePreviousTab = vi.fn();
 
-let mockToolbarVisible = true;
-let mockActiveTabStatus = "local";
+const mockActiveTabStatus = "local";
 
 // ─── Tauri API mocks ──────────────────────────────────────────────
 
@@ -84,9 +82,7 @@ vi.mock("allotment/dist/style.css", () => ({}));
 vi.mock("../stores/settingsStore", () => ({
   useSettingsStore: vi.fn((selector: (state: unknown) => unknown) => {
     const state = {
-      toolbarVisible: mockToolbarVisible,
       toggleShortcutsPanel: mockToggleShortcutsPanel,
-      toggleToolbar: mockToggleToolbar,
     };
     return selector(state);
   }),
@@ -188,116 +184,6 @@ describe("Bug 1: Split pane terminal fitting", () => {
 
     // Verify ResizeObserver debounce exists
     expect(code).toContain("resizeObserverTimer");
-  });
-});
-
-// ─── Bug 2: Connect/Disconnect Context Tests ────────────────────
-
-describe("Bug 2: Connect/Disconnect for local terminals", () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-    mockToolbarVisible = true;
-    mockActiveTabStatus = "local";
-    capturedListeners.clear();
-    mockListen.mockImplementation(
-      (event: string, callback: ListenCallback) => {
-        capturedListeners.set(event, callback);
-        return Promise.resolve(vi.fn());
-      },
-    );
-  });
-
-  it("Connect button is disabled when active tab is local", async () => {
-    mockActiveTabStatus = "local";
-    const { Toolbar } = await import("../components/Toolbar");
-
-    render(<Toolbar />);
-
-    const connectBtn = screen.getByTestId("toolbar-connect");
-    expect(connectBtn).toBeDisabled();
-  });
-
-  it("Disconnect button is disabled when active tab is local", async () => {
-    mockActiveTabStatus = "local";
-    const { Toolbar } = await import("../components/Toolbar");
-
-    render(<Toolbar />);
-
-    const disconnectBtn = screen.getByTestId("toolbar-disconnect");
-    expect(disconnectBtn).toBeDisabled();
-  });
-
-  it("Reconnect button is disabled when active tab is local", async () => {
-    mockActiveTabStatus = "local";
-    const { Toolbar } = await import("../components/Toolbar");
-
-    render(<Toolbar />);
-
-    const reconnectBtn = screen.getByTestId("toolbar-reconnect");
-    expect(reconnectBtn).toBeDisabled();
-  });
-
-  it("Connect button is enabled when active tab is disconnected", async () => {
-    mockActiveTabStatus = "disconnected";
-    const { Toolbar } = await import("../components/Toolbar");
-
-    render(<Toolbar />);
-
-    const connectBtn = screen.getByTestId("toolbar-connect");
-    expect(connectBtn).not.toBeDisabled();
-  });
-
-  // ─── Menu event handler tests for connect/disconnect/reconnect ───
-
-  it("menu-connect on local tab logs warning instead of acting", async () => {
-    mockActiveTabStatus = "local";
-    const { useMenuEvents } = await import("../utils/useMenuEvents");
-
-    const consoleSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
-
-    renderHook(() => useMenuEvents());
-
-    const listener = capturedListeners.get("menu-event");
-    if (listener) {
-      listener({ payload: { id: "menu-connect" } });
-    }
-
-    expect(consoleSpy).toHaveBeenCalled();
-    consoleSpy.mockRestore();
-  });
-
-  it("menu-disconnect on local tab logs warning instead of acting", async () => {
-    mockActiveTabStatus = "local";
-    const { useMenuEvents } = await import("../utils/useMenuEvents");
-
-    const consoleSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
-
-    renderHook(() => useMenuEvents());
-
-    const listener = capturedListeners.get("menu-event");
-    if (listener) {
-      listener({ payload: { id: "menu-disconnect" } });
-    }
-
-    expect(consoleSpy).toHaveBeenCalled();
-    consoleSpy.mockRestore();
-  });
-
-  it("menu-reconnect on local tab logs warning instead of acting", async () => {
-    mockActiveTabStatus = "local";
-    const { useMenuEvents } = await import("../utils/useMenuEvents");
-
-    const consoleSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
-
-    renderHook(() => useMenuEvents());
-
-    const listener = capturedListeners.get("menu-event");
-    if (listener) {
-      listener({ payload: { id: "menu-reconnect" } });
-    }
-
-    expect(consoleSpy).toHaveBeenCalled();
-    consoleSpy.mockRestore();
   });
 });
 

@@ -30,7 +30,6 @@ const mockToggleLogging = vi.fn();
 const mockActivateNextTab = vi.fn();
 const mockActivatePreviousTab = vi.fn();
 const mockToggleBroadcast = vi.fn();
-const mockToggleToolbar = vi.fn();
 const mockToggleShortcutsPanel = vi.fn();
 
 vi.mock("../stores/tabStore", () => ({
@@ -71,7 +70,6 @@ vi.mock("../stores/broadcastStore", () => ({
 vi.mock("../stores/settingsStore", () => ({
   useSettingsStore: vi.fn((selector: (state: unknown) => unknown) => {
     const state = {
-      toggleToolbar: mockToggleToolbar,
       toggleShortcutsPanel: mockToggleShortcutsPanel,
     };
     return selector(state);
@@ -131,12 +129,6 @@ describe("useMenuEvents", () => {
   });
 
   // ─── View menu ─────────────────────────────────────────────────
-
-  it("menu-toggle-toolbar calls toggleToolbar", () => {
-    renderHook(() => useMenuEvents());
-    emitMenuEvent("menu-toggle-toolbar");
-    expect(mockToggleToolbar).toHaveBeenCalledTimes(1);
-  });
 
   it("menu-toggle-bookmarks-bar calls onToggleBookmarksBar callback", () => {
     const onToggleBookmarksBar = vi.fn();
