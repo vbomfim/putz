@@ -2,6 +2,24 @@ import "@testing-library/jest-dom/vitest";
 import { vi } from "vitest";
 
 /**
+ * Polyfill PointerEvent for jsdom — required by components using
+ * pointer-based drag and drop (BookmarksBar, RegionTabBar).
+ * jsdom does not implement PointerEvent natively.
+ */
+if (typeof globalThis.PointerEvent === "undefined") {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  (globalThis as any).PointerEvent = class PointerEvent extends MouseEvent {
+    readonly pointerId: number;
+    readonly pointerType: string;
+    constructor(type: string, params: PointerEventInit = {}) {
+      super(type, params);
+      this.pointerId = params.pointerId ?? 0;
+      this.pointerType = params.pointerType ?? "";
+    }
+  };
+}
+
+/**
  * Polyfill ResizeObserver for jsdom — required by useTerminal.ts
  * which uses ResizeObserver to re-fit terminals on container resize.
  */

@@ -162,6 +162,12 @@ pub fn build_menu(app: &AppHandle<Wry>) -> Result<tauri::menu::Menu<Wry>, tauri:
             "menu-toggle-workspace-bar",
             "Toggle Workspace Bar"
         ))
+        .item(&menu_item!(
+            app,
+            "menu-toggle-bookmarks-bar",
+            "Toggle Bookmarks Bar",
+            "CmdOrCtrl+Shift+J"
+        ))
         .build()?;
 
     let session_menu = SubmenuBuilder::new(app, "Session")

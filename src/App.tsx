@@ -28,6 +28,7 @@ import { PingDashboard } from "./components/Ping/PingDashboard";
 import { ThemeEditor } from "./components/Terminal/ThemeEditor";
 import { FontConfig } from "./components/Terminal/FontConfig";
 import { WorkspaceBar } from "./components/Workspace";
+import { BookmarksBar } from "./components/BookmarksBar";
 import { useThemeStore } from "./stores/themeStore";
 import { useSettingsStore } from "./stores/settingsStore";
 import type { Theme } from "./components/Terminal/themeTypes";
@@ -47,6 +48,8 @@ function App() {
   const addSettingsTab = useLayoutStore((s) => s.addSettingsTab);
   const workspaceBarVisible = useSettingsStore((s) => s.workspaceBarVisible);
   const toggleWorkspaceBar = useSettingsStore((s) => s.toggleWorkspaceBar);
+  const bookmarksBarVisible = useSettingsStore((s) => s.bookmarksBarVisible);
+  const toggleBookmarksBar = useSettingsStore((s) => s.toggleBookmarksBar);
   const hasInitialized = useRef(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [quickConnectOpen, setQuickConnectOpen] = useState(false);
@@ -90,9 +93,10 @@ function App() {
       onOpenSettings: () => addSettingsTab(),
       onNewBrowserTab: () => addBrowserTab(undefined, ""),
       onToggleWorkspaceBar: () => toggleWorkspaceBar(),
+      onToggleBookmarksBar: () => toggleBookmarksBar(),
     });
     return () => setMenuEventCallbacks({});
-  }, [addBrowserTab, addEditorTab, addVaultTab, addHistoryTab, addTemplateTab, addSettingsTab, toggleWorkspaceBar]);
+  }, [addBrowserTab, addEditorTab, addVaultTab, addHistoryTab, addTemplateTab, addSettingsTab, toggleWorkspaceBar, toggleBookmarksBar]);
 
   // Create the first tab on mount only
   useEffect(() => {
@@ -212,6 +216,16 @@ function App() {
       {workspaceBarVisible && <WorkspaceBar />}
       <main className="app-container">
         <CredentialReminder />
+        {/* BookmarksBar — positioned below toolbar, above region tree.
+            onBookmarkClick stub until T5 (#57) implements file-open + terminal cd. */}
+        {/* TODO(#57): Replace console.log stub with actual file-open and terminal-cd dispatch */}
+        {bookmarksBarVisible && (
+          <BookmarksBar
+            onBookmarkClick={(bookmark) => {
+              console.log("bookmark clicked:", bookmark.id, bookmark.name);
+            }}
+          />
+        )}
         <div style={{ display: "flex", flex: 1, minHeight: 0 }}>
           {sidebarOpen && (
             <SessionSidebar

@@ -1,0 +1,168 @@
+/**
+ * BookmarksBar styles — horizontal bookmark bar below toolbar.
+ *
+ * Uses BEM-style class naming consistent with the Putz design system.
+ * Height: 30px, horizontal scroll, themed via CSS variables.
+ *
+ * @module BookmarksBar.css
+ */
+
+/* ─── Bar Container ──────────────────────────────────────────────── */
+
+.bookmarks-bar {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  height: 30px;
+  min-height: 30px;
+  padding: 0 8px;
+  background-color: var(--bg-secondary);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  user-select: none;
+  -webkit-user-select: none;
+  overflow-x: auto;
+  overflow-y: visible;
+  scrollbar-width: none;
+  position: relative;
+}
+
+.bookmarks-bar::-webkit-scrollbar {
+  display: none;
+}
+
+/* ─── Bookmark Item Button ───────────────────────────────────────── */
+
+.bookmarks-bar__item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 32px;
+  min-height: 28px;
+  max-width: 180px;
+  padding: 0 8px;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+  cursor: pointer;
+  border-radius: 4px;
+  flex-shrink: 0;
+  white-space: nowrap;
+  transition: background-color 0.15s, color 0.15s;
+  position: relative;
+}
+
+.bookmarks-bar__item:hover {
+  background-color: rgba(255, 255, 255, 0.08);
+  color: var(--text-primary);
+}
+
+.bookmarks-bar__item:active {
+  background-color: rgba(255, 255, 255, 0.12);
+}
+
+.bookmarks-bar__item:focus-visible {
+  outline: 2px solid var(--accent-hover);
+  outline-offset: -2px;
+}
+
+/* ─── Dragging State ─────────────────────────────────────────────── */
+
+.bookmarks-bar__item--dragging {
+  opacity: 0.4;
+}
+
+.bookmarks-bar__drop-indicator {
+  position: absolute;
+  top: 4px;
+  bottom: 4px;
+  width: 2px;
+  background-color: var(--accent, #50fa7b);
+  pointer-events: none;
+  z-index: 10;
+}
+
+/* ─── Icon ───────────────────────────────────────────────────────── */
+
+.bookmarks-bar__icon {
+  font-size: 0.8125rem;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+/* ─── Label ──────────────────────────────────────────────────────── */
+
+.bookmarks-bar__label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 140px;
+}
+
+/* ─── Folder Chevron ─────────────────────────────────────────────── */
+
+.bookmarks-bar__chevron {
+  font-size: 0.5rem;
+  margin-left: 2px;
+  opacity: 0.6;
+  flex-shrink: 0;
+}
+
+/* ─── Folder Dropdown ────────────────────────────────────────────── */
+
+.bookmarks-bar__dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  z-index: 200;
+  min-width: 160px;
+  max-width: 280px;
+  max-height: 300px;
+  overflow-y: auto;
+  background-color: var(--bg-primary, #1e1e2e);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 6px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  padding: 4px 0;
+}
+
+/* ─── Dropdown Item ──────────────────────────────────────────────── */
+
+.bookmarks-bar__dropdown-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  padding: 6px 12px;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+  cursor: pointer;
+  text-align: left;
+  white-space: nowrap;
+  transition: background-color 0.1s;
+}
+
+.bookmarks-bar__dropdown-item:hover,
+.bookmarks-bar__dropdown-item:focus {
+  background-color: rgba(255, 255, 255, 0.08);
+  color: var(--text-primary);
+}
+
+.bookmarks-bar__dropdown-item:focus-visible {
+  outline: 2px solid var(--accent-hover);
+  outline-offset: -2px;
+}
+
+/* ─── Empty State ────────────────────────────────────────────────── */
+
+.bookmarks-bar__empty {
+  display: flex;
+  align-items: center;
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+  opacity: 0.6;
+  padding: 0 4px;
+  white-space: nowrap;
+}
