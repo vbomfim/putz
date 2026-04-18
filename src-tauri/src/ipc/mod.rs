@@ -34,7 +34,7 @@ pub use connection::{
     connection_close, connection_open, connection_resize, connection_write, serial_list_ports,
     serial_send_break,
 };
-pub use editor::{file_mtime, file_read, file_replace, file_replace_all, file_search, file_write};
+pub use editor::{dir_list, file_mtime, file_read, file_replace, file_replace_all, file_search, file_write};
 pub use forwarding::{forwarding_add, forwarding_list, forwarding_remove, forwarding_status};
 pub use highlight::{
     highlight_create_set, highlight_delete_set, highlight_get_set, highlight_list_sets,

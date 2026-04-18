@@ -2,6 +2,46 @@
 
 use serde::Serialize;
 
+/// A single entry returned by `dir_list`.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DirEntry {
+    pub name: String,
+    pub path: String,
+    pub is_dir: bool,
+}
+
+/// List directory entries (files + subdirectories), sorted dirs-first then alphabetical.
+#[tauri::command]
+pub fn dir_list(path: String) -> Result<Vec<DirEntry>, String> {
+    let entries =
+        std::fs::read_dir(&path).map_err(|e| format!("Failed to read dir {}: {}", path, e))?;
+    let mut result: Vec<DirEntry> = Vec::new();
+    for entry in entries {
+        let entry = entry.map_err(|e| format!("Failed to read entry: {}", e))?;
+        let name = entry.file_name().to_string_lossy().to_string();
+        // Skip hidden files/dirs
+        if name.starts_with('.') {
+            continue;
+        }
+        let is_dir = entry
+            .file_type()
+            .map(|ft| ft.is_dir())
+            .unwrap_or(false);
+        result.push(DirEntry {
+            name,
+            path: entry.path().to_string_lossy().to_string(),
+            is_dir,
+        });
+    }
+    result.sort_by(|a, b| match (a.is_dir, b.is_dir) {
+        (true, false) => std::cmp::Ordering::Less,
+        (false, true) => std::cmp::Ordering::Greater,
+        _ => a.name.to_lowercase().cmp(&b.name.to_lowercase()),
+    });
+    Ok(result)
+}
+
 /// Read a file's content as UTF-8 text.
 #[tauri::command]
 pub fn file_read(path: String) -> Result<String, String> {

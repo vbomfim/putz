@@ -19,8 +19,10 @@ import {
   memo,
 } from "react";
 import { createPortal } from "react-dom";
+import { invoke } from "@tauri-apps/api/core";
 import { useSettingsStore } from "../../stores/settingsStore";
 import { useBookmarksStore } from "../../stores/bookmarksStore";
+import { useLayoutStore } from "../../stores/layoutStore";
 import { stripBidiControls } from "../../utils/sanitize";
 import type {
   BookmarkItem,
@@ -86,6 +88,150 @@ function sanitizeDisplayName(name: string): string {
   return stripBidiControls(name);
 }
 
+// ─── Dir Entry Type ──────────────────────────────────────────────────
+
+interface DirEntry {
+  name: string;
+  path: string;
+  isDir: boolean;
+}
+
+// ─── File Tree Dropdown ──────────────────────────────────────────────
+
+interface FileTreeDropdownProps {
+  rootPath: string;
+  anchorRef: React.RefObject<HTMLElement | null>;
+  onClose: () => void;
+}
+
+/** Lazy-loading file tree dropdown for folder bookmarks. */
+function FileTreeDropdown({ rootPath, anchorRef, onClose }: FileTreeDropdownProps) {
+  const menuRef = useRef<HTMLDivElement>(null);
+  const [style, setStyle] = useState<React.CSSProperties>({});
+
+  useLayoutEffect(() => {
+    if (!anchorRef.current) return;
+    const rect = anchorRef.current.getBoundingClientRect();
+    const width = 260;
+    const maxH = 400;
+    let left = rect.left;
+    let top = rect.bottom + 2;
+    if (left + width > window.innerWidth) left = window.innerWidth - width - 8;
+    if (top + maxH > window.innerHeight) {
+      top = rect.top - maxH - 2;
+      if (top < 0) top = 8;
+    }
+    setStyle({ position: "fixed", left, top, zIndex: 200, width, maxHeight: maxH });
+  }, [anchorRef]);
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node) &&
+          anchorRef.current && !anchorRef.current.contains(e.target as Node)) {
+        onClose();
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [onClose, anchorRef]);
+
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    document.addEventListener("keydown", handler);
+    return () => document.removeEventListener("keydown", handler);
+  }, [onClose]);
+
+  return createPortal(
+    <div ref={menuRef} className="bookmarks-bar__dropdown" style={style}>
+      <FileTreeNode path={rootPath} depth={0} onClose={onClose} />
+    </div>,
+    document.body,
+  );
+}
+
+/** Extension to icon mapping for the tree. */
+const TREE_ICONS: Record<string, string> = {
+  drawio: "📐", csv: "📊", tsv: "📊", md: "📖", markdown: "📖",
+  py: "🐍", js: "📜", ts: "📜", json: "⚙️", yaml: "⚙️", yml: "⚙️",
+  rs: "🦀", toml: "⚙️", xml: "📄", txt: "📄", cfg: "📄", conf: "📄",
+  log: "📄", sh: "📄",
+};
+
+function getFileIcon(name: string, isDir: boolean): string {
+  if (isDir) return "📁";
+  const ext = name.split(".").pop()?.toLowerCase() || "";
+  return TREE_ICONS[ext] ?? "📄";
+}
+
+interface FileTreeNodeProps {
+  path: string;
+  depth: number;
+  onClose: () => void;
+}
+
+/** A single level of the file tree — loads children lazily on expand. */
+function FileTreeNode({ path, depth, onClose }: FileTreeNodeProps) {
+  const [entries, setEntries] = useState<DirEntry[] | null>(null);
+  const [error, setError] = useState(false);
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
+
+  useEffect(() => {
+    invoke<DirEntry[]>("dir_list", { path })
+      .then(setEntries)
+      .catch(() => setError(true));
+  }, [path]);
+
+  const handleFileClick = useCallback((entry: DirEntry) => {
+    const focusedRegionId = useLayoutStore.getState().focusedRegionId;
+    useLayoutStore.getState().addEditorTab(focusedRegionId, entry.path);
+    onClose();
+  }, [onClose]);
+
+  const toggleDir = useCallback((dirPath: string) => {
+    setExpanded((prev) => {
+      const next = new Set(prev);
+      if (next.has(dirPath)) next.delete(dirPath); else next.add(dirPath);
+      return next;
+    });
+  }, []);
+
+  if (error) return <span className="bookmarks-bar__empty" style={{ paddingLeft: depth * 16 + 12 }}>Failed to read</span>;
+  if (!entries) return <span className="bookmarks-bar__empty" style={{ paddingLeft: depth * 16 + 12 }}>Loading…</span>;
+  if (entries.length === 0) return <span className="bookmarks-bar__empty" style={{ paddingLeft: depth * 16 + 12 }}>Empty</span>;
+
+  return (
+    <>
+      {entries.map((entry) => (
+        <div key={entry.path}>
+          <button
+            className="bookmarks-bar__dropdown-item"
+            type="button"
+            role="menuitem"
+            title={entry.path}
+            onClick={() => entry.isDir ? toggleDir(entry.path) : handleFileClick(entry)}
+            style={{ paddingLeft: depth * 16 + 12 }}
+          >
+            <span className="bookmarks-bar__icon" aria-hidden="true">
+              {entry.isDir && expanded.has(entry.path) ? "📂" : getFileIcon(entry.name, entry.isDir)}
+            </span>
+            <span className="bookmarks-bar__label">{entry.name}</span>
+            {entry.isDir && (
+              <span className="bookmarks-bar__chevron" aria-hidden="true">
+                {expanded.has(entry.path) ? "▾" : "▸"}
+              </span>
+            )}
+          </button>
+          {entry.isDir && expanded.has(entry.path) && (
+            <FileTreeNode path={entry.path} depth={depth + 1} onClose={onClose} />
+          )}
+        </div>
+      ))}
+    </>
+  );
+}
+
 // ─── Memoized Bookmark Button ────────────────────────────────────────
 
 interface BookmarkButtonProps {
@@ -104,19 +250,26 @@ const BookmarkButton = memo(function BookmarkButton({
 }: BookmarkButtonProps) {
   const icon = getBookmarkIcon(bookmark);
   const displayName = sanitizeDisplayName(bookmark.name);
+  const [treeOpen, setTreeOpen] = useState(false);
+  const btnRef = useRef<HTMLButtonElement>(null);
+  const isFolder = bookmark.type === "folder";
 
   const handleClick = useCallback(() => {
-    onBookmarkClick(bookmark);
-  }, [bookmark, onBookmarkClick]);
+    if (isFolder) {
+      setTreeOpen((prev) => !prev);
+    } else {
+      onBookmarkClick(bookmark);
+    }
+  }, [bookmark, onBookmarkClick, isFolder]);
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
       if (e.key === "Enter" || e.key === " ") {
         e.preventDefault();
-        onBookmarkClick(bookmark);
+        handleClick();
       }
     },
-    [bookmark, onBookmarkClick],
+    [handleClick],
   );
 
   const handlePointerDown = useCallback(
@@ -132,22 +285,37 @@ const BookmarkButton = memo(function BookmarkButton({
     : "bookmarks-bar__item";
 
   return (
-    <button
-      className={className}
-      type="button"
-      role="button"
-      title={displayName}
-      aria-label={displayName}
-      onClick={handleClick}
-      onKeyDown={handleKeyDown}
-      onPointerDown={handlePointerDown}
-      data-bookmark-id={bookmark.id}
-    >
-      <span className="bookmarks-bar__icon" aria-hidden="true">
-        {icon}
-      </span>
-      <span className="bookmarks-bar__label">{displayName}</span>
-    </button>
+    <>
+      <button
+        ref={btnRef}
+        className={className}
+        type="button"
+        role="button"
+        title={displayName}
+        aria-label={displayName}
+        aria-haspopup={isFolder ? "true" : undefined}
+        aria-expanded={isFolder ? treeOpen : undefined}
+        onClick={handleClick}
+        onKeyDown={handleKeyDown}
+        onPointerDown={handlePointerDown}
+        data-bookmark-id={bookmark.id}
+      >
+        <span className="bookmarks-bar__icon" aria-hidden="true">
+          {icon}
+        </span>
+        <span className="bookmarks-bar__label">{displayName}</span>
+        {isFolder && (
+          <span className="bookmarks-bar__chevron" aria-hidden="true">▾</span>
+        )}
+      </button>
+      {isFolder && treeOpen && (
+        <FileTreeDropdown
+          rootPath={bookmark.path}
+          anchorRef={btnRef}
+          onClose={() => setTreeOpen(false)}
+        />
+      )}
+    </>
   );
 });
 

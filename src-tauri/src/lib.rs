@@ -30,7 +30,7 @@ use ipc::{
     autologin_set_profile, autologin_start, browser_close, browser_hide_all, browser_navigate,
     browser_open, browser_resize, browser_set_visible, change_window_active, change_window_check,
     change_window_delete, change_window_list, change_window_set, connection_close, connection_open,
-    connection_resize, connection_write, file_mtime, file_read, file_replace, file_replace_all,
+    connection_resize, connection_write, dir_list, file_mtime, file_read, file_replace, file_replace_all,
     file_search, file_write, forwarding_add, forwarding_list, forwarding_remove, forwarding_status,
     highlight_create_set, highlight_delete_set, highlight_get_set, highlight_list_sets,
     highlight_update_set, history_add, history_clear, history_get_recent, history_search,
@@ -206,6 +206,7 @@ pub fn run() {
             file_search,
             file_replace,
             file_replace_all,
+            dir_list,
         ])
         // Fix 8: Graceful app exit — clean up PTY sessions and protocol connections
         .on_window_event(|window, event| {
