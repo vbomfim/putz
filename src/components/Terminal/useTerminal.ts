@@ -32,7 +32,7 @@ import {
   clampFontSize,
 } from "./terminalPolish";
 import { changeWindowCheck } from "../Compliance/complianceApi";
-import { setSessionCwdFromTitle, getSessionCwd } from "./cwdRegistry";
+import { setSessionCwdFromTitle, getSessionCwdAtLine } from "./cwdRegistry";
 
 interface UseTerminalOptions {
   /** UUID v4 session identifier from pty_spawn. */
@@ -227,10 +227,9 @@ export function useTerminal({
                 return cwd.endsWith(sep) ? `${cwd}${name}` : `${cwd}${sep}${name}`;
               };
 
-              // Prefer the title-derived CWD when present — it tracks `cd`
-              // and is the only reliable source on Windows (pty_cwd there
-              // falls back to USERPROFILE which is almost always wrong).
-              const titleCwd = getSessionCwd(sessionId);
+              // Prefer the line-aware history: resolves to the cwd that was
+              // active when this filename was printed, not the current cwd.
+              const titleCwd = getSessionCwdAtLine(sessionId, bufferLineNumber);
               if (titleCwd) {
                 openFn(joinPath(titleCwd, l.text));
                 return;
@@ -443,7 +442,18 @@ export function useTerminal({
     // when the backend cannot read the child's CWD (Windows in particular).
     terminal.onTitleChange((title: string) => {
       onTitleChangeRef.current?.(title);
-      setSessionCwdFromTitle(sessionId, title);
+      // Pin a marker at the line where the cwd change is being recorded so
+      // we can later resolve relative paths clicked in old scrollback against
+      // the cwd that was active at THAT line, not the latest cwd.
+      const buffer = terminal.buffer.active;
+      const cursorAbsLine = buffer.baseY + buffer.cursorY;
+      let marker = null;
+      try {
+        marker = terminal.registerMarker(0); // marker at current cursor line
+      } catch {
+        // registerMarker can throw if cursor is out of viewport — best effort
+      }
+      setSessionCwdFromTitle(sessionId, title, marker, cursorAbsLine);
     });
 
     // Keyboard shortcuts: Cmd/Ctrl+C/V/A (copy/paste/select-all),

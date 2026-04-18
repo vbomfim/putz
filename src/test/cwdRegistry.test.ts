@@ -53,3 +53,56 @@ describe("parseCwdFromTitle", () => {
     );
   });
 });
+
+import {
+  recordSessionCwd,
+  getSessionCwd,
+  getSessionCwdAtLine,
+  clearSessionCwd,
+} from "../components/Terminal/cwdRegistry";
+
+describe("session cwd history", () => {
+  it("returns latest cwd via getSessionCwd", () => {
+    const sid = "test-sid-1";
+    clearSessionCwd(sid);
+    recordSessionCwd(sid, "/home/foo", null, 10);
+    recordSessionCwd(sid, "/home/foo/projects", null, 25);
+    expect(getSessionCwd(sid)).toBe("/home/foo/projects");
+    clearSessionCwd(sid);
+  });
+
+  it("resolves to the cwd active at the clicked buffer line", () => {
+    const sid = "test-sid-2";
+    clearSessionCwd(sid);
+    recordSessionCwd(sid, "/home/foo", null, 10);
+    recordSessionCwd(sid, "/home/foo/projects", null, 50);
+    recordSessionCwd(sid, "/tmp", null, 100);
+
+    // Click on line 30 → should use /home/foo (active at lines 10-49)
+    expect(getSessionCwdAtLine(sid, 30)).toBe("/home/foo");
+    // Click on line 75 → should use /home/foo/projects (active 50-99)
+    expect(getSessionCwdAtLine(sid, 75)).toBe("/home/foo/projects");
+    // Click on line 150 → should use /tmp (latest)
+    expect(getSessionCwdAtLine(sid, 150)).toBe("/tmp");
+    // Click on line 5 (before any cd) → falls back to oldest known
+    expect(getSessionCwdAtLine(sid, 5)).toBe("/home/foo");
+    clearSessionCwd(sid);
+  });
+
+  it("coalesces consecutive identical cwd entries", () => {
+    const sid = "test-sid-3";
+    clearSessionCwd(sid);
+    recordSessionCwd(sid, "/a", null, 1);
+    recordSessionCwd(sid, "/a", null, 2);
+    recordSessionCwd(sid, "/a", null, 3);
+    recordSessionCwd(sid, "/b", null, 4);
+    expect(getSessionCwdAtLine(sid, 3)).toBe("/a");
+    expect(getSessionCwdAtLine(sid, 4)).toBe("/b");
+    clearSessionCwd(sid);
+  });
+
+  it("returns undefined for unknown session", () => {
+    expect(getSessionCwd("nonexistent")).toBeUndefined();
+    expect(getSessionCwdAtLine("nonexistent", 0)).toBeUndefined();
+  });
+});
