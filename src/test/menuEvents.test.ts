@@ -138,6 +138,14 @@ describe("useMenuEvents", () => {
     expect(mockToggleToolbar).toHaveBeenCalledTimes(1);
   });
 
+  it("menu-toggle-bookmarks-bar calls onToggleBookmarksBar callback", () => {
+    const onToggleBookmarksBar = vi.fn();
+    setMenuEventCallbacks({ onToggleBookmarksBar });
+    renderHook(() => useMenuEvents());
+    emitMenuEvent("menu-toggle-bookmarks-bar");
+    expect(onToggleBookmarksBar).toHaveBeenCalledTimes(1);
+  });
+
   it("menu-split-vertical calls splitActivePane('vertical')", () => {
     renderHook(() => useMenuEvents());
     emitMenuEvent("menu-split-vertical");
