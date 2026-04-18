@@ -468,6 +468,7 @@ export function useTerminal({
 
         // Cmd+V / Ctrl+V — paste from clipboard
         if (isMod && !event.shiftKey && (key === "v" || event.code === "KeyV")) {
+          event.preventDefault();
           pasteToTerminal(terminal, sessionId);
           return false;
         }
@@ -489,6 +490,7 @@ export function useTerminal({
 
         // Ctrl+Shift+V — paste (Linux-style)
         if (event.ctrlKey && event.shiftKey && event.key === "V") {
+          event.preventDefault();
           pasteToTerminal(terminal, sessionId);
           return false;
         }
