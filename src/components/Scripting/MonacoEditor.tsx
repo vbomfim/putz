@@ -9,7 +9,7 @@
  *
  * @module MonacoEditor
  */
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Editor, { type OnMount, loader } from "@monaco-editor/react";
 import type * as monaco from "monaco-editor";
 import * as monacoEditor from "monaco-editor";
@@ -172,6 +172,7 @@ export function MonacoEditor({
   const editorRef = useRef<monaco.editor.IStandaloneCodeEditor | null>(null);
   const monacoRef = useRef<typeof monaco | null>(null);
   const eolDecorationsRef = useRef<string[]>([]);
+  const [mounted, setMounted] = useState(false);
 
   // Apply theme on mount and when themeStore changes
   const applyTheme = useCallback(() => {
@@ -300,6 +301,7 @@ export function MonacoEditor({
 
       // Focus the editor
       editor.focus();
+      setMounted(true);
     },
     [applyTheme, onSave, onRun],
   );
@@ -310,6 +312,17 @@ export function MonacoEditor({
     },
     [onChange],
   );
+
+  // Apply renderWhitespace / renderControlCharacters when toggle changes.
+  // (@monaco-editor/react only sets `options` once on mount.)
+  useEffect(() => {
+    const editor = editorRef.current;
+    if (!editor) return;
+    editor.updateOptions({
+      renderWhitespace: showWhitespace ? "all" : "selection",
+      renderControlCharacters: showWhitespace,
+    });
+  }, [showWhitespace, mounted]);
 
   // EOL marker decorations: show ↵ (LF) or ␍↵ (CRLF) at end of every line.
   // Monaco's renderWhitespace handles spaces/tabs and renderControlCharacters
@@ -365,7 +378,7 @@ export function MonacoEditor({
       eolDecorationsRef.current = ed.deltaDecorations(eolDecorationsRef.current, next);
     });
     return () => disposable.dispose();
-  }, [showWhitespace, value]);
+  }, [showWhitespace, mounted]);
 
   const monacoLanguage =
     language === "text" ? "plaintext" :
