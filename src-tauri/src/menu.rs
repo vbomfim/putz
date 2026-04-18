@@ -60,6 +60,12 @@ pub fn build_menu(app: &AppHandle<Wry>) -> Result<tauri::menu::Menu<Wry>, tauri:
             "Quick Connect",
             "CmdOrCtrl+K"
         ))
+        .item(&menu_item!(
+            app,
+            "menu-open-file",
+            "Open File...",
+            "CmdOrCtrl+O"
+        ))
         .separator()
         .item(&menu_item!(
             app,

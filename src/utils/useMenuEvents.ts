@@ -10,6 +10,7 @@
 import { useEffect, useCallback } from "react";
 import { listen } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
+import { open as openFileDialog } from "@tauri-apps/plugin-dialog";
 import { useLayoutStore } from "../stores/layoutStore";
 import { useBroadcastStore } from "../stores/broadcastStore";
 import { useSettingsStore } from "../stores/settingsStore";
@@ -64,6 +65,7 @@ function isActiveTabLocal(): boolean {
  */
 export function useMenuEvents(): void {
   const addTerminalTab = useLayoutStore((s) => s.addTerminalTab);
+  const addEditorTab = useLayoutStore((s) => s.addEditorTab);
   const closeTab = useLayoutStore((s) => s.closeTab);
   const splitRegion = useLayoutStore((s) => s.splitRegion);
   const nextTab = useLayoutStore((s) => s.nextTab);
@@ -82,6 +84,20 @@ export function useMenuEvents(): void {
           break;
         case "menu-new-browser-tab":
           menuCallbacks.onNewBrowserTab?.();
+          break;
+        case "menu-open-file":
+          openFileDialog({
+            multiple: false,
+            filters: [
+              { name: "Diagrams", extensions: ["drawio"] },
+              { name: "Text Files", extensions: ["txt", "json", "yaml", "yml", "toml", "xml", "csv", "tsv", "md", "markdown", "cfg", "conf", "ini", "log"] },
+              { name: "All Files", extensions: ["*"] },
+            ],
+          }).then((selected) => {
+            if (selected) {
+              addEditorTab(undefined, selected);
+            }
+          });
           break;
         case "menu-close-tab": {
           const ls2 = useLayoutStore.getState(); const r2 = ls2.regions[ls2.focusedRegionId]; if (r2 && r2.activeTabId) closeTab(r2.id, r2.activeTabId);
@@ -227,6 +243,7 @@ export function useMenuEvents(): void {
     },
     [
       addTerminalTab,
+      addEditorTab,
       closeTab,
       
       splitRegion,
