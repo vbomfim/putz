@@ -94,8 +94,26 @@ function DrawioEditorInner({ filePath, isActive }: { filePath: string; isActive:
       .catch(() => {});
   }, [isActive, filePath, loading, loadFromDisk]);
 
-  // Save on Cmd+S (only when active)
-  const handleSave = useCallback(async () => {
+  // Reload when the same file is re-opened (tab already exists)
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const detail = (e as CustomEvent).detail;
+      if (detail?.filePath === filePath) {
+        invoke<number>("file_mtime", { path: filePath })
+          .then((mtime) => {
+            if (mtime > lastMtimeRef.current) {
+              loadFromDisk();
+            }
+          })
+          .catch(() => {});
+      }
+    };
+    window.addEventListener("drawio-reactivate", handler);
+    return () => window.removeEventListener("drawio-reactivate", handler);
+  }, [filePath, loadFromDisk]);
+
+  // Save to disk
+  const saveToDisk = useCallback(async () => {
     try {
       const { expressions, expressionOrder } = storeApi.getState();
       const ordered: VisualExpression[] = expressionOrder
@@ -103,13 +121,28 @@ function DrawioEditorInner({ filePath, isActive }: { filePath: string; isActive:
         .filter(Boolean) as VisualExpression[];
       const xml = expressionsToDrawio(ordered);
       await invoke("file_write", { path: filePathRef.current, content: xml });
-      // Update mtime so we don't trigger a reload for our own save
       const mtime = await invoke<number>("file_mtime", { path: filePathRef.current });
       lastMtimeRef.current = mtime;
     } catch (err) {
       console.error("Failed to save .drawio:", err);
     }
   }, [storeApi]);
+
+  // Save on Cmd+S (only when active)
+  const handleSave = useCallback(async () => {
+    await saveToDisk();
+  }, [saveToDisk]);
+
+  // Auto-save: debounce store changes to disk (2s after last edit)
+  useEffect(() => {
+    if (loading) return;
+    let timer: ReturnType<typeof setTimeout>;
+    const unsub = storeApi.subscribe(() => {
+      clearTimeout(timer);
+      timer = setTimeout(() => { saveToDisk(); }, 2000);
+    });
+    return () => { unsub(); clearTimeout(timer); };
+  }, [storeApi, loading, saveToDisk]);
 
   useEffect(() => {
     if (!isActive) return;

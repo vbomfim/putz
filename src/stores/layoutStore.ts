@@ -644,6 +644,8 @@ export const useLayoutStore = create<LayoutState>((set, get) => ({
     const existing = region.tabs.find((t) => t.type === "drawio" && t.editorFilePath === filePath);
     if (existing) {
       set((state) => ({ regions: { ...state.regions, [targetRegionId]: { ...state.regions[targetRegionId], activeTabId: existing.id } } }));
+      // Signal the editor to check for file changes
+      window.dispatchEvent(new CustomEvent("drawio-reactivate", { detail: { filePath } }));
       return;
     }
     const name = filePath.split("/").pop() || filePath;
