@@ -250,6 +250,50 @@ export function MonacoEditor({
         () => editor.getAction("editor.action.startFindReplaceAction")?.run(),
       );
 
+      // Markdown formatting shortcuts — only act when current language is markdown
+      const wrapSelection = (left: string, right: string = left) => {
+        const model = editor.getModel();
+        const sel = editor.getSelection();
+        if (!model || !sel) return;
+        if (model.getLanguageId() !== "markdown") return;
+        const text = model.getValueInRange(sel);
+        const replacement = `${left}${text}${right}`;
+        editor.executeEdits("md-wrap", [{ range: sel, text: replacement, forceMoveMarkers: true }]);
+        // Place cursor inside if no selection
+        if (text.length === 0) {
+          const pos = editor.getPosition();
+          if (pos) {
+            editor.setPosition({ lineNumber: pos.lineNumber, column: pos.column - right.length });
+          }
+        }
+        editor.focus();
+      };
+
+      // Cmd/Ctrl+B → bold
+      editor.addCommand(
+        monacoInstance.KeyMod.CtrlCmd | monacoInstance.KeyCode.KeyB,
+        () => wrapSelection("**"),
+      );
+      // Cmd/Ctrl+I → italic
+      editor.addCommand(
+        monacoInstance.KeyMod.CtrlCmd | monacoInstance.KeyCode.KeyI,
+        () => wrapSelection("*"),
+      );
+      // Cmd/Ctrl+K → link [sel](url)
+      editor.addCommand(
+        monacoInstance.KeyMod.CtrlCmd | monacoInstance.KeyCode.KeyK,
+        () => {
+          const model = editor.getModel();
+          const sel = editor.getSelection();
+          if (!model || !sel) return;
+          if (model.getLanguageId() !== "markdown") return;
+          const text = model.getValueInRange(sel);
+          const replacement = `[${text || "text"}](url)`;
+          editor.executeEdits("md-link", [{ range: sel, text: replacement, forceMoveMarkers: true }]);
+          editor.focus();
+        },
+      );
+
       // Focus the editor
       editor.focus();
     },

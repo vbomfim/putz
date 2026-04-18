@@ -270,6 +270,16 @@ export function EditorTab({ filePath: initialFilePath, scriptId, regionId, tabId
               📄
             </button>
           )}
+          {language === "markdown" && currentPath && (
+            <button
+              type="button"
+              className="editor-tab__tool-btn"
+              onClick={() => useLayoutStore.getState().addMarkdownTab(undefined, currentPath)}
+              title="Open Markdown preview in a new tab"
+            >
+              👁
+            </button>
+          )}
           <div className="script-editor__language-toggle">
             {([
               ["text", "TXT", "Plain Text"],
