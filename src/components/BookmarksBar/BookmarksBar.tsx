@@ -98,6 +98,18 @@ interface DirEntry {
 
 // ─── File Tree Dropdown ──────────────────────────────────────────────
 
+/** Send a cd command to the focused terminal. */
+function cdInTerminal(dirPath: string) {
+  const state = useLayoutStore.getState();
+  const region = state.regions[state.focusedRegionId];
+  if (!region) return;
+  const tab = region.tabs.find((t) => t.id === region.activeTabId);
+  if (!tab || tab.type !== "terminal") return;
+  const escaped = dirPath.replace(/\\/g, "\\\\").replace(/"/g, '\\"').replace(/\$/g, "\\$").replace(/`/g, "\\`");
+  const data = Array.from(new TextEncoder().encode(`cd "${escaped}"\n`));
+  invoke("pty_write", { sessionId: tab.sessionId, data }).catch(() => {});
+}
+
 interface FileTreeDropdownProps {
   rootPath: string;
   anchorRef: React.RefObject<HTMLElement | null>;
@@ -142,18 +154,6 @@ function FileTreeDropdown({ rootPath, anchorRef, onClose }: FileTreeDropdownProp
     document.addEventListener("keydown", handler);
     return () => document.removeEventListener("keydown", handler);
   }, [onClose]);
-
-/** Send a cd command to the focused terminal. */
-function cdInTerminal(dirPath: string) {
-  const state = useLayoutStore.getState();
-  const region = state.regions[state.focusedRegionId];
-  if (!region) return;
-  const tab = region.tabs.find((t) => t.id === region.activeTabId);
-  if (!tab || tab.type !== "terminal") return;
-  const escaped = dirPath.replace(/\\/g, "\\\\").replace(/"/g, '\\"').replace(/\$/g, "\\$").replace(/`/g, "\\`");
-  const data = Array.from(new TextEncoder().encode(`cd "${escaped}"\n`));
-  invoke("pty_write", { sessionId: tab.sessionId, data }).catch(() => {});
-}
 
   return createPortal(
     <div ref={menuRef} className="bookmarks-bar__dropdown" style={style}>
@@ -219,6 +219,11 @@ function FileTreeNode({ path, depth, onClose }: FileTreeNodeProps) {
     });
   }, []);
 
+  const handleDirClick = useCallback((entry: DirEntry) => {
+    cdInTerminal(entry.path);
+    onClose();
+  }, [onClose]);
+
   if (error) return <span className="bookmarks-bar__empty" style={{ paddingLeft: depth * 16 + 12 }}>Failed to read</span>;
   if (!entries) return <span className="bookmarks-bar__empty" style={{ paddingLeft: depth * 16 + 12 }}>Loading…</span>;
   if (entries.length === 0) return <span className="bookmarks-bar__empty" style={{ paddingLeft: depth * 16 + 12 }}>Empty</span>;
@@ -227,24 +232,30 @@ function FileTreeNode({ path, depth, onClose }: FileTreeNodeProps) {
     <>
       {entries.map((entry) => (
         <div key={entry.path}>
-          <button
-            className="bookmarks-bar__dropdown-item"
-            type="button"
-            role="menuitem"
-            title={entry.path}
-            onClick={() => entry.isDir ? toggleDir(entry.path) : handleFileClick(entry)}
-            style={{ paddingLeft: depth * 16 + 12 }}
-          >
-            <span className="bookmarks-bar__icon" aria-hidden="true">
-              {entry.isDir && expanded.has(entry.path) ? "📂" : getFileIcon(entry.name, entry.isDir)}
-            </span>
-            <span className="bookmarks-bar__label">{entry.name}</span>
+          <div className="bookmarks-bar__dropdown-item" style={{ paddingLeft: depth * 16 + 12, display: "flex", alignItems: "center", gap: 6 }}>
             {entry.isDir && (
-              <span className="bookmarks-bar__chevron" aria-hidden="true">
+              <button
+                type="button"
+                title={expanded.has(entry.path) ? "Collapse" : "Expand"}
+                onClick={() => toggleDir(entry.path)}
+                style={{ background: "none", border: "none", cursor: "pointer", color: "inherit", padding: 0, fontSize: "0.6rem", lineHeight: 1, flexShrink: 0 }}
+              >
                 {expanded.has(entry.path) ? "▾" : "▸"}
-              </span>
+              </button>
             )}
-          </button>
+            <button
+              type="button"
+              role="menuitem"
+              title={entry.isDir ? `cd ${entry.path}` : entry.path}
+              onClick={() => entry.isDir ? handleDirClick(entry) : handleFileClick(entry)}
+              style={{ background: "none", border: "none", cursor: "pointer", color: "inherit", padding: 0, display: "flex", alignItems: "center", gap: 6, flex: 1, minWidth: 0, textAlign: "left" }}
+            >
+              <span className="bookmarks-bar__icon" aria-hidden="true">
+                {entry.isDir && expanded.has(entry.path) ? "📂" : getFileIcon(entry.name, entry.isDir)}
+              </span>
+              <span className="bookmarks-bar__label">{entry.name}</span>
+            </button>
+          </div>
           {entry.isDir && expanded.has(entry.path) && (
             <FileTreeNode path={entry.path} depth={depth + 1} onClose={onClose} />
           )}
