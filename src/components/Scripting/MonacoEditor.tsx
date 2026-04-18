@@ -171,7 +171,7 @@ export function MonacoEditor({
 }: MonacoEditorProps) {
   const editorRef = useRef<monaco.editor.IStandaloneCodeEditor | null>(null);
   const monacoRef = useRef<typeof monaco | null>(null);
-  const eolDecorationsRef = useRef<string[]>([]);
+  const eolCollectionRef = useRef<monaco.editor.IEditorDecorationsCollection | null>(null);
   const [mounted, setMounted] = useState(false);
 
   // Apply theme on mount and when themeStore changes
@@ -325,59 +325,60 @@ export function MonacoEditor({
   }, [showWhitespace, mounted]);
 
   // EOL marker decorations: show ↵ (LF) or ␍↵ (CRLF) at end of every line.
-  // Monaco's renderWhitespace handles spaces/tabs and renderControlCharacters
-  // handles stray CR — but neither draws anything for the line break itself.
+  // Uses Monaco's "injected text" via after.content — requires `description`
+  // and works best with createDecorationsCollection (not deprecated deltaDecorations).
   useEffect(() => {
     const editor = editorRef.current;
-    if (!editor) return;
-    const model = editor.getModel();
-    if (!model) {
-      eolDecorationsRef.current = editor.deltaDecorations(eolDecorationsRef.current, []);
-      return;
-    }
-    if (!showWhitespace) {
-      eolDecorationsRef.current = editor.deltaDecorations(eolDecorationsRef.current, []);
-      return;
-    }
     const monacoNs = monacoRef.current;
-    if (!monacoNs) return;
-    const eol = model.getEOL();
-    const marker = eol === "\r\n" ? "␍↵" : "↵";
-    const lineCount = model.getLineCount();
-    const newDecorations: monaco.editor.IModelDeltaDecoration[] = [];
-    for (let line = 1; line < lineCount; line++) {
-      const col = model.getLineMaxColumn(line);
-      newDecorations.push({
-        range: new monacoNs.Range(line, col, line, col),
-        options: {
-          after: {
-            content: marker,
-            inlineClassName: "putz-eol-marker",
-          },
-        },
-      });
-    }
-    eolDecorationsRef.current = editor.deltaDecorations(eolDecorationsRef.current, newDecorations);
+    if (!editor || !monacoNs) return;
 
-    const disposable = model.onDidChangeContent(() => {
-      const ed = editorRef.current;
-      const m = ed?.getModel();
-      const ns = monacoRef.current;
-      if (!ed || !m || !ns) return;
-      const eolNow = m.getEOL();
-      const markerNow = eolNow === "\r\n" ? "␍↵" : "↵";
-      const lc = m.getLineCount();
-      const next: monaco.editor.IModelDeltaDecoration[] = [];
-      for (let line = 1; line < lc; line++) {
-        const col = m.getLineMaxColumn(line);
-        next.push({
-          range: new ns.Range(line, col, line, col),
-          options: { after: { content: markerNow, inlineClassName: "putz-eol-marker" } },
+    // Tear down any prior collection
+    if (eolCollectionRef.current) {
+      eolCollectionRef.current.clear();
+      eolCollectionRef.current = null;
+    }
+    if (!showWhitespace) return;
+
+    const buildDecorations = (): monaco.editor.IModelDeltaDecoration[] => {
+      const model = editor.getModel();
+      if (!model) return [];
+      const eol = model.getEOL();
+      const marker = eol === "\r\n" ? "␍↵" : "↵";
+      const lineCount = model.getLineCount();
+      const decorations: monaco.editor.IModelDeltaDecoration[] = [];
+      for (let line = 1; line < lineCount; line++) {
+        const col = model.getLineMaxColumn(line);
+        decorations.push({
+          range: new monacoNs.Range(line, col, line, col),
+          options: {
+            after: {
+              content: marker,
+              inlineClassName: "putz-eol-marker",
+              inlineClassNameAffectsLetterSpacing: true,
+            },
+            showIfCollapsed: true,
+          },
         });
       }
-      eolDecorationsRef.current = ed.deltaDecorations(eolDecorationsRef.current, next);
+      return decorations;
+    };
+
+    const collection = editor.createDecorationsCollection(buildDecorations());
+    eolCollectionRef.current = collection;
+
+    const model = editor.getModel();
+    const disposable = model?.onDidChangeContent(() => {
+      const c = eolCollectionRef.current;
+      if (!c) return;
+      c.set(buildDecorations());
     });
-    return () => disposable.dispose();
+    return () => {
+      disposable?.dispose();
+      if (eolCollectionRef.current) {
+        eolCollectionRef.current.clear();
+        eolCollectionRef.current = null;
+      }
+    };
   }, [showWhitespace, mounted]);
 
   const monacoLanguage =

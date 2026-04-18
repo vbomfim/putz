@@ -1153,9 +1153,11 @@
   padding: 0 1px;
 }
 
-.putz-eol-marker {
+.putz-eol-marker,
+.monaco-editor .putz-eol-marker {
   color: #f38ba8 !important;
-  opacity: 0.7;
-  font-style: normal;
+  opacity: 0.9 !important;
+  font-style: normal !important;
   margin-left: 2px;
+  font-weight: bold;
 }
