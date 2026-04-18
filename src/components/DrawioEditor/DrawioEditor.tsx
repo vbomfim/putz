@@ -68,63 +68,77 @@ interface DrawioEditorProps {
   filePath: string;
   regionId: string;
   tabId: string;
+  isActive: boolean;
 }
 
-export function DrawioEditor({ filePath }: DrawioEditorProps) {
+export function DrawioEditor({ filePath, isActive }: DrawioEditorProps) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showStencilPalette, setShowStencilPalette] = useState(false);
   const filePathRef = useRef(filePath);
+  const initialLoadDone = useRef(false);
+  const wasActive = useRef(false);
 
-  // Load from cache or file on mount; save to cache on unmount
+  // Initial load from disk (once)
   useEffect(() => {
-    let mounted = true;
+    if (initialLoadDone.current) return;
+    initialLoadDone.current = true;
 
     (async () => {
       try {
-        // Try restoring from in-memory cache first (tab switch)
-        if (restoreFromCache(filePath)) {
-          if (mounted) setLoading(false);
-          return;
-        }
-
-        // No cache — load from disk
         const xml = await invoke<string>("file_read", { path: filePath });
-        if (!mounted) return;
-
         if (!xml.trim()) {
-          useCanvasStore.getState().replaceState([], []);
+          // Cache empty state so activation swap works
+          snapshotCache.set(filePath, {
+            expressions: {},
+            expressionOrder: [],
+            camera: { x: 0, y: 0, zoom: 1 },
+          });
           setLoading(false);
           return;
         }
         const expressions = drawioToExpressions(xml);
-        const store = useCanvasStore.getState();
         const exprMap: Record<string, VisualExpression> = {};
         const order: string[] = [];
         for (const expr of expressions) {
           exprMap[expr.id] = expr;
           order.push(expr.id);
         }
-        store.replaceState(expressions, order);
-        if (expressions.length > 0) {
-          const cam = computeFitToContent(exprMap, order, window.innerWidth, window.innerHeight);
-          store.setCamera(cam);
-        }
+        const cam = expressions.length > 0
+          ? computeFitToContent(exprMap, order, window.innerWidth, window.innerHeight)
+          : { x: 0, y: 0, zoom: 1 };
+        // Store in cache — the activation effect will push it into the store
+        snapshotCache.set(filePath, { expressions: exprMap, expressionOrder: order, camera: cam });
         setLoading(false);
       } catch (err) {
-        if (mounted) {
-          setError(err instanceof Error ? err.message : String(err));
-          setLoading(false);
-        }
+        setError(err instanceof Error ? err.message : String(err));
+        setLoading(false);
       }
     })();
-
-    // On unmount: save current state into cache so switching back restores it
-    return () => {
-      mounted = false;
-      snapshotToCache(filePath);
-    };
   }, [filePath]);
+
+  // Swap store content on tab activation/deactivation
+  useEffect(() => {
+    if (loading) return;
+
+    if (isActive && !wasActive.current) {
+      // Becoming active — restore our snapshot into the store
+      restoreFromCache(filePath);
+    } else if (!isActive && wasActive.current) {
+      // Becoming inactive — save current store state to our cache
+      snapshotToCache(filePath);
+    }
+    wasActive.current = isActive;
+  }, [isActive, loading, filePath]);
+
+  // Also restore on first render after loading completes if active
+  useEffect(() => {
+    if (!loading && isActive) {
+      restoreFromCache(filePath);
+      wasActive.current = true;
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading]);
 
   // Save on Cmd+S
   const handleSave = useCallback(async () => {

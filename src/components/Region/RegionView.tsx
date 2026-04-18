@@ -193,7 +193,7 @@ export function RegionView({ region, isFocused }: RegionViewProps) {
           if (tab.type === "drawio" && tab.editorFilePath) {
             return (
               <div key={tab.id} style={{ display: isTabActive ? "flex" : "none", flex: 1, flexDirection: "column", minHeight: 0, overflow: "hidden" }}>
-                <DrawioEditor filePath={tab.editorFilePath} regionId={region.id} tabId={tab.id} />
+                <DrawioEditor filePath={tab.editorFilePath} regionId={region.id} tabId={tab.id} isActive={isTabActive} />
               </div>
             );
           }
