@@ -26,10 +26,12 @@ export function GitGraph({ repoPath }: GitGraphProps) {
 
   const activeRepo = useRef(repoPath);
 
+  const initialLoadDone = useRef(false);
+
   const loadGraph = useCallback(async (filePath?: string, repoOverride?: string) => {
     if (repoOverride) activeRepo.current = repoOverride;
     const repo = activeRepo.current;
-    setLoading(true);
+    if (!initialLoadDone.current) setLoading(true);
     setError(null);
     try {
       const logArgs: { repoPath: string; maxCount: number; filePath?: string } = { repoPath: repo, maxCount: 500 };
@@ -53,6 +55,7 @@ export function GitGraph({ repoPath }: GitGraphProps) {
       setWtStatus(parseStatusOutput(statusRaw));
       setWorktrees(parseWorktreeList(wtListRaw));
 
+      initialLoadDone.current = true;
       setLoading(false);
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
