@@ -65,9 +65,38 @@ export function renderTable(
 
   const colCount = Math.max(data.headers.length, ...data.rows.map(r => r.length), 1);
   const tableWidth = width - PADDING * 2;
-  const colWidth = tableWidth / colCount;
   const tableX = originX + PADDING;
   let currentY = originY + PADDING;
+
+  // Detect swatch-only columns (all cells are color swatches)
+  const SWATCH_COL_WIDTH = SWATCH_SIZE + 16;
+  const colWidths: number[] = [];
+  let swatchColCount = 0;
+  for (let ci = 0; ci < colCount; ci++) {
+    const allSwatch = data.rows.length > 0 && data.rows.every((row) => {
+      const cell = row[ci];
+      return cell !== undefined && isSwatch(cell);
+    });
+    if (allSwatch) {
+      colWidths.push(SWATCH_COL_WIDTH);
+      swatchColCount++;
+    } else {
+      colWidths.push(0); // placeholder — will distribute remaining space
+    }
+  }
+  const remainingWidth = tableWidth - swatchColCount * SWATCH_COL_WIDTH;
+  const normalColCount = colCount - swatchColCount;
+  const normalColWidth = normalColCount > 0 ? remainingWidth / normalColCount : tableWidth / colCount;
+  for (let ci = 0; ci < colCount; ci++) {
+    if (colWidths[ci] === 0) colWidths[ci] = normalColWidth;
+  }
+
+  /** Get X offset for column ci. */
+  const colX = (ci: number): number => {
+    let x = tableX;
+    for (let i = 0; i < ci; i++) x += colWidths[i]!;
+    return x;
+  };
 
   ctx.lineWidth = 1;
   ctx.strokeStyle = BORDER_COLOR;
@@ -98,8 +127,8 @@ export function renderTable(
     ctx.fillStyle = '#333333';
 
     for (let ci = 0; ci < data.headers.length; ci++) {
-      const cellX = tableX + ci * colWidth;
-      ctx.strokeRect(cellX, currentY, colWidth, ROW_HEIGHT);
+      const cellX = colX(ci);
+      ctx.strokeRect(cellX, currentY, colWidths[ci]!, ROW_HEIGHT);
       ctx.fillStyle = '#333333';
       ctx.fillText(data.headers[ci]!, cellX + CELL_PADDING, currentY + ROW_HEIGHT / 2);
     }
@@ -112,13 +141,13 @@ export function renderTable(
   for (const row of data.rows) {
     for (let ci = 0; ci < row.length; ci++) {
       const cell = row[ci]!;
-      const cellX = tableX + ci * colWidth;
+      const cellX = colX(ci);
       const bg = getCellBg(cell);
       const border = getCellBorder(cell);
 
       if (isSwatch(cell)) {
         // Render a small colored square centered in the cell
-        const sx = cellX + (colWidth - SWATCH_SIZE) / 2;
+        const sx = cellX + (colWidths[ci]! - SWATCH_SIZE) / 2;
         const sy = currentY + (ROW_HEIGHT - SWATCH_SIZE) / 2;
         ctx.fillStyle = bg || '#ffffff';
         ctx.fillRect(sx, sy, SWATCH_SIZE, SWATCH_SIZE);
@@ -133,10 +162,10 @@ export function renderTable(
         }
       } else if (bg) {
         ctx.fillStyle = bg;
-        ctx.fillRect(cellX, currentY, colWidth, ROW_HEIGHT);
+        ctx.fillRect(cellX, currentY, colWidths[ci]!, ROW_HEIGHT);
       }
 
-      ctx.strokeRect(cellX, currentY, colWidth, ROW_HEIGHT);
+      ctx.strokeRect(cellX, currentY, colWidths[ci]!, ROW_HEIGHT);
 
       const text = getCellText(cell);
       if (text) {
