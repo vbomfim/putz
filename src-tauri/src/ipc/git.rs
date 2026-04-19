@@ -74,6 +74,12 @@ pub fn git_rev_parse_head(repo_path: String) -> Result<String, String> {
     run_git(&repo_path, &["rev-parse", "HEAD"]).map(|s| s.trim().to_string())
 }
 
+/// Returns the git repository root path, or an error if not in a repo.
+#[tauri::command]
+pub fn git_repo_root(path: String) -> Result<String, String> {
+    run_git(&path, &["rev-parse", "--show-toplevel"]).map(|s| s.trim().to_string())
+}
+
 /// Get file content at a specific commit (or empty string if the file didn't exist).
 #[tauri::command]
 pub fn git_file_at_commit(repo_path: String, hash: String, file_path: String) -> Result<String, String> {

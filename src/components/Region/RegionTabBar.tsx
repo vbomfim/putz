@@ -257,7 +257,7 @@ export function RegionTabBar({
   const [contextMenu, setContextMenu] = useState<ContextMenu | null>(null);
   const contextMenuRef = useRef<HTMLDivElement>(null);
 
-  // Detect if the active terminal CWD is in a git repo
+  // Detect if the active terminal CWD is in a git repo (poll every 3s)
   const [gitRepoPath, setGitRepoPath] = useState<string | null>(null);
   useEffect(() => {
     const activeTab = tabs.find((t) => t.id === activeTabId);
@@ -266,18 +266,19 @@ export function RegionTabBar({
       return;
     }
     let cancelled = false;
-    (async () => {
+    const check = async () => {
       try {
         const { invoke } = await import("@tauri-apps/api/core");
         const cwd = await invoke<string>("pty_cwd", { sessionId: activeTab.sessionId });
-        // Check if it's a git repo by trying rev-parse
-        await invoke<string>("git_rev_parse_head", { repoPath: cwd });
-        if (!cancelled) setGitRepoPath(cwd);
+        const root = await invoke<string>("git_repo_root", { path: cwd });
+        if (!cancelled) setGitRepoPath(root);
       } catch {
         if (!cancelled) setGitRepoPath(null);
       }
-    })();
-    return () => { cancelled = true; };
+    };
+    check();
+    const timer = setInterval(check, 3000);
+    return () => { cancelled = true; clearInterval(timer); };
   }, [tabs, activeTabId]);
 
   // Close context menu on outside click
