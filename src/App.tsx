@@ -25,6 +25,7 @@ import {
 } from "./utils/bookmarkHelpers";
 import { RegionContainer } from "./components/Region";
 import { BroadcastBar } from "./components/BroadcastBar";
+import { PathBar } from "./components/PathBar";
 import { ShortcutsPanel } from "./components/Help";
 import { SessionSidebar } from "./components/SessionManager";
 
@@ -360,6 +361,7 @@ function App() {
             ▶
           </button>
         )}
+      <PathBar />
       <BroadcastBar />
       <ShortcutsPanel />
       <QuickConnect
