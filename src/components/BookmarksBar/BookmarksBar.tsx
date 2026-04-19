@@ -105,9 +105,15 @@ function cdInTerminal(dirPath: string) {
   if (!region) return;
   const tab = region.tabs.find((t) => t.id === region.activeTabId);
   if (!tab || tab.type !== "terminal") return;
+  const sessionId = tab.sessionId;
   const escaped = dirPath.replace(/\\/g, "\\\\").replace(/"/g, '\\"').replace(/\$/g, "\\$").replace(/`/g, "\\`");
   const data = Array.from(new TextEncoder().encode(`cd "${escaped}"\n`));
-  invoke("pty_write", { sessionId: tab.sessionId, data }).catch(() => {});
+  invoke("pty_write", { sessionId, data }).then(() => {
+    // Fire CWD update after shell processes the cd
+    setTimeout(() => {
+      window.dispatchEvent(new CustomEvent("putz-cwd-change", { detail: { sessionId, cwd: dirPath } }));
+    }, 300);
+  }).catch(() => {});
 }
 
 interface FileTreeDropdownProps {
