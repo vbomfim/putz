@@ -1,59 +1,51 @@
 /**
  * Table composite renderer.
  *
- * Renders a grid with bold header row, data rows, and Rough.js lines
- * separating cells. Uses equal column widths and 30px row height.
+ * Renders a clean grid with optional title row, bold header row,
+ * data rows with optional cell background colors, and crisp lines.
  *
  * @module
  */
 
-import type { VisualExpression, TableData } from '../../../protocol';
+import type { VisualExpression, TableData, TableCell } from '../../../protocol';
 import type { RoughCanvas } from 'roughjs/bin/canvas.js';
-import { mapStyleToRoughOptions } from '../styleMapper';
 import { registerCompositeRenderer } from '../compositeRegistry';
 
 // ── Constants ────────────────────────────────────────────────
 
-/** Padding around the table. */
-const PADDING = 12;
-
-/** Height of each row. */
-const ROW_HEIGHT = 30;
-
-/** Default font family. */
-const FONT_FAMILY = 'sans-serif';
-
-/** Header font size. */
-const HEADER_FONT_SIZE = 13;
-
-/** Cell font size. */
-const CELL_FONT_SIZE = 12;
-
-/** Cell horizontal padding. */
+const PADDING = 8;
+const ROW_HEIGHT = 28;
+const FONT_FAMILY = 'system-ui, -apple-system, sans-serif';
+const HEADER_FONT_SIZE = 12;
+const CELL_FONT_SIZE = 11;
 const CELL_PADDING = 8;
+const BORDER_COLOR = '#d0d0d0';
+const HEADER_BG = '#f5f5f5';
+const TITLE_FONT_SIZE = 13;
+
+// ── Helpers ──────────────────────────────────────────────────
+
+function getCellText(cell: string | TableCell): string {
+  return typeof cell === 'string' ? cell : cell.text;
+}
+
+function getCellBg(cell: string | TableCell): string | undefined {
+  return typeof cell === 'object' ? cell.backgroundColor : undefined;
+}
 
 // ── Main renderer ────────────────────────────────────────────
 
-/**
- * Render a table expression. [AC2]
- *
- * @param ctx - The 2D canvas context.
- * @param expr - The table VisualExpression.
- * @param rc - The Rough.js canvas for sketchy rendering.
- */
 export function renderTable(
   ctx: CanvasRenderingContext2D,
   expr: VisualExpression,
-  rc: RoughCanvas,
+  _rc: RoughCanvas,
 ): void {
   const data = expr.data as TableData;
   const { x: originX, y: originY } = expr.position;
   const { width } = expr.size;
-  const roughOptions = mapStyleToRoughOptions(expr.style);
 
   ctx.save();
 
-  // ── Empty table ────────────────────────────────────────────
   if (data.headers.length === 0 && data.rows.length === 0) {
     ctx.restore();
     return;
@@ -65,20 +57,37 @@ export function renderTable(
   const tableX = originX + PADDING;
   let currentY = originY + PADDING;
 
+  ctx.lineWidth = 1;
+  ctx.strokeStyle = BORDER_COLOR;
+
+  // ── Title row ─────────────────────────────────────────────
+  if (data.title) {
+    ctx.fillStyle = HEADER_BG;
+    ctx.fillRect(tableX, currentY, tableWidth, ROW_HEIGHT);
+    ctx.strokeRect(tableX, currentY, tableWidth, ROW_HEIGHT);
+
+    ctx.font = `bold ${TITLE_FONT_SIZE}px ${FONT_FAMILY}`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillStyle = '#333333';
+    ctx.fillText(data.title, tableX + tableWidth / 2, currentY + ROW_HEIGHT / 2);
+    currentY += ROW_HEIGHT;
+  }
+
   // ── Header row ─────────────────────────────────────────────
   if (data.headers.length > 0) {
-    // Header background line (bottom of header row)
-    const headerBottomY = currentY + ROW_HEIGHT;
-    const headerLine = rc.line(tableX, headerBottomY, tableX + tableWidth, headerBottomY, roughOptions);
-    rc.draw(headerLine);
+    ctx.fillStyle = HEADER_BG;
+    ctx.fillRect(tableX, currentY, tableWidth, ROW_HEIGHT);
 
     ctx.font = `bold ${HEADER_FONT_SIZE}px ${FONT_FAMILY}`;
     ctx.textAlign = 'left';
     ctx.textBaseline = 'middle';
-    ctx.fillStyle = expr.style.strokeColor;
+    ctx.fillStyle = '#333333';
 
     for (let ci = 0; ci < data.headers.length; ci++) {
       const cellX = tableX + ci * colWidth;
+      ctx.strokeRect(cellX, currentY, colWidth, ROW_HEIGHT);
+      ctx.fillStyle = '#333333';
       ctx.fillText(data.headers[ci]!, cellX + CELL_PADDING, currentY + ROW_HEIGHT / 2);
     }
     currentY += ROW_HEIGHT;
@@ -89,29 +98,31 @@ export function renderTable(
 
   for (const row of data.rows) {
     for (let ci = 0; ci < row.length; ci++) {
+      const cell = row[ci]!;
       const cellX = tableX + ci * colWidth;
-      ctx.textAlign = 'left';
-      ctx.textBaseline = 'middle';
-      ctx.fillStyle = expr.style.strokeColor;
-      ctx.fillText(row[ci]!, cellX + CELL_PADDING, currentY + ROW_HEIGHT / 2);
+      const bg = getCellBg(cell);
+
+      if (bg) {
+        ctx.fillStyle = bg;
+        ctx.fillRect(cellX, currentY, colWidth, ROW_HEIGHT);
+      }
+
+      ctx.strokeRect(cellX, currentY, colWidth, ROW_HEIGHT);
+
+      const text = getCellText(cell);
+      if (text) {
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'middle';
+        ctx.fillStyle = '#333333';
+        ctx.fillText(text, cellX + CELL_PADDING, currentY + ROW_HEIGHT / 2);
+      }
     }
-
     currentY += ROW_HEIGHT;
-
-    // Row separator line
-    const rowLine = rc.line(tableX, currentY, tableX + tableWidth, currentY, roughOptions);
-    rc.draw(rowLine);
   }
 
-  // ── Vertical column separators ─────────────────────────────
+  // ── Outer border ───────────────────────────────────────────
   const tableTop = originY + PADDING;
-  const tableBottom = currentY;
-
-  for (let ci = 1; ci < colCount; ci++) {
-    const sepX = tableX + ci * colWidth;
-    const colLine = rc.line(sepX, tableTop, sepX, tableBottom, roughOptions);
-    rc.draw(colLine);
-  }
+  ctx.strokeRect(tableX, tableTop, tableWidth, currentY - tableTop);
 
   ctx.restore();
 }

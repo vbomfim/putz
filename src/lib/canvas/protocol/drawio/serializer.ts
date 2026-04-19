@@ -451,7 +451,7 @@ function decodeEntities(s: string): string {
  * Uses a tolerant regex-based parser — draw.io tables are simple (tr/td, sometimes
  * wrapped in <b>/<font>) and don't need a full HTML parser.
  */
-function parseHtmlTable(html: string): { headers: string[]; rows: string[][] } | null {
+function parseHtmlTable(html: string): { title?: string; headers: string[]; rows: (string | { text: string; backgroundColor?: string })[][] } | null {
   const tableMatch = html.match(/<table\b[^>]*>([\s\S]*?)<\/table>/i);
   if (!tableMatch || !tableMatch[1]) return null;
   const body = tableMatch[1];
@@ -459,27 +459,40 @@ function parseHtmlTable(html: string): { headers: string[]; rows: string[][] } |
   const cellText = (cellHtml: string): string =>
     decodeEntities(cellHtml.replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim());
 
+  /** Extract background-color from a td/th style attribute. */
+  const cellBgColor = (tdTag: string): string | undefined => {
+    const m = tdTag.match(/background-color\s*:\s*([^;"]+)/i);
+    return m?.[1]?.trim();
+  };
+
   const rowMatches = [...body.matchAll(/<tr\b[^>]*>([\s\S]*?)<\/tr>/gi)];
   if (rowMatches.length === 0) return null;
 
-  const allRows: string[][] = rowMatches.map((m) =>
-    [...(m[1] ?? '').matchAll(/<t[dh]\b[^>]*>([\s\S]*?)<\/t[dh]>/gi)].map((c) => cellText(c[1] ?? '')),
+  interface RawCell { text: string; backgroundColor?: string }
+  const allRows: RawCell[][] = rowMatches.map((m) =>
+    [...(m[1] ?? '').matchAll(/<t[dh]\b([^>]*)>([\s\S]*?)<\/t[dh]>/gi)].map((c) => ({
+      text: cellText(c[2] ?? ''),
+      backgroundColor: cellBgColor(c[1] ?? ''),
+    })),
   );
   if (allRows.length === 0) return null;
 
-  // Tables in draw.io network diagrams typically use the first row as a title
-  // (single cell with colspan=N) and the second row as the actual header.
-  // Detect this pattern: if row 0 has only 1 cell but row 1 has more, promote
-  // row 1 to headers and drop row 0 (or prepend it as a title row? We keep it
-  // simple by treating the first multi-cell row as headers).
+  // Detect title row: row 0 has 1 cell, row 1 has more → row 0 is a title
+  let title: string | undefined;
   let headerIdx = 0;
   if (allRows.length > 1 && (allRows[0]?.length ?? 0) === 1 && (allRows[1]?.length ?? 0) > 1) {
+    title = allRows[0]![0]!.text;
     headerIdx = 1;
   }
-  const headers = allRows[headerIdx] ?? [];
-  const rows = allRows.slice(headerIdx + 1);
+  const headers = (allRows[headerIdx] ?? []).map((c) => c.text);
+  const rows: (string | { text: string; backgroundColor?: string })[][] = allRows.slice(headerIdx + 1).map((row) => {
+    return row.map((cell) => {
+      if (cell.backgroundColor) return { text: cell.text, backgroundColor: cell.backgroundColor };
+      return cell.text;
+    });
+  });
 
-  // Pad short rows and truncate long rows to match header width.
+  // Pad short rows
   const width = headers.length;
   const normalized = rows.map((r) => {
     const copy = r.slice(0, width);
@@ -488,7 +501,7 @@ function parseHtmlTable(html: string): { headers: string[]; rows: string[][] } |
   });
 
   if (headers.length === 0 || normalized.length === 0) return null;
-  return { headers, rows: normalized };
+  return { title, headers, rows: normalized };
 }
 
 /** Apply HTML stripping only if the style marks this label as HTML content AND it actually contains tags. */
@@ -992,7 +1005,7 @@ function cellsToExpressions(cells: ParsedMxCell[]): VisualExpression[] {
       const tableParsed = parseHtmlTable(value);
       if (tableParsed) {
         effectiveKind = 'table';
-        data = { kind: 'table', headers: tableParsed.headers, rows: tableParsed.rows };
+        data = { kind: 'table', title: tableParsed.title, headers: tableParsed.headers, rows: tableParsed.rows };
         expressionStyle = styleMapToExpressionStyle(styleMap, 'table');
       }
     }

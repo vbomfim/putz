@@ -23,6 +23,7 @@ import type {
   FlowNode,
   FlowEdge,
   TableData,
+  TableCell,
   RoadmapData,
   KanbanData,
   MindMapData,
@@ -172,6 +173,12 @@ function isValidShape(s: string): s is FlowNode['shape'] {
   return VALID_SHAPES.has(s as FlowNode['shape']);
 }
 
+/** Extract plain text from a table cell (string or TableCell object). */
+function cellText(cell: string | TableCell | undefined): string {
+  if (!cell) return '';
+  return typeof cell === 'string' ? cell : cell.text;
+}
+
 function tableToFlowchart(data: ExpressionData): ExpressionData {
   const table = data as TableData;
 
@@ -184,8 +191,8 @@ function tableToFlowchart(data: ExpressionData): ExpressionData {
 
   // Build nodes from rows
   for (const row of table.rows) {
-    const label = row[nodeColIdx] ?? '';
-    const shapeStr = row[shapeColIdx] ?? 'rect';
+    const label = cellText(row[nodeColIdx]);
+    const shapeStr = cellText(row[shapeColIdx]) || 'rect';
     const shape: FlowNode['shape'] = isValidShape(shapeStr) ? shapeStr : 'rect';
     const id = nanoid(8);
     nodes.push({ id, label, shape });
@@ -195,15 +202,15 @@ function tableToFlowchart(data: ExpressionData): ExpressionData {
   // Build edges from connections column
   const edges: FlowEdge[] = [];
   for (const row of table.rows) {
-    const label = row[nodeColIdx] ?? '';
+    const label = cellText(row[nodeColIdx]);
     const fromId = nodeIdMap.get(label);
     if (!fromId) continue;
 
-    const connections = row[connColIdx] ?? '';
+    const connections = cellText(row[connColIdx]);
     if (!connections) continue;
 
     // Parse "→ TargetLabel" or "→ TargetLabel (edgeLabel)" patterns
-    const connParts = connections.split(',').map((s) => s.trim());
+    const connParts = connections.split(',').map((s: string) => s.trim());
     for (const part of connParts) {
       const match = part.match(/^→\s*(.+?)(?:\s*\((.+)\))?$/);
       if (match) {
@@ -324,14 +331,14 @@ function tableToMindMap(data: ExpressionData): ExpressionData {
   const parentIdx = table.headers.indexOf('Parent') >= 0 ? table.headers.indexOf('Parent') : 1;
 
   // Collect all parent values to find the root (a parent that is never a topic)
-  const allTopics = new Set(table.rows.map((r) => r[topicIdx]));
-  const allParents = new Set(table.rows.map((r) => r[parentIdx]));
+  const allTopics = new Set(table.rows.map((r) => cellText(r[topicIdx])));
+  const allParents = new Set(table.rows.map((r) => cellText(r[parentIdx])));
 
   // Root is the parent that is NOT itself a topic
   let centralTopic = 'Root';
   for (const parent of allParents) {
     if (!allTopics.has(parent)) {
-      centralTopic = parent ?? 'Root';
+      centralTopic = parent || 'Root';
       break;
     }
   }
@@ -339,8 +346,8 @@ function tableToMindMap(data: ExpressionData): ExpressionData {
   // Build a map of parent → children topics
   const childrenMap = new Map<string, string[]>();
   for (const row of table.rows) {
-    const topic = row[topicIdx] ?? '';
-    const parent = row[parentIdx] ?? '';
+    const topic = cellText(row[topicIdx]);
+    const parent = cellText(row[parentIdx]);
     const children = childrenMap.get(parent) ?? [];
     children.push(topic);
     childrenMap.set(parent, children);

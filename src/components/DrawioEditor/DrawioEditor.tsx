@@ -231,17 +231,6 @@ function DrawioEditorInner({ filePath, isActive }: { filePath: string; isActive:
     await saveToDisk();
   }, [saveToDisk]);
 
-  // Auto-save: debounce store changes to disk (2s after last edit)
-  useEffect(() => {
-    if (loading) return;
-    let timer: ReturnType<typeof setTimeout>;
-    const unsub = storeApi.subscribe(() => {
-      clearTimeout(timer);
-      timer = setTimeout(() => { saveToDisk(); }, 2000);
-    });
-    return () => { unsub(); clearTimeout(timer); };
-  }, [storeApi, loading, saveToDisk]);
-
   useEffect(() => {
     if (!isActive) return;
     const handler = (e: KeyboardEvent) => {

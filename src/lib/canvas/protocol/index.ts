@@ -57,6 +57,7 @@ export type {
   SlideData,
   CodeBlockData,
   TableData,
+  TableCell,
   CompositeData,
 } from './schema/composites';
 

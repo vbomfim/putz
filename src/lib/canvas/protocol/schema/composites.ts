@@ -189,10 +189,19 @@ export interface CodeBlockData {
   code: string;
 }
 
+export interface TableCell {
+  text: string;
+  backgroundColor?: string;
+  bold?: boolean;
+  colspan?: number;
+}
+
 export interface TableData {
   kind: 'table';
+  /** Optional title row (single cell spanning all columns). */
+  title?: string;
   headers: string[];
-  rows: string[][];
+  rows: (string | TableCell)[][];
 }
 
 // ── Composite Union ────────────────────────────────────────
