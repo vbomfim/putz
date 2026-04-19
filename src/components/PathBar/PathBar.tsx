@@ -35,21 +35,15 @@ export function PathBar() {
   const activeTab = region?.tabs.find((t) => t.id === region.activeTabId);
   const sessionId = activeTab?.type === "terminal" ? activeTab.sessionId : null;
 
-  // Fetch CWD on session change + poll every 2s as fallback
+  // Fetch CWD on session change
   useEffect(() => {
     if (!sessionId) { setCwd(null); return; }
-    let cancelled = false;
-    const check = () => {
-      invoke<string>("pty_cwd", { sessionId })
-        .then((v) => { if (!cancelled) setCwd(v); })
-        .catch(() => { if (!cancelled) setCwd(null); });
-    };
-    check();
-    const timer = setInterval(check, 2000);
-    return () => { cancelled = true; clearInterval(timer); };
+    invoke<string>("pty_cwd", { sessionId })
+      .then(setCwd)
+      .catch(() => setCwd(null));
   }, [sessionId]);
 
-  // Also listen for instant CWD change events
+  // Listen for CWD change events (instant updates)
   useEffect(() => {
     const handler = (e: Event) => {
       const detail = (e as CustomEvent).detail;

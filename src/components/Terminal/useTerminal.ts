@@ -420,6 +420,16 @@ export function useTerminal({
       invoke("pty_write", { sessionId, data: bytes }).catch(() => {
         // pty_write failure — input dropped silently
       });
+
+      // After Enter, check if CWD changed (shell ran a command)
+      if (data.includes("\r") || data.includes("\n")) {
+        setTimeout(() => {
+          if (disposed) return;
+          invoke<string>("pty_cwd", { sessionId })
+            .then((processCwd) => { if (processCwd && !disposed) recordCwdAtCursor(processCwd); })
+            .catch(() => {});
+        }, 300);
+      }
     });
 
     // Bridge: terminal binary data → PTY write
@@ -461,7 +471,14 @@ export function useTerminal({
     terminal.onTitleChange((title: string) => {
       onTitleChangeRef.current?.(title);
       const cwd = parseCwdFromTitle(title);
-      if (cwd) recordCwdAtCursor(cwd);
+      if (cwd) {
+        recordCwdAtCursor(cwd);
+      } else {
+        // Shell title didn't contain a parseable path — read CWD from the process
+        invoke<string>("pty_cwd", { sessionId })
+          .then((processCwd) => { if (processCwd) recordCwdAtCursor(processCwd); })
+          .catch(() => {});
+      }
     });
 
     // OSC 7 — modern cwd notification (\e]7;file://hostname/path\a).
