@@ -149,23 +149,12 @@ export function PathBar() {
     return () => document.removeEventListener("mousedown", handler);
   }, [branchMenuOpen]);
 
-  if (!cwd) return null;
-
-  const segments = pathSegments(cwd);
-  const filteredBranches = branchFilter
-    ? branches.filter((b) => b.name.toLowerCase().includes(branchFilter.toLowerCase()))
-    : branches;
-  const filteredTags = branchFilter
-    ? tags.filter((t) => t.toLowerCase().includes(branchFilter.toLowerCase()))
-    : tags;
-
   const [openCrumb, setOpenCrumb] = useState<string | null>(null);
   const [crumbDirs, setCrumbDirs] = useState<{ name: string; path: string }[]>([]);
   const crumbMenuRef = useRef<HTMLDivElement>(null);
 
   const toggleCrumbMenu = useCallback(async (segPath: string) => {
     if (openCrumb === segPath) { setOpenCrumb(null); return; }
-    // List the PARENT directory to show siblings
     const sep = segPath.includes("\\") ? "\\" : "/";
     const parentIdx = segPath.lastIndexOf(sep);
     const parentPath = parentIdx > 0 ? segPath.slice(0, parentIdx) : sep;
@@ -187,6 +176,16 @@ export function PathBar() {
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
   }, [openCrumb]);
+
+  if (!cwd) return null;
+
+  const segments = pathSegments(cwd);
+  const filteredBranches = branchFilter
+    ? branches.filter((b) => b.name.toLowerCase().includes(branchFilter.toLowerCase()))
+    : branches;
+  const filteredTags = branchFilter
+    ? tags.filter((t) => t.toLowerCase().includes(branchFilter.toLowerCase()))
+    : tags;
 
   return (
     <div className="path-bar">
