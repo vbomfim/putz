@@ -6,7 +6,7 @@
  *
  * @module Radio
  */
-import { useState, useEffect, useRef, useCallback } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import "./Radio.css";
 
 /** Shape of a station returned by radio-browser.info. */
@@ -82,6 +82,7 @@ function saveFavorites(favs: Map<string, RadioStation>): void {
 }
 
 export function Radio() {
+  const [poweredOn, setPoweredOn] = useState(true);
   const [stations, setStations] = useState<RadioStation[]>([]);
   const [countries, setCountries] = useState<CountryEntry[]>([]);
   const [favorites, setFavorites] = useState<Map<string, RadioStation>>(loadFavorites);
@@ -97,11 +98,10 @@ export function Radio() {
   const [paused, setPaused] = useState(false);
   const [volume, setVolume] = useState(80);
   const [error, setError] = useState<string | null>(null);
+  const [showAddForm, setShowAddForm] = useState(false);
+  const [addName, setAddName] = useState("");
+  const [addUrl, setAddUrl] = useState("");
   const audioRef = useRef<HTMLAudioElement | null>(null);
-  const analyserRef = useRef<AnalyserNode | null>(null);
-  const audioCtxRef = useRef<AudioContext | null>(null);
-  const vizCanvasRef = useRef<HTMLCanvasElement | null>(null);
-  const vizAnimRef = useRef<number>(0);
 
   const toggleFavorite = useCallback((station: RadioStation) => {
     setFavorites((prev) => {
@@ -115,6 +115,41 @@ export function Radio() {
       return next;
     });
   }, []);
+
+  const addCustomStation = () => {
+    if (!addName.trim() || !addUrl.trim()) return;
+    const station: RadioStation = {
+      stationuuid: `custom-${Date.now()}`,
+      name: addName.trim(),
+      url: addUrl.trim(),
+      url_resolved: addUrl.trim(),
+      favicon: "",
+      tags: "custom",
+      country: "",
+      codec: "",
+      bitrate: 0,
+      votes: 0,
+      clickcount: 0,
+      lastcheckok: 1,
+    };
+    setFavorites((prev) => {
+      const next = new Map(prev);
+      next.set(station.stationuuid, station);
+      saveFavorites(next);
+      // Update stations list directly if viewing favorites
+      if (country === "⭐ Favorites") {
+        const favList = [...next.values()];
+        const filtered = search
+          ? favList.filter((s) => s.name.toLowerCase().includes(search.toLowerCase()))
+          : favList;
+        setStations(filtered);
+      }
+      return next;
+    });
+    setAddName("");
+    setAddUrl("");
+    setShowAddForm(false);
+  };
 
   // Fetch country list on mount
   useEffect(() => {
@@ -202,37 +237,106 @@ export function Radio() {
     if (e.key === "Enter") handleSearch();
   };
 
-  const errorHandlerRef = useRef<(() => void) | null>(null);
+  // Drag-to-reorder for favorites (pointer-based — WKWebView blocks HTML5 DnD)
+  const isFavView = country === "⭐ Favorites";
+  const dragSrcIdx = useRef<number>(-1);
+  const [dropIdx, setDropIdx] = useState<number>(-1);
+  const isDragging = useRef(false);
+  const dragStartPos = useRef({ x: 0, y: 0 });
+  const ghostRef = useRef<HTMLDivElement | null>(null);
 
-  const startVisualizer = useCallback(() => {
-    cancelAnimationFrame(vizAnimRef.current);
-    const draw = () => {
-      const analyser = analyserRef.current;
-      const canvas = vizCanvasRef.current;
-      if (!analyser || !canvas) return;
-      const ctx = canvas.getContext("2d");
-      if (!ctx) return;
-      const bufLen = analyser.frequencyBinCount;
-      const data = new Uint8Array(bufLen);
-      analyser.getByteFrequencyData(data);
-      const w = canvas.width;
-      const h = canvas.height;
-      ctx.clearRect(0, 0, w, h);
-      const barW = Math.max(1, w / bufLen);
-      for (let i = 0; i < bufLen; i++) {
-        const barH = (data[i]! / 255) * h;
-        const hue = 140 + (i / bufLen) * 40; // green-teal
-        ctx.fillStyle = `hsla(${hue}, 70%, 60%, 0.8)`;
-        ctx.fillRect(i * barW, h - barH, barW - 1, barH);
+  const handlePointerDown = (idx: number) => (e: React.PointerEvent) => {
+    if (e.button !== 0) return;
+    const tag = (e.target as HTMLElement).closest("button");
+    if (tag) return; // don't drag from buttons
+    dragSrcIdx.current = idx;
+    dragStartPos.current = { x: e.clientX, y: e.clientY };
+    isDragging.current = false;
+  };
+
+  const handleListPointerMove = useCallback((e: React.PointerEvent) => {
+    if (dragSrcIdx.current < 0) return;
+    const dx = e.clientX - dragStartPos.current.x;
+    const dy = e.clientY - dragStartPos.current.y;
+
+    if (!isDragging.current) {
+      if (Math.abs(dx) + Math.abs(dy) < 8) return;
+      isDragging.current = true;
+      // Create ghost
+      const cards = e.currentTarget.querySelectorAll("[data-idx]");
+      const srcCard = cards[dragSrcIdx.current] as HTMLElement | undefined;
+      if (srcCard) {
+        const ghost = document.createElement("div");
+        ghost.className = "radio__drag-ghost";
+        ghost.textContent = srcCard.querySelector(".radio__card-name")?.textContent || "";
+        ghost.style.width = srcCard.offsetWidth + "px";
+        document.body.appendChild(ghost);
+        ghostRef.current = ghost;
+        srcCard.style.opacity = "0.3";
       }
-      vizAnimRef.current = requestAnimationFrame(draw);
-    };
-    draw();
+    }
+
+    // Move ghost
+    if (ghostRef.current) {
+      ghostRef.current.style.left = e.clientX + 12 + "px";
+      ghostRef.current.style.top = e.clientY - 16 + "px";
+    }
+
+    // Find drop target
+    const cards = e.currentTarget.querySelectorAll("[data-idx]");
+    let closest = -1;
+    let closestDist = Infinity;
+    cards.forEach((card) => {
+      const rect = card.getBoundingClientRect();
+      const cx = rect.left + rect.width / 2;
+      const cy = rect.top + rect.height / 2;
+      const dist = Math.abs(e.clientX - cx) + Math.abs(e.clientY - cy);
+      if (dist < closestDist) {
+        closestDist = dist;
+        closest = Number((card as HTMLElement).dataset.idx);
+      }
+    });
+    if (!isNaN(closest) && closest !== dragSrcIdx.current) {
+      setDropIdx(closest);
+    }
   }, []);
+
+  const finishDrag = useCallback(() => {
+    if (ghostRef.current) {
+      ghostRef.current.remove();
+      ghostRef.current = null;
+    }
+    // Restore opacity
+    document.querySelectorAll(".radio__card").forEach((c) => {
+      (c as HTMLElement).style.opacity = "";
+    });
+
+    if (isDragging.current && dragSrcIdx.current >= 0 && dropIdx >= 0 && dragSrcIdx.current !== dropIdx) {
+      const fromIdx = dragSrcIdx.current;
+      const toIdx = dropIdx;
+      setStations((prev) => {
+        const reordered = [...prev];
+        const [moved] = reordered.splice(fromIdx, 1);
+        reordered.splice(toIdx, 0, moved!);
+        const newFavs = new Map<string, RadioStation>();
+        reordered.forEach((s) => newFavs.set(s.stationuuid, s));
+        favorites.forEach((s, id) => { if (!newFavs.has(id)) newFavs.set(id, s); });
+        saveFavorites(newFavs);
+        setFavorites(newFavs);
+        return reordered;
+      });
+    }
+    dragSrcIdx.current = -1;
+    isDragging.current = false;
+    setDropIdx(-1);
+  }, [dropIdx, favorites]);
+
+  const handleListPointerUp = useCallback(() => { finishDrag(); }, [finishDrag]);
+
+  const errorHandlerRef = useRef<(() => void) | null>(null);
 
   const play = useCallback(
     (station: RadioStation) => {
-      // Clean up previous audio — remove listeners BEFORE stopping to avoid stale errors
       if (audioRef.current) {
         if (errorHandlerRef.current) {
           audioRef.current.removeEventListener("error", errorHandlerRef.current);
@@ -242,11 +346,9 @@ export function Radio() {
       }
 
       const audio = new Audio(station.url_resolved || station.url);
-      audio.crossOrigin = "anonymous";
       audio.volume = volume / 100;
 
       const onError = () => {
-        // Only fire if this is still the active audio
         if (audioRef.current === audio) {
           setError(`Could not play "${station.name}" — stream may be offline`);
           setPlayingId(null);
@@ -265,20 +367,6 @@ export function Radio() {
       });
 
       audioRef.current = audio;
-
-      // Wire Web Audio analyser for visualizer
-      try {
-        if (!audioCtxRef.current) audioCtxRef.current = new AudioContext();
-        const ctx = audioCtxRef.current;
-        const source = ctx.createMediaElementSource(audio);
-        const analyser = ctx.createAnalyser();
-        analyser.fftSize = 64;
-        source.connect(analyser);
-        analyser.connect(ctx.destination);
-        analyserRef.current = analyser;
-        startVisualizer();
-      } catch { /* crossorigin or browser restriction */ }
-
       setPlayingId(station.stationuuid);
       setPlayingName(station.name);
       playingStationRef.current = station;
@@ -286,7 +374,7 @@ export function Radio() {
       setError(null);
       window.dispatchEvent(new CustomEvent("putz-radio-change", { detail: { name: station.name, playing: true } }));
     },
-    [volume, startVisualizer],
+    [volume],
   );
 
   const togglePause = () => {
@@ -301,8 +389,6 @@ export function Radio() {
   };
 
   const stop = () => {
-    cancelAnimationFrame(vizAnimRef.current);
-    analyserRef.current = null;
     if (audioRef.current) {
       audioRef.current.pause();
       audioRef.current.src = "";
@@ -323,8 +409,37 @@ export function Radio() {
     }
   };
 
+  const togglePower = () => {
+    if (poweredOn) {
+      stop();
+    }
+    setPoweredOn((p) => !p);
+  };
+
   return (
-    <div className="radio">
+    <div className={`radio ${poweredOn ? "radio--on" : "radio--off"}`}>
+      {/* ─── Power Switch ─────────────────────────── */}
+      <div className="radio__power-panel">
+        <button
+          type="button"
+          className={`radio__power-switch ${poweredOn ? "radio__power-switch--on" : ""}`}
+          onClick={togglePower}
+          title={poweredOn ? "Power off" : "Power on"}
+        >
+          <span className="radio__power-knob" />
+        </button>
+        <span className={`radio__power-led ${poweredOn ? "radio__power-led--on" : ""}`} />
+        <span className="radio__power-label">PUTZ STEREO</span>
+      </div>
+
+      {!poweredOn && (
+        <div className="radio__off-screen">
+          <span className="radio__off-brand">FM / AM / WEB</span>
+        </div>
+      )}
+
+      {poweredOn && (
+        <>
       {/* ─── Toolbar ──────────────────────────────── */}
       <div className="radio__toolbar">
         <select
@@ -366,7 +481,43 @@ export function Radio() {
         <button type="button" onClick={handleSearch}>
           Search
         </button>
+
+        <button
+          type="button"
+          className="radio__toolbar-add"
+          onClick={() => setShowAddForm((v) => !v)}
+          title="Add custom station"
+        >
+          ➕
+        </button>
       </div>
+
+      {/* ─── Add Custom Station Form ─────────────── */}
+      {showAddForm && (
+        <div className="radio__add-form">
+          <input
+            type="text"
+            placeholder="Station name"
+            value={addName}
+            onChange={(e) => setAddName(e.target.value)}
+            aria-label="Station name"
+          />
+          <input
+            type="text"
+            placeholder="Stream URL (e.g. https://…/stream)"
+            value={addUrl}
+            onChange={(e) => setAddUrl(e.target.value)}
+            onKeyDown={(e) => { if (e.key === "Enter") addCustomStation(); }}
+            aria-label="Stream URL"
+          />
+          <button type="button" onClick={addCustomStation} disabled={!addName.trim() || !addUrl.trim()}>
+            Add to Favorites
+          </button>
+          <button type="button" className="radio__add-form-cancel" onClick={() => setShowAddForm(false)}>
+            ✕
+          </button>
+        </div>
+      )}
 
       {/* ─── Error ────────────────────────────────── */}
       {error && (
@@ -389,23 +540,35 @@ export function Radio() {
           <div className="radio__empty">No stations at this quality level</div>
         ) : (
         <div
-          className="radio__list"
+          className={`radio__list ${isFavView ? "radio__list--reorderable" : ""}`}
           onScroll={(e) => {
             const el = e.currentTarget;
             if (el.scrollTop + el.clientHeight >= el.scrollHeight - 100) {
               loadMore();
             }
           }}
+          onPointerMove={isFavView ? handleListPointerMove : undefined}
+          onPointerUp={isFavView ? handleListPointerUp : undefined}
+          onPointerLeave={isFavView ? handleListPointerUp : undefined}
         >
-          {filtered.map((station) => (
-            <StationCard
-              key={station.stationuuid}
-              station={station}
-              isPlaying={playingId === station.stationuuid}
-              isFavorite={favorites.has(station.stationuuid)}
-              onPlay={play}
-              onToggleFavorite={toggleFavorite}
-            />
+          {filtered.map((station, idx) => (
+            <React.Fragment key={station.stationuuid}>
+              {isFavView && dropIdx === idx && dragSrcIdx.current > idx && (
+                <div className="radio__drop-indicator" />
+              )}
+              <StationCard
+                station={station}
+                isPlaying={playingId === station.stationuuid}
+                isFavorite={favorites.has(station.stationuuid)}
+                dataIdx={isFavView ? idx : undefined}
+                onPlay={play}
+                onToggleFavorite={toggleFavorite}
+                onPointerDown={isFavView ? handlePointerDown(idx) : undefined}
+              />
+              {isFavView && dropIdx === idx && dragSrcIdx.current < idx && (
+                <div className="radio__drop-indicator" />
+              )}
+            </React.Fragment>
           ))}
           {hasMore && (
             <button className="radio__load-more" onClick={loadMore} disabled={loadingMore}>
@@ -461,11 +624,12 @@ export function Radio() {
               aria-label="Volume"
             />
           </div>
-          <canvas ref={vizCanvasRef} className="radio__player-viz" width={80} height={24} />
           {playingStationRef.current && playingStationRef.current.bitrate > 0 && (
             <span className="radio__player-bitrate">{playingStationRef.current.bitrate}kbps</span>
           )}
         </div>
+      )}
+        </>
       )}
     </div>
   );
@@ -477,11 +641,13 @@ interface StationCardProps {
   station: RadioStation;
   isPlaying: boolean;
   isFavorite: boolean;
+  dataIdx?: number;
   onPlay: (station: RadioStation) => void;
   onToggleFavorite: (station: RadioStation) => void;
+  onPointerDown?: (e: React.PointerEvent) => void;
 }
 
-function StationCard({ station, isPlaying, isFavorite, onPlay, onToggleFavorite }: StationCardProps) {
+function StationCard({ station, isPlaying, isFavorite, dataIdx, onPlay, onToggleFavorite, onPointerDown }: StationCardProps) {
   const [imgError, setImgError] = useState(false);
 
   const codec = station.codec || "";
@@ -495,6 +661,8 @@ function StationCard({ station, isPlaying, isFavorite, onPlay, onToggleFavorite 
       role="button"
       tabIndex={0}
       onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") onPlay(station); }}
+      onPointerDown={onPointerDown}
+      data-idx={dataIdx}
     >
       <div className="radio__card-header">
         {station.favicon && !imgError ? (

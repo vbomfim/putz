@@ -19,6 +19,8 @@ pub mod theme;
 pub mod vault;
 
 pub mod git;
+pub mod audio_proxy;
+pub use audio_proxy::audio_proxy_url;
 
 pub use autologin::{
     autologin_cancel, autologin_delete_profile, autologin_get_profile, autologin_process,
