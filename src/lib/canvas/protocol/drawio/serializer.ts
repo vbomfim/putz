@@ -1038,6 +1038,46 @@ function cellsToExpressions(cells: ParsedMxCell[]): VisualExpression[] {
         effectiveKind = 'table';
         data = { kind: 'table', title: tableParsed.title, headers: tableParsed.headers, rows: tableParsed.rows };
         expressionStyle = styleMapToExpressionStyle(styleMap, 'table');
+
+        // Estimate minimum width needed for the table content
+        const CELL_PAD = 8;
+        const TABLE_PAD = 8;
+        const SWATCH_COL = 34;
+        const FONT_PX = 11;
+        const CHAR_WIDTH = FONT_PX * 0.58; // approximate average char width
+        const colCount = Math.max(tableParsed.headers.length, ...tableParsed.rows.map(r => r.length), 1);
+
+        // Check if first column is all swatches
+        const firstColSwatch = tableParsed.rows.length > 0 && tableParsed.rows.every((row) => {
+          const cell = row[0];
+          return cell !== undefined && typeof cell === 'object' && cell.backgroundColor && !cell.text.trim();
+        });
+
+        let minWidth = TABLE_PAD * 2;
+        for (let ci = 0; ci < colCount; ci++) {
+          if (ci === 0 && firstColSwatch) {
+            minWidth += SWATCH_COL;
+          } else {
+            let maxLen = 0;
+            for (const row of tableParsed.rows) {
+              const cell = row[ci];
+              const text = typeof cell === 'string' ? cell : cell?.text ?? '';
+              if (text.length > maxLen) maxLen = text.length;
+            }
+            // Also check header
+            if (tableParsed.headers[ci]) {
+              maxLen = Math.max(maxLen, tableParsed.headers[ci]!.length);
+            }
+            minWidth += maxLen * CHAR_WIDTH + CELL_PAD * 2;
+          }
+        }
+        if (size.width < minWidth) size = { ...size, width: minWidth };
+
+        // Also ensure height fits all rows
+        const ROW_H = 28;
+        const rowCount = tableParsed.rows.length + (tableParsed.title ? 1 : 0) + (tableParsed.headers.length > 0 ? 1 : 0);
+        const minHeight = TABLE_PAD * 2 + rowCount * ROW_H;
+        if (size.height < minHeight) size = { ...size, height: minHeight };
       }
     }
 
