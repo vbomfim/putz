@@ -246,6 +246,7 @@ export function RegionTabBar({
   const addBrowserTab = useLayoutStore((s) => s.addBrowserTab);
   const addEditorTab = useLayoutStore((s) => s.addEditorTab);
   const addSearchTab = useLayoutStore((s) => s.addSearchTab);
+  const addGitGraphTab = useLayoutStore((s) => s.addGitGraphTab);
   const closeTab = useLayoutStore((s) => s.closeTab);
   const renameTab = useLayoutStore((s) => s.renameTab);
   const setFocusedRegion = useLayoutStore((s) => s.setFocusedRegion);
@@ -255,6 +256,29 @@ export function RegionTabBar({
 
   const [contextMenu, setContextMenu] = useState<ContextMenu | null>(null);
   const contextMenuRef = useRef<HTMLDivElement>(null);
+
+  // Detect if the active terminal CWD is in a git repo
+  const [gitRepoPath, setGitRepoPath] = useState<string | null>(null);
+  useEffect(() => {
+    const activeTab = tabs.find((t) => t.id === activeTabId);
+    if (!activeTab || activeTab.type !== "terminal") {
+      setGitRepoPath(null);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const { invoke } = await import("@tauri-apps/api/core");
+        const cwd = await invoke<string>("pty_cwd", { sessionId: activeTab.sessionId });
+        // Check if it's a git repo by trying rev-parse
+        await invoke<string>("git_rev_parse_head", { repoPath: cwd });
+        if (!cancelled) setGitRepoPath(cwd);
+      } catch {
+        if (!cancelled) setGitRepoPath(null);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [tabs, activeTabId]);
 
   // Close context menu on outside click
   useEffect(() => {
@@ -423,6 +447,17 @@ export function RegionTabBar({
         >
           📝
         </button>
+        {gitRepoPath && (
+          <button
+            className="region-tabbar__action"
+            onClick={() => { setFocusedRegion(regionId); addGitGraphTab(regionId, gitRepoPath); }}
+            aria-label="Git Graph"
+            type="button"
+            title="Git Graph"
+          >
+            🌳
+          </button>
+        )}
         <button
           className="region-tabbar__action"
           onClick={async () => {
