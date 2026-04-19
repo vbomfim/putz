@@ -159,19 +159,64 @@ export function PathBar() {
     ? tags.filter((t) => t.toLowerCase().includes(branchFilter.toLowerCase()))
     : tags;
 
+  const [openCrumb, setOpenCrumb] = useState<string | null>(null);
+  const [crumbDirs, setCrumbDirs] = useState<{ name: string; path: string }[]>([]);
+  const crumbMenuRef = useRef<HTMLDivElement>(null);
+
+  const toggleCrumbMenu = useCallback(async (segPath: string) => {
+    if (openCrumb === segPath) { setOpenCrumb(null); return; }
+    // List the PARENT directory to show siblings
+    const sep = segPath.includes("\\") ? "\\" : "/";
+    const parentIdx = segPath.lastIndexOf(sep);
+    const parentPath = parentIdx > 0 ? segPath.slice(0, parentIdx) : sep;
+    try {
+      const entries = await invoke<{ name: string; path: string; isDir: boolean }[]>("dir_list", { path: parentPath });
+      setCrumbDirs(entries.filter((e) => e.isDir).map((e) => ({ name: e.name, path: e.path })));
+      setOpenCrumb(segPath);
+    } catch { /* ignore */ }
+  }, [openCrumb]);
+
+  // Close crumb menu on outside click
+  useEffect(() => {
+    if (!openCrumb) return;
+    const handler = (e: MouseEvent) => {
+      if (crumbMenuRef.current && !crumbMenuRef.current.contains(e.target as Node)) {
+        setOpenCrumb(null);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [openCrumb]);
+
   return (
     <div className="path-bar">
       {segments.map((seg, i) => (
         <span key={seg.path} className="path-bar__segment-wrapper">
           {i > 0 && <span className="path-bar__sep">›</span>}
           <button
-            className="path-bar__segment"
-            onClick={() => handleSegmentClick(seg.path)}
+            className={`path-bar__segment ${openCrumb === seg.path ? "path-bar__segment--active" : ""}`}
+            onClick={() => toggleCrumbMenu(seg.path)}
             title={seg.path}
           >
             <span className="path-bar__icon">📁</span>
             {seg.name}
           </button>
+          {openCrumb === seg.path && (
+            <div ref={crumbMenuRef} className="path-bar__crumb-menu">
+              {crumbDirs.map((d) => (
+                <button
+                  key={d.path}
+                  className={`path-bar__crumb-item ${d.path === seg.path ? "path-bar__crumb-item--current" : ""}`}
+                  onClick={() => {
+                    setOpenCrumb(null);
+                    handleSegmentClick(d.path);
+                  }}
+                >
+                  📁 {d.name}
+                </button>
+              ))}
+            </div>
+          )}
         </span>
       ))}
 

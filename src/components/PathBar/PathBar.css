@@ -251,3 +251,51 @@
   flex-shrink: 0;
   font-size: 0.7rem;
 }
+
+/* ─── Crumb Directory Picker ─────────────────────────────────── */
+
+.path-bar__segment--active {
+  background: rgba(255, 255, 255, 0.12);
+  color: var(--text-primary, #cdd6f4);
+}
+
+.path-bar__crumb-menu {
+  position: absolute;
+  bottom: 24px;
+  left: 0;
+  min-width: 200px;
+  max-width: 320px;
+  max-height: 280px;
+  overflow-y: auto;
+  background: var(--bg-primary, #1e1e2e);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+  box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.4);
+  z-index: 300;
+  padding: 4px 0;
+}
+
+.path-bar__crumb-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  padding: 5px 12px;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary, #a6adc8);
+  font-size: 0.75rem;
+  cursor: pointer;
+  text-align: left;
+  white-space: nowrap;
+}
+
+.path-bar__crumb-item:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text-primary, #cdd6f4);
+}
+
+.path-bar__crumb-item--current {
+  color: var(--accent, #50fa7b);
+  font-weight: 600;
+}
