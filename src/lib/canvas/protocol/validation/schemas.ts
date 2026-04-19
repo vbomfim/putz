@@ -379,10 +379,18 @@ export const codeBlockDataSchema = z.object({
   code: z.string().max(100_000),
 });
 
+const tableCellSchema = z.object({
+  text: z.string().max(10_000),
+  backgroundColor: z.string().max(50).optional(),
+  bold: z.boolean().optional(),
+  colspan: z.number().optional(),
+});
+
 export const tableDataSchema = z.object({
   kind: z.literal('table'),
+  title: z.string().max(500).optional(),
   headers: z.array(z.string().max(500)).min(1),
-  rows: z.array(z.array(z.string().max(10_000))),
+  rows: z.array(z.array(z.union([z.string().max(10_000), tableCellSchema]))),
 });
 
 // ── Annotation Data Schemas ────────────────────────────────
