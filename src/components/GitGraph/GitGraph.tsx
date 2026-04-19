@@ -43,6 +43,10 @@ export function GitGraph({ repoPath }: GitGraphProps) {
       const commits = parseLogOutput(logRaw);
       const remotes = parseRemoteOutput(remotesRaw);
       const graph = buildGraph(commits, headHash.trim(), remotes);
+      // Mark as filtered when file path is active — renderer shows flat list without SVG
+      if (filePath) {
+        (graph as { filtered: boolean }).filtered = true;
+      }
       setGraphData(graph);
 
       // Render working tree overlay
