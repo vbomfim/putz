@@ -122,3 +122,9 @@ pub fn git_status_summary(path: String) -> Result<String, String> {
 
     Ok(format!("{}\n{}\n{}\n{}", branch, ahead, behind, dirty))
 }
+
+/// Checkout a branch.
+#[tauri::command]
+pub fn git_checkout(repo_path: String, branch: String) -> Result<String, String> {
+    run_git(&repo_path, &["checkout", &branch])
+}

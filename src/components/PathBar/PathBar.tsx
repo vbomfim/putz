@@ -2,9 +2,10 @@
  * PathBar — Finder-style breadcrumb path bar + git status at the bottom.
  * @module
  */
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { useLayoutStore } from "../../stores/layoutStore";
+import { parseBranchOutput } from "../../lib/git-graph/gitParser";
 import "./PathBar.css";
 
 interface GitInfo {
@@ -30,6 +31,11 @@ function pathSegments(fullPath: string): { name: string; path: string }[] {
 export function PathBar() {
   const [cwd, setCwd] = useState<string | null>(null);
   const [git, setGit] = useState<GitInfo | null>(null);
+  const [branchMenuOpen, setBranchMenuOpen] = useState(false);
+  const [branches, setBranches] = useState<{ name: string; isRemote: boolean; isCurrent: boolean }[]>([]);
+  const [branchFilter, setBranchFilter] = useState("");
+  const branchBtnRef = useRef<HTMLButtonElement>(null);
+  const branchMenuRef = useRef<HTMLDivElement>(null);
   const focusedRegionId = useLayoutStore((s) => s.focusedRegionId);
   const regions = useLayoutStore((s) => s.regions);
   const addGitGraphTab = useLayoutStore((s) => s.addGitGraphTab);
@@ -81,9 +87,48 @@ export function PathBar() {
     invoke("pty_write", { sessionId, data }).catch(() => {});
   }, [sessionId]);
 
+  // Open branch menu
+  const openBranchMenu = useCallback(async () => {
+    if (!git) return;
+    try {
+      const raw = await invoke<string>("git_branches", { repoPath: git.repoRoot });
+      setBranches(parseBranchOutput(raw));
+      setBranchFilter("");
+      setBranchMenuOpen(true);
+    } catch { /* ignore */ }
+  }, [git]);
+
+  // Checkout a branch
+  const handleCheckout = useCallback(async (branchName: string) => {
+    if (!git) return;
+    setBranchMenuOpen(false);
+    try {
+      await invoke<string>("git_checkout", { repoPath: git.repoRoot, branch: branchName });
+      checkGit(git.repoRoot);
+    } catch (e) {
+      console.error("Checkout failed:", e);
+    }
+  }, [git, checkGit]);
+
+  // Close branch menu on outside click
+  useEffect(() => {
+    if (!branchMenuOpen) return;
+    const handler = (e: MouseEvent) => {
+      if (branchMenuRef.current && !branchMenuRef.current.contains(e.target as Node) &&
+          branchBtnRef.current && !branchBtnRef.current.contains(e.target as Node)) {
+        setBranchMenuOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [branchMenuOpen]);
+
   if (!cwd) return null;
 
   const segments = pathSegments(cwd);
+  const filteredBranches = branchFilter
+    ? branches.filter((b) => b.name.toLowerCase().includes(branchFilter.toLowerCase()))
+    : branches;
 
   return (
     <div className="path-bar">
@@ -103,7 +148,14 @@ export function PathBar() {
 
       {git && (
         <div className="path-bar__git">
-          <span className="path-bar__git-branch">⎇ {git.branch}</span>
+          <button
+            ref={branchBtnRef}
+            className="path-bar__git-branch"
+            onClick={openBranchMenu}
+            title="Switch branch"
+          >
+            ⎇ {git.branch} ▾
+          </button>
           {git.ahead > 0 && <span className="path-bar__git-ahead">↑{git.ahead}</span>}
           {git.behind > 0 && <span className="path-bar__git-behind">↓{git.behind}</span>}
           {git.ahead === 0 && git.behind === 0 && <span className="path-bar__git-sync">✓</span>}
@@ -115,6 +167,42 @@ export function PathBar() {
           >
             🌳
           </button>
+
+          {branchMenuOpen && (
+            <div ref={branchMenuRef} className="path-bar__branch-menu">
+              <input
+                className="path-bar__branch-filter"
+                type="text"
+                placeholder="Filter branches…"
+                value={branchFilter}
+                onChange={(e) => setBranchFilter(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Escape") setBranchMenuOpen(false);
+                  if (e.key === "Enter" && filteredBranches.length === 1) {
+                    handleCheckout(filteredBranches[0].name);
+                  }
+                }}
+                autoFocus
+                spellCheck={false}
+              />
+              <div className="path-bar__branch-list">
+                {filteredBranches.map((b) => (
+                  <button
+                    key={b.name}
+                    className={`path-bar__branch-item ${b.isCurrent ? "path-bar__branch-item--current" : ""}`}
+                    onClick={() => !b.isCurrent && handleCheckout(b.name)}
+                    disabled={b.isCurrent}
+                  >
+                    {b.isCurrent && <span className="path-bar__branch-check">★</span>}
+                    <span className={b.isRemote ? "path-bar__branch-remote" : ""}>{b.name}</span>
+                  </button>
+                ))}
+                {filteredBranches.length === 0 && (
+                  <span className="path-bar__branch-empty">No matching branches</span>
+                )}
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>

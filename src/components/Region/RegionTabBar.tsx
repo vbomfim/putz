@@ -246,7 +246,6 @@ export function RegionTabBar({
   const addBrowserTab = useLayoutStore((s) => s.addBrowserTab);
   const addEditorTab = useLayoutStore((s) => s.addEditorTab);
   const addSearchTab = useLayoutStore((s) => s.addSearchTab);
-  const addGitGraphTab = useLayoutStore((s) => s.addGitGraphTab);
   const closeTab = useLayoutStore((s) => s.closeTab);
   const renameTab = useLayoutStore((s) => s.renameTab);
   const setFocusedRegion = useLayoutStore((s) => s.setFocusedRegion);
@@ -256,21 +255,6 @@ export function RegionTabBar({
 
   const [contextMenu, setContextMenu] = useState<ContextMenu | null>(null);
   const contextMenuRef = useRef<HTMLDivElement>(null);
-
-  // Git graph: resolve repo on click (no detection overhead)
-  const handleGitGraph = useCallback(async () => {
-    setFocusedRegion(regionId);
-    const activeT = tabs.find((t) => t.id === activeTabId);
-    if (!activeT || activeT.type !== "terminal") return;
-    try {
-      const { invoke } = await import("@tauri-apps/api/core");
-      const cwd = await invoke<string>("pty_cwd", { sessionId: activeT.sessionId });
-      const root = await invoke<string>("git_repo_root", { path: cwd });
-      addGitGraphTab(regionId, root);
-    } catch {
-      // Not a git repo — no-op
-    }
-  }, [regionId, tabs, activeTabId, setFocusedRegion, addGitGraphTab]);
 
   // Close context menu on outside click
   useEffect(() => {
@@ -412,15 +396,6 @@ export function RegionTabBar({
 
       {/* Right-aligned action icons — keep minimal */}
       <div className="region-tabbar__actions">
-        <button
-          className="region-tabbar__action"
-          onClick={handleGitGraph}
-          aria-label="Git Graph"
-          type="button"
-          title="Git Graph"
-        >
-          🌳
-        </button>
         <button
           className="region-tabbar__action"
           onClick={handleAddClick}

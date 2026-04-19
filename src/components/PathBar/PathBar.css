@@ -104,3 +104,102 @@
 .path-bar__git-tree:hover {
   background: rgba(255, 255, 255, 0.1);
 }
+
+/* ─── Branch Menu ────────────────────────────────────────────── */
+
+.path-bar__git-branch {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  padding: 1px 6px;
+  border: none;
+  background: transparent;
+  color: var(--accent, #50fa7b);
+  font-weight: 600;
+  font-size: 0.7rem;
+  cursor: pointer;
+  border-radius: 3px;
+  white-space: nowrap;
+}
+
+.path-bar__git-branch:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.path-bar__branch-menu {
+  position: fixed;
+  bottom: 28px;
+  right: 40px;
+  width: 280px;
+  max-height: 320px;
+  background: var(--bg-primary, #1e1e2e);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+  box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.4);
+  z-index: 300;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.path-bar__branch-filter {
+  padding: 8px 10px;
+  border: none;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  background: transparent;
+  color: var(--text-primary, #cdd6f4);
+  font-size: 0.8rem;
+  outline: none;
+}
+
+.path-bar__branch-filter::placeholder {
+  color: var(--text-secondary, #6c7086);
+}
+
+.path-bar__branch-list {
+  overflow-y: auto;
+  max-height: 260px;
+  padding: 4px 0;
+}
+
+.path-bar__branch-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  padding: 5px 12px;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary, #a6adc8);
+  font-size: 0.75rem;
+  cursor: pointer;
+  text-align: left;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.path-bar__branch-item:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text-primary, #cdd6f4);
+}
+
+.path-bar__branch-item--current {
+  color: var(--accent, #50fa7b);
+  cursor: default;
+}
+
+.path-bar__branch-check {
+  flex-shrink: 0;
+}
+
+.path-bar__branch-remote {
+  opacity: 0.6;
+}
+
+.path-bar__branch-empty {
+  display: block;
+  padding: 8px 12px;
+  color: var(--text-secondary, #6c7086);
+  font-size: 0.75rem;
+}
