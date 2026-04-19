@@ -5,7 +5,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { useLayoutStore } from "../../stores/layoutStore";
-import { parseBranchOutput } from "../../lib/git-graph/gitParser";
+import { parseBranchOutput, parseTagListOutput } from "../../lib/git-graph/gitParser";
 import "./PathBar.css";
 
 interface GitInfo {
@@ -33,6 +33,7 @@ export function PathBar() {
   const [git, setGit] = useState<GitInfo | null>(null);
   const [branchMenuOpen, setBranchMenuOpen] = useState(false);
   const [branches, setBranches] = useState<{ name: string; isRemote: boolean; isCurrent: boolean }[]>([]);
+  const [tags, setTags] = useState<string[]>([]);
   const [branchFilter, setBranchFilter] = useState("");
   const branchBtnRef = useRef<HTMLButtonElement>(null);
   const branchMenuRef = useRef<HTMLDivElement>(null);
@@ -92,8 +93,12 @@ export function PathBar() {
     if (branchMenuOpen) { setBranchMenuOpen(false); return; }
     if (!git) return;
     try {
-      const raw = await invoke<string>("git_branches", { repoPath: git.repoRoot });
-      setBranches(parseBranchOutput(raw));
+      const [branchRaw, tagRaw] = await Promise.all([
+        invoke<string>("git_branches", { repoPath: git.repoRoot }),
+        invoke<string>("git_tags", { repoPath: git.repoRoot }),
+      ]);
+      setBranches(parseBranchOutput(branchRaw));
+      setTags(parseTagListOutput(tagRaw));
       setBranchFilter("");
       setBranchMenuOpen(true);
     } catch { /* ignore */ }
@@ -150,6 +155,9 @@ export function PathBar() {
   const filteredBranches = branchFilter
     ? branches.filter((b) => b.name.toLowerCase().includes(branchFilter.toLowerCase()))
     : branches;
+  const filteredTags = branchFilter
+    ? tags.filter((t) => t.toLowerCase().includes(branchFilter.toLowerCase()))
+    : tags;
 
   return (
     <div className="path-bar">
@@ -226,8 +234,23 @@ export function PathBar() {
                     <span className={b.isRemote ? "path-bar__branch-remote" : ""}>{b.name}</span>
                   </button>
                 ))}
-                {filteredBranches.length === 0 && (
-                  <span className="path-bar__branch-empty">No matching branches</span>
+                {filteredTags.length > 0 && (
+                  <>
+                    <div className="path-bar__branch-divider">Tags</div>
+                    {filteredTags.map((t) => (
+                      <button
+                        key={"tag-" + t}
+                        className="path-bar__branch-item path-bar__branch-item--tag"
+                        onClick={() => handleCheckout(t)}
+                      >
+                        <span className="path-bar__tag-icon">🏷</span>
+                        <span>{t}</span>
+                      </button>
+                    ))}
+                  </>
+                )}
+                {filteredBranches.length === 0 && filteredTags.length === 0 && (
+                  <span className="path-bar__branch-empty">No matches</span>
                 )}
               </div>
             </div>

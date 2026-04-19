@@ -140,3 +140,9 @@ pub fn git_push(repo_path: String) -> Result<String, String> {
 pub fn git_pull(repo_path: String) -> Result<String, String> {
     run_git(&repo_path, &["pull"])
 }
+
+/// List all tags.
+#[tauri::command]
+pub fn git_tags(repo_path: String) -> Result<String, String> {
+    run_git(&repo_path, &["tag", "-l", "--sort=-version:refname"])
+}

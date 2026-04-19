@@ -231,3 +231,23 @@
 .path-bar__git-action--pull:hover {
   background: rgba(250, 179, 135, 0.15);
 }
+
+.path-bar__branch-divider {
+  padding: 6px 12px 3px;
+  font-size: 0.65rem;
+  font-weight: 600;
+  color: var(--text-secondary, #6c7086);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  margin-top: 4px;
+}
+
+.path-bar__branch-item--tag {
+  color: #f9e2af;
+}
+
+.path-bar__tag-icon {
+  flex-shrink: 0;
+  font-size: 0.7rem;
+}
