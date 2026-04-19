@@ -161,6 +161,16 @@ export function Radio() {
     setLoadingMore(false);
   }, [country, search, stations.length, loadingMore, hasMore]);
 
+  // Auto-load more when bitrate filter leaves too few visible results
+  const minVisibleCount = 12;
+  useEffect(() => {
+    if (loading || loadingMore || !hasMore || minBitrate === 0) return;
+    const visible = stations.filter((s) => s.bitrate >= minBitrate);
+    if (visible.length < minVisibleCount && stations.length > 0) {
+      loadMore();
+    }
+  }, [stations, minBitrate, loading, loadingMore, hasMore, loadMore]);
+
   // Load on mount and when country changes
   useEffect(() => {
     loadStations(country, "");
