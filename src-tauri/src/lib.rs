@@ -32,7 +32,7 @@ use ipc::{
     change_window_delete, change_window_list, change_window_set, connection_close, connection_open,
     connection_resize, connection_write, dir_list, file_mtime, file_read, file_replace, file_replace_all,
     file_search, file_write, forwarding_add, forwarding_list, forwarding_remove, forwarding_status,
-    git_branches, git_log, git_remotes, git_rev_parse_head, git_show, git_stash_list, git_status,
+    git_branches, git_file_at_commit, git_log, git_remotes, git_rev_parse_head, git_show, git_stash_list, git_status,
     highlight_create_set, highlight_delete_set, highlight_get_set, highlight_list_sets,
     highlight_update_set, history_add, history_clear, history_get_recent, history_search,
     key_delete, key_generate, key_get_public, key_import, key_list, log_debug, logging_start,
@@ -215,6 +215,7 @@ pub fn run() {
             git_stash_list,
             git_remotes,
             git_rev_parse_head,
+            git_file_at_commit,
         ])
         // Fix 8: Graceful app exit — clean up PTY sessions and protocol connections
         .on_window_event(|window, event| {

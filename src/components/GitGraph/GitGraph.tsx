@@ -5,6 +5,7 @@ import { buildGraph } from "../../lib/git-graph/graphBuilder";
 import { renderGraph, highlightCommit } from "../../lib/git-graph/graphRenderer";
 import { renderCommitDetail } from "../../lib/git-graph/commitDetailPanel";
 import { renderWorkingTree } from "../../lib/git-graph/workingTree";
+import { useLayoutStore } from "../../stores/layoutStore";
 import type { GraphData } from "../../lib/git-graph/types";
 import "./GitGraph.css";
 
@@ -73,8 +74,36 @@ export function GitGraph({ repoPath }: GitGraphProps) {
             onSelectCommit: (h) => {
               if (graphRef.current) highlightCommit(h, graphRef.current);
             },
-            onOpenFileDiff: (_h, _fp) => {
-              // TODO: open diff in editor tab
+            onOpenFileDiff: async (h, fp) => {
+              try {
+                // Get the commit's parent hash for the "before" version
+                const detail2 = parseCommitShowOutput(raw);
+                const parentHash = detail2?.parentHashes[0];
+                const [oldContent, newContent] = await Promise.all([
+                  parentHash
+                    ? invoke<string>("git_file_at_commit", { repoPath, hash: parentHash, filePath: fp })
+                    : Promise.resolve(""),
+                  invoke<string>("git_file_at_commit", { repoPath, hash: h, filePath: fp }),
+                ]);
+                const fileName = fp.split("/").pop() || fp;
+                useLayoutStore.getState().addDiffTab(
+                  undefined,
+                  undefined, undefined,
+                  oldContent,
+                  newContent,
+                );
+                // Update tab title to show the file name
+                const ls = useLayoutStore.getState();
+                const region = ls.regions[ls.focusedRegionId];
+                if (region) {
+                  const tab = region.tabs.find(t => t.id === region.activeTabId);
+                  if (tab) {
+                    useLayoutStore.getState().renameTab(region.id, tab.id, `${fileName} @ ${h.slice(0, 7)}`);
+                  }
+                }
+              } catch (e) {
+                console.error("Failed to open file diff:", e);
+              }
             },
           });
         }

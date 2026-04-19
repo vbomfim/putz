@@ -73,3 +73,13 @@ pub fn git_remotes(repo_path: String) -> Result<String, String> {
 pub fn git_rev_parse_head(repo_path: String) -> Result<String, String> {
     run_git(&repo_path, &["rev-parse", "HEAD"]).map(|s| s.trim().to_string())
 }
+
+/// Get file content at a specific commit (or empty string if the file didn't exist).
+#[tauri::command]
+pub fn git_file_at_commit(repo_path: String, hash: String, file_path: String) -> Result<String, String> {
+    let spec = format!("{}:{}", hash, file_path);
+    match run_git(&repo_path, &["show", &spec]) {
+        Ok(content) => Ok(content),
+        Err(_) => Ok(String::new()), // file didn't exist at this commit
+    }
+}
