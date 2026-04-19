@@ -1149,30 +1149,38 @@ export function BookmarksBar({
   const executeCommand = useCallback((cmd: CommandBookmark) => {
     const state = useLayoutStore.getState();
 
-    if (cmd.newTerminal) {
-      // Open new terminal tab and send command after a short delay
-      const regionId = state.focusedRegionId;
-      useLayoutStore.getState().addTerminalTab(regionId);
-      // Wait for terminal to spawn, then send the command
-      setTimeout(() => {
-        const updatedState = useLayoutStore.getState();
-        const region = updatedState.regions[updatedState.focusedRegionId];
-        if (!region) return;
+    // Find active terminal: prefer focused region, fallback to any region
+    const findTerminalSession = (s: typeof state): string | null => {
+      // Try focused region first
+      const focused = s.regions[s.focusedRegionId];
+      if (focused) {
+        const tab = focused.tabs.find((t) => t.id === focused.activeTabId);
+        if (tab?.type === "terminal" && tab.sessionId) return tab.sessionId;
+      }
+      // Fallback: any region with an active terminal tab
+      for (const region of Object.values(s.regions)) {
         const tab = region.tabs.find((t) => t.id === region.activeTabId);
-        if (!tab || tab.type !== "terminal" || !tab.sessionId) return;
-        const suffix = cmd.autoExecute ? "\r" : "";
-        const data = Array.from(new TextEncoder().encode(cmd.command + suffix));
-        invoke("pty_write", { sessionId: tab.sessionId, data }).catch(() => {});
-      }, 500);
-    } else {
-      // Send to current terminal
-      const region = state.regions[state.focusedRegionId];
-      if (!region) return;
-      const tab = region.tabs.find((t) => t.id === region.activeTabId);
-      if (!tab || tab.type !== "terminal" || !tab.sessionId) return;
+        if (tab?.type === "terminal" && tab.sessionId) return tab.sessionId;
+      }
+      return null;
+    };
+
+    const sendCommand = (sessionId: string) => {
       const suffix = cmd.autoExecute ? "\r" : "";
       const data = Array.from(new TextEncoder().encode(cmd.command + suffix));
-      invoke("pty_write", { sessionId: tab.sessionId, data }).catch(() => {});
+      invoke("pty_write", { sessionId, data }).catch(() => {});
+    };
+
+    if (cmd.newTerminal) {
+      const regionId = state.focusedRegionId;
+      useLayoutStore.getState().addTerminalTab(regionId);
+      setTimeout(() => {
+        const sessionId = findTerminalSession(useLayoutStore.getState());
+        if (sessionId) sendCommand(sessionId);
+      }, 500);
+    } else {
+      const sessionId = findTerminalSession(state);
+      if (sessionId) sendCommand(sessionId);
     }
   }, []);
 
