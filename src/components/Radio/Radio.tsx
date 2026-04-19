@@ -90,6 +90,7 @@ export function Radio() {
   const [hasMore, setHasMore] = useState(true);
   const [search, setSearch] = useState("");
   const [country, setCountry] = useState("⭐ Favorites");
+  const [minBitrate, setMinBitrate] = useState(0);
   const [playingId, setPlayingId] = useState<string | null>(null);
   const [playingName, setPlayingName] = useState("");
   const [paused, setPaused] = useState(false);
@@ -280,6 +281,19 @@ export function Radio() {
           ))}
         </select>
 
+        <select
+          value={minBitrate}
+          onChange={(e) => setMinBitrate(Number(e.target.value))}
+          aria-label="Quality"
+        >
+          <option value={0}>Any quality</option>
+          <option value={64}>≥ 64 kbps</option>
+          <option value={128}>≥ 128 kbps (Good)</option>
+          <option value={192}>≥ 192 kbps (High)</option>
+          <option value={256}>≥ 256 kbps (Very High)</option>
+          <option value={320}>≥ 320 kbps (Best)</option>
+        </select>
+
         <input
           type="text"
           placeholder="Search stations…"
@@ -307,7 +321,13 @@ export function Radio() {
         <div className="radio__loading">Loading stations…</div>
       ) : stations.length === 0 ? (
         <div className="radio__empty">No stations found</div>
-      ) : (
+      ) : (() => {
+        const filtered = minBitrate > 0
+          ? stations.filter((s) => s.bitrate >= minBitrate)
+          : stations;
+        return filtered.length === 0 ? (
+          <div className="radio__empty">No stations at this quality level</div>
+        ) : (
         <div
           className="radio__list"
           onScroll={(e) => {
@@ -317,7 +337,7 @@ export function Radio() {
             }
           }}
         >
-          {stations.map((station) => (
+          {filtered.map((station) => (
             <StationCard
               key={station.stationuuid}
               station={station}
@@ -333,7 +353,8 @@ export function Radio() {
             </button>
           )}
         </div>
-      )}
+        );
+      })()}
 
       {/* ─── Player bar ───────────────────────────── */}
       {playingName && (
