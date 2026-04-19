@@ -128,3 +128,15 @@ pub fn git_status_summary(path: String) -> Result<String, String> {
 pub fn git_checkout(repo_path: String, branch: String) -> Result<String, String> {
     run_git(&repo_path, &["checkout", &branch])
 }
+
+/// Push to remote.
+#[tauri::command]
+pub fn git_push(repo_path: String) -> Result<String, String> {
+    run_git(&repo_path, &["push"])
+}
+
+/// Pull from remote.
+#[tauri::command]
+pub fn git_pull(repo_path: String) -> Result<String, String> {
+    run_git(&repo_path, &["pull"])
+}

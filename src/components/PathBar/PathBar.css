@@ -203,3 +203,31 @@
   color: var(--text-secondary, #6c7086);
   font-size: 0.75rem;
 }
+
+/* ─── Push / Pull Buttons ────────────────────────────────────── */
+
+.path-bar__git-action {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 1px 5px;
+  border: none;
+  background: transparent;
+  color: #50fa7b;
+  font-size: 0.7rem;
+  cursor: pointer;
+  border-radius: 3px;
+  white-space: nowrap;
+}
+
+.path-bar__git-action:hover {
+  background: rgba(80, 250, 123, 0.15);
+}
+
+.path-bar__git-action--pull {
+  color: #fab387;
+}
+
+.path-bar__git-action--pull:hover {
+  background: rgba(250, 179, 135, 0.15);
+}

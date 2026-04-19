@@ -111,6 +111,26 @@ export function PathBar() {
     }
   }, [git, checkGit]);
 
+  const handlePush = useCallback(async () => {
+    if (!git) return;
+    try {
+      await invoke<string>("git_push", { repoPath: git.repoRoot });
+      checkGit(git.repoRoot);
+    } catch (e) {
+      console.error("Push failed:", e);
+    }
+  }, [git, checkGit]);
+
+  const handlePull = useCallback(async () => {
+    if (!git) return;
+    try {
+      await invoke<string>("git_pull", { repoPath: git.repoRoot });
+      checkGit(git.repoRoot);
+    } catch (e) {
+      console.error("Pull failed:", e);
+    }
+  }, [git, checkGit]);
+
   // Close branch menu on outside click
   useEffect(() => {
     if (!branchMenuOpen) return;
@@ -157,8 +177,16 @@ export function PathBar() {
           >
             ⎇ {git.branch} ▾
           </button>
-          {git.ahead > 0 && <span className="path-bar__git-ahead">↑{git.ahead}</span>}
-          {git.behind > 0 && <span className="path-bar__git-behind">↓{git.behind}</span>}
+          {git.ahead > 0 && (
+            <button className="path-bar__git-action" onClick={handlePush} title={`Push ${git.ahead} commit${git.ahead > 1 ? "s" : ""}`}>
+              ↑{git.ahead} ⬆
+            </button>
+          )}
+          {git.behind > 0 && (
+            <button className="path-bar__git-action path-bar__git-action--pull" onClick={handlePull} title={`Pull ${git.behind} commit${git.behind > 1 ? "s" : ""}`}>
+              ↓{git.behind} ⬇
+            </button>
+          )}
           {git.ahead === 0 && git.behind === 0 && <span className="path-bar__git-sync">✓</span>}
           {git.dirty > 0 && <span className="path-bar__git-dirty">●{git.dirty}</span>}
           <button
