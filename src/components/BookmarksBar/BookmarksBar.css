@@ -166,3 +166,141 @@
   padding: 0 4px;
   white-space: nowrap;
 }
+
+/* ─── Command Button ─────────────────────────────────────────────── */
+
+.bookmarks-bar__item--command {
+  border-left: 2px solid var(--accent, #89b4fa);
+}
+
+.bookmarks-bar__hotkey {
+  font-size: 0.55rem;
+  opacity: 0.5;
+  margin-left: 2px;
+  letter-spacing: 0.5px;
+}
+
+.bookmarks-bar__add-cmd-btn {
+  display: flex;
+  align-items: center;
+  padding: 2px 6px;
+  border: none;
+  border-radius: 3px;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 0.7rem;
+  cursor: pointer;
+  flex-shrink: 0;
+  white-space: nowrap;
+  opacity: 0.6;
+}
+
+.bookmarks-bar__add-cmd-btn:hover {
+  opacity: 1;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+/* ─── Add Command Dialog ─────────────────────────────────────────── */
+
+.bookmarks-bar__add-cmd {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+  background: var(--bg-secondary, #1e1e2e);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  font-size: 12px;
+}
+
+.bookmarks-bar__add-cmd-title {
+  font-weight: 600;
+  font-size: 13px;
+  color: var(--text-primary);
+}
+
+.bookmarks-bar__add-cmd input[type="text"],
+.bookmarks-bar__add-cmd input:not([type]),
+.bookmarks-bar__add-cmd textarea {
+  padding: 5px 8px;
+  border-radius: 4px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: var(--bg-primary, #11111b);
+  color: var(--text-primary);
+  font-size: 12px;
+  font-family: inherit;
+  outline: none;
+  resize: vertical;
+}
+
+.bookmarks-bar__add-cmd input:focus,
+.bookmarks-bar__add-cmd textarea:focus {
+  border-color: var(--accent);
+}
+
+.bookmarks-bar__add-cmd label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-secondary);
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.bookmarks-bar__add-cmd-hotkey {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-secondary);
+}
+
+.bookmarks-bar__add-cmd-hotkey-btn {
+  padding: 3px 8px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 4px;
+  background: var(--bg-primary, #11111b);
+  color: var(--text-primary);
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.bookmarks-bar__add-cmd-hotkey-btn:hover {
+  border-color: var(--accent);
+}
+
+.bookmarks-bar__add-cmd-hotkey-clear {
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-size: 12px;
+  padding: 2px;
+}
+
+.bookmarks-bar__add-cmd-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+.bookmarks-bar__add-cmd-actions button {
+  padding: 4px 12px;
+  border-radius: 4px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.bookmarks-bar__add-cmd-actions button:last-child {
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent);
+}
+
+.bookmarks-bar__add-cmd-actions button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}

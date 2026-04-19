@@ -31,6 +31,28 @@ export interface BookmarkItem {
   createdAt: number;
 }
 
+/** A command shortcut button in the bookmark bar. */
+export interface CommandBookmark {
+  /** UUID v4 identifier. */
+  id: string;
+  /** User-editable display name. */
+  name: string;
+  /** Command text (single or multi-line). */
+  command: string;
+  /** Whether to auto-execute (send Enter) or just paste. */
+  autoExecute: boolean;
+  /** Whether to open a new terminal tab before executing. */
+  newTerminal: boolean;
+  /** Optional keyboard shortcut (e.g. "ctrl+shift+1"). */
+  hotkey: string;
+  /** Optional CSS color for the button. */
+  color: string;
+  /** Position in the bookmark bar (shares root sortIndex namespace). */
+  sortIndex: number;
+  /** Creation timestamp (epoch ms). */
+  createdAt: number;
+}
+
 /** A grouping folder that contains BookmarkItems. */
 export interface BookmarkFolder {
   /** UUID v4 identifier. */
@@ -330,12 +352,34 @@ function tryValidateFolder(raw: unknown): BookmarkFolder | null {
   }
 }
 
+/** Silently validates a CommandBookmark for localStorage load. Returns null on failure. */
+function tryValidateCommand(raw: unknown): CommandBookmark | null {
+  if (typeof raw !== "object" || raw === null || Array.isArray(raw)) return null;
+  const item = raw as Record<string, unknown>;
+  if (typeof item.id !== "string" || !item.id) return null;
+  if (typeof item.name !== "string" || !item.name) return null;
+  if (typeof item.command !== "string" || !item.command) return null;
+  if (typeof item.sortIndex !== "number") return null;
+  return {
+    id: item.id,
+    name: truncate(String(item.name).trim(), MAX_NAME_LENGTH),
+    command: String(item.command),
+    autoExecute: item.autoExecute === true,
+    newTerminal: item.newTerminal === true,
+    hotkey: typeof item.hotkey === "string" ? item.hotkey : "",
+    color: typeof item.color === "string" ? item.color : "",
+    sortIndex: item.sortIndex,
+    createdAt: typeof item.createdAt === "number" ? item.createdAt : Date.now(),
+  };
+}
+
 // ─── Persistence Helpers ─────────────────────────────────────────────
 
 /** Shape serialized to localStorage. */
 interface PersistedBookmarks {
   bookmarks: BookmarkItem[];
   folders: BookmarkFolder[];
+  commands?: CommandBookmark[];
 }
 
 /** Loads persisted bookmarks from localStorage, returning defaults on failure. [B3] */
@@ -383,6 +427,14 @@ function loadPersistedBookmarks(): PersistedBookmarks {
         }
       }
 
+      // Load command bookmarks (backward compatible)
+      const rawCommands = Array.isArray(parsed.commands) ? parsed.commands : [];
+      const commands: CommandBookmark[] = [];
+      for (const item of rawCommands) {
+        const valid = tryValidateCommand(item);
+        if (valid) commands.push(valid);
+      }
+
       const totalDropped = droppedBookmarks + droppedFolders;
       if (totalDropped > 0) {
         console.warn(
@@ -390,12 +442,12 @@ function loadPersistedBookmarks(): PersistedBookmarks {
         );
       }
 
-      return { bookmarks, folders };
+      return { bookmarks, folders, commands };
     }
   } catch {
     // Corrupted localStorage — fall through to defaults
   }
-  return { bookmarks: [], folders: [] };
+  return { bookmarks: [], folders: [], commands: [] };
 }
 
 /** Saves bookmarks to localStorage. */
@@ -414,6 +466,8 @@ interface BookmarksState {
   bookmarks: BookmarkItem[];
   /** Array of all bookmark folders. */
   folders: BookmarkFolder[];
+  /** Array of command shortcut bookmarks. */
+  commands: CommandBookmark[];
 
   // ─── Bookmark Actions ──────────────────────────────────────
 
@@ -454,6 +508,20 @@ interface BookmarksState {
   /** Reorders a folder in the bookmark bar. */
   reorderFolder: (id: string, newIndex: number) => void;
 
+  // ─── Command Actions ──────────────────────────────────────
+
+  /** Adds a new command bookmark. */
+  addCommand: (opts: { name: string; command: string; autoExecute?: boolean; newTerminal?: boolean; hotkey?: string; color?: string }) => void;
+
+  /** Removes a command bookmark by ID. */
+  removeCommand: (id: string) => void;
+
+  /** Updates a command bookmark. */
+  updateCommand: (id: string, updates: Partial<Omit<CommandBookmark, "id" | "createdAt">>) => void;
+
+  /** Reorders a command in the bookmark bar. */
+  reorderCommand: (id: string, newIndex: number) => void;
+
   // ─── Selectors ─────────────────────────────────────────────
 
   /** Returns bookmarks in a specific folder (null = root), sorted by sortIndex. */
@@ -476,13 +544,14 @@ export const useBookmarksStore = create<BookmarksState>((set, get) => {
 
   /** Persists current state to localStorage. */
   const persist = (): void => {
-    const { bookmarks, folders } = get();
-    persistBookmarks({ bookmarks, folders });
+    const { bookmarks, folders, commands } = get();
+    persistBookmarks({ bookmarks, folders, commands });
   };
 
   return {
     bookmarks: persisted.bookmarks,
     folders: persisted.folders,
+    commands: persisted.commands ?? [],
 
     // ─── Bookmark Actions ──────────────────────────────────────
 
@@ -688,15 +757,87 @@ export const useBookmarksStore = create<BookmarksState>((set, get) => {
     },
 
     reorderFolder: (id: string, newIndex: number) => {
-      const { bookmarks, folders } = get();
+      const { bookmarks, folders, commands } = get();
       if (!folders.some((f) => f.id === id)) return;
 
-      // [C1] Root reorder — combined root bookmarks + folders
-      const combined = rootSiblings(bookmarks, folders);
+      const combined = [...rootSiblings(bookmarks, folders), ...commands]
+        .sort((a, b) => a.sortIndex - b.sortIndex);
       const reordered = reorderItems(combined, id, (item) => item.id, newIndex);
       const indexMap = new Map(reordered.map((item) => [item.id, item.sortIndex]));
       const updated = applyRootReindex(indexMap, bookmarks, folders);
-      set(updated);
+      set({
+        ...updated,
+        commands: commands.map((c) => {
+          const newIdx = indexMap.get(c.id);
+          return newIdx !== undefined ? { ...c, sortIndex: newIdx } : c;
+        }),
+      });
+      persist();
+    },
+
+    // ─── Command Actions ──────────────────────────────────────
+
+    addCommand: (opts) => {
+      const trimmed = opts.name.trim();
+      if (!trimmed || !opts.command.trim()) return;
+
+      const { bookmarks, folders, commands } = get();
+      const sortIdx = nextSortIndex([
+        ...bookmarks.filter((b) => b.folderId === null),
+        ...folders,
+        ...commands,
+      ]);
+
+      const newCmd: CommandBookmark = {
+        id: generateId(),
+        name: truncate(trimmed, MAX_NAME_LENGTH),
+        command: opts.command,
+        autoExecute: opts.autoExecute ?? true,
+        newTerminal: opts.newTerminal ?? false,
+        hotkey: opts.hotkey ?? "",
+        color: opts.color ?? "",
+        sortIndex: sortIdx,
+        createdAt: Date.now(),
+      };
+
+      set({ commands: [...commands, newCmd] });
+      persist();
+    },
+
+    removeCommand: (id: string) => {
+      const { commands } = get();
+      if (!commands.some((c) => c.id === id)) return;
+      set({ commands: commands.filter((c) => c.id !== id) });
+      persist();
+    },
+
+    updateCommand: (id: string, updates) => {
+      const { commands } = get();
+      if (!commands.some((c) => c.id === id)) return;
+      set({
+        commands: commands.map((c) =>
+          c.id === id ? { ...c, ...updates, name: updates.name ? truncate(updates.name.trim(), MAX_NAME_LENGTH) : c.name } : c,
+        ),
+      });
+      persist();
+    },
+
+    reorderCommand: (id: string, newIndex: number) => {
+      const { bookmarks, folders, commands } = get();
+      if (!commands.some((c) => c.id === id)) return;
+
+      const combined = [...rootSiblings(bookmarks, folders), ...commands]
+        .sort((a, b) => a.sortIndex - b.sortIndex);
+      const reordered = reorderItems(combined, id, (item) => item.id, newIndex);
+      const indexMap = new Map(reordered.map((item) => [item.id, item.sortIndex]));
+      const updated = applyRootReindex(indexMap, bookmarks, folders);
+      set({
+        ...updated,
+        commands: commands.map((c) => {
+          const newIdx = indexMap.get(c.id);
+          return newIdx !== undefined ? { ...c, sortIndex: newIdx } : c;
+        }),
+      });
       persist();
     },
 
@@ -708,12 +849,13 @@ export const useBookmarksStore = create<BookmarksState>((set, get) => {
         .sort((a, b) => a.sortIndex - b.sortIndex);
     },
 
-    getRootItems: (): (BookmarkItem | BookmarkFolder)[] => {
-      const { bookmarks, folders } = get();
+    getRootItems: (): (BookmarkItem | BookmarkFolder | CommandBookmark)[] => {
+      const { bookmarks, folders, commands } = get();
       const rootBookmarks = bookmarks.filter((b) => b.folderId === null);
-      const items: (BookmarkItem | BookmarkFolder)[] = [
+      const items: (BookmarkItem | BookmarkFolder | CommandBookmark)[] = [
         ...rootBookmarks,
         ...folders,
+        ...commands,
       ];
       return items.sort((a, b) => a.sortIndex - b.sortIndex);
     },

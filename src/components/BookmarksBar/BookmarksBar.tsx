@@ -27,6 +27,7 @@ import { stripBidiControls } from "../../utils/sanitize";
 import type {
   BookmarkItem,
   BookmarkFolder,
+  CommandBookmark,
 } from "../../stores/bookmarksStore";
 import "./BookmarksBar.css";
 
@@ -73,9 +74,16 @@ function getBookmarkIcon(bookmark: BookmarkItem): string {
 
 /** Discriminates BookmarkItem from BookmarkFolder in a union. */
 function isBookmarkItem(
-  item: BookmarkItem | BookmarkFolder,
+  item: BookmarkItem | BookmarkFolder | CommandBookmark,
 ): item is BookmarkItem {
   return "path" in item;
+}
+
+/** Discriminates CommandBookmark from others. */
+function isCommandBookmark(
+  item: BookmarkItem | BookmarkFolder | CommandBookmark,
+): item is CommandBookmark {
+  return "command" in item;
 }
 
 // ─── Bidi Sanitizer ──────────────────────────────────────────────────
@@ -581,6 +589,196 @@ const FolderButton = memo(function FolderButton({
   );
 });
 
+// ─── Command Button ──────────────────────────────────────────────────
+
+const COMMAND_ICON = "⚡";
+
+interface CommandButtonProps {
+  command: CommandBookmark;
+  onExecute: (cmd: CommandBookmark) => void;
+  onDragStart: (id: string, e: React.PointerEvent) => void;
+  isDragging: boolean;
+}
+
+const CommandButton = memo(function CommandButton({
+  command,
+  onExecute,
+  onDragStart,
+  isDragging,
+}: CommandButtonProps) {
+  const displayName = sanitizeDisplayName(command.name);
+  const removeCommand = useBookmarksStore((s) => s.removeCommand);
+  const [showMenu, setShowMenu] = useState(false);
+  const btnRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+  const [menuStyle, setMenuStyle] = useState<React.CSSProperties>({});
+
+  const handleClick = useCallback(() => {
+    onExecute(command);
+  }, [command, onExecute]);
+
+  const handleContextMenu = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    if (btnRef.current) {
+      const rect = btnRef.current.getBoundingClientRect();
+      setMenuStyle({ position: "fixed", left: rect.left, top: rect.bottom + 2, zIndex: 200 });
+    }
+    setShowMenu(true);
+  }, []);
+
+  const handlePointerDown = useCallback(
+    (e: React.PointerEvent) => {
+      if (e.button !== 0) return;
+      onDragStart(command.id, e);
+    },
+    [command.id, onDragStart],
+  );
+
+  useEffect(() => {
+    if (!showMenu) return;
+    const handler = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) setShowMenu(false);
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [showMenu]);
+
+  const className = isDragging
+    ? "bookmarks-bar__item bookmarks-bar__item--command bookmarks-bar__item--dragging"
+    : "bookmarks-bar__item bookmarks-bar__item--command";
+
+  return (
+    <>
+      <button
+        ref={btnRef}
+        className={className}
+        type="button"
+        title={`${displayName}\n${command.command}${command.hotkey ? `\n⌨ ${command.hotkey}` : ""}`}
+        aria-label={displayName}
+        onClick={handleClick}
+        onContextMenu={handleContextMenu}
+        onPointerDown={handlePointerDown}
+        data-bookmark-id={command.id}
+        style={command.color ? { borderColor: command.color } : undefined}
+      >
+        <span className="bookmarks-bar__icon" aria-hidden="true">{COMMAND_ICON}</span>
+        <span className="bookmarks-bar__label">{displayName}</span>
+        {command.hotkey && (
+          <span className="bookmarks-bar__hotkey">{formatHotkey(command.hotkey)}</span>
+        )}
+      </button>
+      {showMenu && createPortal(
+        <div ref={menuRef} className="bookmarks-bar__dropdown" style={menuStyle}>
+          <button className="bookmarks-bar__dropdown-item" type="button" role="menuitem"
+            onClick={() => { removeCommand(command.id); setShowMenu(false); }}>
+            <span className="bookmarks-bar__icon">🗑</span>
+            <span className="bookmarks-bar__label">Delete</span>
+          </button>
+        </div>,
+        document.body,
+      )}
+    </>
+  );
+});
+
+/** Formats a hotkey string for display (e.g. "ctrl+shift+1" → "⌃⇧1"). */
+function formatHotkey(hotkey: string): string {
+  return hotkey
+    .replace(/meta/i, "⌘")
+    .replace(/ctrl/i, "⌃")
+    .replace(/alt/i, "⌥")
+    .replace(/shift/i, "⇧")
+    .replace(/\+/g, "");
+}
+
+// ─── Add Command Dialog ──────────────────────────────────────────────
+
+interface AddCommandDialogProps {
+  anchorRef: React.RefObject<HTMLElement | null>;
+  onClose: () => void;
+}
+
+function AddCommandDialog({ anchorRef, onClose }: AddCommandDialogProps) {
+  const addCommand = useBookmarksStore((s) => s.addCommand);
+  const [name, setName] = useState("");
+  const [cmd, setCmd] = useState("");
+  const [autoExec, setAutoExec] = useState(true);
+  const [newTerm, setNewTerm] = useState(false);
+  const [hotkey, setHotkey] = useState("");
+  const [recordingHotkey, setRecordingHotkey] = useState(false);
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const [style, setStyle] = useState<React.CSSProperties>({});
+
+  useLayoutEffect(() => {
+    if (!anchorRef.current) return;
+    const rect = anchorRef.current.getBoundingClientRect();
+    let left = rect.left;
+    const top = rect.bottom + 4;
+    if (left + 300 > window.innerWidth) left = window.innerWidth - 308;
+    setStyle({ position: "fixed", left, top, zIndex: 300, width: 300 });
+  }, [anchorRef]);
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (dialogRef.current && !dialogRef.current.contains(e.target as Node) &&
+          anchorRef.current && !anchorRef.current.contains(e.target as Node)) {
+        onClose();
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [onClose, anchorRef]);
+
+  useEffect(() => {
+    if (!recordingHotkey) return;
+    const handler = (e: KeyboardEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (e.key === "Escape") { setRecordingHotkey(false); return; }
+      if (["Control", "Alt", "Shift", "Meta"].includes(e.key)) return;
+      const parts: string[] = [];
+      if (e.ctrlKey) parts.push("ctrl");
+      if (e.altKey) parts.push("alt");
+      if (e.shiftKey) parts.push("shift");
+      if (e.metaKey) parts.push("meta");
+      parts.push(e.key.toLowerCase());
+      setHotkey(parts.join("+"));
+      setRecordingHotkey(false);
+    };
+    window.addEventListener("keydown", handler, true);
+    return () => window.removeEventListener("keydown", handler, true);
+  }, [recordingHotkey]);
+
+  const handleSubmit = () => {
+    if (!name.trim() || !cmd.trim()) return;
+    addCommand({ name, command: cmd, autoExecute: autoExec, newTerminal: newTerm, hotkey });
+    onClose();
+  };
+
+  return createPortal(
+    <div ref={dialogRef} className="bookmarks-bar__add-cmd" style={style}>
+      <div className="bookmarks-bar__add-cmd-title">Add Command Shortcut</div>
+      <input placeholder="Name" value={name} onChange={(e) => setName(e.target.value)} autoFocus />
+      <textarea placeholder="Command(s)…" value={cmd} onChange={(e) => setCmd(e.target.value)} rows={3} />
+      <label><input type="checkbox" checked={autoExec} onChange={(e) => setAutoExec(e.target.checked)} /> Auto-execute</label>
+      <label><input type="checkbox" checked={newTerm} onChange={(e) => setNewTerm(e.target.checked)} /> New terminal</label>
+      <div className="bookmarks-bar__add-cmd-hotkey">
+        <span>Hotkey:</span>
+        <button type="button" className="bookmarks-bar__add-cmd-hotkey-btn"
+          onClick={() => setRecordingHotkey(true)}>
+          {recordingHotkey ? "Press keys…" : hotkey ? formatHotkey(hotkey) : "None (click to set)"}
+        </button>
+        {hotkey && <button type="button" onClick={() => setHotkey("")} className="bookmarks-bar__add-cmd-hotkey-clear">✕</button>}
+      </div>
+      <div className="bookmarks-bar__add-cmd-actions">
+        <button type="button" onClick={onClose}>Cancel</button>
+        <button type="button" onClick={handleSubmit} disabled={!name.trim() || !cmd.trim()}>Add</button>
+      </div>
+    </div>,
+    document.body,
+  );
+}
+
 // ─── Drag-to-Reorder Hook ────────────────────────────────────────────
 
 interface DragState {
@@ -603,10 +801,11 @@ const DRAG_THRESHOLD = 5;
  */
 function useDragReorder(
   barRef: React.RefObject<HTMLDivElement | null>,
-  rootItems: ReadonlyArray<BookmarkItem | BookmarkFolder>,
+  rootItems: ReadonlyArray<BookmarkItem | BookmarkFolder | CommandBookmark>,
 ) {
   const reorderBookmark = useBookmarksStore((s) => s.reorderBookmark);
   const reorderFolder = useBookmarksStore((s) => s.reorderFolder);
+  const reorderCommand = useBookmarksStore((s) => s.reorderCommand);
 
   const dragRef = useRef<DragState | null>(null);
   const [draggingId, setDraggingId] = useState<string | null>(null);
@@ -642,7 +841,6 @@ function useDragReorder(
       if (!drag) return;
 
       if (drag.active && barRef.current) {
-        // M-D1: Cancel if pointer is outside the bar bounds
         const barRect = barRef.current.getBoundingClientRect();
         const inBounds =
           e.clientX >= barRect.left &&
@@ -655,9 +853,10 @@ function useDragReorder(
           const currentIndex = rootItems.findIndex((i) => i.id === drag.itemId);
           const item = currentIndex >= 0 ? rootItems[currentIndex] : undefined;
 
-          // M-D3: Same source/target → no-op
           if (item && newIndex !== currentIndex) {
-            if (isBookmarkItem(item)) {
+            if (isCommandBookmark(item)) {
+              reorderCommand(drag.itemId, newIndex);
+            } else if (isBookmarkItem(item)) {
               reorderBookmark(drag.itemId, newIndex);
             } else {
               reorderFolder(drag.itemId, newIndex);
@@ -676,7 +875,7 @@ function useDragReorder(
       window.removeEventListener("pointermove", handlePointerMove);
       window.removeEventListener("pointerup", handlePointerUp);
     };
-  }, [barRef, rootItems, reorderBookmark, reorderFolder]);
+  }, [barRef, rootItems, reorderBookmark, reorderFolder, reorderCommand]);
 
   return { draggingId, handleDragStart };
 }
@@ -688,7 +887,7 @@ function useDragReorder(
 function computeDropIndex(
   barEl: HTMLElement,
   clientX: number,
-  rootItems: ReadonlyArray<BookmarkItem | BookmarkFolder>,
+  rootItems: ReadonlyArray<BookmarkItem | BookmarkFolder | CommandBookmark>,
   draggedId: string,
 ): number {
   const children = barEl.querySelectorAll<HTMLElement>("[data-bookmark-id]");
@@ -741,41 +940,86 @@ export function BookmarksBar({
   onBookmarkClick,
 }: BookmarksBarProps): React.ReactElement | null {
   const visible = useSettingsStore((s) => s.bookmarksBarVisible);
-  // H2: Subscribe to actual state slices so component re-renders on mutations
   const bookmarks = useBookmarksStore((s) => s.bookmarks);
   const folders = useBookmarksStore((s) => s.folders);
+  const commands = useBookmarksStore((s) => s.commands);
   const barRef = useRef<HTMLDivElement>(null);
+  const addBtnRef = useRef<HTMLButtonElement>(null);
+  const [showAddCmd, setShowAddCmd] = useState(false);
 
-  // H2: Derive rootItems from state slices — useMemo ensures stable reference
   const rootItems = useMemo(() => {
     const rootBookmarks = bookmarks.filter((b) => b.folderId === null);
-    const items: (BookmarkItem | BookmarkFolder)[] = [
+    const items: (BookmarkItem | BookmarkFolder | CommandBookmark)[] = [
       ...rootBookmarks,
       ...folders,
+      ...commands,
     ];
     return items.sort((a, b) => a.sortIndex - b.sortIndex);
-  }, [bookmarks, folders]);
+  }, [bookmarks, folders, commands]);
 
-  const { draggingId, handleDragStart } = useDragReorder(
-    barRef,
-    rootItems,
-  );
+  const { draggingId, handleDragStart } = useDragReorder(barRef, rootItems);
+
+  // Execute a command bookmark
+  const executeCommand = useCallback((cmd: CommandBookmark) => {
+    const state = useLayoutStore.getState();
+
+    if (cmd.newTerminal) {
+      // Open new terminal tab and send command after a short delay
+      const regionId = state.focusedRegionId;
+      useLayoutStore.getState().addTerminalTab(regionId);
+      // Wait for terminal to spawn, then send the command
+      setTimeout(() => {
+        const updatedState = useLayoutStore.getState();
+        const region = updatedState.regions[updatedState.focusedRegionId];
+        if (!region) return;
+        const tab = region.tabs.find((t) => t.id === region.activeTabId);
+        if (!tab || tab.type !== "terminal" || !tab.sessionId) return;
+        const suffix = cmd.autoExecute ? "\n" : "";
+        const data = Array.from(new TextEncoder().encode(cmd.command + suffix));
+        invoke("pty_write", { sessionId: tab.sessionId, data }).catch(() => {});
+      }, 500);
+    } else {
+      // Send to current terminal
+      const region = state.regions[state.focusedRegionId];
+      if (!region) return;
+      const tab = region.tabs.find((t) => t.id === region.activeTabId);
+      if (!tab || tab.type !== "terminal" || !tab.sessionId) return;
+      const suffix = cmd.autoExecute ? "\n" : "";
+      const data = Array.from(new TextEncoder().encode(cmd.command + suffix));
+      invoke("pty_write", { sessionId: tab.sessionId, data }).catch(() => {});
+    }
+  }, []);
+
+  // Global hotkey listener
+  useEffect(() => {
+    if (commands.length === 0) return;
+    const hotkeyMap = new Map<string, CommandBookmark>();
+    for (const cmd of commands) {
+      if (cmd.hotkey) hotkeyMap.set(cmd.hotkey.toLowerCase(), cmd);
+    }
+    if (hotkeyMap.size === 0) return;
+
+    const handler = (e: KeyboardEvent) => {
+      if (["Control", "Alt", "Shift", "Meta"].includes(e.key)) return;
+      const parts: string[] = [];
+      if (e.ctrlKey) parts.push("ctrl");
+      if (e.altKey) parts.push("alt");
+      if (e.shiftKey) parts.push("shift");
+      if (e.metaKey) parts.push("meta");
+      parts.push(e.key.toLowerCase());
+      const combo = parts.join("+");
+      const cmd = hotkeyMap.get(combo);
+      if (cmd) {
+        e.preventDefault();
+        e.stopPropagation();
+        executeCommand(cmd);
+      }
+    };
+    window.addEventListener("keydown", handler, true);
+    return () => window.removeEventListener("keydown", handler, true);
+  }, [commands, executeCommand]);
 
   if (!visible) return null;
-
-  if (rootItems.length === 0) {
-    return (
-      <div
-        className="bookmarks-bar"
-        role="toolbar"
-        aria-label="Bookmarks"
-        data-testid="bookmarks-bar"
-        ref={barRef}
-      >
-        <span className="bookmarks-bar__empty">No bookmarks yet</span>
-      </div>
-    );
-  }
 
   return (
     <div
@@ -786,8 +1030,19 @@ export function BookmarksBar({
       ref={barRef}
       onKeyDown={handleToolbarKeyDown}
     >
+      {rootItems.length === 0 && (
+        <span className="bookmarks-bar__empty">No bookmarks yet</span>
+      )}
       {rootItems.map((item) =>
-        isBookmarkItem(item) ? (
+        isCommandBookmark(item) ? (
+          <CommandButton
+            key={item.id}
+            command={item}
+            onExecute={executeCommand}
+            onDragStart={handleDragStart}
+            isDragging={draggingId === item.id}
+          />
+        ) : isBookmarkItem(item) ? (
           <BookmarkButton
             key={item.id}
             bookmark={item}
@@ -804,6 +1059,18 @@ export function BookmarksBar({
             isDragging={draggingId === item.id}
           />
         ),
+      )}
+      <button
+        ref={addBtnRef}
+        className="bookmarks-bar__add-cmd-btn"
+        type="button"
+        title="Add command shortcut"
+        onClick={() => setShowAddCmd((v) => !v)}
+      >
+        ⚡+
+      </button>
+      {showAddCmd && (
+        <AddCommandDialog anchorRef={addBtnRef} onClose={() => setShowAddCmd(false)} />
       )}
     </div>
   );
