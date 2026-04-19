@@ -128,13 +128,13 @@ export function Radio() {
       audio.addEventListener("error", () => {
         setError(`Could not play "${station.name}" — stream may be offline`);
         setPlayingId(null);
-        setPlayingName("");
+        setPaused(true);
       });
 
       audio.play().catch(() => {
         setError(`Could not play "${station.name}" — stream may be offline`);
         setPlayingId(null);
-        setPlayingName("");
+        setPaused(true);
       });
 
       audioRef.current = audio;
@@ -235,7 +235,7 @@ export function Radio() {
       )}
 
       {/* ─── Player bar ───────────────────────────── */}
-      {playingId && (
+      {playingName && (
         <div className="radio__player">
           <span className="radio__player-icon">📻</span>
           <span className="radio__player-name">{playingName}</span>
