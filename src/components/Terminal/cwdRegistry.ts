@@ -104,6 +104,9 @@ export function recordSessionCwd(
   if (last && last.cwd === cwd) return;
   history.push({ marker, recordedLine, cwd });
 
+  // Notify listeners that CWD changed for this session
+  window.dispatchEvent(new CustomEvent("putz-cwd-change", { detail: { sessionId, cwd } }));
+
   // Prune dead markers and cap size
   if (history.length > MAX_HISTORY_PER_SESSION) {
     const live = history.filter((e) => !e.marker || e.marker.line >= 0);

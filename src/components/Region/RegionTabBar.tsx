@@ -257,7 +257,7 @@ export function RegionTabBar({
   const [contextMenu, setContextMenu] = useState<ContextMenu | null>(null);
   const contextMenuRef = useRef<HTMLDivElement>(null);
 
-  // Detect if the active terminal CWD is in a git repo (poll every 3s)
+  // Detect if the active terminal CWD is in a git repo (event-driven)
   const [gitRepoPath, setGitRepoPath] = useState<string | null>(null);
   useEffect(() => {
     const activeTab = tabs.find((t) => t.id === activeTabId);
@@ -266,19 +266,32 @@ export function RegionTabBar({
       return;
     }
     let cancelled = false;
-    const check = async () => {
+    const checkGit = async (cwd: string) => {
       try {
         const { invoke } = await import("@tauri-apps/api/core");
-        const cwd = await invoke<string>("pty_cwd", { sessionId: activeTab.sessionId });
         const root = await invoke<string>("git_repo_root", { path: cwd });
         if (!cancelled) setGitRepoPath(root);
       } catch {
         if (!cancelled) setGitRepoPath(null);
       }
     };
-    check();
-    const timer = setInterval(check, 3000);
-    return () => { cancelled = true; clearInterval(timer); };
+    // Initial check using pty_cwd
+    (async () => {
+      try {
+        const { invoke } = await import("@tauri-apps/api/core");
+        const cwd = await invoke<string>("pty_cwd", { sessionId: activeTab.sessionId });
+        checkGit(cwd);
+      } catch { if (!cancelled) setGitRepoPath(null); }
+    })();
+    // Listen for CWD changes on this session
+    const handler = (e: Event) => {
+      const detail = (e as CustomEvent).detail;
+      if (detail?.sessionId === activeTab.sessionId && detail?.cwd) {
+        checkGit(detail.cwd);
+      }
+    };
+    window.addEventListener("putz-cwd-change", handler);
+    return () => { cancelled = true; window.removeEventListener("putz-cwd-change", handler); };
   }, [tabs, activeTabId]);
 
   // Close context menu on outside click
@@ -421,6 +434,17 @@ export function RegionTabBar({
 
       {/* Right-aligned action icons — keep minimal */}
       <div className="region-tabbar__actions">
+        {gitRepoPath && (
+          <button
+            className="region-tabbar__action"
+            onClick={() => { setFocusedRegion(regionId); addGitGraphTab(regionId, gitRepoPath); }}
+            aria-label="Git Graph"
+            type="button"
+            title="Git Graph"
+          >
+            🌳
+          </button>
+        )}
         <button
           className="region-tabbar__action"
           onClick={handleAddClick}
@@ -448,17 +472,6 @@ export function RegionTabBar({
         >
           📝
         </button>
-        {gitRepoPath && (
-          <button
-            className="region-tabbar__action"
-            onClick={() => { setFocusedRegion(regionId); addGitGraphTab(regionId, gitRepoPath); }}
-            aria-label="Git Graph"
-            type="button"
-            title="Git Graph"
-          >
-            🌳
-          </button>
-        )}
         <button
           className="region-tabbar__action"
           onClick={async () => {
