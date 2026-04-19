@@ -47,6 +47,22 @@ export interface CommandBookmark {
   hotkey: string;
   /** Optional CSS color for the button. */
   color: string;
+  /** Display icon emoji. */
+  icon: string;
+  /** Parent command group ID, or null for root-level. */
+  groupId: string | null;
+  /** Position in the bookmark bar (shares root sortIndex namespace). */
+  sortIndex: number;
+  /** Creation timestamp (epoch ms). */
+  createdAt: number;
+}
+
+/** A grouping container for command bookmarks. */
+export interface CommandGroup {
+  /** UUID v4 identifier. */
+  id: string;
+  /** User-editable display name. */
+  name: string;
   /** Position in the bookmark bar (shares root sortIndex namespace). */
   sortIndex: number;
   /** Creation timestamp (epoch ms). */
@@ -368,6 +384,23 @@ function tryValidateCommand(raw: unknown): CommandBookmark | null {
     newTerminal: item.newTerminal === true,
     hotkey: typeof item.hotkey === "string" ? item.hotkey : "",
     color: typeof item.color === "string" ? item.color : "",
+    icon: typeof item.icon === "string" ? item.icon : "⚡",
+    groupId: typeof item.groupId === "string" ? item.groupId : null,
+    sortIndex: item.sortIndex,
+    createdAt: typeof item.createdAt === "number" ? item.createdAt : Date.now(),
+  };
+}
+
+/** Silently validates a CommandGroup for localStorage load. Returns null on failure. */
+function tryValidateCommandGroup(raw: unknown): CommandGroup | null {
+  if (typeof raw !== "object" || raw === null || Array.isArray(raw)) return null;
+  const item = raw as Record<string, unknown>;
+  if (typeof item.id !== "string" || !item.id) return null;
+  if (typeof item.name !== "string" || !item.name) return null;
+  if (typeof item.sortIndex !== "number") return null;
+  return {
+    id: item.id,
+    name: truncate(String(item.name).trim(), MAX_NAME_LENGTH),
     sortIndex: item.sortIndex,
     createdAt: typeof item.createdAt === "number" ? item.createdAt : Date.now(),
   };
@@ -380,6 +413,7 @@ interface PersistedBookmarks {
   bookmarks: BookmarkItem[];
   folders: BookmarkFolder[];
   commands?: CommandBookmark[];
+  commandGroups?: CommandGroup[];
 }
 
 /** Loads persisted bookmarks from localStorage, returning defaults on failure. [B3] */
@@ -435,6 +469,14 @@ function loadPersistedBookmarks(): PersistedBookmarks {
         if (valid) commands.push(valid);
       }
 
+      // Load command groups (backward compatible)
+      const rawCmdGroups = Array.isArray(parsed.commandGroups) ? parsed.commandGroups : [];
+      const commandGroups: CommandGroup[] = [];
+      for (const item of rawCmdGroups) {
+        const valid = tryValidateCommandGroup(item);
+        if (valid) commandGroups.push(valid);
+      }
+
       const totalDropped = droppedBookmarks + droppedFolders;
       if (totalDropped > 0) {
         console.warn(
@@ -442,12 +484,12 @@ function loadPersistedBookmarks(): PersistedBookmarks {
         );
       }
 
-      return { bookmarks, folders, commands };
+      return { bookmarks, folders, commands, commandGroups };
     }
   } catch {
     // Corrupted localStorage — fall through to defaults
   }
-  return { bookmarks: [], folders: [], commands: [] };
+  return { bookmarks: [], folders: [], commands: [], commandGroups: [] };
 }
 
 /** Saves bookmarks to localStorage. */
@@ -468,6 +510,8 @@ interface BookmarksState {
   folders: BookmarkFolder[];
   /** Array of command shortcut bookmarks. */
   commands: CommandBookmark[];
+  /** Array of command groups. */
+  commandGroups: CommandGroup[];
 
   // ─── Bookmark Actions ──────────────────────────────────────
 
@@ -511,7 +555,7 @@ interface BookmarksState {
   // ─── Command Actions ──────────────────────────────────────
 
   /** Adds a new command bookmark. */
-  addCommand: (opts: { name: string; command: string; autoExecute?: boolean; newTerminal?: boolean; hotkey?: string; color?: string }) => void;
+  addCommand: (opts: { name: string; command: string; autoExecute?: boolean; newTerminal?: boolean; hotkey?: string; color?: string; icon?: string; groupId?: string | null }) => void;
 
   /** Removes a command bookmark by ID. */
   removeCommand: (id: string) => void;
@@ -521,6 +565,15 @@ interface BookmarksState {
 
   /** Reorders a command in the bookmark bar. */
   reorderCommand: (id: string, newIndex: number) => void;
+
+  /** Adds a command group. */
+  addCommandGroup: (name: string) => void;
+
+  /** Removes a command group. Orphaned commands move to root. */
+  removeCommandGroup: (id: string) => void;
+
+  /** Renames a command group. */
+  renameCommandGroup: (id: string, name: string) => void;
 
   // ─── Selectors ─────────────────────────────────────────────
 
@@ -544,14 +597,15 @@ export const useBookmarksStore = create<BookmarksState>((set, get) => {
 
   /** Persists current state to localStorage. */
   const persist = (): void => {
-    const { bookmarks, folders, commands } = get();
-    persistBookmarks({ bookmarks, folders, commands });
+    const { bookmarks, folders, commands, commandGroups } = get();
+    persistBookmarks({ bookmarks, folders, commands, commandGroups });
   };
 
   return {
     bookmarks: persisted.bookmarks,
     folders: persisted.folders,
     commands: persisted.commands ?? [],
+    commandGroups: persisted.commandGroups ?? [],
 
     // ─── Bookmark Actions ──────────────────────────────────────
 
@@ -796,6 +850,8 @@ export const useBookmarksStore = create<BookmarksState>((set, get) => {
         newTerminal: opts.newTerminal ?? false,
         hotkey: opts.hotkey ?? "",
         color: opts.color ?? "",
+        icon: opts.icon ?? "⚡",
+        groupId: opts.groupId ?? null,
         sortIndex: sortIdx,
         createdAt: Date.now(),
       };
@@ -841,6 +897,50 @@ export const useBookmarksStore = create<BookmarksState>((set, get) => {
       persist();
     },
 
+    addCommandGroup: (name: string) => {
+      const trimmed = name.trim();
+      if (!trimmed) return;
+      const { bookmarks, folders, commands, commandGroups } = get();
+      const sortIdx = nextSortIndex([
+        ...bookmarks.filter((b) => b.folderId === null),
+        ...folders,
+        ...commands.filter((c) => c.groupId === null),
+        ...commandGroups,
+      ]);
+      const newGroup: CommandGroup = {
+        id: generateId(),
+        name: truncate(trimmed, MAX_NAME_LENGTH),
+        sortIndex: sortIdx,
+        createdAt: Date.now(),
+      };
+      set({ commandGroups: [...commandGroups, newGroup] });
+      persist();
+    },
+
+    removeCommandGroup: (id: string) => {
+      const { commandGroups, commands } = get();
+      if (!commandGroups.some((g) => g.id === id)) return;
+      // Orphan commands to root
+      set({
+        commandGroups: commandGroups.filter((g) => g.id !== id),
+        commands: commands.map((c) => c.groupId === id ? { ...c, groupId: null } : c),
+      });
+      persist();
+    },
+
+    renameCommandGroup: (id: string, name: string) => {
+      const trimmed = name.trim();
+      if (!trimmed) return;
+      const { commandGroups } = get();
+      if (!commandGroups.some((g) => g.id === id)) return;
+      set({
+        commandGroups: commandGroups.map((g) =>
+          g.id === id ? { ...g, name: truncate(trimmed, MAX_NAME_LENGTH) } : g,
+        ),
+      });
+      persist();
+    },
+
     // ─── Selectors ─────────────────────────────────────────────
 
     getBookmarksInFolder: (folderId: string | null): BookmarkItem[] => {
@@ -849,13 +949,15 @@ export const useBookmarksStore = create<BookmarksState>((set, get) => {
         .sort((a, b) => a.sortIndex - b.sortIndex);
     },
 
-    getRootItems: (): (BookmarkItem | BookmarkFolder | CommandBookmark)[] => {
-      const { bookmarks, folders, commands } = get();
+    getRootItems: (): (BookmarkItem | BookmarkFolder | CommandBookmark | CommandGroup)[] => {
+      const { bookmarks, folders, commands, commandGroups } = get();
       const rootBookmarks = bookmarks.filter((b) => b.folderId === null);
-      const items: (BookmarkItem | BookmarkFolder | CommandBookmark)[] = [
+      const rootCommands = commands.filter((c) => c.groupId === null);
+      const items: (BookmarkItem | BookmarkFolder | CommandBookmark | CommandGroup)[] = [
         ...rootBookmarks,
         ...folders,
-        ...commands,
+        ...rootCommands,
+        ...commandGroups,
       ];
       return items.sort((a, b) => a.sortIndex - b.sortIndex);
     },

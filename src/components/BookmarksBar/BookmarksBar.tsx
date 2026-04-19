@@ -28,6 +28,7 @@ import type {
   BookmarkItem,
   BookmarkFolder,
   CommandBookmark,
+  CommandGroup,
 } from "../../stores/bookmarksStore";
 import "./BookmarksBar.css";
 
@@ -74,16 +75,24 @@ function getBookmarkIcon(bookmark: BookmarkItem): string {
 
 /** Discriminates BookmarkItem from BookmarkFolder in a union. */
 function isBookmarkItem(
-  item: BookmarkItem | BookmarkFolder | CommandBookmark,
+  item: BookmarkItem | BookmarkFolder | CommandBookmark | CommandGroup,
 ): item is BookmarkItem {
   return "path" in item;
 }
 
 /** Discriminates CommandBookmark from others. */
 function isCommandBookmark(
-  item: BookmarkItem | BookmarkFolder | CommandBookmark,
+  item: BookmarkItem | BookmarkFolder | CommandBookmark | CommandGroup,
 ): item is CommandBookmark {
   return "command" in item;
+}
+
+/** Discriminates CommandGroup from BookmarkFolder. CommandGroup is in commandGroups array. */
+function isCommandGroup(
+  item: BookmarkItem | BookmarkFolder | CommandBookmark | CommandGroup,
+  commandGroupIds: Set<string>,
+): item is CommandGroup {
+  return commandGroupIds.has(item.id);
 }
 
 // ─── Bidi Sanitizer ──────────────────────────────────────────────────
@@ -591,7 +600,7 @@ const FolderButton = memo(function FolderButton({
 
 // ─── Command Button ──────────────────────────────────────────────────
 
-const COMMAND_ICON = "⚡";
+// ─── Command Button ──────────────────────────────────────────────────
 
 interface CommandButtonProps {
   command: CommandBookmark;
@@ -609,6 +618,7 @@ const CommandButton = memo(function CommandButton({
   const displayName = sanitizeDisplayName(command.name);
   const removeCommand = useBookmarksStore((s) => s.removeCommand);
   const [showMenu, setShowMenu] = useState(false);
+  const [showEdit, setShowEdit] = useState(false);
   const btnRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const [menuStyle, setMenuStyle] = useState<React.CSSProperties>({});
@@ -661,7 +671,7 @@ const CommandButton = memo(function CommandButton({
         data-bookmark-id={command.id}
         style={command.color ? { borderColor: command.color } : undefined}
       >
-        <span className="bookmarks-bar__icon" aria-hidden="true">{COMMAND_ICON}</span>
+        <span className="bookmarks-bar__icon" aria-hidden="true">{command.icon || "⚡"}</span>
         <span className="bookmarks-bar__label">{displayName}</span>
         {command.hotkey && (
           <span className="bookmarks-bar__hotkey">{formatHotkey(command.hotkey)}</span>
@@ -670,6 +680,11 @@ const CommandButton = memo(function CommandButton({
       {showMenu && createPortal(
         <div ref={menuRef} className="bookmarks-bar__dropdown" style={menuStyle}>
           <button className="bookmarks-bar__dropdown-item" type="button" role="menuitem"
+            onClick={() => { setShowMenu(false); setShowEdit(true); }}>
+            <span className="bookmarks-bar__icon">✏️</span>
+            <span className="bookmarks-bar__label">Edit</span>
+          </button>
+          <button className="bookmarks-bar__dropdown-item" type="button" role="menuitem"
             onClick={() => { removeCommand(command.id); setShowMenu(false); }}>
             <span className="bookmarks-bar__icon">🗑</span>
             <span className="bookmarks-bar__label">Delete</span>
@@ -677,7 +692,111 @@ const CommandButton = memo(function CommandButton({
         </div>,
         document.body,
       )}
+      {showEdit && (
+        <CommandDialog
+          anchorRef={btnRef}
+          onClose={() => setShowEdit(false)}
+          editCommand={command}
+        />
+      )}
     </>
+  );
+});
+
+// ─── Command Group Button ────────────────────────────────────────────
+
+interface CommandGroupButtonProps {
+  group: CommandGroup;
+  onExecute: (cmd: CommandBookmark) => void;
+  onDragStart: (id: string, e: React.PointerEvent) => void;
+  isDragging: boolean;
+}
+
+const CommandGroupButton = memo(function CommandGroupButton({
+  group,
+  onExecute,
+  onDragStart,
+  isDragging,
+}: CommandGroupButtonProps) {
+  const displayName = sanitizeDisplayName(group.name);
+  const commands = useBookmarksStore((s) => s.commands);
+  const removeCommandGroup = useBookmarksStore((s) => s.removeCommandGroup);
+  const children = useMemo(
+    () => commands.filter((c) => c.groupId === group.id).sort((a, b) => a.sortIndex - b.sortIndex),
+    [commands, group.id],
+  );
+  const [isOpen, setIsOpen] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const buttonRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+  const [dropdownStyle, setDropdownStyle] = useState<React.CSSProperties>({});
+
+  const handleToggle = useCallback(() => setIsOpen((p) => !p), []);
+
+  const handlePointerDown = useCallback((e: React.PointerEvent) => {
+    if (e.button !== 0) return;
+    onDragStart(group.id, e);
+  }, [group.id, onDragStart]);
+
+  useLayoutEffect(() => {
+    if (!isOpen || !buttonRef.current) return;
+    const rect = buttonRef.current.getBoundingClientRect();
+    let left = rect.left;
+    let top = rect.bottom + 2;
+    if (left + 200 > window.innerWidth) left = window.innerWidth - 208;
+    if (top + 300 > window.innerHeight) { top = rect.top - 300 - 2; if (top < 0) top = 8; }
+    setDropdownStyle({ position: "fixed", left, top, zIndex: 200 });
+  }, [isOpen]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const handler = (e: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node) &&
+          menuRef.current && !menuRef.current.contains(e.target as Node)) setIsOpen(false);
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [isOpen]);
+
+  const className = isDragging
+    ? "bookmarks-bar__item bookmarks-bar__item--command bookmarks-bar__item--dragging"
+    : "bookmarks-bar__item bookmarks-bar__item--command";
+
+  const dropdown = isOpen ? createPortal(
+    <div ref={menuRef} className="bookmarks-bar__dropdown" style={dropdownStyle}>
+      {children.map((child) => (
+        <button key={child.id} className="bookmarks-bar__dropdown-item" type="button" role="menuitem"
+          title={child.command}
+          onClick={() => { onExecute(child); setIsOpen(false); }}>
+          <span className="bookmarks-bar__icon">{child.icon || "⚡"}</span>
+          <span className="bookmarks-bar__label">{sanitizeDisplayName(child.name)}</span>
+          {child.hotkey && <span className="bookmarks-bar__hotkey">{formatHotkey(child.hotkey)}</span>}
+        </button>
+      ))}
+      {children.length === 0 && (
+        <span className="bookmarks-bar__empty">Empty group</span>
+      )}
+      <button className="bookmarks-bar__dropdown-item bookmarks-bar__dropdown-item--danger" type="button" role="menuitem"
+        onClick={() => { removeCommandGroup(group.id); setIsOpen(false); }}>
+        <span className="bookmarks-bar__icon">🗑</span>
+        <span className="bookmarks-bar__label">Delete group</span>
+      </button>
+    </div>,
+    document.body,
+  ) : null;
+
+  return (
+    <div ref={containerRef} style={{ position: "relative" }} data-bookmark-id={group.id}>
+      <button ref={buttonRef} className={className} type="button"
+        title={displayName} aria-label={displayName}
+        aria-haspopup="true" aria-expanded={isOpen}
+        onClick={handleToggle} onPointerDown={handlePointerDown}>
+        <span className="bookmarks-bar__icon" aria-hidden="true">⚡</span>
+        <span className="bookmarks-bar__label">{displayName}</span>
+        <span className="bookmarks-bar__chevron" aria-hidden="true">▾</span>
+      </button>
+      {dropdown}
+    </div>
   );
 });
 
@@ -691,20 +810,29 @@ function formatHotkey(hotkey: string): string {
     .replace(/\+/g, "");
 }
 
-// ─── Add Command Dialog ──────────────────────────────────────────────
+// ─── Command Dialog (Add / Edit / Create Group) ─────────────────────
 
-interface AddCommandDialogProps {
+const COMMAND_ICONS = ["⚡", "🚀", "🔧", "📡", "🤖", "💬", "🧪", "🔄", "📦", "🛠️", "🎯", "⭐"];
+
+interface CommandDialogProps {
   anchorRef: React.RefObject<HTMLElement | null>;
   onClose: () => void;
+  editCommand?: CommandBookmark;
 }
 
-function AddCommandDialog({ anchorRef, onClose }: AddCommandDialogProps) {
+function CommandDialog({ anchorRef, onClose, editCommand }: CommandDialogProps) {
   const addCommand = useBookmarksStore((s) => s.addCommand);
-  const [name, setName] = useState("");
-  const [cmd, setCmd] = useState("");
-  const [autoExec, setAutoExec] = useState(true);
-  const [newTerm, setNewTerm] = useState(false);
-  const [hotkey, setHotkey] = useState("");
+  const updateCommand = useBookmarksStore((s) => s.updateCommand);
+  const addCommandGroup = useBookmarksStore((s) => s.addCommandGroup);
+  const commandGroups = useBookmarksStore((s) => s.commandGroups);
+  const [isGroupMode, setIsGroupMode] = useState(false);
+  const [name, setName] = useState(editCommand?.name ?? "");
+  const [cmd, setCmd] = useState(editCommand?.command ?? "");
+  const [autoExec, setAutoExec] = useState(editCommand?.autoExecute ?? true);
+  const [newTerm, setNewTerm] = useState(editCommand?.newTerminal ?? false);
+  const [hotkey, setHotkey] = useState(editCommand?.hotkey ?? "");
+  const [icon, setIcon] = useState(editCommand?.icon ?? "⚡");
+  const [groupId, setGroupId] = useState<string>(editCommand?.groupId ?? "");
   const [recordingHotkey, setRecordingHotkey] = useState(false);
   const dialogRef = useRef<HTMLDivElement>(null);
   const [style, setStyle] = useState<React.CSSProperties>({});
@@ -750,29 +878,82 @@ function AddCommandDialog({ anchorRef, onClose }: AddCommandDialogProps) {
   }, [recordingHotkey]);
 
   const handleSubmit = () => {
-    if (!name.trim() || !cmd.trim()) return;
-    addCommand({ name, command: cmd, autoExecute: autoExec, newTerminal: newTerm, hotkey });
+    if (!name.trim()) return;
+    if (isGroupMode) {
+      addCommandGroup(name);
+      onClose();
+      return;
+    }
+    if (!cmd.trim()) return;
+    if (editCommand) {
+      updateCommand(editCommand.id, { name, command: cmd, autoExecute: autoExec, newTerminal: newTerm, hotkey, icon, groupId: groupId || null });
+    } else {
+      addCommand({ name, command: cmd, autoExecute: autoExec, newTerminal: newTerm, hotkey, icon, groupId: groupId || null });
+    }
     onClose();
   };
 
   return createPortal(
     <div ref={dialogRef} className="bookmarks-bar__add-cmd" style={style}>
-      <div className="bookmarks-bar__add-cmd-title">Add Command Shortcut</div>
-      <input placeholder="Name" value={name} onChange={(e) => setName(e.target.value)} autoFocus />
-      <textarea placeholder="Command(s)…" value={cmd} onChange={(e) => setCmd(e.target.value)} rows={3} />
-      <label><input type="checkbox" checked={autoExec} onChange={(e) => setAutoExec(e.target.checked)} /> Auto-execute</label>
-      <label><input type="checkbox" checked={newTerm} onChange={(e) => setNewTerm(e.target.checked)} /> New terminal</label>
-      <div className="bookmarks-bar__add-cmd-hotkey">
-        <span>Hotkey:</span>
-        <button type="button" className="bookmarks-bar__add-cmd-hotkey-btn"
-          onClick={() => setRecordingHotkey(true)}>
-          {recordingHotkey ? "Press keys…" : hotkey ? formatHotkey(hotkey) : "None (click to set)"}
-        </button>
-        {hotkey && <button type="button" onClick={() => setHotkey("")} className="bookmarks-bar__add-cmd-hotkey-clear">✕</button>}
+      <div className="bookmarks-bar__add-cmd-title">
+        {editCommand ? "Edit Command" : isGroupMode ? "Create Group" : "Add Command Shortcut"}
       </div>
+
+      {!editCommand && (
+        <label className="bookmarks-bar__add-cmd-toggle">
+          <input type="checkbox" checked={isGroupMode} onChange={(e) => setIsGroupMode(e.target.checked)} />
+          Create a group
+        </label>
+      )}
+
+      <input placeholder="Name" value={name} onChange={(e) => setName(e.target.value)} autoFocus spellCheck={false} />
+
+      {!isGroupMode && (
+        <>
+          <textarea placeholder="Command(s)…" value={cmd} onChange={(e) => setCmd(e.target.value)} rows={3} autoCorrect="off" autoCapitalize="off" spellCheck={false} />
+
+          <div className="bookmarks-bar__add-cmd-icons">
+            <span>Icon:</span>
+            <div className="bookmarks-bar__add-cmd-icon-grid">
+              {COMMAND_ICONS.map((ic) => (
+                <button key={ic} type="button"
+                  className={`bookmarks-bar__add-cmd-icon-btn ${icon === ic ? "bookmarks-bar__add-cmd-icon-btn--active" : ""}`}
+                  onClick={() => setIcon(ic)}>{ic}</button>
+              ))}
+            </div>
+          </div>
+
+          {commandGroups.length > 0 && (
+            <div className="bookmarks-bar__add-cmd-hotkey">
+              <span>Group:</span>
+              <select value={groupId} onChange={(e) => setGroupId(e.target.value)}>
+                <option value="">None (root)</option>
+                {commandGroups.map((g) => (
+                  <option key={g.id} value={g.id}>{g.name}</option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          <label><input type="checkbox" checked={autoExec} onChange={(e) => setAutoExec(e.target.checked)} /> Auto-execute</label>
+          <label><input type="checkbox" checked={newTerm} onChange={(e) => setNewTerm(e.target.checked)} /> New terminal</label>
+          <div className="bookmarks-bar__add-cmd-hotkey">
+            <span>Hotkey:</span>
+            <button type="button" className="bookmarks-bar__add-cmd-hotkey-btn"
+              onClick={() => setRecordingHotkey(true)}>
+              {recordingHotkey ? "Press keys…" : hotkey ? formatHotkey(hotkey) : "None (click to set)"}
+            </button>
+            {hotkey && <button type="button" onClick={() => setHotkey("")} className="bookmarks-bar__add-cmd-hotkey-clear">✕</button>}
+          </div>
+        </>
+      )}
+
       <div className="bookmarks-bar__add-cmd-actions">
         <button type="button" onClick={onClose}>Cancel</button>
-        <button type="button" onClick={handleSubmit} disabled={!name.trim() || !cmd.trim()}>Add</button>
+        <button type="button" onClick={handleSubmit}
+          disabled={!name.trim() || (!isGroupMode && !cmd.trim())}>
+          {editCommand ? "Save" : isGroupMode ? "Create" : "Add"}
+        </button>
       </div>
     </div>,
     document.body,
@@ -943,19 +1124,24 @@ export function BookmarksBar({
   const bookmarks = useBookmarksStore((s) => s.bookmarks);
   const folders = useBookmarksStore((s) => s.folders);
   const commands = useBookmarksStore((s) => s.commands);
+  const commandGroups = useBookmarksStore((s) => s.commandGroups);
   const barRef = useRef<HTMLDivElement>(null);
   const addBtnRef = useRef<HTMLButtonElement>(null);
   const [showAddCmd, setShowAddCmd] = useState(false);
 
   const rootItems = useMemo(() => {
     const rootBookmarks = bookmarks.filter((b) => b.folderId === null);
-    const items: (BookmarkItem | BookmarkFolder | CommandBookmark)[] = [
+    const rootCommands = commands.filter((c) => c.groupId === null);
+    const items: (BookmarkItem | BookmarkFolder | CommandBookmark | CommandGroup)[] = [
       ...rootBookmarks,
       ...folders,
-      ...commands,
+      ...rootCommands,
+      ...commandGroups,
     ];
     return items.sort((a, b) => a.sortIndex - b.sortIndex);
-  }, [bookmarks, folders, commands]);
+  }, [bookmarks, folders, commands, commandGroups]);
+
+  const commandGroupIds = useMemo(() => new Set(commandGroups.map((g) => g.id)), [commandGroups]);
 
   const { draggingId, handleDragStart } = useDragReorder(barRef, rootItems);
 
@@ -1050,15 +1236,26 @@ export function BookmarksBar({
             onDragStart={handleDragStart}
             isDragging={draggingId === item.id}
           />
-        ) : (
-          <FolderButton
+        ) : isCommandGroup(item, commandGroupIds) ? (
+          <CommandGroupButton
             key={item.id}
-            folder={item}
-            onBookmarkClick={onBookmarkClick}
+            group={item}
+            onExecute={executeCommand}
             onDragStart={handleDragStart}
             isDragging={draggingId === item.id}
           />
-        ),
+        ) : (() => {
+          const f = item as BookmarkFolder;
+          return (
+            <FolderButton
+              key={f.id}
+              folder={f}
+              onBookmarkClick={onBookmarkClick}
+              onDragStart={handleDragStart}
+              isDragging={draggingId === f.id}
+            />
+          );
+        })(),
       )}
       <button
         ref={addBtnRef}
@@ -1070,7 +1267,7 @@ export function BookmarksBar({
         ⚡+
       </button>
       {showAddCmd && (
-        <AddCommandDialog anchorRef={addBtnRef} onClose={() => setShowAddCmd(false)} />
+        <CommandDialog anchorRef={addBtnRef} onClose={() => setShowAddCmd(false)} />
       )}
     </div>
   );
