@@ -257,42 +257,20 @@ export function RegionTabBar({
   const [contextMenu, setContextMenu] = useState<ContextMenu | null>(null);
   const contextMenuRef = useRef<HTMLDivElement>(null);
 
-  // Detect if the active terminal CWD is in a git repo (event-driven)
-  const [gitRepoPath, setGitRepoPath] = useState<string | null>(null);
-  const activeTab = tabs.find((t) => t.id === activeTabId);
-  const activeSessionId = activeTab?.type === "terminal" ? activeTab.sessionId : null;
-
-  useEffect(() => {
-    if (!activeSessionId) {
-      setGitRepoPath(null);
-      return;
+  // Git graph: resolve repo on click (no detection overhead)
+  const handleGitGraph = useCallback(async () => {
+    setFocusedRegion(regionId);
+    const activeT = tabs.find((t) => t.id === activeTabId);
+    if (!activeT || activeT.type !== "terminal") return;
+    try {
+      const { invoke } = await import("@tauri-apps/api/core");
+      const cwd = await invoke<string>("pty_cwd", { sessionId: activeT.sessionId });
+      const root = await invoke<string>("git_repo_root", { path: cwd });
+      addGitGraphTab(regionId, root);
+    } catch {
+      // Not a git repo — no-op
     }
-    let cancelled = false;
-    const checkGit = async (cwd: string) => {
-      try {
-        const { invoke } = await import("@tauri-apps/api/core");
-        const root = await invoke<string>("git_repo_root", { path: cwd });
-        if (!cancelled) setGitRepoPath(root);
-      } catch {
-        if (!cancelled) setGitRepoPath(null);
-      }
-    };
-    // Initial check
-    import("@tauri-apps/api/core").then(({ invoke }) => {
-      invoke<string>("pty_cwd", { sessionId: activeSessionId })
-        .then((cwd) => { if (!cancelled) checkGit(cwd); })
-        .catch(() => { if (!cancelled) setGitRepoPath(null); });
-    });
-    // Listen for CWD changes on this session
-    const handler = (e: Event) => {
-      const detail = (e as CustomEvent).detail;
-      if (detail?.sessionId === activeSessionId && detail?.cwd) {
-        checkGit(detail.cwd);
-      }
-    };
-    window.addEventListener("putz-cwd-change", handler);
-    return () => { cancelled = true; window.removeEventListener("putz-cwd-change", handler); };
-  }, [activeSessionId]);
+  }, [regionId, tabs, activeTabId, setFocusedRegion, addGitGraphTab]);
 
   // Close context menu on outside click
   useEffect(() => {
@@ -434,17 +412,15 @@ export function RegionTabBar({
 
       {/* Right-aligned action icons — keep minimal */}
       <div className="region-tabbar__actions">
-        {gitRepoPath && (
-          <button
-            className="region-tabbar__action"
-            onClick={() => { setFocusedRegion(regionId); addGitGraphTab(regionId, gitRepoPath); }}
-            aria-label="Git Graph"
-            type="button"
-            title="Git Graph"
-          >
-            🌳
-          </button>
-        )}
+        <button
+          className="region-tabbar__action"
+          onClick={handleGitGraph}
+          aria-label="Git Graph"
+          type="button"
+          title="Git Graph"
+        >
+          🌳
+        </button>
         <button
           className="region-tabbar__action"
           onClick={handleAddClick}
