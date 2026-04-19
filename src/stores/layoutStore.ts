@@ -201,6 +201,9 @@ interface LayoutState {
   addCsvTab: (regionId?: string, filePath?: string) => void;
   addDrawioTab: (regionId?: string, filePath?: string) => void;
 
+  /** Adds a git graph tab for a repository path. */
+  addGitGraphTab: (regionId?: string, repoPath?: string) => void;
+
   /** Closes a tab in a region. If last tab, closes the region. */
   closeTab: (regionId: string, tabId: string) => void;
 
@@ -650,6 +653,20 @@ export const useLayoutStore = create<LayoutState>((set, get) => ({
     }
     const name = filePath.split("/").pop() || filePath;
     const tab: RegionTab = { id: generateId(), title: `📐 ${name}`, type: "drawio", sessionId: `${EDITOR_SESSION_PREFIX}drawio-${generateId()}`, editorFilePath: filePath, status: "local" };
+    set((state) => ({ regions: { ...state.regions, [targetRegionId]: { ...state.regions[targetRegionId], tabs: [...state.regions[targetRegionId].tabs, tab], activeTabId: tab.id } }, tabCounter: state.tabCounter + 1 }));
+  },
+
+  addGitGraphTab: (regionId?: string, repoPath?: string) => {
+    const targetRegionId = regionId || get().focusedRegionId;
+    const region = get().regions[targetRegionId];
+    if (!region || !repoPath) return;
+    const existing = region.tabs.find((t) => t.type === "git-graph" && t.editorFilePath === repoPath);
+    if (existing) {
+      set((state) => ({ regions: { ...state.regions, [targetRegionId]: { ...state.regions[targetRegionId], activeTabId: existing.id } } }));
+      return;
+    }
+    const name = repoPath.split("/").pop() || "Git Graph";
+    const tab: RegionTab = { id: generateId(), title: `🌳 ${name}`, type: "git-graph", sessionId: `${EDITOR_SESSION_PREFIX}git-graph-${generateId()}`, editorFilePath: repoPath, status: "local" };
     set((state) => ({ regions: { ...state.regions, [targetRegionId]: { ...state.regions[targetRegionId], tabs: [...state.regions[targetRegionId].tabs, tab], activeTabId: tab.id } }, tabCounter: state.tabCounter + 1 }));
   },
 

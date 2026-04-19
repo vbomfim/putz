@@ -217,6 +217,22 @@ export function useMenuEvents(): void {
           menuCallbacks.onToggleScript?.();
           break;
 
+        case "menu-git-graph": {
+          const ls = useLayoutStore.getState();
+          const r = ls.regions[ls.focusedRegionId];
+          if (r) {
+            const t = r.tabs.find(tab => tab.id === r.activeTabId);
+            if (t && t.type === "terminal") {
+              import("@tauri-apps/api/core").then(({ invoke }) => {
+                invoke<string>("pty_cwd", { sessionId: t.sessionId })
+                  .then((cwd) => useLayoutStore.getState().addGitGraphTab(undefined, cwd))
+                  .catch(() => {});
+              });
+            }
+          }
+          break;
+        }
+
         case "menu-start-logging":
         case "menu-stop-logging":
           

@@ -242,6 +242,13 @@ pub fn build_menu(app: &AppHandle<Wry>) -> Result<tauri::menu::Menu<Wry>, tauri:
         ))
         .separator()
         .item(&menu_item!(app, "menu-script-editor", "Script Editor"))
+        .separator()
+        .item(&menu_item!(
+            app,
+            "menu-git-graph",
+            "Git Graph",
+            "CmdOrCtrl+Shift+G"
+        ))
         .build()?;
 
     let window_menu = SubmenuBuilder::new(app, "Window")

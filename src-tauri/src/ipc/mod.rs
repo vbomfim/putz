@@ -18,6 +18,8 @@ pub mod terminal;
 pub mod theme;
 pub mod vault;
 
+pub mod git;
+
 pub use autologin::{
     autologin_cancel, autologin_delete_profile, autologin_get_profile, autologin_process,
     autologin_set_profile, autologin_start,
@@ -65,3 +67,4 @@ pub use theme::{
     theme_create, theme_delete, theme_export, theme_get, theme_import, theme_list, theme_update,
 };
 pub use vault::{vault_check_expiring, vault_delete, vault_get, vault_list, vault_set};
+pub use git::{git_branches, git_log, git_remotes, git_rev_parse_head, git_show, git_stash_list, git_status};

@@ -1,0 +1,521 @@
+/**
+ * Git Graph component styles.
+ * Ported from Git Grove webview styles, scoped under .git-graph prefix.
+ * VS Code CSS variables replaced with Putz dark theme defaults.
+ */
+
+/* ---- Container layout ---- */
+
+.git-graph {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-primary, #1e1e2e);
+  color: var(--text-primary, #cdd6f4);
+  font-family: system-ui, -apple-system, sans-serif;
+  font-size: 13px;
+}
+
+.git-graph--loading,
+.git-graph--error {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  color: var(--text-secondary, #888);
+  flex-direction: column;
+  gap: 8px;
+}
+
+.git-graph__toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 8px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  flex-shrink: 0;
+}
+
+.git-graph__toolbar button {
+  background: var(--accent, #50fa7b);
+  color: #1e1e2e;
+  border: none;
+  padding: 4px 12px;
+  cursor: pointer;
+  border-radius: 2px;
+  font-size: inherit;
+}
+
+.git-graph__toolbar button:hover {
+  background: var(--accent-hover, #69fb92);
+}
+
+.git-graph__content {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.git-graph__graph {
+  flex: 1;
+  overflow: auto;
+}
+
+.git-graph__detail {
+  width: 350px;
+  min-width: 280px;
+  max-width: 450px;
+  border-left: 1px solid rgba(255, 255, 255, 0.06);
+  overflow-y: auto;
+  display: none;
+}
+
+.git-graph__detail.visible {
+  display: block;
+}
+
+/* ---- Working tree overlay ---- */
+
+.git-graph .working-tree-overlay {
+  padding: 8px 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  flex-wrap: wrap;
+  font-size: 12px;
+}
+
+.git-graph .working-tree-overlay.clean {
+  opacity: 0.6;
+}
+
+.git-graph .wt-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: 3px;
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.git-graph .wt-badge.staged { background: #388e3c40; color: #81c784; }
+.git-graph .wt-badge.unstaged { background: #f57c0040; color: #ffb74d; }
+.git-graph .wt-badge.untracked { background: #1976d240; color: #64b5f6; }
+.git-graph .wt-badge .count { font-weight: 700; }
+.git-graph .wt-label { opacity: 0.8; font-weight: 600; }
+
+.git-graph .wt-detail {
+  margin-top: 4px;
+  padding-left: 16px;
+  font-size: 11px;
+  opacity: 0.7;
+}
+
+.git-graph .wt-detail-list {
+  list-style: none;
+  padding: 2px 0 2px 12px;
+}
+
+.git-graph .wt-detail-list li::before {
+  content: '·';
+  margin-right: 6px;
+}
+
+.git-graph .wt-toggle {
+  cursor: pointer;
+  text-decoration: underline;
+  opacity: 0.7;
+  font-size: 11px;
+  background: none;
+  border: none;
+  color: var(--text-primary, #cdd6f4);
+}
+
+.git-graph__wt-files {
+  display: none;
+  padding: 4px 12px 8px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.git-graph__wt-files.visible { display: block; }
+
+/* ---- SVG Graph overlay ---- */
+
+.git-graph .graph-viewport {
+  display: grid;
+  grid-template-columns: var(--graph-gutter-width, 0px) minmax(0, 1fr);
+  align-items: start;
+  min-width: fit-content;
+}
+
+.git-graph .graph-gutter-clip {
+  position: relative;
+  width: var(--graph-gutter-width, 0px);
+  min-width: var(--graph-gutter-width, 0px);
+  overflow: hidden;
+}
+
+.git-graph .graph-gutter-hit-areas {
+  position: absolute;
+  inset: 0;
+}
+
+.git-graph .graph-gutter-hit-area {
+  height: 30px;
+  cursor: pointer;
+}
+
+.git-graph .graph-gutter-hit-area:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.git-graph .graph-gutter-hit-area.selected {
+  background: rgba(255, 255, 255, 0.12);
+  border-right: 2px solid var(--accent, #50fa7b);
+}
+
+.git-graph .graph-svg-overlay {
+  display: block;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.git-graph .graph-filtered-list {
+  display: block;
+}
+
+.git-graph .graph-viewport .inline-branch-badge {
+  display: none;
+}
+
+.git-graph .graph-rows {
+  min-width: 0;
+}
+
+.git-graph .commit-row {
+  display: flex;
+  align-items: center;
+  height: 30px;
+  cursor: pointer;
+  border-radius: 3px;
+}
+
+.git-graph .commit-row:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.git-graph .commit-row.selected {
+  background: rgba(255, 255, 255, 0.12);
+  border-left: 3px solid var(--accent, #50fa7b);
+}
+
+.git-graph .commit-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-left: 8px;
+  min-width: 0;
+  flex: 1;
+}
+
+.git-graph .commit-hash {
+  font-family: 'SF Mono', 'Menlo', 'Monaco', monospace;
+  opacity: 0.7;
+  flex-shrink: 0;
+}
+
+.git-graph .commit-subject {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.git-graph .branch-badge,
+.git-graph .tag-badge {
+  font-size: 11px;
+  padding: 1px 6px;
+  border-radius: 3px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.git-graph .branch-badge {
+  background: var(--accent, #50fa7b);
+  color: #1e1e2e;
+}
+
+.git-graph .branch-badge.current-branch {
+  border: 1.5px solid var(--accent, #50fa7b);
+  font-weight: 600;
+}
+
+.git-graph .branch-badge.remote-badge {
+  background: rgba(80, 250, 123, 0.3);
+  opacity: 0.8;
+  font-style: italic;
+  border: 1px dashed rgba(80, 250, 123, 0.4);
+  color: var(--text-primary, #cdd6f4);
+}
+
+.git-graph .tag-badge {
+  background: #ffb74d;
+  color: #1e1e2e;
+}
+
+.git-graph .commit-author {
+  opacity: 0.6;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+/* ---- Branch sync indicators ---- */
+
+.git-graph .sync-indicator {
+  font-size: 10px;
+  font-weight: 600;
+  margin-left: 2px;
+}
+
+.git-graph .sync-ahead { color: #81c784; }
+.git-graph .sync-behind { color: #ffb74d; margin-left: 2px; }
+.git-graph .sync-ok { color: #81c784; }
+
+.git-graph .sync-pull-btn {
+  background: none;
+  border: 1px solid #1e1e2e;
+  color: #1e1e2e;
+  font-size: 9px;
+  padding: 0 3px;
+  border-radius: 2px;
+  cursor: pointer;
+  margin-left: 2px;
+  vertical-align: middle;
+  line-height: 1;
+}
+
+.git-graph .sync-pull-btn:hover {
+  background: var(--accent, #50fa7b);
+  color: #1e1e2e;
+}
+
+/* ---- Commit detail panel ---- */
+
+.git-graph .detail-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  position: sticky;
+  top: 0;
+  background: var(--bg-primary, #1e1e2e);
+  z-index: 5;
+}
+
+.git-graph .detail-title {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.git-graph .detail-close {
+  cursor: pointer;
+  background: none;
+  border: none;
+  color: var(--text-primary, #cdd6f4);
+  font-size: 16px;
+  opacity: 0.7;
+  padding: 2px 6px;
+}
+
+.git-graph .detail-close:hover { opacity: 1; }
+
+.git-graph .detail-section {
+  padding: 8px 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+}
+
+.git-graph .detail-identity {
+  padding: 10px 12px;
+}
+
+.git-graph .detail-hash {
+  font-family: 'SF Mono', 'Menlo', 'Monaco', monospace;
+  font-size: 12px;
+  opacity: 0.7;
+  margin-bottom: 4px;
+}
+
+.git-graph .detail-subject {
+  font-weight: 600;
+  line-height: 1.4;
+  word-wrap: break-word;
+}
+
+.git-graph .detail-meta {
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.git-graph .detail-label {
+  opacity: 0.6;
+  font-weight: 600;
+}
+
+.git-graph .detail-email {
+  opacity: 0.5;
+  font-size: 11px;
+}
+
+.git-graph .detail-parents {
+  font-size: 12px;
+}
+
+.git-graph .detail-parent-hash {
+  font-family: 'SF Mono', 'Menlo', 'Monaco', monospace;
+  cursor: pointer;
+  text-decoration: underline;
+  opacity: 0.8;
+}
+
+.git-graph .detail-parent-hash:hover {
+  opacity: 1;
+  color: var(--accent, #50fa7b);
+}
+
+.git-graph .detail-body {
+  font-size: 12px;
+}
+
+.git-graph .detail-body-text {
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  font-family: 'SF Mono', 'Menlo', 'Monaco', monospace;
+  font-size: 11px;
+  line-height: 1.5;
+  opacity: 0.8;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.git-graph .detail-files-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.git-graph .detail-files-count {
+  background: var(--accent, #50fa7b);
+  color: #1e1e2e;
+  font-size: 10px;
+  padding: 1px 6px;
+  border-radius: 8px;
+  font-weight: 700;
+}
+
+.git-graph .detail-files-empty {
+  opacity: 0.5;
+  font-size: 12px;
+  padding: 4px 0;
+}
+
+.git-graph .detail-files-list {
+  list-style: none;
+  padding: 0;
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.git-graph .detail-file-item {
+  padding: 3px 4px;
+  font-size: 12px;
+  cursor: pointer;
+  border-radius: 2px;
+  font-family: 'SF Mono', 'Menlo', 'Monaco', monospace;
+}
+
+.git-graph .detail-file-item:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.git-graph .detail-file-item .status {
+  display: inline-block;
+  width: 55px;
+  font-weight: 600;
+  text-transform: uppercase;
+  font-size: 10px;
+}
+
+.git-graph .detail-file-item .status.added { color: #81c784; }
+.git-graph .detail-file-item .status.modified { color: #ffb74d; }
+.git-graph .detail-file-item .status.deleted { color: #e57373; }
+.git-graph .detail-file-item .status.renamed { color: #64b5f6; }
+
+.git-graph .detail-file-path {
+  word-break: break-all;
+}
+
+/* ---- Empty state ---- */
+
+.git-graph .empty-state {
+  text-align: center;
+  padding: 48px;
+  opacity: 0.6;
+}
+
+/* ---- Stash panel ---- */
+
+.git-graph .stash-panel {
+  display: none;
+  padding: 8px 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  font-size: 12px;
+}
+
+.git-graph .stash-label {
+  font-weight: 600;
+  opacity: 0.8;
+}
+
+.git-graph .stash-count {
+  background: var(--accent, #50fa7b);
+  color: #1e1e2e;
+  font-size: 10px;
+  padding: 1px 6px;
+  border-radius: 8px;
+  font-weight: 700;
+}
+
+.git-graph .stash-list {
+  list-style: none;
+  padding: 0;
+  max-height: 120px;
+  overflow-y: auto;
+}
+
+.git-graph .stash-item {
+  padding: 3px 4px;
+  border-radius: 2px;
+  cursor: context-menu;
+  font-family: 'SF Mono', 'Menlo', 'Monaco', monospace;
+}
+
+.git-graph .stash-item:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.git-graph .stash-index {
+  opacity: 0.6;
+  font-size: 11px;
+}
+
+.git-graph .stash-message {
+  opacity: 0.9;
+}
