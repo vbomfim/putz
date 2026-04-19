@@ -259,9 +259,11 @@ export function RegionTabBar({
 
   // Detect if the active terminal CWD is in a git repo (event-driven)
   const [gitRepoPath, setGitRepoPath] = useState<string | null>(null);
+  const activeTab = tabs.find((t) => t.id === activeTabId);
+  const activeSessionId = activeTab?.type === "terminal" ? activeTab.sessionId : null;
+
   useEffect(() => {
-    const activeTab = tabs.find((t) => t.id === activeTabId);
-    if (!activeTab || activeTab.type !== "terminal") {
+    if (!activeSessionId) {
       setGitRepoPath(null);
       return;
     }
@@ -275,24 +277,22 @@ export function RegionTabBar({
         if (!cancelled) setGitRepoPath(null);
       }
     };
-    // Initial check using pty_cwd
-    (async () => {
-      try {
-        const { invoke } = await import("@tauri-apps/api/core");
-        const cwd = await invoke<string>("pty_cwd", { sessionId: activeTab.sessionId });
-        checkGit(cwd);
-      } catch { if (!cancelled) setGitRepoPath(null); }
-    })();
+    // Initial check
+    import("@tauri-apps/api/core").then(({ invoke }) => {
+      invoke<string>("pty_cwd", { sessionId: activeSessionId })
+        .then((cwd) => { if (!cancelled) checkGit(cwd); })
+        .catch(() => { if (!cancelled) setGitRepoPath(null); });
+    });
     // Listen for CWD changes on this session
     const handler = (e: Event) => {
       const detail = (e as CustomEvent).detail;
-      if (detail?.sessionId === activeTab.sessionId && detail?.cwd) {
+      if (detail?.sessionId === activeSessionId && detail?.cwd) {
         checkGit(detail.cwd);
       }
     };
     window.addEventListener("putz-cwd-change", handler);
     return () => { cancelled = true; window.removeEventListener("putz-cwd-change", handler); };
-  }, [tabs, activeTabId]);
+  }, [activeSessionId]);
 
   // Close context menu on outside click
   useEffect(() => {
