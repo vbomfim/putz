@@ -80,6 +80,12 @@ pub fn git_repo_root(path: String) -> Result<String, String> {
     run_git(&path, &["rev-parse", "--show-toplevel"]).map(|s| s.trim().to_string())
 }
 
+/// List all worktrees.
+#[tauri::command]
+pub fn git_worktree_list(repo_path: String) -> Result<String, String> {
+    run_git(&repo_path, &["worktree", "list", "--porcelain"])
+}
+
 /// Get file content at a specific commit (or empty string if the file didn't exist).
 #[tauri::command]
 pub fn git_file_at_commit(repo_path: String, hash: String, file_path: String) -> Result<String, String> {

@@ -21,6 +21,7 @@ export function GitGraph({ repoPath }: GitGraphProps) {
   const [error, setError] = useState<string | null>(null);
   const [graphData, setGraphData] = useState<GraphData | null>(null);
   const [wtStatus, setWtStatus] = useState<WorkingTreeStatus | null>(null);
+  const [worktrees, setWorktrees] = useState<{ path: string; branch: string; hash: string; bare: boolean }[]>([]);
   const [fileFilter, setFileFilter] = useState("");
 
   const loadGraph = useCallback(async (filePath?: string) => {
@@ -30,22 +31,23 @@ export function GitGraph({ repoPath }: GitGraphProps) {
       const logArgs: { repoPath: string; maxCount: number; filePath?: string } = { repoPath, maxCount: 500 };
       if (filePath) logArgs.filePath = filePath;
 
-      const [logRaw, statusRaw, remotesRaw, headHash] = await Promise.all([
+      const [logRaw, statusRaw, remotesRaw, headHash, wtListRaw] = await Promise.all([
         invoke<string>("git_log", logArgs),
         invoke<string>("git_status", { repoPath }),
         invoke<string>("git_remotes", { repoPath }),
         invoke<string>("git_rev_parse_head", { repoPath }),
+        invoke<string>("git_worktree_list", { repoPath }),
       ]);
 
       const commits = parseLogOutput(logRaw);
       const remotes = parseRemoteOutput(remotesRaw);
       const graph = buildGraph(commits, headHash.trim(), remotes);
-      // Mark as filtered when file path is active — renderer shows flat list without SVG
       if (filePath) {
         (graph as { filtered: boolean }).filtered = true;
       }
       setGraphData(graph);
       setWtStatus(parseStatusOutput(statusRaw));
+      setWorktrees(parseWorktreeList(wtListRaw));
 
       setLoading(false);
     } catch (err) {
@@ -197,6 +199,11 @@ export function GitGraph({ repoPath }: GitGraphProps) {
       {wtStatus && (wtStatus.staged.length > 0 || wtStatus.unstaged.length > 0 || wtStatus.untracked.length > 0) && (
         <GitStatus status={wtStatus} onFileClick={openWorkingTreeDiff} />
       )}
+      {worktrees.length > 1 && (
+        <WorktreeList worktrees={worktrees} currentPath={repoPath} onOpen={(path) => {
+          useLayoutStore.getState().addGitGraphTab(undefined, path);
+        }} />
+      )}
       <div className="git-graph__content">
         <div className="git-graph__graph" ref={graphRef} />
         <div className="git-graph__detail" ref={detailRef} />
@@ -252,6 +259,75 @@ function GitStatus({ status, onFileClick }: {
               <span className="git-graph__status-path">{p}</span>
             </button>
           ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** Parse `git worktree list --porcelain` output. */
+function parseWorktreeList(raw: string): { path: string; branch: string; hash: string; bare: boolean }[] {
+  if (!raw.trim()) return [];
+  const entries: { path: string; branch: string; hash: string; bare: boolean }[] = [];
+  let current: { path: string; branch: string; hash: string; bare: boolean } = { path: "", branch: "", hash: "", bare: false };
+  for (const line of raw.split("\n")) {
+    if (line.startsWith("worktree ")) {
+      if (current.path) entries.push(current);
+      current = { path: line.slice(9), branch: "", hash: "", bare: false };
+    } else if (line.startsWith("HEAD ")) {
+      current.hash = line.slice(5);
+    } else if (line.startsWith("branch ")) {
+      current.branch = line.slice(7).replace("refs/heads/", "");
+    } else if (line === "bare") {
+      current.bare = true;
+    } else if (line === "detached") {
+      current.branch = "HEAD (detached)";
+    }
+  }
+  if (current.path) entries.push(current);
+  return entries;
+}
+
+function WorktreeList({ worktrees, currentPath, onOpen }: {
+  worktrees: { path: string; branch: string; hash: string; bare: boolean }[];
+  currentPath: string;
+  onOpen: (path: string) => void;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  const nonBare = worktrees.filter((w) => !w.bare);
+  if (nonBare.length <= 1) return null;
+
+  return (
+    <div className="git-graph__status">
+      <button className="git-graph__status-header" onClick={() => setExpanded(!expanded)}>
+        <span>{expanded ? "▾" : "▸"}</span>
+        <span>Worktrees</span>
+        <span className="git-graph__status-counts">
+          <span style={{ color: "#89b4fa" }}>{nonBare.length} worktrees</span>
+        </span>
+      </button>
+      {expanded && (
+        <div className="git-graph__status-files">
+          {nonBare.map((wt) => {
+            const isCurrent = wt.path === currentPath;
+            return (
+              <button
+                key={wt.path}
+                className="git-graph__status-file"
+                onClick={() => !isCurrent && onOpen(wt.path)}
+                style={isCurrent ? { opacity: 0.6, cursor: "default" } : undefined}
+                title={wt.path}
+              >
+                <span className="git-graph__status-icon" style={{ color: isCurrent ? "#50fa7b" : "#89b4fa" }}>
+                  {isCurrent ? "★" : "⎇"}
+                </span>
+                <span className="git-graph__status-path">{wt.branch || wt.hash.slice(0, 7)}</span>
+                <span className="git-graph__status-label" style={{ color: "#6c7086" }}>
+                  {wt.path.split("/").pop()}
+                </span>
+              </button>
+            );
+          })}
         </div>
       )}
     </div>
