@@ -66,20 +66,49 @@ async function fetchStations(
   return data.filter((s) => s.lastcheckok === 1);
 }
 
+const FAVORITES_KEY = "putz-radio-favorites";
+
+function loadFavorites(): Map<string, RadioStation> {
+  try {
+    const raw = localStorage.getItem(FAVORITES_KEY);
+    if (!raw) return new Map();
+    const arr: RadioStation[] = JSON.parse(raw);
+    return new Map(arr.map((s) => [s.stationuuid, s]));
+  } catch { return new Map(); }
+}
+
+function saveFavorites(favs: Map<string, RadioStation>): void {
+  localStorage.setItem(FAVORITES_KEY, JSON.stringify([...favs.values()]));
+}
+
 export function Radio() {
   const [stations, setStations] = useState<RadioStation[]>([]);
   const [countries, setCountries] = useState<CountryEntry[]>([]);
+  const [favorites, setFavorites] = useState<Map<string, RadioStation>>(loadFavorites);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(true);
   const [search, setSearch] = useState("");
-  const [country, setCountry] = useState("Brazil");
+  const [country, setCountry] = useState("⭐ Favorites");
   const [playingId, setPlayingId] = useState<string | null>(null);
   const [playingName, setPlayingName] = useState("");
   const [paused, setPaused] = useState(false);
   const [volume, setVolume] = useState(80);
   const [error, setError] = useState<string | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+
+  const toggleFavorite = useCallback((station: RadioStation) => {
+    setFavorites((prev) => {
+      const next = new Map(prev);
+      if (next.has(station.stationuuid)) {
+        next.delete(station.stationuuid);
+      } else {
+        next.set(station.stationuuid, station);
+      }
+      saveFavorites(next);
+      return next;
+    });
+  }, []);
 
   // Fetch country list on mount
   useEffect(() => {
@@ -88,6 +117,17 @@ export function Radio() {
 
   const loadStations = useCallback(
     async (c: string, q: string) => {
+      // Favorites: load from local storage
+      if (c === "⭐ Favorites") {
+        const favList = [...favorites.values()];
+        const filtered = q
+          ? favList.filter((s) => s.name.toLowerCase().includes(q.toLowerCase()))
+          : favList;
+        setStations(filtered);
+        setHasMore(false);
+        setLoading(false);
+        return;
+      }
       setLoading(true);
       setError(null);
       setHasMore(true);
@@ -103,7 +143,7 @@ export function Radio() {
         setLoading(false);
       }
     },
-    [],
+    [favorites],
   );
 
   const loadMore = useCallback(async () => {
@@ -228,6 +268,7 @@ export function Radio() {
           onChange={(e) => setCountry(e.target.value)}
           aria-label="Country"
         >
+          <option value="⭐ Favorites">⭐ Favorites ({favorites.size})</option>
           <option value="">🌍 All Countries</option>
           {countries.map((c) => (
             <option key={c.name} value={c.name}>
@@ -278,7 +319,9 @@ export function Radio() {
               key={station.stationuuid}
               station={station}
               isPlaying={playingId === station.stationuuid}
+              isFavorite={favorites.has(station.stationuuid)}
               onPlay={play}
+              onToggleFavorite={toggleFavorite}
             />
           ))}
           {hasMore && (
@@ -335,10 +378,12 @@ export function Radio() {
 interface StationCardProps {
   station: RadioStation;
   isPlaying: boolean;
+  isFavorite: boolean;
   onPlay: (station: RadioStation) => void;
+  onToggleFavorite: (station: RadioStation) => void;
 }
 
-function StationCard({ station, isPlaying, onPlay }: StationCardProps) {
+function StationCard({ station, isPlaying, isFavorite, onPlay, onToggleFavorite }: StationCardProps) {
   const [imgError, setImgError] = useState(false);
 
   const codec = station.codec || "";
@@ -368,6 +413,14 @@ function StationCard({ station, isPlaying, onPlay }: StationCardProps) {
         <span className="radio__card-name" title={station.name}>
           {station.name}
         </span>
+        <button
+          type="button"
+          className={`radio__card-fav ${isFavorite ? "radio__card-fav--active" : ""}`}
+          onClick={(e) => { e.stopPropagation(); onToggleFavorite(station); }}
+          title={isFavorite ? "Remove from favorites" : "Add to favorites"}
+        >
+          {isFavorite ? "★" : "☆"}
+        </button>
       </div>
       {station.tags && (
         <span className="radio__card-tags" title={station.tags}>
