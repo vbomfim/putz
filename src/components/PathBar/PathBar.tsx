@@ -88,7 +88,8 @@ export function PathBar() {
   }, [sessionId]);
 
   // Open branch menu
-  const openBranchMenu = useCallback(async () => {
+  const toggleBranchMenu = useCallback(async () => {
+    if (branchMenuOpen) { setBranchMenuOpen(false); return; }
     if (!git) return;
     try {
       const raw = await invoke<string>("git_branches", { repoPath: git.repoRoot });
@@ -96,7 +97,7 @@ export function PathBar() {
       setBranchFilter("");
       setBranchMenuOpen(true);
     } catch { /* ignore */ }
-  }, [git]);
+  }, [git, branchMenuOpen]);
 
   // Checkout a branch
   const handleCheckout = useCallback(async (branchName: string) => {
@@ -151,7 +152,7 @@ export function PathBar() {
           <button
             ref={branchBtnRef}
             className="path-bar__git-branch"
-            onClick={openBranchMenu}
+            onClick={toggleBranchMenu}
             title="Switch branch"
           >
             ⎇ {git.branch} ▾
