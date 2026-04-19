@@ -103,6 +103,7 @@ export function Radio() {
         audioRef.current.src = "";
         audioRef.current = null;
       }
+      window.dispatchEvent(new CustomEvent("putz-radio-change", { detail: { name: "", playing: false } }));
     };
   }, []);
 
