@@ -791,7 +791,7 @@ const CommandGroupButton = memo(function CommandGroupButton({
         title={displayName} aria-label={displayName}
         aria-haspopup="true" aria-expanded={isOpen}
         onClick={handleToggle} onPointerDown={handlePointerDown}>
-        <span className="bookmarks-bar__icon" aria-hidden="true">⚡</span>
+        <span className="bookmarks-bar__icon" aria-hidden="true">{group.icon || "⚡"}</span>
         <span className="bookmarks-bar__label">{displayName}</span>
         <span className="bookmarks-bar__chevron" aria-hidden="true">▾</span>
       </button>
@@ -880,7 +880,7 @@ function CommandDialog({ anchorRef, onClose, editCommand }: CommandDialogProps) 
   const handleSubmit = () => {
     if (!name.trim()) return;
     if (isGroupMode) {
-      addCommandGroup(name);
+      addCommandGroup(name, icon);
       onClose();
       return;
     }
@@ -908,20 +908,20 @@ function CommandDialog({ anchorRef, onClose, editCommand }: CommandDialogProps) 
 
       <input placeholder="Name" value={name} onChange={(e) => setName(e.target.value)} autoFocus spellCheck={false} />
 
+      <div className="bookmarks-bar__add-cmd-icons">
+        <span>Icon:</span>
+        <div className="bookmarks-bar__add-cmd-icon-grid">
+          {COMMAND_ICONS.map((ic) => (
+            <button key={ic} type="button"
+              className={`bookmarks-bar__add-cmd-icon-btn ${icon === ic ? "bookmarks-bar__add-cmd-icon-btn--active" : ""}`}
+              onClick={() => setIcon(ic)}>{ic}</button>
+          ))}
+        </div>
+      </div>
+
       {!isGroupMode && (
         <>
           <textarea placeholder="Command(s)…" value={cmd} onChange={(e) => setCmd(e.target.value)} rows={3} autoCorrect="off" autoCapitalize="off" spellCheck={false} />
-
-          <div className="bookmarks-bar__add-cmd-icons">
-            <span>Icon:</span>
-            <div className="bookmarks-bar__add-cmd-icon-grid">
-              {COMMAND_ICONS.map((ic) => (
-                <button key={ic} type="button"
-                  className={`bookmarks-bar__add-cmd-icon-btn ${icon === ic ? "bookmarks-bar__add-cmd-icon-btn--active" : ""}`}
-                  onClick={() => setIcon(ic)}>{ic}</button>
-              ))}
-            </div>
-          </div>
 
           {commandGroups.length > 0 && (
             <div className="bookmarks-bar__add-cmd-hotkey">

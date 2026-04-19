@@ -63,6 +63,8 @@ export interface CommandGroup {
   id: string;
   /** User-editable display name. */
   name: string;
+  /** Display icon emoji. */
+  icon: string;
   /** Position in the bookmark bar (shares root sortIndex namespace). */
   sortIndex: number;
   /** Creation timestamp (epoch ms). */
@@ -401,6 +403,7 @@ function tryValidateCommandGroup(raw: unknown): CommandGroup | null {
   return {
     id: item.id,
     name: truncate(String(item.name).trim(), MAX_NAME_LENGTH),
+    icon: typeof item.icon === "string" ? item.icon : "⚡",
     sortIndex: item.sortIndex,
     createdAt: typeof item.createdAt === "number" ? item.createdAt : Date.now(),
   };
@@ -567,7 +570,7 @@ interface BookmarksState {
   reorderCommand: (id: string, newIndex: number) => void;
 
   /** Adds a command group. */
-  addCommandGroup: (name: string) => void;
+  addCommandGroup: (name: string, icon?: string) => void;
 
   /** Removes a command group. Orphaned commands move to root. */
   removeCommandGroup: (id: string) => void;
@@ -897,7 +900,7 @@ export const useBookmarksStore = create<BookmarksState>((set, get) => {
       persist();
     },
 
-    addCommandGroup: (name: string) => {
+    addCommandGroup: (name: string, icon?: string) => {
       const trimmed = name.trim();
       if (!trimmed) return;
       const { bookmarks, folders, commands, commandGroups } = get();
@@ -910,6 +913,7 @@ export const useBookmarksStore = create<BookmarksState>((set, get) => {
       const newGroup: CommandGroup = {
         id: generateId(),
         name: truncate(trimmed, MAX_NAME_LENGTH),
+        icon: icon ?? "⚡",
         sortIndex: sortIdx,
         createdAt: Date.now(),
       };
