@@ -278,3 +278,25 @@
 .radio__error-close:hover {
   background: rgba(243, 139, 168, 0.2);
 }
+
+.radio__load-more {
+  width: 100%;
+  padding: 12px;
+  border: 1px dashed rgba(255, 255, 255, 0.12);
+  background: transparent;
+  color: var(--text-secondary, #a6adc8);
+  font-size: 0.8rem;
+  cursor: pointer;
+  border-radius: 8px;
+  margin-top: 4px;
+}
+
+.radio__load-more:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text-primary, #cdd6f4);
+}
+
+.radio__load-more:disabled {
+  opacity: 0.5;
+  cursor: default;
+}

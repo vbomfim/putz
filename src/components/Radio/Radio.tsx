@@ -41,20 +41,23 @@ async function fetchCountries(): Promise<CountryEntry[]> {
   return data.filter((c) => c.stationcount >= 20).sort((a, b) => a.name.localeCompare(b.name));
 }
 
+const PAGE_SIZE = 50;
+
 /** Fetch stations from radio-browser.info, filtering only working streams. */
 async function fetchStations(
   country: string,
   search: string,
+  offset: number = 0,
 ): Promise<RadioStation[]> {
   let url: string;
   if (search) {
-    const params = new URLSearchParams({ name: search, limit: "50", order: "clickcount", reverse: "true" });
+    const params = new URLSearchParams({ name: search, limit: String(PAGE_SIZE), offset: String(offset), order: "clickcount", reverse: "true" });
     if (country) params.set("country", country);
     url = `${API_BASE}/stations/search?${params}`;
   } else if (country) {
-    url = `${API_BASE}/stations/bycountry/${encodeURIComponent(country)}?limit=50&order=clickcount&reverse=true`;
+    url = `${API_BASE}/stations/bycountry/${encodeURIComponent(country)}?limit=${PAGE_SIZE}&offset=${offset}&order=clickcount&reverse=true`;
   } else {
-    url = `${API_BASE}/stations/search?limit=50&order=clickcount&reverse=true`;
+    url = `${API_BASE}/stations/search?limit=${PAGE_SIZE}&offset=${offset}&order=clickcount&reverse=true`;
   }
 
   const res = await fetch(url);
@@ -67,6 +70,8 @@ export function Radio() {
   const [stations, setStations] = useState<RadioStation[]>([]);
   const [countries, setCountries] = useState<CountryEntry[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(true);
   const [search, setSearch] = useState("");
   const [country, setCountry] = useState("Brazil");
   const [playingId, setPlayingId] = useState<string | null>(null);
@@ -85,18 +90,32 @@ export function Radio() {
     async (c: string, q: string) => {
       setLoading(true);
       setError(null);
+      setHasMore(true);
       try {
-        const data = await fetchStations(c, q);
+        const data = await fetchStations(c, q, 0);
         setStations(data);
+        setHasMore(data.length >= PAGE_SIZE);
       } catch (err) {
         setError(err instanceof Error ? err.message : "Failed to load stations");
         setStations([]);
+        setHasMore(false);
       } finally {
         setLoading(false);
       }
     },
     [],
   );
+
+  const loadMore = useCallback(async () => {
+    if (loadingMore || !hasMore) return;
+    setLoadingMore(true);
+    try {
+      const data = await fetchStations(country, search, stations.length);
+      setStations((prev) => [...prev, ...data]);
+      setHasMore(data.length >= PAGE_SIZE);
+    } catch { /* ignore */ }
+    setLoadingMore(false);
+  }, [country, search, stations.length, loadingMore, hasMore]);
 
   // Load on mount and when country changes
   useEffect(() => {
@@ -245,7 +264,15 @@ export function Radio() {
       ) : stations.length === 0 ? (
         <div className="radio__empty">No stations found</div>
       ) : (
-        <div className="radio__list">
+        <div
+          className="radio__list"
+          onScroll={(e) => {
+            const el = e.currentTarget;
+            if (el.scrollTop + el.clientHeight >= el.scrollHeight - 100) {
+              loadMore();
+            }
+          }}
+        >
           {stations.map((station) => (
             <StationCard
               key={station.stationuuid}
@@ -254,6 +281,11 @@ export function Radio() {
               onPlay={play}
             />
           ))}
+          {hasMore && (
+            <button className="radio__load-more" onClick={loadMore} disabled={loadingMore}>
+              {loadingMore ? "Loading…" : `Load more (${stations.length} loaded)`}
+            </button>
+          )}
         </div>
       )}
 
