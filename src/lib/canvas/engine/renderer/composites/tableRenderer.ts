@@ -74,8 +74,9 @@ export function renderTable(
     currentY += ROW_HEIGHT;
   }
 
-  // ── Header row ─────────────────────────────────────────────
-  if (data.headers.length > 0) {
+  // ── Header row (skip auto-generated "Col N" headers) ────────
+  const isAutoHeaders = data.headers.every((h, i) => h === `Col ${i + 1}`);
+  if (data.headers.length > 0 && !isAutoHeaders) {
     ctx.fillStyle = HEADER_BG;
     ctx.fillRect(tableX, currentY, tableWidth, ROW_HEIGHT);
 

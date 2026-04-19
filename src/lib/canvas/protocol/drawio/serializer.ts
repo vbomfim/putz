@@ -459,20 +459,32 @@ function parseHtmlTable(html: string): { title?: string; headers: string[]; rows
   const cellText = (cellHtml: string): string =>
     decodeEntities(cellHtml.replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim());
 
-  /** Extract background-color from a td/th style attribute. */
-  const cellBgColor = (tdTag: string): string | undefined => {
-    const m = tdTag.match(/background-color\s*:\s*([^;"]+)/i);
+  /** Extract background color from a td/th — checks both CSS and bgcolor attribute. */
+  const cellBgColor = (tdAttrs: string): string | undefined => {
+    // CSS: style="background-color: #xxx"
+    const cssMatch = tdAttrs.match(/background-color\s*:\s*([^;"]+)/i);
+    if (cssMatch) return cssMatch[1]?.trim();
+    // HTML attribute: bgcolor="#xxx" or bgcolor='#xxx'
+    const attrMatch = tdAttrs.match(/bgcolor\s*=\s*['"]?([^'"\s;>]+)/i);
+    if (attrMatch) return attrMatch[1]?.trim();
+    return undefined;
+  };
+
+  /** Extract border color from a td/th style — for colored square cells. */
+  const cellBorderColor = (tdAttrs: string): string | undefined => {
+    const m = tdAttrs.match(/border\s*:\s*\d+px\s+solid\s+([^;"']+)/i);
     return m?.[1]?.trim();
   };
 
   const rowMatches = [...body.matchAll(/<tr\b[^>]*>([\s\S]*?)<\/tr>/gi)];
   if (rowMatches.length === 0) return null;
 
-  interface RawCell { text: string; backgroundColor?: string }
+  interface RawCell { text: string; backgroundColor?: string; borderColor?: string }
   const allRows: RawCell[][] = rowMatches.map((m) =>
     [...(m[1] ?? '').matchAll(/<t[dh]\b([^>]*)>([\s\S]*?)<\/t[dh]>/gi)].map((c) => ({
       text: cellText(c[2] ?? ''),
       backgroundColor: cellBgColor(c[1] ?? ''),
+      borderColor: cellBorderColor(c[1] ?? ''),
     })),
   );
   if (allRows.length === 0) return null;
@@ -484,10 +496,28 @@ function parseHtmlTable(html: string): { title?: string; headers: string[]; rows
     title = allRows[0]![0]!.text;
     headerIdx = 1;
   }
-  const headers = (allRows[headerIdx] ?? []).map((c) => c.text);
-  const rows: (string | { text: string; backgroundColor?: string })[][] = allRows.slice(headerIdx + 1).map((row) => {
+
+  // Check if "header" row has any colored cells — if so, it's data not headers.
+  // Generate column headers like "Col 1", "Col 2"... and treat all rows as data.
+  const headerRow = allRows[headerIdx] ?? [];
+  const headerHasColors = headerRow.some((c) => c.backgroundColor || c.borderColor);
+  let headers: string[];
+  let dataStartIdx: number;
+
+  if (headerHasColors) {
+    // No real header row — generate generic column names
+    const colCount = Math.max(...allRows.slice(title ? 1 : 0).map((r) => r.length));
+    headers = Array.from({ length: colCount }, (_, i) => `Col ${i + 1}`);
+    dataStartIdx = title ? 1 : 0;
+  } else {
+    headers = headerRow.map((c) => c.text);
+    dataStartIdx = headerIdx + 1;
+  }
+
+  const rows: (string | { text: string; backgroundColor?: string })[][] = allRows.slice(dataStartIdx).map((row) => {
     return row.map((cell) => {
-      if (cell.backgroundColor) return { text: cell.text, backgroundColor: cell.backgroundColor };
+      const bgColor = cell.borderColor || cell.backgroundColor;
+      if (bgColor) return { text: cell.text, backgroundColor: bgColor };
       return cell.text;
     });
   });
