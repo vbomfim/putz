@@ -56,3 +56,51 @@
 .path-bar__icon {
   font-size: 0.65rem;
 }
+
+/* ─── Git Status ─────────────────────────────────────────────── */
+
+.path-bar__git {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+  padding-left: 12px;
+  flex-shrink: 0;
+  font-size: 0.7rem;
+}
+
+.path-bar__git-branch {
+  color: var(--accent, #50fa7b);
+  font-weight: 600;
+}
+
+.path-bar__git-ahead {
+  color: #50fa7b;
+}
+
+.path-bar__git-behind {
+  color: #fab387;
+}
+
+.path-bar__git-sync {
+  color: #6c7086;
+}
+
+.path-bar__git-dirty {
+  color: #f9e2af;
+}
+
+.path-bar__git-tree {
+  display: flex;
+  align-items: center;
+  padding: 1px 4px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  font-size: 0.8rem;
+  border-radius: 3px;
+}
+
+.path-bar__git-tree:hover {
+  background: rgba(255, 255, 255, 0.1);
+}

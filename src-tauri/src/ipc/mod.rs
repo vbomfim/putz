@@ -67,4 +67,4 @@ pub use theme::{
     theme_create, theme_delete, theme_export, theme_get, theme_import, theme_list, theme_update,
 };
 pub use vault::{vault_check_expiring, vault_delete, vault_get, vault_list, vault_set};
-pub use git::{git_branches, git_file_at_commit, git_log, git_remotes, git_repo_root, git_rev_parse_head, git_show, git_stash_list, git_status, git_worktree_list};
+pub use git::{git_branches, git_file_at_commit, git_log, git_remotes, git_repo_root, git_rev_parse_head, git_show, git_stash_list, git_status, git_status_summary, git_worktree_list};

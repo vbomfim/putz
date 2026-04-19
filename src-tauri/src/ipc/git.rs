@@ -95,3 +95,30 @@ pub fn git_file_at_commit(repo_path: String, hash: String, file_path: String) ->
         Err(_) => Ok(String::new()), // file didn't exist at this commit
     }
 }
+
+/// Get a compact status summary: branch, ahead, behind, dirty count.
+/// Returns "branch\nahead\nbehind\ndirty" (e.g. "main\n2\n0\n3").
+#[tauri::command]
+pub fn git_status_summary(path: String) -> Result<String, String> {
+    let status_raw = run_git(&path, &["status", "--porcelain=v2", "--branch"])?;
+    let mut branch = String::new();
+    let mut ahead = 0u32;
+    let mut behind = 0u32;
+    let mut dirty = 0u32;
+
+    for line in status_raw.lines() {
+        if line.starts_with("# branch.head ") {
+            branch = line.strip_prefix("# branch.head ").unwrap_or("").to_string();
+        } else if line.starts_with("# branch.ab ") {
+            let parts: Vec<&str> = line.split_whitespace().collect();
+            if parts.len() >= 4 {
+                ahead = parts[2].trim_start_matches('+').parse().unwrap_or(0);
+                behind = parts[3].trim_start_matches('-').parse().unwrap_or(0);
+            }
+        } else if !line.starts_with('#') && !line.is_empty() {
+            dirty += 1;
+        }
+    }
+
+    Ok(format!("{}\n{}\n{}\n{}", branch, ahead, behind, dirty))
+}
