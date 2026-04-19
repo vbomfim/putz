@@ -115,9 +115,15 @@ export function Radio() {
     if (e.key === "Enter") handleSearch();
   };
 
+  const errorHandlerRef = useRef<(() => void) | null>(null);
+
   const play = useCallback(
     (station: RadioStation) => {
+      // Clean up previous audio — remove listeners BEFORE stopping to avoid stale errors
       if (audioRef.current) {
+        if (errorHandlerRef.current) {
+          audioRef.current.removeEventListener("error", errorHandlerRef.current);
+        }
         audioRef.current.pause();
         audioRef.current.src = "";
       }
@@ -125,16 +131,23 @@ export function Radio() {
       const audio = new Audio(station.url_resolved || station.url);
       audio.volume = volume / 100;
 
-      audio.addEventListener("error", () => {
-        setError(`Could not play "${station.name}" — stream may be offline`);
-        setPlayingId(null);
-        setPaused(true);
-      });
+      const onError = () => {
+        // Only fire if this is still the active audio
+        if (audioRef.current === audio) {
+          setError(`Could not play "${station.name}" — stream may be offline`);
+          setPlayingId(null);
+          setPaused(true);
+        }
+      };
+      errorHandlerRef.current = onError;
+      audio.addEventListener("error", onError);
 
       audio.play().catch(() => {
-        setError(`Could not play "${station.name}" — stream may be offline`);
-        setPlayingId(null);
-        setPaused(true);
+        if (audioRef.current === audio) {
+          setError(`Could not play "${station.name}" — stream may be offline`);
+          setPlayingId(null);
+          setPaused(true);
+        }
       });
 
       audioRef.current = audio;
