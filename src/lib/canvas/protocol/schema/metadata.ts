@@ -47,5 +47,5 @@ export const DEFAULT_EXPRESSION_STYLE: ExpressionStyle = {
   strokeWidth: 2,
   roughness: 0,
   opacity: 1,
-  fontFamily: 'Architects Daughter, cursive',
+  fontFamily: 'system-ui, -apple-system, sans-serif',
 };

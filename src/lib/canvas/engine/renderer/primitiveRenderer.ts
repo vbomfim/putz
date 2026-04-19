@@ -30,7 +30,7 @@ import { renderArrow as renderArrowImpl } from './arrowRenderer';
 const STICKY_NOTE_ROTATION = (2 * Math.PI) / 180;
 
 /** Default font family when not specified. */
-const DEFAULT_FONT_FAMILY = 'Architects Daughter, cursive';
+const DEFAULT_FONT_FAMILY = 'system-ui, -apple-system, sans-serif';
 
 /** Line height multiplier for text wrapping. */
 const LINE_HEIGHT_MULTIPLIER = 1.4;
