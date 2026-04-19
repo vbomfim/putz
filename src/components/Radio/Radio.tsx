@@ -93,6 +93,7 @@ export function Radio() {
   const [minBitrate, setMinBitrate] = useState(0);
   const [playingId, setPlayingId] = useState<string | null>(null);
   const [playingName, setPlayingName] = useState("");
+  const playingStationRef = useRef<RadioStation | null>(null);
   const [paused, setPaused] = useState(false);
   const [volume, setVolume] = useState(80);
   const [error, setError] = useState<string | null>(null);
@@ -235,6 +236,7 @@ export function Radio() {
       audioRef.current = audio;
       setPlayingId(station.stationuuid);
       setPlayingName(station.name);
+      playingStationRef.current = station;
       setPaused(false);
       setError(null);
       window.dispatchEvent(new CustomEvent("putz-radio-change", { detail: { name: station.name, playing: true } }));
@@ -371,6 +373,16 @@ export function Radio() {
         <div className="radio__player">
           <span className="radio__player-icon">📻</span>
           <span className="radio__player-name">{playingName}</span>
+          {playingStationRef.current && (
+            <button
+              type="button"
+              className={`radio__card-fav ${favorites.has(playingStationRef.current.stationuuid) ? "radio__card-fav--active" : ""}`}
+              onClick={() => { if (playingStationRef.current) toggleFavorite(playingStationRef.current); }}
+              title={favorites.has(playingStationRef.current.stationuuid) ? "Remove from favorites" : "Add to favorites"}
+            >
+              {favorites.has(playingStationRef.current.stationuuid) ? "★" : "☆"}
+            </button>
+          )}
 
           <button
             type="button"
