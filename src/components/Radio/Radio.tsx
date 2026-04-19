@@ -38,7 +38,7 @@ async function fetchCountries(): Promise<CountryEntry[]> {
   const res = await fetch(`${API_BASE}/countries?order=stationcount&reverse=true`);
   if (!res.ok) return [];
   const data: CountryEntry[] = await res.json();
-  return data.filter((c) => c.stationcount >= 20);
+  return data.filter((c) => c.stationcount >= 20).sort((a, b) => a.name.localeCompare(b.name));
 }
 
 /** Fetch stations from radio-browser.info, filtering only working streams. */
