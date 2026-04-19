@@ -192,6 +192,7 @@ export interface CodeBlockData {
 export interface TableCell {
   text: string;
   backgroundColor?: string;
+  borderColor?: string;
   bold?: boolean;
   colspan?: number;
 }

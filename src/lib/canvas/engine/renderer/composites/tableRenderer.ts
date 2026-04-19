@@ -23,6 +23,8 @@ const BORDER_COLOR = '#d0d0d0';
 const HEADER_BG = '#f5f5f5';
 const TITLE_FONT_SIZE = 13;
 
+const SWATCH_SIZE = 18;
+
 // ── Helpers ──────────────────────────────────────────────────
 
 function getCellText(cell: string | TableCell): string {
@@ -31,6 +33,16 @@ function getCellText(cell: string | TableCell): string {
 
 function getCellBg(cell: string | TableCell): string | undefined {
   return typeof cell === 'object' ? cell.backgroundColor : undefined;
+}
+
+function getCellBorder(cell: string | TableCell): string | undefined {
+  return typeof cell === 'object' ? cell.borderColor : undefined;
+}
+
+/** True if this cell is a color swatch (has color, no meaningful text). */
+function isSwatch(cell: string | TableCell): boolean {
+  if (typeof cell === 'string') return false;
+  return !!(cell.borderColor || cell.backgroundColor) && !cell.text.trim();
 }
 
 // ── Main renderer ────────────────────────────────────────────
@@ -102,8 +114,24 @@ export function renderTable(
       const cell = row[ci]!;
       const cellX = tableX + ci * colWidth;
       const bg = getCellBg(cell);
+      const border = getCellBorder(cell);
 
-      if (bg) {
+      if (isSwatch(cell)) {
+        // Render a small colored square centered in the cell
+        const sx = cellX + (colWidth - SWATCH_SIZE) / 2;
+        const sy = currentY + (ROW_HEIGHT - SWATCH_SIZE) / 2;
+        ctx.fillStyle = bg || '#ffffff';
+        ctx.fillRect(sx, sy, SWATCH_SIZE, SWATCH_SIZE);
+        if (border) {
+          ctx.save();
+          ctx.strokeStyle = border;
+          ctx.lineWidth = 2;
+          ctx.strokeRect(sx, sy, SWATCH_SIZE, SWATCH_SIZE);
+          ctx.restore();
+          ctx.strokeStyle = BORDER_COLOR;
+          ctx.lineWidth = 1;
+        }
+      } else if (bg) {
         ctx.fillStyle = bg;
         ctx.fillRect(cellX, currentY, colWidth, ROW_HEIGHT);
       }

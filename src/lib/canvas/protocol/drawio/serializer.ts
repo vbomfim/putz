@@ -514,10 +514,11 @@ function parseHtmlTable(html: string): { title?: string; headers: string[]; rows
     dataStartIdx = headerIdx + 1;
   }
 
-  const rows: (string | { text: string; backgroundColor?: string })[][] = allRows.slice(dataStartIdx).map((row) => {
+  const rows: (string | { text: string; backgroundColor?: string; borderColor?: string })[][] = allRows.slice(dataStartIdx).map((row) => {
     return row.map((cell) => {
-      const bgColor = cell.borderColor || cell.backgroundColor;
-      if (bgColor) return { text: cell.text, backgroundColor: bgColor };
+      if (cell.borderColor || cell.backgroundColor) {
+        return { text: cell.text, backgroundColor: cell.backgroundColor, borderColor: cell.borderColor };
+      }
       return cell.text;
     });
   });

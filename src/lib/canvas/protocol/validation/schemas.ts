@@ -382,6 +382,7 @@ export const codeBlockDataSchema = z.object({
 const tableCellSchema = z.object({
   text: z.string().max(10_000),
   backgroundColor: z.string().max(50).optional(),
+  borderColor: z.string().max(50).optional(),
   bold: z.boolean().optional(),
   colspan: z.number().optional(),
 });
