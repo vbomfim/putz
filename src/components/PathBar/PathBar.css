@@ -347,3 +347,23 @@
   background: rgba(255, 255, 255, 0.08);
   color: var(--text-primary, #cdd6f4);
 }
+
+/* ─── Now Playing Radio ──────────────────────────────────────── */
+
+.path-bar__radio {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: auto;
+  padding: 1px 8px;
+  color: #f9e2af;
+  font-size: 0.7rem;
+  white-space: nowrap;
+  flex-shrink: 0;
+  animation: path-bar-pulse 2s ease-in-out infinite;
+}
+
+@keyframes path-bar-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
+}

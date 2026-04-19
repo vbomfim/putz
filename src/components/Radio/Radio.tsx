@@ -141,6 +141,7 @@ export function Radio() {
       setPlayingName(station.name);
       setPaused(false);
       setError(null);
+      window.dispatchEvent(new CustomEvent("putz-radio-change", { detail: { name: station.name, playing: true } }));
     },
     [volume],
   );
@@ -165,6 +166,7 @@ export function Radio() {
     setPlayingId(null);
     setPlayingName("");
     setPaused(false);
+    window.dispatchEvent(new CustomEvent("putz-radio-change", { detail: { name: "", playing: false } }));
   };
 
   const handleVolumeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -206,7 +208,12 @@ export function Radio() {
       </div>
 
       {/* ─── Error ────────────────────────────────── */}
-      {error && <div className="radio__error">{error}</div>}
+      {error && (
+        <div className="radio__error">
+          <span>{error}</span>
+          <button className="radio__error-close" onClick={() => setError(null)} title="Dismiss">✕</button>
+        </div>
+      )}
 
       {/* ─── Station list ─────────────────────────── */}
       {loading ? (

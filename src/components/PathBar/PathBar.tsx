@@ -160,6 +160,17 @@ export function PathBar() {
   const [openCrumb, setOpenCrumb] = useState<string | null>(null);
   const crumbMenuRef = useRef<HTMLDivElement>(null);
 
+  // Now playing radio
+  const [radioName, setRadioName] = useState<string>("");
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const detail = (e as CustomEvent).detail;
+      setRadioName(detail?.playing ? detail.name : "");
+    };
+    window.addEventListener("putz-radio-change", handler);
+    return () => window.removeEventListener("putz-radio-change", handler);
+  }, []);
+
   const toggleCrumbMenu = useCallback((segPath: string) => {
     setOpenCrumb((prev) => prev === segPath ? null : segPath);
   }, []);
@@ -212,6 +223,10 @@ export function PathBar() {
           )}
         </span>
       ))}
+
+      {radioName && (
+        <span className="path-bar__radio">📻 {radioName}</span>
+      )}
 
       {git && (
         <div className="path-bar__git">

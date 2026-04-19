@@ -251,7 +251,30 @@
 }
 
 .radio__error {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
   font-size: 11px;
-  color: #e57373;
-  padding: 0 16px 4px;
+  color: #f38ba8;
+  padding: 6px 12px;
+  margin: 0 12px;
+  background: rgba(243, 139, 168, 0.1);
+  border-radius: 4px;
+  flex-shrink: 0;
+}
+
+.radio__error-close {
+  background: none;
+  border: none;
+  color: #f38ba8;
+  cursor: pointer;
+  padding: 2px 6px;
+  font-size: 0.8rem;
+  border-radius: 3px;
+  flex-shrink: 0;
+}
+
+.radio__error-close:hover {
+  background: rgba(243, 139, 168, 0.2);
 }
