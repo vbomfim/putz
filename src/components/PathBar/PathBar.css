@@ -299,3 +299,51 @@
   color: var(--accent, #50fa7b);
   font-weight: 600;
 }
+
+.path-bar__crumb-loading {
+  display: block;
+  padding: 5px 12px;
+  color: var(--text-secondary, #6c7086);
+  font-size: 0.7rem;
+}
+
+.path-bar__crumb-item {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.path-bar__crumb-chevron {
+  background: none;
+  border: none;
+  color: var(--text-secondary, #6c7086);
+  cursor: pointer;
+  padding: 2px 4px;
+  font-size: 0.6rem;
+  flex-shrink: 0;
+}
+
+.path-bar__crumb-chevron:hover {
+  color: var(--text-primary, #cdd6f4);
+}
+
+.path-bar__crumb-name {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex: 1;
+  background: none;
+  border: none;
+  color: var(--text-secondary, #a6adc8);
+  cursor: pointer;
+  padding: 4px 6px;
+  font-size: 0.75rem;
+  text-align: left;
+  border-radius: 3px;
+  white-space: nowrap;
+}
+
+.path-bar__crumb-name:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text-primary, #cdd6f4);
+}

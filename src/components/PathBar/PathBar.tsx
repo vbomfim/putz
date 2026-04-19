@@ -89,7 +89,11 @@ export function PathBar() {
     if (!sessionId) return;
     const escaped = path.replace(/\\/g, "\\\\").replace(/"/g, '\\"').replace(/\$/g, "\\$").replace(/`/g, "\\`");
     const data = Array.from(new TextEncoder().encode(`cd "${escaped}"\n`));
-    invoke("pty_write", { sessionId, data }).catch(() => {});
+    invoke("pty_write", { sessionId, data }).then(() => {
+      setTimeout(() => {
+        window.dispatchEvent(new CustomEvent("putz-cwd-change", { detail: { sessionId, cwd: path } }));
+      }, 300);
+    }).catch(() => {});
   }, [sessionId]);
 
   // Open branch menu
@@ -154,17 +158,11 @@ export function PathBar() {
   }, [branchMenuOpen]);
 
   const [openCrumb, setOpenCrumb] = useState<string | null>(null);
-  const [crumbDirs, setCrumbDirs] = useState<{ name: string; path: string }[]>([]);
   const crumbMenuRef = useRef<HTMLDivElement>(null);
 
-  const toggleCrumbMenu = useCallback(async (segPath: string) => {
-    if (openCrumb === segPath) { setOpenCrumb(null); return; }
-    try {
-      const entries = await invoke<{ name: string; path: string; isDir: boolean }[]>("dir_list", { path: segPath });
-      setCrumbDirs(entries.filter((e) => e.isDir).map((e) => ({ name: e.name, path: e.path })));
-      setOpenCrumb(segPath);
-    } catch { /* ignore */ }
-  }, [openCrumb]);
+  const toggleCrumbMenu = useCallback((segPath: string) => {
+    setOpenCrumb((prev) => prev === segPath ? null : segPath);
+  }, []);
 
   // Close crumb menu on outside click
   useEffect(() => {
@@ -203,18 +201,13 @@ export function PathBar() {
           </button>
           {openCrumb === seg.path && (
             <div ref={crumbMenuRef} className="path-bar__crumb-menu">
-              {crumbDirs.map((d) => (
-                <button
-                  key={d.path}
-                  className={`path-bar__crumb-item ${d.path === seg.path ? "path-bar__crumb-item--current" : ""}`}
-                  onClick={() => {
-                    setOpenCrumb(null);
-                    handleSegmentClick(d.path);
-                  }}
-                >
-                  📁 {d.name}
-                </button>
-              ))}
+              <CrumbTree
+                path={seg.path}
+                onSelect={(dirPath) => {
+                  setOpenCrumb(null);
+                  handleSegmentClick(dirPath);
+                }}
+              />
             </div>
           )}
         </span>
@@ -303,5 +296,50 @@ export function PathBar() {
         </div>
       )}
     </div>
+  );
+}
+
+/** Recursive lazy-loading directory tree for the breadcrumb picker. */
+function CrumbTree({ path, onSelect, depth = 0 }: { path: string; onSelect: (dirPath: string) => void; depth?: number }) {
+  const [entries, setEntries] = useState<{ name: string; path: string; isDir: boolean }[] | null>(null);
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
+
+  useEffect(() => {
+    invoke<{ name: string; path: string; isDir: boolean }[]>("dir_list", { path })
+      .then((e) => setEntries(e.filter((x) => x.isDir)))
+      .catch(() => setEntries([]));
+  }, [path]);
+
+  if (!entries) return <span className="path-bar__crumb-loading" style={{ paddingLeft: depth * 14 + 10 }}>…</span>;
+  if (entries.length === 0) return <span className="path-bar__crumb-loading" style={{ paddingLeft: depth * 14 + 10 }}>Empty</span>;
+
+  return (
+    <>
+      {entries.map((e) => (
+        <div key={e.path}>
+          <div className="path-bar__crumb-item" style={{ paddingLeft: depth * 14 + 8 }}>
+            <button
+              className="path-bar__crumb-chevron"
+              onClick={() => setExpanded((prev) => {
+                const next = new Set(prev);
+                if (next.has(e.path)) next.delete(e.path); else next.add(e.path);
+                return next;
+              })}
+            >
+              {expanded.has(e.path) ? "▾" : "▸"}
+            </button>
+            <button
+              className="path-bar__crumb-name"
+              onClick={() => onSelect(e.path)}
+            >
+              📁 {e.name}
+            </button>
+          </div>
+          {expanded.has(e.path) && (
+            <CrumbTree path={e.path} onSelect={onSelect} depth={depth + 1} />
+          )}
+        </div>
+      ))}
+    </>
   );
 }
