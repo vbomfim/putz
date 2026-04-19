@@ -552,3 +552,83 @@
 .git-graph .stash-message {
   opacity: 0.9;
 }
+
+/* ─── Working Tree Status ──────────────────────────────────── */
+
+.git-graph__status {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  flex-shrink: 0;
+}
+
+.git-graph__status-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 6px 10px;
+  background: rgba(255, 255, 255, 0.03);
+  border: none;
+  color: var(--text-primary, #cdd6f4);
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  text-align: left;
+}
+
+.git-graph__status-header:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.git-graph__status-counts {
+  display: flex;
+  gap: 10px;
+  margin-left: auto;
+  font-weight: 400;
+  font-size: 0.75rem;
+}
+
+.git-graph__status-files {
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.git-graph__status-file {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 3px 10px 3px 20px;
+  background: none;
+  border: none;
+  color: var(--text-secondary, #a6adc8);
+  font-size: 0.75rem;
+  cursor: pointer;
+  text-align: left;
+  font-family: ui-monospace, 'SF Mono', monospace;
+}
+
+.git-graph__status-file:hover {
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text-primary, #cdd6f4);
+}
+
+.git-graph__status-icon {
+  font-weight: bold;
+  width: 14px;
+  text-align: center;
+  flex-shrink: 0;
+}
+
+.git-graph__status-path {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+}
+
+.git-graph__status-label {
+  font-size: 0.65rem;
+  color: #50fa7b;
+  opacity: 0.7;
+  flex-shrink: 0;
+}

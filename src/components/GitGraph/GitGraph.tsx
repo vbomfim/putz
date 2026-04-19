@@ -4,9 +4,8 @@ import { parseLogOutput, parseStatusOutput, parseRemoteOutput, parseCommitShowOu
 import { buildGraph } from "../../lib/git-graph/graphBuilder";
 import { renderGraph, highlightCommit } from "../../lib/git-graph/graphRenderer";
 import { renderCommitDetail } from "../../lib/git-graph/commitDetailPanel";
-import { renderWorkingTree } from "../../lib/git-graph/workingTree";
 import { useLayoutStore } from "../../stores/layoutStore";
-import type { GraphData } from "../../lib/git-graph/types";
+import type { GraphData, WorkingTreeStatus, GitFileChange } from "../../lib/git-graph/types";
 import "./GitGraph.css";
 
 interface GitGraphProps {
@@ -18,13 +17,11 @@ interface GitGraphProps {
 export function GitGraph({ repoPath }: GitGraphProps) {
   const graphRef = useRef<HTMLDivElement>(null);
   const detailRef = useRef<HTMLDivElement>(null);
-  const wtOverlayRef = useRef<HTMLDivElement>(null);
-  const wtFilesRef = useRef<HTMLDivElement>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [graphData, setGraphData] = useState<GraphData | null>(null);
+  const [wtStatus, setWtStatus] = useState<WorkingTreeStatus | null>(null);
   const [fileFilter, setFileFilter] = useState("");
-  const filterTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const loadGraph = useCallback(async (filePath?: string) => {
     setLoading(true);
@@ -48,12 +45,7 @@ export function GitGraph({ repoPath }: GitGraphProps) {
         (graph as { filtered: boolean }).filtered = true;
       }
       setGraphData(graph);
-
-      // Render working tree overlay
-      if (wtOverlayRef.current && wtFilesRef.current) {
-        const status = parseStatusOutput(statusRaw);
-        renderWorkingTree(status, wtOverlayRef.current, wtFilesRef.current);
-      }
+      setWtStatus(parseStatusOutput(statusRaw));
 
       setLoading(false);
     } catch (err) {
@@ -66,15 +58,48 @@ export function GitGraph({ repoPath }: GitGraphProps) {
 
   const handleFilterChange = useCallback((value: string) => {
     setFileFilter(value);
-    if (filterTimerRef.current) clearTimeout(filterTimerRef.current);
-    if (!value.trim()) {
-      loadGraph();
-      return;
-    }
-    filterTimerRef.current = setTimeout(() => {
-      loadGraph(value.trim());
-    }, 400);
+  }, []);
+
+  const applyFilter = useCallback(() => {
+    loadGraph(fileFilter.trim() || undefined);
+  }, [loadGraph, fileFilter]);
+
+  const clearFilter = useCallback(() => {
+    setFileFilter("");
+    loadGraph();
   }, [loadGraph]);
+
+  // Open diff for a working tree file (staged or unstaged)
+  const openWorkingTreeDiff = useCallback(async (file: GitFileChange, staged: boolean) => {
+    try {
+      const fullPath = repoPath + "/" + file.path;
+      if (file.status === "added" && !staged) {
+        // New untracked file — just open it in editor
+        useLayoutStore.getState().addEditorTab(undefined, fullPath);
+        return;
+      }
+      // Get the "before" content from HEAD (for staged) or index (for unstaged)
+      const headContent = await invoke<string>("git_file_at_commit", {
+        repoPath,
+        hash: staged ? "HEAD" : "HEAD",
+        filePath: file.path,
+      });
+      // Get the "after" content from the working file
+      const workingContent = await invoke<string>("file_read", { path: fullPath });
+      const fileName = file.path.split("/").pop() || file.path;
+      useLayoutStore.getState().addDiffTab(undefined, undefined, undefined, headContent, workingContent);
+      const ls = useLayoutStore.getState();
+      const region = ls.regions[ls.focusedRegionId];
+      if (region) {
+        const tab = region.tabs.find(t => t.id === region.activeTabId);
+        if (tab) {
+          useLayoutStore.getState().renameTab(region.id, tab.id, `${fileName} (${staged ? "staged" : "modified"})`);
+        }
+      }
+    } catch (e) {
+      console.error("Failed to open working tree diff:", e);
+    }
+  }, [repoPath]);
 
   // Render SVG graph when graphData changes
   useEffect(() => {
@@ -156,21 +181,79 @@ export function GitGraph({ repoPath }: GitGraphProps) {
         <input
           className="git-graph__filter-input"
           type="text"
-          placeholder="Filter by file path…"
+          placeholder="Filter by file path… (Enter to apply)"
           value={fileFilter}
           onChange={(e) => handleFilterChange(e.target.value)}
+          onKeyDown={(e) => { if (e.key === "Enter") applyFilter(); }}
           spellCheck={false}
         />
         {fileFilter && (
-          <button onClick={() => handleFilterChange("")} title="Clear filter" className="git-graph__filter-clear">✕</button>
+          <>
+            <button onClick={applyFilter} title="Apply filter">🔍</button>
+            <button onClick={clearFilter} title="Clear filter" className="git-graph__filter-clear">✕</button>
+          </>
         )}
       </div>
-      <div className="git-graph__wt-overlay" ref={wtOverlayRef} />
-      <div className="git-graph__wt-files" ref={wtFilesRef} />
+      {wtStatus && (wtStatus.staged.length > 0 || wtStatus.unstaged.length > 0 || wtStatus.untracked.length > 0) && (
+        <GitStatus status={wtStatus} onFileClick={openWorkingTreeDiff} />
+      )}
       <div className="git-graph__content">
         <div className="git-graph__graph" ref={graphRef} />
         <div className="git-graph__detail" ref={detailRef} />
       </div>
+    </div>
+  );
+}
+
+const STATUS_ICONS: Record<string, string> = {
+  added: "+", modified: "~", deleted: "−", renamed: "→", copied: "C", untracked: "?",
+};
+const STATUS_COLORS: Record<string, string> = {
+  added: "#50fa7b", modified: "#f9e2af", deleted: "#f38ba8", renamed: "#89b4fa", copied: "#89b4fa", untracked: "#6c7086",
+};
+
+function GitStatus({ status, onFileClick }: {
+  status: WorkingTreeStatus;
+  onFileClick: (file: GitFileChange, staged: boolean) => void;
+}) {
+  const [expanded, setExpanded] = useState(true);
+  const total = status.staged.length + status.unstaged.length + status.untracked.length;
+
+  return (
+    <div className="git-graph__status">
+      <button className="git-graph__status-header" onClick={() => setExpanded(!expanded)}>
+        <span>{expanded ? "▾" : "▸"}</span>
+        <span>Working Tree</span>
+        <span className="git-graph__status-counts">
+          {status.staged.length > 0 && <span style={{ color: STATUS_COLORS.added }}>+{status.staged.length} staged</span>}
+          {status.unstaged.length > 0 && <span style={{ color: STATUS_COLORS.modified }}>~{status.unstaged.length} modified</span>}
+          {status.untracked.length > 0 && <span style={{ color: STATUS_COLORS.untracked }}>?{status.untracked.length} untracked</span>}
+          {total === 0 && <span style={{ color: STATUS_COLORS.untracked }}>clean</span>}
+        </span>
+      </button>
+      {expanded && (
+        <div className="git-graph__status-files">
+          {status.staged.map((f) => (
+            <button key={"s-" + f.path} className="git-graph__status-file" onClick={() => onFileClick(f, true)}>
+              <span className="git-graph__status-icon" style={{ color: STATUS_COLORS[f.status] }}>{STATUS_ICONS[f.status]}</span>
+              <span className="git-graph__status-path">{f.path}</span>
+              <span className="git-graph__status-label">staged</span>
+            </button>
+          ))}
+          {status.unstaged.map((f) => (
+            <button key={"u-" + f.path} className="git-graph__status-file" onClick={() => onFileClick(f, false)}>
+              <span className="git-graph__status-icon" style={{ color: STATUS_COLORS[f.status] }}>{STATUS_ICONS[f.status]}</span>
+              <span className="git-graph__status-path">{f.path}</span>
+            </button>
+          ))}
+          {status.untracked.map((p) => (
+            <button key={"t-" + p} className="git-graph__status-file" onClick={() => onFileClick({ path: p, status: "added" }, false)}>
+              <span className="git-graph__status-icon" style={{ color: STATUS_COLORS.untracked }}>?</span>
+              <span className="git-graph__status-path">{p}</span>
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
