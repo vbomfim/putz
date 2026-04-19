@@ -24,19 +24,23 @@ export function GitGraph({ repoPath }: GitGraphProps) {
   const [worktrees, setWorktrees] = useState<{ path: string; branch: string; hash: string; bare: boolean }[]>([]);
   const [fileFilter, setFileFilter] = useState("");
 
-  const loadGraph = useCallback(async (filePath?: string) => {
+  const activeRepo = useRef(repoPath);
+
+  const loadGraph = useCallback(async (filePath?: string, repoOverride?: string) => {
+    if (repoOverride) activeRepo.current = repoOverride;
+    const repo = activeRepo.current;
     setLoading(true);
     setError(null);
     try {
-      const logArgs: { repoPath: string; maxCount: number; filePath?: string } = { repoPath, maxCount: 500 };
+      const logArgs: { repoPath: string; maxCount: number; filePath?: string } = { repoPath: repo, maxCount: 500 };
       if (filePath) logArgs.filePath = filePath;
 
       const [logRaw, statusRaw, remotesRaw, headHash, wtListRaw] = await Promise.all([
         invoke<string>("git_log", logArgs),
-        invoke<string>("git_status", { repoPath }),
-        invoke<string>("git_remotes", { repoPath }),
-        invoke<string>("git_rev_parse_head", { repoPath }),
-        invoke<string>("git_worktree_list", { repoPath }),
+        invoke<string>("git_status", { repoPath: repo }),
+        invoke<string>("git_remotes", { repoPath: repo }),
+        invoke<string>("git_rev_parse_head", { repoPath: repo }),
+        invoke<string>("git_worktree_list", { repoPath: repo }),
       ]);
 
       const commits = parseLogOutput(logRaw);
@@ -54,7 +58,7 @@ export function GitGraph({ repoPath }: GitGraphProps) {
       setError(err instanceof Error ? err.message : String(err));
       setLoading(false);
     }
-  }, [repoPath]);
+  }, []);
 
   useEffect(() => { loadGraph(); }, [loadGraph]);
 
@@ -74,7 +78,7 @@ export function GitGraph({ repoPath }: GitGraphProps) {
   // Open diff for a working tree file (staged or unstaged)
   const openWorkingTreeDiff = useCallback(async (file: GitFileChange, staged: boolean) => {
     try {
-      const fullPath = repoPath + "/" + file.path;
+      const fullPath = activeRepo.current + "/" + file.path;
       if (file.status === "added" && !staged) {
         // New untracked file — just open it in editor
         useLayoutStore.getState().addEditorTab(undefined, fullPath);
@@ -82,7 +86,7 @@ export function GitGraph({ repoPath }: GitGraphProps) {
       }
       // Get the "before" content from HEAD (for staged) or index (for unstaged)
       const headContent = await invoke<string>("git_file_at_commit", {
-        repoPath,
+        repoPath: activeRepo.current,
         hash: staged ? "HEAD" : "HEAD",
         filePath: file.path,
       });
@@ -101,7 +105,7 @@ export function GitGraph({ repoPath }: GitGraphProps) {
     } catch (e) {
       console.error("Failed to open working tree diff:", e);
     }
-  }, [repoPath]);
+  }, []);
 
   // Render SVG graph when graphData changes
   useEffect(() => {
@@ -115,7 +119,7 @@ export function GitGraph({ repoPath }: GitGraphProps) {
       }
 
       try {
-        const raw = await invoke<string>("git_show", { repoPath, hash });
+        const raw = await invoke<string>("git_show", { repoPath: activeRepo.current, hash });
         const detail = parseCommitShowOutput(raw);
         if (detail && detailRef.current) {
           renderCommitDetail(detailRef.current, detail, {
@@ -129,9 +133,9 @@ export function GitGraph({ repoPath }: GitGraphProps) {
                 const parentHash = detail2?.parentHashes[0];
                 const [oldContent, newContent] = await Promise.all([
                   parentHash
-                    ? invoke<string>("git_file_at_commit", { repoPath, hash: parentHash, filePath: fp })
+                    ? invoke<string>("git_file_at_commit", { repoPath: activeRepo.current, hash: parentHash, filePath: fp })
                     : Promise.resolve(""),
-                  invoke<string>("git_file_at_commit", { repoPath, hash: h, filePath: fp }),
+                  invoke<string>("git_file_at_commit", { repoPath: activeRepo.current, hash: h, filePath: fp }),
                 ]);
                 const fileName = fp.split("/").pop() || fp;
                 useLayoutStore.getState().addDiffTab(
@@ -162,7 +166,7 @@ export function GitGraph({ repoPath }: GitGraphProps) {
 
     // renderGraph renders into the container element (sets innerHTML)
     renderGraph(graphData, graphRef.current, handleCommitClick, () => {});
-  }, [graphData, repoPath]);
+  }, [graphData]);
 
   if (error) {
     return (
@@ -200,8 +204,8 @@ export function GitGraph({ repoPath }: GitGraphProps) {
         <GitStatus status={wtStatus} onFileClick={openWorkingTreeDiff} />
       )}
       {worktrees.length > 1 && (
-        <WorktreeList worktrees={worktrees} currentPath={repoPath} onOpen={(path) => {
-          useLayoutStore.getState().addGitGraphTab(undefined, path);
+        <WorktreeList worktrees={worktrees} currentPath={activeRepo.current} onOpen={(path) => {
+          loadGraph(undefined, path);
         }} />
       )}
       <div className="git-graph__content">
