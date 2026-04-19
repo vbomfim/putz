@@ -54,6 +54,39 @@
   background: var(--accent-hover, #69fb92);
 }
 
+.git-graph__filter-input {
+  flex: 1;
+  max-width: 300px;
+  padding: 4px 8px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 3px;
+  color: var(--text-primary, #cdd6f4);
+  font-size: 0.8rem;
+  font-family: inherit;
+  outline: none;
+}
+
+.git-graph__filter-input:focus {
+  border-color: var(--accent, #50fa7b);
+}
+
+.git-graph__filter-input::placeholder {
+  color: var(--text-secondary, #888);
+}
+
+.git-graph__filter-clear {
+  padding: 4px 6px !important;
+  font-size: 0.7rem !important;
+  background: rgba(255, 255, 255, 0.1) !important;
+  color: var(--text-secondary, #888) !important;
+}
+
+.git-graph__filter-clear:hover {
+  background: rgba(255, 255, 255, 0.2) !important;
+  color: var(--text-primary, #cdd6f4) !important;
+}
+
 .git-graph__content {
   display: flex;
   flex: 1;

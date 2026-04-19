@@ -23,13 +23,18 @@ export function GitGraph({ repoPath }: GitGraphProps) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [graphData, setGraphData] = useState<GraphData | null>(null);
+  const [fileFilter, setFileFilter] = useState("");
+  const filterTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const loadGraph = useCallback(async () => {
+  const loadGraph = useCallback(async (filePath?: string) => {
     setLoading(true);
     setError(null);
     try {
+      const logArgs: { repoPath: string; maxCount: number; filePath?: string } = { repoPath, maxCount: 500 };
+      if (filePath) logArgs.filePath = filePath;
+
       const [logRaw, statusRaw, remotesRaw, headHash] = await Promise.all([
-        invoke<string>("git_log", { repoPath, maxCount: 500 }),
+        invoke<string>("git_log", logArgs),
         invoke<string>("git_status", { repoPath }),
         invoke<string>("git_remotes", { repoPath }),
         invoke<string>("git_rev_parse_head", { repoPath }),
@@ -54,6 +59,18 @@ export function GitGraph({ repoPath }: GitGraphProps) {
   }, [repoPath]);
 
   useEffect(() => { loadGraph(); }, [loadGraph]);
+
+  const handleFilterChange = useCallback((value: string) => {
+    setFileFilter(value);
+    if (filterTimerRef.current) clearTimeout(filterTimerRef.current);
+    if (!value.trim()) {
+      loadGraph();
+      return;
+    }
+    filterTimerRef.current = setTimeout(() => {
+      loadGraph(value.trim());
+    }, 400);
+  }, [loadGraph]);
 
   // Render SVG graph when graphData changes
   useEffect(() => {
@@ -131,7 +148,18 @@ export function GitGraph({ repoPath }: GitGraphProps) {
   return (
     <div className="git-graph">
       <div className="git-graph__toolbar">
-        <button onClick={loadGraph} title="Refresh">↻ Refresh</button>
+        <button onClick={() => loadGraph(fileFilter.trim() || undefined)} title="Refresh">↻</button>
+        <input
+          className="git-graph__filter-input"
+          type="text"
+          placeholder="Filter by file path…"
+          value={fileFilter}
+          onChange={(e) => handleFilterChange(e.target.value)}
+          spellCheck={false}
+        />
+        {fileFilter && (
+          <button onClick={() => handleFilterChange("")} title="Clear filter" className="git-graph__filter-clear">✕</button>
+        )}
       </div>
       <div className="git-graph__wt-overlay" ref={wtOverlayRef} />
       <div className="git-graph__wt-files" ref={wtFilesRef} />
