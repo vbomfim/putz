@@ -1160,7 +1160,7 @@ export function BookmarksBar({
         if (!region) return;
         const tab = region.tabs.find((t) => t.id === region.activeTabId);
         if (!tab || tab.type !== "terminal" || !tab.sessionId) return;
-        const suffix = cmd.autoExecute ? "\n" : "";
+        const suffix = cmd.autoExecute ? "\r" : "";
         const data = Array.from(new TextEncoder().encode(cmd.command + suffix));
         invoke("pty_write", { sessionId: tab.sessionId, data }).catch(() => {});
       }, 500);
@@ -1170,7 +1170,7 @@ export function BookmarksBar({
       if (!region) return;
       const tab = region.tabs.find((t) => t.id === region.activeTabId);
       if (!tab || tab.type !== "terminal" || !tab.sessionId) return;
-      const suffix = cmd.autoExecute ? "\n" : "";
+      const suffix = cmd.autoExecute ? "\r" : "";
       const data = Array.from(new TextEncoder().encode(cmd.command + suffix));
       invoke("pty_write", { sessionId: tab.sessionId, data }).catch(() => {});
     }
