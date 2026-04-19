@@ -878,81 +878,44 @@ function buildExpressionData(
   }
 }
 
-/**
- * Import draw.io mxGraphModel XML to VisualExpressions.
- *
- * @param xml - mxGraphModel XML string to parse
- * @returns Array of VisualExpressions
- */
-export function drawioToExpressions(xml: string): VisualExpression[] {
-  if (xml.length > MAX_INPUT_SIZE) {
-    throw new Error(`draw.io XML input too large: ${xml.length} bytes exceeds ${MAX_INPUT_SIZE} byte limit`);
-  }
+// ── Parsed XML types (shared by drawioToExpressions & drawioToPages) ──
 
-  const parser = new XMLParser({
+type ParsedMxGraphModel = { root?: { mxCell?: ParsedMxCell[] } };
+type ParsedDiagram = {
+  '@_id'?: string;
+  '@_name'?: string;
+  mxGraphModel?: ParsedMxGraphModel;
+  '#text'?: string;
+};
+type ParsedRoot = {
+  mxfile?: { diagram?: ParsedDiagram[] };
+  mxGraphModel?: ParsedMxGraphModel;
+  diagram?: ParsedDiagram[];
+};
+
+/** A single page (diagram tab) from a multi-page .drawio file. */
+export interface DrawioPage {
+  id: string;
+  name: string;
+  expressions: VisualExpression[];
+}
+
+/** Create a shared XML parser instance with consistent options. */
+function createDrawioParser(): XMLParser {
+  return new XMLParser({
     ignoreAttributes: false,
     attributeNamePrefix: '@_',
     processEntities: false,
     isArray: (tagName) => tagName === 'mxCell' || tagName === 'mxPoint' || tagName === 'diagram',
   });
+}
 
-  type ParsedMxGraphModel = { root?: { mxCell?: ParsedMxCell[] } };
-  type ParsedDiagram = {
-    mxGraphModel?: ParsedMxGraphModel;
-    '#text'?: string;
-  };
-  type ParsedRoot = {
-    mxfile?: { diagram?: ParsedDiagram[] };
-    mxGraphModel?: ParsedMxGraphModel;
-    diagram?: ParsedDiagram[];
-  };
-
-  let parsed: ParsedRoot;
-  try {
-    parsed = parser.parse(xml) as ParsedRoot;
-  } catch {
-    return [];
-  }
-
-  // draw.io files can arrive in three forms:
-  //   1) <mxfile><diagram><mxGraphModel>…</mxGraphModel></diagram></mxfile>  (native export)
-  //   2) <diagram><mxGraphModel>…</mxGraphModel></diagram>                   (single page)
-  //   3) <mxGraphModel>…</mxGraphModel>                                      (bare, what we export)
-  // Compressed diagrams (text content inside <diagram> is base64-deflated)
-  // are NOT supported — users must export with "Uncompressed" / "Formatted XML".
-  let model: ParsedMxGraphModel | undefined = parsed.mxGraphModel;
-  if (!model) {
-    const diagrams =
-      parsed.mxfile?.diagram ??
-      parsed.diagram ??
-      [];
-    for (const d of diagrams) {
-      if (d?.mxGraphModel) {
-        model = d.mxGraphModel;
-        break;
-      }
-    }
-  }
-
-  const cells = model?.root?.mxCell;
-  if (!cells) {
-    // Detect compressed diagrams (draw.io's default export format):
-    // <diagram>H4sI…base64…</diagram> — deflated XML, not supported yet.
-    const diagrams = parsed.mxfile?.diagram ?? parsed.diagram ?? [];
-    for (const d of diagrams) {
-      const text = typeof d === 'string' ? d : d?.['#text'];
-      if (typeof text === 'string' && text.trim().length > 0 && !text.includes('<')) {
-        throw new Error(
-          'This draw.io file is compressed. In draw.io, open Extras → Edit Diagram and ' +
-          'export with "Uncompressed XML" (or disable "Compressed" in File → Properties), ' +
-          'then import the uncompressed .drawio / .xml file.',
-        );
-      }
-    }
-    return [];
-  }
-
-  // Guard against excessively large imports
+/**
+ * Convert an array of parsed mxCells into VisualExpressions.
+ * This is the shared cell-parsing logic (Pass 1 + Pass 2) used by both
+ * drawioToExpressions and drawioToPages.
+ */
+function cellsToExpressions(cells: ParsedMxCell[]): VisualExpression[] {
   if (cells.length > MAX_EXPRESSION_COUNT) {
     throw new Error(
       `draw.io file contains ${cells.length} cells, exceeding the limit of ${MAX_EXPRESSION_COUNT}. ` +
@@ -974,8 +937,6 @@ export function drawioToExpressions(xml: string): VisualExpression[] {
   //    parent is an edge. These are floating labels on the edge (interface names,
   //    port identifiers). We merge them into the edge's label and skip emitting
   //    them as standalone rectangles.
-  //    Note: child cells may not have an @_id attribute at all, so we track them
-  //    by object identity in a WeakSet rather than id string.
   const edgeLabelsByParent = new Map<string, string[]>();
   const skipCells = new WeakSet<ParsedMxCell>();
   for (const cell of cells) {
@@ -1023,25 +984,20 @@ export function drawioToExpressions(xml: string): VisualExpression[] {
     let effectiveKind: VisualExpression['kind'] = kind;
 
     // ── HTML tables: detect and promote to a proper `table` expression ──
-    //    draw.io stores tabular data inside text cells as `<table><tr><td>…`.
-    //    Reduce these to TableData so they render as structured grids instead
-    //    of a blob of stripped text.
     if (
       !isEdge &&
       (kind === 'text' || kind === 'rectangle') &&
       /<table\b/i.test(value)
     ) {
-      const parsed = parseHtmlTable(value);
-      if (parsed) {
+      const tableParsed = parseHtmlTable(value);
+      if (tableParsed) {
         effectiveKind = 'table';
-        data = { kind: 'table', headers: parsed.headers, rows: parsed.rows };
+        data = { kind: 'table', headers: tableParsed.headers, rows: tableParsed.rows };
         expressionStyle = styleMapToExpressionStyle(styleMap, 'table');
       }
     }
 
-    // ── For edges: resolve source/target endpoints to shape centers when no
-    //    explicit sourcePoint/targetPoint was given. Without this, edges
-    //    collapse to (0, 0) → (0, 0) and become invisible.
+    // ── For edges: resolve source/target endpoints to shape centers ──
     if (isEdge && (kind === 'arrow' || kind === 'line') && 'points' in (data as object)) {
       const pts = (data as ArrowData | LineData).points;
       const hasExplicitSource = geo?.mxPoint &&
@@ -1078,8 +1034,6 @@ export function drawioToExpressions(xml: string): VisualExpression[] {
     }
 
     // ── Edges need a non-zero bounding box to pass schema validation. ──
-    //    Compute from the resolved points; ensure a minimum 1×1 extent even for
-    //    degenerate cases (self-loops, collapsed endpoints).
     if (isEdge && (kind === 'arrow' || kind === 'line') && 'points' in (data as object)) {
       const pts = (data as ArrowData | LineData).points;
       if (pts.length > 0) {
@@ -1094,7 +1048,7 @@ export function drawioToExpressions(xml: string): VisualExpression[] {
       }
     }
 
-    // Parse rotation angle from style (Finding #7)
+    // Parse rotation angle from style
     const rotationStr = styleMap.get('rotation');
     const angle = rotationStr !== undefined ? sanitizeNum(Number(rotationStr), 0) : 0;
 
@@ -1119,5 +1073,147 @@ export function drawioToExpressions(xml: string): VisualExpression[] {
   }
 
   return expressions;
+}
+
+/**
+ * Detect compressed diagrams and throw a helpful error.
+ */
+function checkCompressedDiagrams(diagrams: ParsedDiagram[]): void {
+  for (const d of diagrams) {
+    const text = typeof d === 'string' ? d : d?.['#text'];
+    if (typeof text === 'string' && text.trim().length > 0 && !text.includes('<')) {
+      throw new Error(
+        'This draw.io file is compressed. In draw.io, open Extras → Edit Diagram and ' +
+        'export with "Uncompressed XML" (or disable "Compressed" in File → Properties), ' +
+        'then import the uncompressed .drawio / .xml file.',
+      );
+    }
+  }
+}
+
+/**
+ * Parse XML and return the parsed root.
+ */
+function parseDrawioXml(xml: string): ParsedRoot | null {
+  if (xml.length > MAX_INPUT_SIZE) {
+    throw new Error(`draw.io XML input too large: ${xml.length} bytes exceeds ${MAX_INPUT_SIZE} byte limit`);
+  }
+  try {
+    return createDrawioParser().parse(xml) as ParsedRoot;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Import draw.io mxGraphModel XML to VisualExpressions.
+ * Returns expressions from the first diagram page (backwards-compatible).
+ *
+ * @param xml - mxGraphModel XML string to parse
+ * @returns Array of VisualExpressions
+ */
+export function drawioToExpressions(xml: string): VisualExpression[] {
+  const parsed = parseDrawioXml(xml);
+  if (!parsed) return [];
+
+  // Form 3: bare <mxGraphModel>
+  if (parsed.mxGraphModel) {
+    const cells = parsed.mxGraphModel.root?.mxCell;
+    if (!cells) return [];
+    return cellsToExpressions(cells);
+  }
+
+  // Form 1 & 2: <mxfile><diagram>… or <diagram>…
+  const diagrams = parsed.mxfile?.diagram ?? parsed.diagram ?? [];
+  for (const d of diagrams) {
+    if (d?.mxGraphModel) {
+      const cells = d.mxGraphModel.root?.mxCell;
+      if (cells) return cellsToExpressions(cells);
+    }
+  }
+
+  // Check for compressed diagrams
+  checkCompressedDiagrams(diagrams);
+  return [];
+}
+
+/**
+ * Parse ALL diagram pages from a .drawio file.
+ *
+ * Handles three XML forms:
+ *   1) <mxfile><diagram>…</diagram><diagram>…</diagram></mxfile>
+ *   2) <diagram><mxGraphModel>…</mxGraphModel></diagram>
+ *   3) <mxGraphModel>…</mxGraphModel> (bare — returns single page)
+ *
+ * @param xml - .drawio XML string
+ * @returns Array of DrawioPage objects
+ */
+export function drawioToPages(xml: string): DrawioPage[] {
+  const parsed = parseDrawioXml(xml);
+  if (!parsed) return [];
+
+  // Form 3: bare <mxGraphModel> → single page
+  if (parsed.mxGraphModel) {
+    const cells = parsed.mxGraphModel.root?.mxCell;
+    if (!cells) return [];
+    return [{ id: '1', name: 'Page 1', expressions: cellsToExpressions(cells) }];
+  }
+
+  // Form 1 & 2: iterate all <diagram> elements
+  const diagrams = parsed.mxfile?.diagram ?? parsed.diagram ?? [];
+  const pages: DrawioPage[] = [];
+  for (let i = 0; i < diagrams.length; i++) {
+    const d = diagrams[i];
+    if (!d?.mxGraphModel) continue;
+    const cells = d.mxGraphModel.root?.mxCell;
+    if (!cells) continue;
+    pages.push({
+      id: d['@_id'] ?? String(i + 1),
+      name: d['@_name'] ?? `Page ${i + 1}`,
+      expressions: cellsToExpressions(cells),
+    });
+  }
+
+  if (pages.length === 0) {
+    checkCompressedDiagrams(diagrams);
+  }
+
+  return pages;
+}
+
+/**
+ * Serialize multiple pages to .drawio XML with <mxfile> wrapper.
+ *
+ * @param pages - Array of DrawioPage objects
+ * @returns Valid .drawio XML string
+ */
+export function pagesToDrawio(pages: DrawioPage[]): string {
+  const diagramXml = pages.map((page) => {
+    const cells = page.expressions.map((expr) => {
+      if (expr.kind === 'arrow' || expr.kind === 'line') {
+        return edgeToMxCell(expr);
+      }
+      return vertexToMxCell(expr);
+    });
+
+    return [
+      `  <diagram id="${escapeXml(page.id)}" name="${escapeXml(page.name)}">`,
+      '    <mxGraphModel>',
+      '      <root>',
+      '        <mxCell id="0"/>',
+      '        <mxCell id="1" parent="0"/>',
+      ...cells.map((c) => '    ' + c),
+      '      </root>',
+      '    </mxGraphModel>',
+      '  </diagram>',
+    ].join('\n');
+  });
+
+  return [
+    '<?xml version="1.0" encoding="UTF-8"?>',
+    '<mxfile>',
+    ...diagramXml,
+    '</mxfile>',
+  ].join('\n');
 }
 

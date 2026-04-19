@@ -42,3 +42,56 @@
   border: 1px solid var(--border, #e0e0e0);
   z-index: 20;
 }
+
+/* ── Page tab bar ────────────────────────────────────────── */
+
+.drawio-editor__page-bar {
+  position: absolute;
+  bottom: 0;
+  left: 60px;
+  right: 0;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  gap: 0;
+  padding: 0 8px;
+  background: var(--bg-secondary, #1e1e2e);
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  overflow-x: auto;
+  scrollbar-width: none;
+  z-index: 15;
+}
+
+.drawio-editor__page-bar::-webkit-scrollbar { display: none; }
+
+.drawio-editor__page-tab {
+  padding: 4px 12px;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary, #888);
+  font-size: 0.75rem;
+  cursor: pointer;
+  white-space: nowrap;
+  border-radius: 4px 4px 0 0;
+}
+
+.drawio-editor__page-tab:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text-primary, #fff);
+}
+
+.drawio-editor__page-tab--active {
+  background: rgba(255, 255, 255, 0.12);
+  color: var(--text-primary, #fff);
+  border-bottom: 2px solid var(--accent, #50fa7b);
+}
+
+.drawio-editor__page-tab--add {
+  font-size: 1rem;
+  padding: 2px 8px;
+  opacity: 0.5;
+}
+
+.drawio-editor__page-tab--add:hover {
+  opacity: 1;
+}

@@ -167,9 +167,13 @@ export {
 
 // ── draw.io serializer ────────────────────────────────────
 
+export type { DrawioPage } from './drawio/serializer';
+
 export {
   expressionsToDrawio,
   drawioToExpressions,
+  drawioToPages,
+  pagesToDrawio,
 } from './drawio/serializer';
 
 // ── draw.io stencil parser ───────────────────────────────
