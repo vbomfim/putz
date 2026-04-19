@@ -20,6 +20,10 @@ function pathSegments(fullPath: string): { name: string; path: string }[] {
   const sep = fullPath.includes("\\") ? "\\" : "/";
   const parts = fullPath.split(sep).filter(Boolean);
   const segments: { name: string; path: string }[] = [];
+  // Add root segment
+  if (fullPath.startsWith("/")) {
+    segments.push({ name: "/", path: "/" });
+  }
   let cumulative = fullPath.startsWith("/") ? "" : "";
   for (const part of parts) {
     cumulative += sep + part;
@@ -155,11 +159,8 @@ export function PathBar() {
 
   const toggleCrumbMenu = useCallback(async (segPath: string) => {
     if (openCrumb === segPath) { setOpenCrumb(null); return; }
-    const sep = segPath.includes("\\") ? "\\" : "/";
-    const parentIdx = segPath.lastIndexOf(sep);
-    const parentPath = parentIdx > 0 ? segPath.slice(0, parentIdx) : sep;
     try {
-      const entries = await invoke<{ name: string; path: string; isDir: boolean }[]>("dir_list", { path: parentPath });
+      const entries = await invoke<{ name: string; path: string; isDir: boolean }[]>("dir_list", { path: segPath });
       setCrumbDirs(entries.filter((e) => e.isDir).map((e) => ({ name: e.name, path: e.path })));
       setOpenCrumb(segPath);
     } catch { /* ignore */ }
