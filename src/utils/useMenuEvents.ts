@@ -233,6 +233,10 @@ export function useMenuEvents(): void {
           break;
         }
 
+        case "menu-radio":
+          useLayoutStore.getState().addRadioTab();
+          break;
+
         case "menu-start-logging":
         case "menu-stop-logging":
           

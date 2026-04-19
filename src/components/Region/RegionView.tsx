@@ -23,6 +23,7 @@ import { MarkdownTab } from "../Markdown/MarkdownTab";
 import { CsvTab } from "../Csv/CsvTab";
 import { DrawioEditor } from "../DrawioEditor";
 import { GitGraph } from "../GitGraph";
+import { Radio } from "../Radio";
 import { RegionTabBar } from "./RegionTabBar";
 import { useLayoutStore } from "../../stores/layoutStore";
 import type { Region } from "../../types";
@@ -202,6 +203,13 @@ export function RegionView({ region, isFocused }: RegionViewProps) {
             return (
               <div key={tab.id} style={{ display: isTabActive ? "flex" : "none", flex: 1, flexDirection: "column", minHeight: 0, overflow: "hidden" }}>
                 <GitGraph repoPath={tab.editorFilePath} regionId={region.id} tabId={tab.id} />
+              </div>
+            );
+          }
+          if (tab.type === "radio") {
+            return (
+              <div key={tab.id} style={{ display: isTabActive ? "flex" : "none", flex: 1, flexDirection: "column", minHeight: 0, overflow: "hidden" }}>
+                <Radio />
               </div>
             );
           }
