@@ -115,11 +115,14 @@ export function Radio() {
     fetchCountries().then(setCountries);
   }, []);
 
+  const favoritesRef = useRef(favorites);
+  favoritesRef.current = favorites;
+
   const loadStations = useCallback(
     async (c: string, q: string) => {
       // Favorites: load from local storage
       if (c === "⭐ Favorites") {
-        const favList = [...favorites.values()];
+        const favList = [...favoritesRef.current.values()];
         const filtered = q
           ? favList.filter((s) => s.name.toLowerCase().includes(q.toLowerCase()))
           : favList;
@@ -143,7 +146,7 @@ export function Radio() {
         setLoading(false);
       }
     },
-    [favorites],
+    [],
   );
 
   const loadMore = useCallback(async () => {
