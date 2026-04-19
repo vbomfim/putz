@@ -484,18 +484,24 @@ function renderArrowLabel(
   ctx.textAlign = 'center';
   ctx.textBaseline = 'bottom';
 
-  const metrics = ctx.measureText(label);
+  const lines = label.split('\n');
+  const lineHeight = fontSize * 1.2;
+  const maxLineWidth = Math.max(...lines.map((l) => ctx.measureText(l).width));
+  const totalHeight = lines.length * lineHeight;
   const pad = 4;
+
   ctx.fillStyle = '#ffffff';
   ctx.fillRect(
-    midX - metrics.width / 2 - pad,
-    midY - fontSize - pad,
-    metrics.width + pad * 2,
-    fontSize + pad,
+    midX - maxLineWidth / 2 - pad,
+    midY - totalHeight - pad,
+    maxLineWidth + pad * 2,
+    totalHeight + pad,
   );
 
   ctx.fillStyle = expr.style.strokeColor;
-  ctx.fillText(label, midX, midY - 4);
+  for (let i = 0; i < lines.length; i++) {
+    ctx.fillText(lines[i]!, midX, midY - totalHeight + (i + 1) * lineHeight - 4);
+  }
   ctx.restore();
 }
 

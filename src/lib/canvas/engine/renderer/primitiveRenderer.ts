@@ -751,37 +751,34 @@ export function renderLabel(
   ctx.textBaseline = 'middle';
   ctx.fillStyle = style.strokeColor;
 
-  // Word-wrap if text is wider than the shape
+  // Word-wrap and newline support
   const maxWidth = width * 0.85;
-  const measured = ctx.measureText(label);
-  if (measured.width <= maxWidth) {
-    ctx.fillText(label, x + width / 2, y + height / 2);
-  } else {
-    // Word wrap with newline support
-    const allLines: string[] = [];
-    const paragraphs = label.split('\n');
-    for (const para of paragraphs) {
-      if (!para) { allLines.push(''); continue; }
-      const words = para.split(' ');
-      let currentLine = '';
-      for (const word of words) {
-        const test = currentLine ? `${currentLine} ${word}` : word;
-        if (ctx.measureText(test).width > maxWidth && currentLine) {
-          allLines.push(currentLine);
-          currentLine = word;
-        } else {
-          currentLine = test;
-        }
+  const allLines: string[] = [];
+  const paragraphs = label.split('\n');
+  for (const para of paragraphs) {
+    if (!para) { allLines.push(''); continue; }
+    const words = para.split(' ');
+    let currentLine = '';
+    for (const word of words) {
+      const test = currentLine ? `${currentLine} ${word}` : word;
+      if (ctx.measureText(test).width > maxWidth && currentLine) {
+        allLines.push(currentLine);
+        currentLine = word;
+      } else {
+        currentLine = test;
       }
-      if (currentLine) allLines.push(currentLine);
     }
-    const lines = allLines;
+    if (currentLine) allLines.push(currentLine);
+  }
 
+  if (allLines.length <= 1) {
+    ctx.fillText(allLines[0] ?? '', x + width / 2, y + height / 2);
+  } else {
     const lineHeight = fontSize * LINE_HEIGHT_MULTIPLIER;
-    const totalHeight = lines.length * lineHeight;
+    const totalHeight = allLines.length * lineHeight;
     const startY = y + height / 2 - totalHeight / 2 + lineHeight / 2;
-    for (let i = 0; i < lines.length; i++) {
-      ctx.fillText(lines[i]!, x + width / 2, startY + i * lineHeight);
+    for (let i = 0; i < allLines.length; i++) {
+      ctx.fillText(allLines[i]!, x + width / 2, startY + i * lineHeight);
     }
   }
 }

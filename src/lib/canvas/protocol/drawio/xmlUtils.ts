@@ -35,5 +35,11 @@ export function unescapeXml(text: string): string {
     .replace(/&quot;/g, '"')
     .replace(/&gt;/g, '>')
     .replace(/&lt;/g, '<')
-    .replace(/&amp;/g, '&');
+    .replace(/&amp;/g, '&')
+    .replace(/&#10;/g, '\n')
+    .replace(/&#13;/g, '\r')
+    .replace(/&#xa;/gi, '\n')
+    .replace(/&#xd;/gi, '\r')
+    .replace(/&#9;/g, '\t')
+    .replace(/&#x9;/gi, '\t');
 }
