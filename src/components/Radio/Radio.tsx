@@ -98,6 +98,10 @@ export function Radio() {
   const [volume, setVolume] = useState(80);
   const [error, setError] = useState<string | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const analyserRef = useRef<AnalyserNode | null>(null);
+  const audioCtxRef = useRef<AudioContext | null>(null);
+  const vizCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const vizAnimRef = useRef<number>(0);
 
   const toggleFavorite = useCallback((station: RadioStation) => {
     setFavorites((prev) => {
@@ -200,6 +204,32 @@ export function Radio() {
 
   const errorHandlerRef = useRef<(() => void) | null>(null);
 
+  const startVisualizer = useCallback(() => {
+    cancelAnimationFrame(vizAnimRef.current);
+    const draw = () => {
+      const analyser = analyserRef.current;
+      const canvas = vizCanvasRef.current;
+      if (!analyser || !canvas) return;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) return;
+      const bufLen = analyser.frequencyBinCount;
+      const data = new Uint8Array(bufLen);
+      analyser.getByteFrequencyData(data);
+      const w = canvas.width;
+      const h = canvas.height;
+      ctx.clearRect(0, 0, w, h);
+      const barW = Math.max(1, w / bufLen);
+      for (let i = 0; i < bufLen; i++) {
+        const barH = (data[i]! / 255) * h;
+        const hue = 140 + (i / bufLen) * 40; // green-teal
+        ctx.fillStyle = `hsla(${hue}, 70%, 60%, 0.8)`;
+        ctx.fillRect(i * barW, h - barH, barW - 1, barH);
+      }
+      vizAnimRef.current = requestAnimationFrame(draw);
+    };
+    draw();
+  }, []);
+
   const play = useCallback(
     (station: RadioStation) => {
       // Clean up previous audio — remove listeners BEFORE stopping to avoid stale errors
@@ -212,6 +242,7 @@ export function Radio() {
       }
 
       const audio = new Audio(station.url_resolved || station.url);
+      audio.crossOrigin = "anonymous";
       audio.volume = volume / 100;
 
       const onError = () => {
@@ -234,6 +265,20 @@ export function Radio() {
       });
 
       audioRef.current = audio;
+
+      // Wire Web Audio analyser for visualizer
+      try {
+        if (!audioCtxRef.current) audioCtxRef.current = new AudioContext();
+        const ctx = audioCtxRef.current;
+        const source = ctx.createMediaElementSource(audio);
+        const analyser = ctx.createAnalyser();
+        analyser.fftSize = 64;
+        source.connect(analyser);
+        analyser.connect(ctx.destination);
+        analyserRef.current = analyser;
+        startVisualizer();
+      } catch { /* crossorigin or browser restriction */ }
+
       setPlayingId(station.stationuuid);
       setPlayingName(station.name);
       playingStationRef.current = station;
@@ -241,7 +286,7 @@ export function Radio() {
       setError(null);
       window.dispatchEvent(new CustomEvent("putz-radio-change", { detail: { name: station.name, playing: true } }));
     },
-    [volume],
+    [volume, startVisualizer],
   );
 
   const togglePause = () => {
@@ -256,6 +301,8 @@ export function Radio() {
   };
 
   const stop = () => {
+    cancelAnimationFrame(vizAnimRef.current);
+    analyserRef.current = null;
     if (audioRef.current) {
       audioRef.current.pause();
       audioRef.current.src = "";
@@ -263,6 +310,7 @@ export function Radio() {
     }
     setPlayingId(null);
     setPlayingName("");
+    playingStationRef.current = null;
     setPaused(false);
     window.dispatchEvent(new CustomEvent("putz-radio-change", { detail: { name: "", playing: false } }));
   };
@@ -413,6 +461,10 @@ export function Radio() {
               aria-label="Volume"
             />
           </div>
+          <canvas ref={vizCanvasRef} className="radio__player-viz" width={80} height={24} />
+          {playingStationRef.current && playingStationRef.current.bitrate > 0 && (
+            <span className="radio__player-bitrate">{playingStationRef.current.bitrate}kbps</span>
+          )}
         </div>
       )}
     </div>

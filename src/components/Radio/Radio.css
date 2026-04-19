@@ -319,3 +319,16 @@
 .radio__card-fav--active {
   color: #f9e2af;
 }
+
+.radio__player-viz {
+  flex-shrink: 0;
+  border-radius: 3px;
+  opacity: 0.9;
+}
+
+.radio__player-bitrate {
+  font-size: 0.65rem;
+  color: var(--text-secondary, #6c7086);
+  flex-shrink: 0;
+  white-space: nowrap;
+}
