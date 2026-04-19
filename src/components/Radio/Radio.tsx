@@ -27,16 +27,19 @@ interface RadioStation {
 
 const API_BASE = "https://de1.api.radio-browser.info/json";
 
-const COUNTRY_OPTIONS: { label: string; value: string }[] = [
-  { label: "Brazil", value: "Brazil" },
-  { label: "Argentina", value: "Argentina" },
-  { label: "Portugal", value: "Portugal" },
-  { label: "USA", value: "The United States Of America" },
-  { label: "UK", value: "The United Kingdom Of Great Britain And Northern Ireland" },
-  { label: "Germany", value: "Germany" },
-  { label: "Japan", value: "Japan" },
-  { label: "All", value: "" },
-];
+/** Country entry from the API. */
+interface CountryEntry {
+  name: string;
+  stationcount: number;
+}
+
+/** Fetch country list sorted by station count. */
+async function fetchCountries(): Promise<CountryEntry[]> {
+  const res = await fetch(`${API_BASE}/countries?order=stationcount&reverse=true`);
+  if (!res.ok) return [];
+  const data: CountryEntry[] = await res.json();
+  return data.filter((c) => c.stationcount >= 20);
+}
 
 /** Fetch stations from radio-browser.info, filtering only working streams. */
 async function fetchStations(
@@ -62,6 +65,7 @@ async function fetchStations(
 
 export function Radio() {
   const [stations, setStations] = useState<RadioStation[]>([]);
+  const [countries, setCountries] = useState<CountryEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [country, setCountry] = useState("Brazil");
@@ -71,6 +75,11 @@ export function Radio() {
   const [volume, setVolume] = useState(80);
   const [error, setError] = useState<string | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+
+  // Fetch country list on mount
+  useEffect(() => {
+    fetchCountries().then(setCountries);
+  }, []);
 
   const loadStations = useCallback(
     async (c: string, q: string) => {
@@ -200,9 +209,10 @@ export function Radio() {
           onChange={(e) => setCountry(e.target.value)}
           aria-label="Country"
         >
-          {COUNTRY_OPTIONS.map((opt) => (
-            <option key={opt.value} value={opt.value}>
-              {opt.label}
+          <option value="">🌍 All Countries</option>
+          {countries.map((c) => (
+            <option key={c.name} value={c.name}>
+              {c.name} ({c.stationcount})
             </option>
           ))}
         </select>
