@@ -909,8 +909,14 @@ function CommandDialog({ anchorRef, onClose, editCommand }: CommandDialogProps) 
         onClose();
       }
     };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
+    // Delay registration to avoid catching the click that opened the dialog
+    const timer = setTimeout(() => {
+      document.addEventListener("mousedown", handler);
+    }, 100);
+    return () => {
+      clearTimeout(timer);
+      document.removeEventListener("mousedown", handler);
+    };
   }, [onClose, anchorRef]);
 
   useEffect(() => {
