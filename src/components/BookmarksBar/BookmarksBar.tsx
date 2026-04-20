@@ -709,6 +709,7 @@ const CommandButton = memo(function CommandButton({
 interface CommandGroupButtonProps {
   group: CommandGroup;
   onExecute: (cmd: CommandBookmark) => void;
+  onEditCommand: (cmd: CommandBookmark) => void;
   onDragStart: (id: string, e: React.PointerEvent) => void;
   isDragging: boolean;
 }
@@ -716,6 +717,7 @@ interface CommandGroupButtonProps {
 const CommandGroupButton = memo(function CommandGroupButton({
   group,
   onExecute,
+  onEditCommand,
   onDragStart,
   isDragging,
 }: CommandGroupButtonProps) {
@@ -759,8 +761,6 @@ const CommandGroupButton = memo(function CommandGroupButton({
     return () => document.removeEventListener("mousedown", handler);
   }, [isOpen]);
 
-  const [editingChild, setEditingChild] = useState<CommandBookmark | null>(null);
-
   const className = isDragging
     ? "bookmarks-bar__item bookmarks-bar__item--command bookmarks-bar__item--dragging"
     : "bookmarks-bar__item bookmarks-bar__item--command";
@@ -770,7 +770,7 @@ const CommandGroupButton = memo(function CommandGroupButton({
       {children.map((child) => (
         <GroupCommandItem key={child.id} command={child}
           onExecute={(c) => { onExecute(c); setIsOpen(false); }}
-          onEdit={(c) => { setEditingChild(c); setTimeout(() => setIsOpen(false), 0); }} />
+          onEdit={(c) => { setIsOpen(false); onEditCommand(c); }} />
       ))}
       {children.length === 0 && (
         <span className="bookmarks-bar__empty">Empty group</span>
@@ -795,9 +795,6 @@ const CommandGroupButton = memo(function CommandGroupButton({
         <span className="bookmarks-bar__chevron" aria-hidden="true">▾</span>
       </button>
       {dropdown}
-      {editingChild && (
-        <CommandDialog anchorRef={buttonRef} onClose={() => setEditingChild(null)} editCommand={editingChild} />
-      )}
     </div>
   );
 });
@@ -1187,6 +1184,7 @@ export function BookmarksBar({
   const barRef = useRef<HTMLDivElement>(null);
   const addBtnRef = useRef<HTMLButtonElement>(null);
   const [showAddCmd, setShowAddCmd] = useState(false);
+  const [editingCmd, setEditingCmd] = useState<CommandBookmark | null>(null);
 
   const rootItems = useMemo(() => {
     const rootBookmarks = bookmarks.filter((b) => b.folderId === null);
@@ -1308,6 +1306,7 @@ export function BookmarksBar({
             key={item.id}
             group={item}
             onExecute={executeCommand}
+            onEditCommand={setEditingCmd}
             onDragStart={handleDragStart}
             isDragging={draggingId === item.id}
           />
@@ -1335,6 +1334,9 @@ export function BookmarksBar({
       </button>
       {showAddCmd && (
         <CommandDialog anchorRef={addBtnRef} onClose={() => setShowAddCmd(false)} />
+      )}
+      {editingCmd && (
+        <CommandDialog anchorRef={barRef} onClose={() => setEditingCmd(null)} editCommand={editingCmd} />
       )}
     </div>
   );
