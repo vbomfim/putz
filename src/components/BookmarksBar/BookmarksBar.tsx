@@ -124,7 +124,7 @@ function cdInTerminal(dirPath: string) {
   if (!tab || tab.type !== "terminal") return;
   const sessionId = tab.sessionId;
   const escaped = dirPath.replace(/\\/g, "\\\\").replace(/"/g, '\\"').replace(/\$/g, "\\$").replace(/`/g, "\\`");
-  const data = Array.from(new TextEncoder().encode(`cd "${escaped}"\n`));
+  const data = Array.from(new TextEncoder().encode(`cd "${escaped}"\r`));
   invoke("pty_write", { sessionId, data }).then(() => {
     // Fire CWD update after shell processes the cd
     setTimeout(() => {
@@ -969,14 +969,11 @@ function CommandDialog({ anchorRef, onClose, editCommand }: CommandDialogProps) 
     const rect = anchorRef.current.getBoundingClientRect();
     let left = rect.left;
     if (left + 300 > window.innerWidth) left = window.innerWidth - 308;
-    // Prefer below the button; flip above if not enough space
-    const dialogHeight = 400; // estimated max height
-    let top = rect.bottom + 4;
-    if (top + dialogHeight > window.innerHeight) {
-      top = rect.top - dialogHeight - 4;
-      if (top < 0) top = 8;
-    }
-    setStyle({ position: "fixed", left, top, zIndex: 300, width: 300, maxHeight: window.innerHeight - top - 8, overflowY: "auto" });
+    if (left < 4) left = 4;
+    // Always position below the anchor, scrollable if needed
+    const top = Math.min(rect.bottom + 4, window.innerHeight - 60);
+    const maxH = window.innerHeight - top - 8;
+    setStyle({ position: "fixed", left, top, zIndex: 300, width: 300, maxHeight: maxH, overflowY: "auto" });
   }, [anchorRef]);
 
   useEffect(() => {

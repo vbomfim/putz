@@ -108,7 +108,7 @@ export function PathBar() {
   const handleSegmentClick = useCallback((path: string) => {
     if (!sessionId) return;
     const escaped = path.replace(/\\/g, "\\\\").replace(/"/g, '\\"').replace(/\$/g, "\\$").replace(/`/g, "\\`");
-    const data = Array.from(new TextEncoder().encode(`cd "${escaped}"\n`));
+    const data = Array.from(new TextEncoder().encode(`cd "${escaped}"\r`));
     invoke("pty_write", { sessionId, data }).then(() => {
       setTimeout(() => {
         window.dispatchEvent(new CustomEvent("putz-cwd-change", { detail: { sessionId, cwd: path } }));
@@ -179,11 +179,11 @@ export function PathBar() {
 
   const [openCrumb, setOpenCrumb] = useState<string | null>(null);
   const crumbMenuRef = useRef<HTMLDivElement>(null);
-  const [crumbMenuStyle, setCrumbMenuStyle] = useState<React.CSSProperties>({});
+  const [crumbMenuStyle, setCrumbMenuStyle] = useState<React.CSSProperties>({ visibility: "hidden" });
   const [bookmarksOpen, setBookmarksOpen] = useState(false);
   const bookmarksBtnRef = useRef<HTMLButtonElement>(null);
   const bookmarksMenuRef = useRef<HTMLDivElement>(null);
-  const [bookmarksMenuStyle, setBookmarksMenuStyle] = useState<React.CSSProperties>({});
+  const [bookmarksMenuStyle, setBookmarksMenuStyle] = useState<React.CSSProperties>({ visibility: "hidden" });
   const bookmarks = useBookmarksStore((s) => s.bookmarks);
   const bookmarkFolders = useBookmarksStore((s) => s.folders);
   const removeBookmark = useBookmarksStore((s) => s.removeBookmark);
@@ -201,7 +201,11 @@ export function PathBar() {
   }, []);
 
   const toggleCrumbMenu = useCallback((segPath: string) => {
-    setOpenCrumb((prev) => prev === segPath ? null : segPath);
+    setOpenCrumb((prev) => {
+      if (prev === segPath) return null;
+      setCrumbMenuStyle({ visibility: "hidden" });
+      return segPath;
+    });
   }, []);
 
   // Close crumb menu on outside click
@@ -235,7 +239,8 @@ export function PathBar() {
     const rect = bookmarksBtnRef.current.getBoundingClientRect();
     let left = rect.left;
     if (left + 260 > window.innerWidth) left = window.innerWidth - 268;
-    setBookmarksMenuStyle({ position: "fixed", left, bottom: window.innerHeight - rect.top + 2, zIndex: 300, minWidth: 240, maxWidth: 320, maxHeight: 300 });
+    if (left < 4) left = 4;
+    setBookmarksMenuStyle({ position: "fixed", left, bottom: window.innerHeight - rect.top + 2, zIndex: 300, minWidth: 240, maxWidth: 320, maxHeight: 300, visibility: "visible" });
   }, [bookmarksOpen]);
 
   // Position crumb menu aligned to the clicked segment
@@ -246,7 +251,8 @@ export function PathBar() {
     const rect = btn.getBoundingClientRect();
     let left = rect.left;
     if (left + 260 > window.innerWidth) left = window.innerWidth - 268;
-    setCrumbMenuStyle({ position: "fixed", left, bottom: window.innerHeight - rect.top + 2, zIndex: 300, minWidth: 220, maxWidth: 320, maxHeight: 280 });
+    if (left < 4) left = 4;
+    setCrumbMenuStyle({ position: "fixed", left, bottom: window.innerHeight - rect.top + 2, zIndex: 300, minWidth: 220, maxWidth: 320, maxHeight: 280, visibility: "visible" });
   }, [openCrumb]);
 
   const handleBookmarkClick = useCallback((bm: { path: string; type: string }) => {
