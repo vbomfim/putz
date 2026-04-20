@@ -19,17 +19,35 @@ interface GitInfo {
 }
 
 function pathSegments(fullPath: string): { name: string; path: string }[] {
-  const sep = fullPath.includes("\\") ? "\\" : "/";
-  const parts = fullPath.split(sep).filter(Boolean);
+  const isWindows = fullPath.includes("\\") || /^[A-Za-z]:/.test(fullPath);
+  const sep = isWindows ? "\\" : "/";
+  const parts = fullPath.split(/[/\\]/).filter(Boolean);
   const segments: { name: string; path: string }[] = [];
-  // Add root segment
+
   if (fullPath.startsWith("/")) {
+    // Unix root
     segments.push({ name: "/", path: "/" });
-  }
-  let cumulative = fullPath.startsWith("/") ? "" : "";
-  for (const part of parts) {
-    cumulative += sep + part;
-    segments.push({ name: part, path: cumulative });
+    let cumulative = "";
+    for (const part of parts) {
+      cumulative += "/" + part;
+      segments.push({ name: part, path: cumulative });
+    }
+  } else if (/^[A-Za-z]:/.test(fullPath)) {
+    // Windows drive root (C:\...)
+    const drive = parts[0]!; // "C:"
+    segments.push({ name: drive + sep, path: drive + sep });
+    let cumulative = drive;
+    for (let i = 1; i < parts.length; i++) {
+      cumulative += sep + parts[i];
+      segments.push({ name: parts[i]!, path: cumulative });
+    }
+  } else {
+    // Relative or unknown
+    let cumulative = "";
+    for (const part of parts) {
+      cumulative += (cumulative ? sep : "") + part;
+      segments.push({ name: part, path: cumulative });
+    }
   }
   return segments;
 }

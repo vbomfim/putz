@@ -968,9 +968,15 @@ function CommandDialog({ anchorRef, onClose, editCommand }: CommandDialogProps) 
     if (!anchorRef.current) return;
     const rect = anchorRef.current.getBoundingClientRect();
     let left = rect.left;
-    const top = rect.bottom + 4;
     if (left + 300 > window.innerWidth) left = window.innerWidth - 308;
-    setStyle({ position: "fixed", left, top, zIndex: 300, width: 300 });
+    // Prefer below the button; flip above if not enough space
+    const dialogHeight = 400; // estimated max height
+    let top = rect.bottom + 4;
+    if (top + dialogHeight > window.innerHeight) {
+      top = rect.top - dialogHeight - 4;
+      if (top < 0) top = 8;
+    }
+    setStyle({ position: "fixed", left, top, zIndex: 300, width: 300, maxHeight: window.innerHeight - top - 8, overflowY: "auto" });
   }, [anchorRef]);
 
   useEffect(() => {
