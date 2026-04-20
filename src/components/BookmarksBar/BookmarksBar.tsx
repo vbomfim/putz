@@ -297,8 +297,8 @@ interface BookmarkButtonProps {
   isDragging: boolean;
 }
 
-/** Single bookmark button — memoized to avoid re-renders. */
-const BookmarkButton = memo(function BookmarkButton({
+/** Single bookmark button — used by PathBar bookmarks dropdown. */
+export const BookmarkButton = memo(function BookmarkButton({
   bookmark,
   onBookmarkClick,
   onDragStart,
@@ -385,7 +385,7 @@ interface FolderButtonProps {
 }
 
 /** Folder button with dropdown menu of children (rendered via portal). */
-const FolderButton = memo(function FolderButton({
+export const FolderButton = memo(function FolderButton({
   folder,
   onBookmarkClick,
   onDragStart,
@@ -1251,29 +1251,25 @@ function handleToolbarKeyDown(e: React.KeyboardEvent<HTMLDivElement>) {
 
 /** BookmarksBar — Toggleable horizontal bar of user bookmarks. */
 export function BookmarksBar({
-  onBookmarkClick,
+  onBookmarkClick: _onBookmarkClick,
 }: BookmarksBarProps): React.ReactElement | null {
   const visible = useSettingsStore((s) => s.bookmarksBarVisible);
-  const bookmarks = useBookmarksStore((s) => s.bookmarks);
-  const folders = useBookmarksStore((s) => s.folders);
   const commands = useBookmarksStore((s) => s.commands);
   const commandGroups = useBookmarksStore((s) => s.commandGroups);
   const barRef = useRef<HTMLDivElement>(null);
   const addBtnRef = useRef<HTMLButtonElement>(null);
   const [showAddCmd, setShowAddCmd] = useState(false);
   const [editingCmd, setEditingCmd] = useState<CommandBookmark | null>(null);
+  void _onBookmarkClick; // bookmarks now in PathBar
 
   const rootItems = useMemo(() => {
-    const rootBookmarks = bookmarks.filter((b) => b.folderId === null);
     const rootCommands = commands.filter((c) => c.groupId === null);
-    const items: (BookmarkItem | BookmarkFolder | CommandBookmark | CommandGroup)[] = [
-      ...rootBookmarks,
-      ...folders,
+    const items: (CommandBookmark | CommandGroup)[] = [
       ...rootCommands,
       ...commandGroups,
     ];
     return items.sort((a, b) => a.sortIndex - b.sortIndex);
-  }, [bookmarks, folders, commands, commandGroups]);
+  }, [commands, commandGroups]);
 
   const commandGroupIds = useMemo(() => new Set(commandGroups.map((g) => g.id)), [commandGroups]);
 
@@ -1353,14 +1349,11 @@ export function BookmarksBar({
     <div
       className="bookmarks-bar"
       role="toolbar"
-      aria-label="Bookmarks"
+      aria-label="Commands"
       data-testid="bookmarks-bar"
       ref={barRef}
       onKeyDown={handleToolbarKeyDown}
     >
-      {rootItems.length === 0 && (
-        <span className="bookmarks-bar__empty">No bookmarks yet</span>
-      )}
       {rootItems.map((item) =>
         isCommandBookmark(item) ? (
           <CommandButton
@@ -1370,35 +1363,16 @@ export function BookmarksBar({
             onDragStart={handleDragStart}
             isDragging={draggingId === item.id}
           />
-        ) : isBookmarkItem(item) ? (
-          <BookmarkButton
-            key={item.id}
-            bookmark={item}
-            onBookmarkClick={onBookmarkClick}
-            onDragStart={handleDragStart}
-            isDragging={draggingId === item.id}
-          />
         ) : isCommandGroup(item, commandGroupIds) ? (
           <CommandGroupButton
             key={item.id}
-            group={item}
+            group={item as CommandGroup}
             onExecute={executeCommand}
             onEditCommand={setEditingCmd}
             onDragStart={handleDragStart}
             isDragging={draggingId === item.id}
           />
-        ) : (() => {
-          const f = item as BookmarkFolder;
-          return (
-            <FolderButton
-              key={f.id}
-              folder={f}
-              onBookmarkClick={onBookmarkClick}
-              onDragStart={handleDragStart}
-              isDragging={draggingId === f.id}
-            />
-          );
-        })(),
+        ) : null,
       )}
       <button
         ref={addBtnRef}
@@ -1418,4 +1392,7 @@ export function BookmarksBar({
     </div>
   );
 }
+
+/** Alias for backward compatibility — the bar now only shows commands. */
+export { BookmarksBar as CommandsBar };
 

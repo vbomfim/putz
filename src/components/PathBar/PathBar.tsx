@@ -160,6 +160,11 @@ export function PathBar() {
 
   const [openCrumb, setOpenCrumb] = useState<string | null>(null);
   const crumbMenuRef = useRef<HTMLDivElement>(null);
+  const [bookmarksOpen, setBookmarksOpen] = useState(false);
+  const bookmarksBtnRef = useRef<HTMLButtonElement>(null);
+  const bookmarksMenuRef = useRef<HTMLDivElement>(null);
+  const bookmarks = useBookmarksStore((s) => s.bookmarks);
+  const bookmarkFolders = useBookmarksStore((s) => s.folders);
 
   // Now playing radio
   const [radioName, setRadioName] = useState<string>("");
@@ -188,6 +193,36 @@ export function PathBar() {
     return () => document.removeEventListener("mousedown", handler);
   }, [openCrumb]);
 
+  // Close bookmarks menu on outside click
+  useEffect(() => {
+    if (!bookmarksOpen) return;
+    const handler = (e: MouseEvent) => {
+      if (bookmarksMenuRef.current && !bookmarksMenuRef.current.contains(e.target as Node) &&
+          bookmarksBtnRef.current && !bookmarksBtnRef.current.contains(e.target as Node)) {
+        setBookmarksOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [bookmarksOpen]);
+
+  const handleBookmarkClick = useCallback((bm: { path: string; type: string }) => {
+    if (bm.type === "folder") {
+      handleSegmentClick(bm.path);
+    } else {
+      const regionId = useLayoutStore.getState().focusedRegionId;
+      useLayoutStore.getState().addEditorTab(regionId, bm.path);
+    }
+    setBookmarksOpen(false);
+  }, [handleSegmentClick]);
+
+  // Get root bookmarks sorted
+  const rootBookmarks = bookmarks
+    .filter((b) => b.folderId === null)
+    .sort((a, b) => a.sortIndex - b.sortIndex);
+  const sortedFolders = bookmarkFolders
+    .sort((a, b) => a.sortIndex - b.sortIndex);
+
   if (!cwd) return null;
 
   const segments = pathSegments(cwd);
@@ -200,6 +235,40 @@ export function PathBar() {
 
   return (
     <div className="path-bar">
+      {/* ★ Bookmarks button */}
+      <button
+        ref={bookmarksBtnRef}
+        className={`path-bar__bookmarks-btn ${bookmarksOpen ? "path-bar__bookmarks-btn--active" : ""}`}
+        onClick={() => setBookmarksOpen((p) => !p)}
+        title="Bookmarks"
+      >
+        ★
+      </button>
+      {bookmarksOpen && (
+        <div ref={bookmarksMenuRef} className="path-bar__bookmarks-menu">
+          {rootBookmarks.length === 0 && sortedFolders.length === 0 && (
+            <span className="path-bar__crumb-loading">No bookmarks</span>
+          )}
+          {sortedFolders.map((folder) => {
+            const children = bookmarks
+              .filter((b) => b.folderId === folder.id)
+              .sort((a, b) => a.sortIndex - b.sortIndex);
+            return (
+              <BookmarkFolderItem key={folder.id} folder={folder} children={children}
+                onSelect={handleBookmarkClick} onClose={() => setBookmarksOpen(false)} />
+            );
+          })}
+          {rootBookmarks.map((bm) => (
+            <button key={bm.id} className="path-bar__crumb-item path-bar__bookmark-item"
+              onClick={() => handleBookmarkClick(bm)}
+              title={bm.path}>
+              <span>{bm.type === "folder" ? "📁" : "📄"}</span>
+              <span className="path-bar__crumb-name">{bm.name}</span>
+            </button>
+          ))}
+        </div>
+      )}
+
       {segments.map((seg, i) => (
         <span key={seg.path} className="path-bar__segment-wrapper">
           {i > 0 && <span className="path-bar__sep">›</span>}
@@ -315,6 +384,35 @@ export function PathBar() {
   );
 }
 
+/** Bookmark folder with expandable children in the ★ dropdown. */
+function BookmarkFolderItem({ folder, children, onSelect, onClose }: {
+  folder: { id: string; name: string };
+  children: { id: string; name: string; path: string; type: string }[];
+  onSelect: (bm: { path: string; type: string }) => void;
+  onClose: () => void;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  return (
+    <div>
+      <div className="path-bar__crumb-item path-bar__bookmark-item">
+        <button className="path-bar__crumb-chevron" onClick={() => setExpanded((p) => !p)}>
+          {expanded ? "▾" : "▸"}
+        </button>
+        <span className="path-bar__crumb-name" style={{ fontWeight: 600 }}>📁 {folder.name}</span>
+      </div>
+      {expanded && children.map((bm) => (
+        <button key={bm.id} className="path-bar__crumb-item path-bar__bookmark-item"
+          style={{ paddingLeft: 22 }}
+          onClick={() => { onSelect(bm); onClose(); }}
+          title={bm.path}>
+          <span>{bm.type === "folder" ? "📁" : "📄"}</span>
+          <span className="path-bar__crumb-name">{bm.name}</span>
+        </button>
+      ))}
+    </div>
+  );
+}
+
 /** Recursive lazy-loading directory tree for the breadcrumb picker. */
 function CrumbTree({ path, onSelect, depth = 0 }: { path: string; onSelect: (dirPath: string) => void; depth?: number }) {
   const [entries, setEntries] = useState<{ name: string; path: string; isDir: boolean }[] | null>(null);
@@ -325,9 +423,14 @@ function CrumbTree({ path, onSelect, depth = 0 }: { path: string; onSelect: (dir
 
   useEffect(() => {
     invoke<{ name: string; path: string; isDir: boolean }[]>("dir_list", { path })
-      .then((e) => setEntries(e.filter((x) => x.isDir)))
+      .then(setEntries)
       .catch(() => setEntries([]));
   }, [path]);
+
+  const handleFileClick = useCallback((filePath: string) => {
+    const regionId = useLayoutStore.getState().focusedRegionId;
+    useLayoutStore.getState().addEditorTab(regionId, filePath);
+  }, []);
 
   if (!entries) return <span className="path-bar__crumb-loading" style={{ paddingLeft: depth * 14 + 10 }}>…</span>;
   if (entries.length === 0) return <span className="path-bar__crumb-loading" style={{ paddingLeft: depth * 14 + 10 }}>Empty</span>;
@@ -339,35 +442,45 @@ function CrumbTree({ path, onSelect, depth = 0 }: { path: string; onSelect: (dir
         return (
           <div key={e.path}>
             <div className="path-bar__crumb-item" style={{ paddingLeft: depth * 14 + 8 }}>
-              <button
-                className="path-bar__crumb-chevron"
-                onClick={() => setExpanded((prev) => {
-                  const next = new Set(prev);
-                  if (next.has(e.path)) next.delete(e.path); else next.add(e.path);
-                  return next;
-                })}
-              >
-                {expanded.has(e.path) ? "▾" : "▸"}
-              </button>
-              <button
-                className="path-bar__crumb-name"
-                onClick={() => onSelect(e.path)}
-              >
-                📁 {e.name}
-              </button>
-              <button
-                className={`path-bar__crumb-star ${bm ? "path-bar__crumb-star--active" : ""}`}
-                onClick={(ev) => {
-                  ev.stopPropagation();
-                  if (bm) removeBookmark(bm.id);
-                  else addBookmark(e.path, "folder");
-                }}
-                title={bm ? "Remove from bookmarks" : "Add to bookmarks"}
-              >
-                {bm ? "★" : "☆"}
-              </button>
+              {e.isDir ? (
+                <>
+                  <button
+                    className="path-bar__crumb-chevron"
+                    onClick={() => setExpanded((prev) => {
+                      const next = new Set(prev);
+                      if (next.has(e.path)) next.delete(e.path); else next.add(e.path);
+                      return next;
+                    })}
+                  >
+                    {expanded.has(e.path) ? "▾" : "▸"}
+                  </button>
+                  <button className="path-bar__crumb-name" onClick={() => onSelect(e.path)}>
+                    📁 {e.name}
+                  </button>
+                </>
+              ) : (
+                <>
+                  <span className="path-bar__crumb-chevron" style={{ visibility: "hidden" }}>▸</span>
+                  <button className="path-bar__crumb-name" onClick={() => handleFileClick(e.path)}>
+                    {getFileIcon(e.name)} {e.name}
+                  </button>
+                </>
+              )}
+              {e.isDir && (
+                <button
+                  className={`path-bar__crumb-star ${bm ? "path-bar__crumb-star--active" : ""}`}
+                  onClick={(ev) => {
+                    ev.stopPropagation();
+                    if (bm) removeBookmark(bm.id);
+                    else addBookmark(e.path, "folder");
+                  }}
+                  title={bm ? "Remove from bookmarks" : "Add to bookmarks"}
+                >
+                  {bm ? "★" : "☆"}
+                </button>
+              )}
             </div>
-            {expanded.has(e.path) && (
+            {e.isDir && expanded.has(e.path) && (
               <CrumbTree path={e.path} onSelect={onSelect} depth={depth + 1} />
             )}
           </div>
@@ -375,4 +488,15 @@ function CrumbTree({ path, onSelect, depth = 0 }: { path: string; onSelect: (dir
       })}
     </>
   );
+}
+
+/** File extension to icon. */
+const FILE_ICONS: Record<string, string> = {
+  drawio: "📐", csv: "📊", tsv: "📊", md: "📖", py: "🐍",
+  js: "📜", ts: "📜", jsx: "📜", tsx: "📜", json: "⚙️",
+  yaml: "⚙️", yml: "⚙️", rs: "🦀", toml: "⚙️", sh: "📄",
+};
+function getFileIcon(name: string): string {
+  const ext = name.split(".").pop()?.toLowerCase() || "";
+  return FILE_ICONS[ext] ?? "📄";
 }
