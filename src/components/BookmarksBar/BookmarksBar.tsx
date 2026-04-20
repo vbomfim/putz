@@ -667,6 +667,7 @@ const CommandButton = memo(function CommandButton({
         aria-label={displayName}
         onClick={handleClick}
         onContextMenu={handleContextMenu}
+        onMouseDown={(e) => e.preventDefault()}
         onPointerDown={handlePointerDown}
         data-bookmark-id={command.id}
         style={command.color ? { borderColor: command.color } : undefined}
@@ -758,6 +759,8 @@ const CommandGroupButton = memo(function CommandGroupButton({
     return () => document.removeEventListener("mousedown", handler);
   }, [isOpen]);
 
+  const [editingChild, setEditingChild] = useState<CommandBookmark | null>(null);
+
   const className = isDragging
     ? "bookmarks-bar__item bookmarks-bar__item--command bookmarks-bar__item--dragging"
     : "bookmarks-bar__item bookmarks-bar__item--command";
@@ -765,13 +768,9 @@ const CommandGroupButton = memo(function CommandGroupButton({
   const dropdown = isOpen ? createPortal(
     <div ref={menuRef} className="bookmarks-bar__dropdown" style={dropdownStyle}>
       {children.map((child) => (
-        <button key={child.id} className="bookmarks-bar__dropdown-item" type="button" role="menuitem"
-          title={child.command}
-          onClick={() => { onExecute(child); setIsOpen(false); }}>
-          <span className="bookmarks-bar__icon">{child.icon || "⚡"}</span>
-          <span className="bookmarks-bar__label">{sanitizeDisplayName(child.name)}</span>
-          {child.hotkey && <span className="bookmarks-bar__hotkey">{formatHotkey(child.hotkey)}</span>}
-        </button>
+        <GroupCommandItem key={child.id} command={child}
+          onExecute={(c) => { onExecute(c); setIsOpen(false); }}
+          onEdit={(c) => { setEditingChild(c); setTimeout(() => setIsOpen(false), 0); }} />
       ))}
       {children.length === 0 && (
         <span className="bookmarks-bar__empty">Empty group</span>
@@ -790,15 +789,75 @@ const CommandGroupButton = memo(function CommandGroupButton({
       <button ref={buttonRef} className={className} type="button"
         title={displayName} aria-label={displayName}
         aria-haspopup="true" aria-expanded={isOpen}
-        onClick={handleToggle} onPointerDown={handlePointerDown}>
+        onClick={handleToggle} onMouseDown={(e) => e.preventDefault()} onPointerDown={handlePointerDown}>
         <span className="bookmarks-bar__icon" aria-hidden="true">{group.icon || "⚡"}</span>
         <span className="bookmarks-bar__label">{displayName}</span>
         <span className="bookmarks-bar__chevron" aria-hidden="true">▾</span>
       </button>
       {dropdown}
+      {editingChild && (
+        <CommandDialog anchorRef={buttonRef} onClose={() => setEditingChild(null)} editCommand={editingChild} />
+      )}
     </div>
   );
 });
+
+/** A command item inside a group dropdown — click to execute, right-click for edit/delete. */
+function GroupCommandItem({ command, onExecute, onEdit }: {
+  command: CommandBookmark;
+  onExecute: (cmd: CommandBookmark) => void;
+  onEdit: (cmd: CommandBookmark) => void;
+}) {
+  const removeCommand = useBookmarksStore((s) => s.removeCommand);
+  const [showCtx, setShowCtx] = useState(false);
+  const ctxRef = useRef<HTMLDivElement>(null);
+  const [ctxStyle, setCtxStyle] = useState<React.CSSProperties>({});
+
+  const handleContextMenu = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setCtxStyle({ position: "fixed", left: e.clientX, top: e.clientY, zIndex: 300 });
+    setShowCtx(true);
+  }, []);
+
+  useEffect(() => {
+    if (!showCtx) return;
+    const handler = (e: MouseEvent) => {
+      if (ctxRef.current && !ctxRef.current.contains(e.target as Node)) setShowCtx(false);
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [showCtx]);
+
+  return (
+    <>
+      <button className="bookmarks-bar__dropdown-item" type="button" role="menuitem"
+        title={command.command}
+        onClick={() => onExecute(command)}
+        onMouseDown={(e) => e.preventDefault()}
+        onContextMenu={handleContextMenu}>
+        <span className="bookmarks-bar__icon">{command.icon || "⚡"}</span>
+        <span className="bookmarks-bar__label">{sanitizeDisplayName(command.name)}</span>
+        {command.hotkey && <span className="bookmarks-bar__hotkey">{formatHotkey(command.hotkey)}</span>}
+      </button>
+      {showCtx && createPortal(
+        <div ref={ctxRef} className="bookmarks-bar__dropdown" style={ctxStyle}>
+          <button className="bookmarks-bar__dropdown-item" type="button" role="menuitem"
+            onClick={() => { setShowCtx(false); onEdit(command); }}>
+            <span className="bookmarks-bar__icon">✏️</span>
+            <span className="bookmarks-bar__label">Edit</span>
+          </button>
+          <button className="bookmarks-bar__dropdown-item" type="button" role="menuitem"
+            onClick={() => { removeCommand(command.id); setShowCtx(false); }}>
+            <span className="bookmarks-bar__icon">🗑</span>
+            <span className="bookmarks-bar__label">Delete</span>
+          </button>
+        </div>,
+        document.body,
+      )}
+    </>
+  );
+}
 
 /** Formats a hotkey string for display (e.g. "ctrl+shift+1" → "⌃⇧1"). */
 function formatHotkey(hotkey: string): string {
