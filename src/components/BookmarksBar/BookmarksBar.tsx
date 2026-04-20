@@ -770,7 +770,7 @@ const CommandGroupButton = memo(function CommandGroupButton({
       {children.map((child) => (
         <GroupCommandItem key={child.id} command={child}
           onExecute={(c) => { onExecute(c); setIsOpen(false); }}
-          onEdit={(c) => { setIsOpen(false); onEditCommand(c); }} />
+          onEdit={(c) => { onEditCommand(c); }} />
       ))}
       {children.length === 0 && (
         <span className="bookmarks-bar__empty">Empty group</span>
@@ -826,6 +826,21 @@ function GroupCommandItem({ command, onExecute, onEdit }: {
     return () => document.removeEventListener("mousedown", handler);
   }, [showCtx]);
 
+  const handleEdit = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    // Capture the command ref before any unmounting
+    const cmd = command;
+    setShowCtx(false);
+    // Use setTimeout to let the dropdown close first, then open the dialog
+    setTimeout(() => onEdit(cmd), 50);
+  }, [command, onEdit]);
+
+  const handleDelete = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    removeCommand(command.id);
+    setShowCtx(false);
+  }, [command.id, removeCommand]);
+
   return (
     <>
       <button className="bookmarks-bar__dropdown-item" type="button" role="menuitem"
@@ -838,14 +853,15 @@ function GroupCommandItem({ command, onExecute, onEdit }: {
         {command.hotkey && <span className="bookmarks-bar__hotkey">{formatHotkey(command.hotkey)}</span>}
       </button>
       {showCtx && createPortal(
-        <div ref={ctxRef} className="bookmarks-bar__dropdown" style={ctxStyle}>
+        <div ref={ctxRef} className="bookmarks-bar__dropdown" style={ctxStyle}
+          onMouseDown={(e) => e.stopPropagation()}>
           <button className="bookmarks-bar__dropdown-item" type="button" role="menuitem"
-            onClick={() => { setShowCtx(false); onEdit(command); }}>
+            onClick={handleEdit}>
             <span className="bookmarks-bar__icon">✏️</span>
             <span className="bookmarks-bar__label">Edit</span>
           </button>
           <button className="bookmarks-bar__dropdown-item" type="button" role="menuitem"
-            onClick={() => { removeCommand(command.id); setShowCtx(false); }}>
+            onClick={handleDelete}>
             <span className="bookmarks-bar__icon">🗑</span>
             <span className="bookmarks-bar__label">Delete</span>
           </button>
