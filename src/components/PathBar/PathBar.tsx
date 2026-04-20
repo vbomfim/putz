@@ -2,7 +2,8 @@
  * PathBar — Finder-style breadcrumb path bar + git status at the bottom.
  * @module
  */
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useLayoutEffect, useCallback, useRef } from "react";
+import { createPortal } from "react-dom";
 import { invoke } from "@tauri-apps/api/core";
 import { useLayoutStore } from "../../stores/layoutStore";
 import { useBookmarksStore } from "../../stores/bookmarksStore";
@@ -160,11 +161,15 @@ export function PathBar() {
 
   const [openCrumb, setOpenCrumb] = useState<string | null>(null);
   const crumbMenuRef = useRef<HTMLDivElement>(null);
+  const [crumbMenuStyle, setCrumbMenuStyle] = useState<React.CSSProperties>({});
   const [bookmarksOpen, setBookmarksOpen] = useState(false);
   const bookmarksBtnRef = useRef<HTMLButtonElement>(null);
   const bookmarksMenuRef = useRef<HTMLDivElement>(null);
+  const [bookmarksMenuStyle, setBookmarksMenuStyle] = useState<React.CSSProperties>({});
   const bookmarks = useBookmarksStore((s) => s.bookmarks);
   const bookmarkFolders = useBookmarksStore((s) => s.folders);
+  const removeBookmark = useBookmarksStore((s) => s.removeBookmark);
+  const crumbBtnRefs = useRef<Map<string, HTMLButtonElement>>(new Map());
 
   // Now playing radio
   const [radioName, setRadioName] = useState<string>("");
@@ -206,6 +211,26 @@ export function PathBar() {
     return () => document.removeEventListener("mousedown", handler);
   }, [bookmarksOpen]);
 
+  // Position bookmarks menu aligned to ★ button
+  useLayoutEffect(() => {
+    if (!bookmarksOpen || !bookmarksBtnRef.current) return;
+    const rect = bookmarksBtnRef.current.getBoundingClientRect();
+    let left = rect.left;
+    if (left + 260 > window.innerWidth) left = window.innerWidth - 268;
+    setBookmarksMenuStyle({ position: "fixed", left, bottom: window.innerHeight - rect.top + 2, zIndex: 300, minWidth: 240, maxWidth: 320, maxHeight: 300 });
+  }, [bookmarksOpen]);
+
+  // Position crumb menu aligned to the clicked segment
+  useLayoutEffect(() => {
+    if (!openCrumb) return;
+    const btn = crumbBtnRefs.current.get(openCrumb);
+    if (!btn) return;
+    const rect = btn.getBoundingClientRect();
+    let left = rect.left;
+    if (left + 260 > window.innerWidth) left = window.innerWidth - 268;
+    setCrumbMenuStyle({ position: "fixed", left, bottom: window.innerHeight - rect.top + 2, zIndex: 300, minWidth: 220, maxWidth: 320, maxHeight: 280 });
+  }, [openCrumb]);
+
   const handleBookmarkClick = useCallback((bm: { path: string; type: string }) => {
     if (bm.type === "folder") {
       handleSegmentClick(bm.path);
@@ -244,8 +269,8 @@ export function PathBar() {
       >
         ★
       </button>
-      {bookmarksOpen && (
-        <div ref={bookmarksMenuRef} className="path-bar__bookmarks-menu">
+      {bookmarksOpen && createPortal(
+        <div ref={bookmarksMenuRef} className="path-bar__bookmarks-menu" style={bookmarksMenuStyle}>
           {rootBookmarks.length === 0 && sortedFolders.length === 0 && (
             <span className="path-bar__crumb-loading">No bookmarks</span>
           )}
@@ -259,20 +284,31 @@ export function PathBar() {
             );
           })}
           {rootBookmarks.map((bm) => (
-            <button key={bm.id} className="path-bar__crumb-item path-bar__bookmark-item"
-              onClick={() => handleBookmarkClick(bm)}
-              title={bm.path}>
-              <span>{bm.type === "folder" ? "📁" : "📄"}</span>
-              <span className="path-bar__crumb-name">{bm.name}</span>
-            </button>
+            <div key={bm.id} className="path-bar__crumb-item path-bar__bookmark-item">
+              <button
+                className="path-bar__crumb-name"
+                onClick={() => handleBookmarkClick(bm)}
+                title={bm.path}
+                style={{ flex: 1 }}
+              >
+                {bm.type === "folder" ? "📁" : "📄"} {bm.name}
+              </button>
+              <button
+                className="path-bar__crumb-star path-bar__crumb-star--active"
+                onClick={() => removeBookmark(bm.id)}
+                title="Remove from bookmarks"
+              >★</button>
+            </div>
           ))}
-        </div>
+        </div>,
+        document.body,
       )}
 
       {segments.map((seg, i) => (
         <span key={seg.path} className="path-bar__segment-wrapper">
           {i > 0 && <span className="path-bar__sep">›</span>}
           <button
+            ref={(el) => { if (el) crumbBtnRefs.current.set(seg.path, el); }}
             className={`path-bar__segment ${openCrumb === seg.path ? "path-bar__segment--active" : ""}`}
             onClick={() => toggleCrumbMenu(seg.path)}
             title={seg.path}
@@ -280,8 +316,8 @@ export function PathBar() {
             <span className="path-bar__icon">📁</span>
             {seg.name}
           </button>
-          {openCrumb === seg.path && (
-            <div ref={crumbMenuRef} className="path-bar__crumb-menu">
+          {openCrumb === seg.path && createPortal(
+            <div ref={crumbMenuRef} className="path-bar__crumb-menu" style={crumbMenuStyle}>
               <CrumbTree
                 path={seg.path}
                 onSelect={(dirPath) => {
@@ -289,7 +325,8 @@ export function PathBar() {
                   handleSegmentClick(dirPath);
                 }}
               />
-            </div>
+            </div>,
+            document.body,
           )}
         </span>
       ))}

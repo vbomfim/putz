@@ -38,18 +38,11 @@
 }
 
 .path-bar__bookmarks-menu {
-  position: absolute;
-  bottom: 24px;
-  left: 4px;
-  min-width: 220px;
-  max-width: 320px;
-  max-height: 300px;
   overflow-y: auto;
   background: var(--bg-primary, #1e1e2e);
   border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: 8px;
   box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.4);
-  z-index: 300;
   padding: 4px 0;
 }
 
@@ -310,18 +303,11 @@
 }
 
 .path-bar__crumb-menu {
-  position: absolute;
-  bottom: 24px;
-  left: 0;
-  min-width: 200px;
-  max-width: 320px;
-  max-height: 280px;
   overflow-y: auto;
   background: var(--bg-primary, #1e1e2e);
   border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: 8px;
   box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.4);
-  z-index: 300;
   padding: 4px 0;
 }
 
