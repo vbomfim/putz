@@ -5,6 +5,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { useLayoutStore } from "../../stores/layoutStore";
+import { useBookmarksStore } from "../../stores/bookmarksStore";
 import { parseBranchOutput, parseTagListOutput } from "../../lib/git-graph/gitParser";
 import "./PathBar.css";
 
@@ -318,6 +319,9 @@ export function PathBar() {
 function CrumbTree({ path, onSelect, depth = 0 }: { path: string; onSelect: (dirPath: string) => void; depth?: number }) {
   const [entries, setEntries] = useState<{ name: string; path: string; isDir: boolean }[] | null>(null);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  const bookmarks = useBookmarksStore((s) => s.bookmarks);
+  const addBookmark = useBookmarksStore((s) => s.addBookmark);
+  const removeBookmark = useBookmarksStore((s) => s.removeBookmark);
 
   useEffect(() => {
     invoke<{ name: string; path: string; isDir: boolean }[]>("dir_list", { path })
@@ -330,31 +334,45 @@ function CrumbTree({ path, onSelect, depth = 0 }: { path: string; onSelect: (dir
 
   return (
     <>
-      {entries.map((e) => (
-        <div key={e.path}>
-          <div className="path-bar__crumb-item" style={{ paddingLeft: depth * 14 + 8 }}>
-            <button
-              className="path-bar__crumb-chevron"
-              onClick={() => setExpanded((prev) => {
-                const next = new Set(prev);
-                if (next.has(e.path)) next.delete(e.path); else next.add(e.path);
-                return next;
-              })}
-            >
-              {expanded.has(e.path) ? "▾" : "▸"}
-            </button>
-            <button
-              className="path-bar__crumb-name"
-              onClick={() => onSelect(e.path)}
-            >
-              📁 {e.name}
-            </button>
+      {entries.map((e) => {
+        const bm = bookmarks.find((b) => b.path === e.path);
+        return (
+          <div key={e.path}>
+            <div className="path-bar__crumb-item" style={{ paddingLeft: depth * 14 + 8 }}>
+              <button
+                className="path-bar__crumb-chevron"
+                onClick={() => setExpanded((prev) => {
+                  const next = new Set(prev);
+                  if (next.has(e.path)) next.delete(e.path); else next.add(e.path);
+                  return next;
+                })}
+              >
+                {expanded.has(e.path) ? "▾" : "▸"}
+              </button>
+              <button
+                className="path-bar__crumb-name"
+                onClick={() => onSelect(e.path)}
+              >
+                📁 {e.name}
+              </button>
+              <button
+                className={`path-bar__crumb-star ${bm ? "path-bar__crumb-star--active" : ""}`}
+                onClick={(ev) => {
+                  ev.stopPropagation();
+                  if (bm) removeBookmark(bm.id);
+                  else addBookmark(e.path, "folder");
+                }}
+                title={bm ? "Remove from bookmarks" : "Add to bookmarks"}
+              >
+                {bm ? "★" : "☆"}
+              </button>
+            </div>
+            {expanded.has(e.path) && (
+              <CrumbTree path={e.path} onSelect={onSelect} depth={depth + 1} />
+            )}
           </div>
-          {expanded.has(e.path) && (
-            <CrumbTree path={e.path} onSelect={onSelect} depth={depth + 1} />
-          )}
-        </div>
-      ))}
+        );
+      })}
     </>
   );
 }

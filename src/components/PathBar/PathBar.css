@@ -348,6 +348,31 @@
   color: var(--text-primary, #cdd6f4);
 }
 
+.path-bar__crumb-star {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 0.75rem;
+  color: var(--text-secondary, #6c7086);
+  padding: 0 4px;
+  flex-shrink: 0;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+.path-bar__crumb-item:hover .path-bar__crumb-star {
+  opacity: 1;
+}
+
+.path-bar__crumb-star--active {
+  color: #f9e2af;
+  opacity: 1 !important;
+}
+
+.path-bar__crumb-star:hover {
+  color: #f9e2af;
+}
+
 /* ─── Now Playing Radio ──────────────────────────────────────── */
 
 .path-bar__radio {
