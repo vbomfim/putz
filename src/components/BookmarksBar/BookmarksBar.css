@@ -348,6 +348,38 @@
   color: #f38ba8;
 }
 
+.bookmarks-bar__dropdown-rename {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+}
+
+.bookmarks-bar__dropdown-rename input {
+  flex: 1;
+  padding: 3px 6px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 3px;
+  background: var(--bg-primary, #11111b);
+  color: var(--text-primary);
+  font-size: 12px;
+  outline: none;
+}
+
+.bookmarks-bar__dropdown-rename input:focus {
+  border-color: var(--accent);
+}
+
+.bookmarks-bar__dropdown-rename button {
+  padding: 2px 6px;
+  border: none;
+  border-radius: 3px;
+  background: var(--accent);
+  color: #fff;
+  font-size: 12px;
+  cursor: pointer;
+}
+
 .bookmarks-bar__add-cmd-actions {
   display: flex;
   justify-content: flex-end;

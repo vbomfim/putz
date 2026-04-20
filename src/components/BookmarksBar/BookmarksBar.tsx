@@ -724,6 +724,12 @@ const CommandGroupButton = memo(function CommandGroupButton({
   const displayName = sanitizeDisplayName(group.name);
   const commands = useBookmarksStore((s) => s.commands);
   const removeCommandGroup = useBookmarksStore((s) => s.removeCommandGroup);
+  const renameCommandGroup = useBookmarksStore((s) => s.renameCommandGroup);
+  const [renaming, setRenaming] = useState(false);
+  const [renameName, setRenameName] = useState(group.name);
+  const [showCtx, setShowCtx] = useState(false);
+  const ctxRef = useRef<HTMLDivElement>(null);
+  const [ctxStyle, setCtxStyle] = useState<React.CSSProperties>({});
   const children = useMemo(
     () => commands.filter((c) => c.groupId === group.id).sort((a, b) => a.sortIndex - b.sortIndex),
     [commands, group.id],
@@ -735,6 +741,21 @@ const CommandGroupButton = memo(function CommandGroupButton({
   const [dropdownStyle, setDropdownStyle] = useState<React.CSSProperties>({});
 
   const handleToggle = useCallback(() => setIsOpen((p) => !p), []);
+
+  const handleContextMenu = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    setCtxStyle({ position: "fixed", left: e.clientX, top: e.clientY, zIndex: 300 });
+    setShowCtx(true);
+  }, []);
+
+  useEffect(() => {
+    if (!showCtx) return;
+    const handler = (e: MouseEvent) => {
+      if (ctxRef.current && !ctxRef.current.contains(e.target as Node)) setShowCtx(false);
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [showCtx]);
 
   const handlePointerDown = useCallback((e: React.PointerEvent) => {
     if (e.button !== 0) return;
@@ -775,11 +796,43 @@ const CommandGroupButton = memo(function CommandGroupButton({
       {children.length === 0 && (
         <span className="bookmarks-bar__empty">Empty group</span>
       )}
-      <button className="bookmarks-bar__dropdown-item bookmarks-bar__dropdown-item--danger" type="button" role="menuitem"
-        onClick={() => { removeCommandGroup(group.id); setIsOpen(false); }}>
-        <span className="bookmarks-bar__icon">🗑</span>
-        <span className="bookmarks-bar__label">Delete group</span>
-      </button>
+    </div>,
+    document.body,
+  ) : null;
+
+  const ctxMenu = showCtx ? createPortal(
+    <div ref={ctxRef} className="bookmarks-bar__dropdown" style={ctxStyle}
+      onMouseDown={(e) => e.stopPropagation()}>
+      {renaming ? (
+        <div className="bookmarks-bar__dropdown-rename">
+          <input value={renameName} onChange={(e) => setRenameName(e.target.value)}
+            autoFocus spellCheck={false}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && renameName.trim()) {
+                renameCommandGroup(group.id, renameName);
+                setRenaming(false); setShowCtx(false);
+              }
+              if (e.key === "Escape") { setRenaming(false); setShowCtx(false); }
+            }} />
+          <button type="button" onClick={() => {
+            if (renameName.trim()) renameCommandGroup(group.id, renameName);
+            setRenaming(false); setShowCtx(false);
+          }}>✓</button>
+        </div>
+      ) : (
+        <>
+          <button className="bookmarks-bar__dropdown-item" type="button" role="menuitem"
+            onClick={() => { setRenameName(group.name); setRenaming(true); }}>
+            <span className="bookmarks-bar__icon">✏️</span>
+            <span className="bookmarks-bar__label">Rename</span>
+          </button>
+          <button className="bookmarks-bar__dropdown-item bookmarks-bar__dropdown-item--danger" type="button" role="menuitem"
+            onClick={() => { removeCommandGroup(group.id); setShowCtx(false); }}>
+            <span className="bookmarks-bar__icon">🗑</span>
+            <span className="bookmarks-bar__label">Delete group</span>
+          </button>
+        </>
+      )}
     </div>,
     document.body,
   ) : null;
@@ -789,12 +842,14 @@ const CommandGroupButton = memo(function CommandGroupButton({
       <button ref={buttonRef} className={className} type="button"
         title={displayName} aria-label={displayName}
         aria-haspopup="true" aria-expanded={isOpen}
-        onClick={handleToggle} onMouseDown={(e) => e.preventDefault()} onPointerDown={handlePointerDown}>
+        onClick={handleToggle} onContextMenu={handleContextMenu}
+        onMouseDown={(e) => e.preventDefault()} onPointerDown={handlePointerDown}>
         <span className="bookmarks-bar__icon" aria-hidden="true">{group.icon || "⚡"}</span>
         <span className="bookmarks-bar__label">{displayName}</span>
         <span className="bookmarks-bar__chevron" aria-hidden="true">▾</span>
       </button>
       {dropdown}
+      {ctxMenu}
     </div>
   );
 });
