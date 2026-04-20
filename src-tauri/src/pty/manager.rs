@@ -521,12 +521,137 @@ fn get_process_cwd(_pid: u32) -> Result<String, PtyError> {
 
     #[cfg(windows)]
     {
-        // Getting a child process's CWD on Windows requires NtQueryInformationProcess
-        // which is complex. Fall back to USERPROFILE as a reasonable default.
-        // The frontend also extracts CWD from the terminal title when available.
-        std::env::var("USERPROFILE").map_err(|_| {
-            PtyError::WriteFailed("Could not determine CWD on Windows".to_string())
-        })
+        use std::ffi::c_void;
+        use std::mem;
+        use std::ptr;
+
+        // Win32 FFI declarations for reading remote process CWD
+        type HANDLE = *mut c_void;
+        type NTSTATUS = i32;
+        type HMODULE = *mut c_void;
+
+        const PROCESS_QUERY_INFORMATION: u32 = 0x0400;
+        const PROCESS_VM_READ: u32 = 0x0010;
+
+        extern "system" {
+            fn OpenProcess(access: u32, inherit: i32, pid: u32) -> HANDLE;
+            fn CloseHandle(h: HANDLE) -> i32;
+            fn ReadProcessMemory(proc: HANDLE, base: *const c_void, buf: *mut c_void, size: usize, read: *mut usize) -> i32;
+            fn LoadLibraryA(name: *const u8) -> HMODULE;
+            fn GetProcAddress(module: HMODULE, name: *const u8) -> *const c_void;
+        }
+
+        type NtQueryFn = unsafe extern "system" fn(HANDLE, u32, *mut c_void, u32, *mut u32) -> NTSTATUS;
+
+        #[allow(non_snake_case)]
+        #[repr(C)]
+        struct PROCESS_BASIC_INFORMATION {
+            _r1: usize, PebBaseAddress: usize, _r2: [usize; 2], _r3: usize, _r4: usize,
+        }
+
+        #[allow(non_snake_case)]
+        #[repr(C)]
+        struct UNICODE_STRING {
+            Length: u16, MaximumLength: u16, _pad: u32, Buffer: u64,
+        }
+
+        // Find the child shell PID (conpty spawns conhost → shell)
+        // Use CreateToolhelp32Snapshot to avoid slow wmic/powershell
+        extern "system" {
+            fn CreateToolhelp32Snapshot(flags: u32, pid: u32) -> HANDLE;
+        }
+
+        #[repr(C)]
+        struct PROCESSENTRY32W {
+            dw_size: u32,
+            _cnt_usage: u32,
+            th32_process_id: u32,
+            _r1: usize,
+            _r2: usize,
+            cnt_threads: u32,
+            th32_parent_process_id: u32,
+            _pri_class_base: i32,
+            _flags: u32,
+            _sz_exe_file: [u16; 260],
+        }
+
+        extern "system" {
+            fn Process32FirstW(snap: HANDLE, entry: *mut PROCESSENTRY32W) -> i32;
+            fn Process32NextW(snap: HANDLE, entry: *mut PROCESSENTRY32W) -> i32;
+        }
+
+        let target_pid = {
+            let snap = unsafe { CreateToolhelp32Snapshot(0x2 /* TH32CS_SNAPPROCESS */, 0) };
+            let mut child_pid = _pid;
+            if !snap.is_null() && snap as isize != -1 {
+                let mut entry: PROCESSENTRY32W = unsafe { mem::zeroed() };
+                entry.dw_size = mem::size_of::<PROCESSENTRY32W>() as u32;
+                if unsafe { Process32FirstW(snap, &mut entry) } != 0 {
+                    loop {
+                        if entry.th32_parent_process_id == _pid {
+                            child_pid = entry.th32_process_id;
+                            break;
+                        }
+                        if unsafe { Process32NextW(snap, &mut entry) } == 0 { break; }
+                    }
+                }
+                unsafe { CloseHandle(snap); }
+            }
+            child_pid
+        };
+
+        let handle = unsafe { OpenProcess(PROCESS_QUERY_INFORMATION | PROCESS_VM_READ, 0, target_pid) };
+        if handle.is_null() {
+            return std::env::var("USERPROFILE").map_err(|_| {
+                PtyError::WriteFailed("Could not open process".to_string())
+            });
+        }
+
+        let result = (|| -> Result<String, PtyError> {
+            let ntdll = unsafe { LoadLibraryA(b"ntdll.dll\0".as_ptr()) };
+            if ntdll.is_null() { return Err(PtyError::WriteFailed("no ntdll".into())); }
+            let func = unsafe { GetProcAddress(ntdll, b"NtQueryInformationProcess\0".as_ptr()) };
+            if func.is_null() { return Err(PtyError::WriteFailed("no NtQIP".into())); }
+            let nt_query: NtQueryFn = unsafe { mem::transmute(func) };
+
+            let mut pbi: PROCESS_BASIC_INFORMATION = unsafe { mem::zeroed() };
+            let st = unsafe { nt_query(handle, 0, &mut pbi as *mut _ as *mut c_void, mem::size_of::<PROCESS_BASIC_INFORMATION>() as u32, ptr::null_mut()) };
+            if st != 0 || pbi.PebBaseAddress == 0 { return Err(PtyError::WriteFailed("NtQIP failed".into())); }
+
+            // Read ProcessParameters pointer from PEB (offset 0x20 on x64)
+            let params_ptr_addr = pbi.PebBaseAddress + 0x20;
+            let mut params_ptr: u64 = 0;
+            let mut br: usize = 0;
+            if unsafe { ReadProcessMemory(handle, params_ptr_addr as *const c_void, &mut params_ptr as *mut _ as *mut c_void, 8, &mut br) } == 0 {
+                return Err(PtyError::WriteFailed("read PEB failed".into()));
+            }
+
+            // CurrentDirectory.DosPath is a UNICODE_STRING at offset 0x38 in RTL_USER_PROCESS_PARAMETERS
+            let cwd_ustr_addr = params_ptr + 0x38;
+            let mut ustr: UNICODE_STRING = unsafe { mem::zeroed() };
+            if unsafe { ReadProcessMemory(handle, cwd_ustr_addr as *const c_void, &mut ustr as *mut _ as *mut c_void, mem::size_of::<UNICODE_STRING>(), &mut br) } == 0 {
+                return Err(PtyError::WriteFailed("read UNICODE_STRING failed".into()));
+            }
+
+            let char_count = ustr.Length as usize / 2;
+            if char_count == 0 || ustr.Buffer == 0 { return Err(PtyError::WriteFailed("empty CWD".into())); }
+            let mut buf: Vec<u16> = vec![0u16; char_count];
+            if unsafe { ReadProcessMemory(handle, ustr.Buffer as *const c_void, buf.as_mut_ptr() as *mut c_void, char_count * 2, &mut br) } == 0 {
+                return Err(PtyError::WriteFailed("read CWD string failed".into()));
+            }
+
+            let cwd = String::from_utf16_lossy(&buf).trim_end_matches('\\').to_string();
+            Ok(cwd)
+        })();
+
+        unsafe { CloseHandle(handle); }
+
+        match result {
+            Ok(cwd) if !cwd.is_empty() && std::path::Path::new(&cwd).exists() => Ok(cwd),
+            _ => std::env::var("USERPROFILE").map_err(|_| {
+                PtyError::WriteFailed("Could not determine CWD on Windows".to_string())
+            }),
+        }
     }
 }
 
