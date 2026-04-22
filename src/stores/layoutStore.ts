@@ -8,15 +8,14 @@
  * - Regions (containers with tab bars)
  * - LayoutNode tree (binary splits of regions)
  *
- * Actions call Tauri IPC commands (pty_spawn, pty_close, browser_close)
- * to manage sessions associated with region tabs.
+ * Actions call Tauri IPC commands (pty_spawn, pty_close) to manage
+ * sessions associated with region tabs.
  *
  * @module layoutStore
  */
 import { create } from "zustand";
 import { invoke } from "@tauri-apps/api/core";
 import type { Region, RegionTab, LayoutNode, TabPosition } from "../types";
-import { BROWSER_SESSION_PREFIX } from "../types";
 import { EDITOR_SESSION_PREFIX } from "../types";
 import { TERMINAL_CONFIG } from "../components/Terminal";
 import { useSettingsStore } from "./settingsStore";
@@ -50,20 +49,9 @@ function closePtySession(sessionId: string): void {
   clearSessionCwd(sessionId);
 }
 
-/** Closes a browser webview via Tauri IPC (fire-and-forget). */
-function closeBrowserSession(browserId: string): void {
-  invoke("browser_close", { tabId: browserId }).catch(() => {
-    // Ignore — webview may already be closed
-  });
-}
-
 /** Closes a tab's session based on its type. */
 function closeTabSession(tab: RegionTab): void {
-  if (tab.type === "browser") {
-    closeBrowserSession(tab.sessionId);
-  } else {
-    closePtySession(tab.sessionId);
-  }
+  closePtySession(tab.sessionId);
 }
 
 /**
@@ -170,9 +158,6 @@ interface LayoutState {
   /** Adds a terminal tab to a region (defaults to focused region). */
   addTerminalTab: (regionId?: string) => Promise<void>;
 
-  /** Adds a browser tab to a region (defaults to focused region). */
-  addBrowserTab: (regionId?: string, url?: string) => void;
-
   /** Adds an editor tab to a region (defaults to focused region). */
   addEditorTab: (regionId?: string, filePath?: string, scriptId?: string, forceText?: boolean) => void;
 
@@ -215,9 +200,6 @@ interface LayoutState {
 
   /** Renames a tab within a region. */
   renameTab: (regionId: string, tabId: string, title: string) => void;
-
-  /** Updates the browserUrl on a browser tab (persists across remounts). */
-  updateTabBrowserUrl: (regionId: string, tabId: string, url: string) => void;
 
   /** Moves a tab from one region to another (or reorders within the same region). */
   moveTab: (fromRegionId: string, tabId: string, toRegionId: string, insertIndex?: number) => void;
@@ -339,45 +321,6 @@ export const useLayoutStore = create<LayoutState>((set, get) => ({
       ) as HTMLElement;
       el?.focus();
     }, 100);
-  },
-
-  addBrowserTab: (regionId?: string, url?: string) => {
-    const targetRegionId = regionId || get().focusedRegionId;
-    const region = get().regions[targetRegionId];
-    if (!region) return;
-
-    const browserUrl = url || "";
-    const sessionId = `${BROWSER_SESSION_PREFIX}${generateId()}`;
-    const nextCounter = get().tabCounter + 1;
-
-    let title: string;
-    try {
-      const parsed = new URL(browserUrl);
-      title = parsed.hostname || browserUrl;
-    } catch {
-      title = browserUrl.length > 40 ? browserUrl.slice(0, 37) + "..." : browserUrl || "New Tab";
-    }
-
-    const tab: RegionTab = {
-      id: generateId(),
-      title,
-      type: "browser",
-      sessionId,
-      browserUrl,
-      status: "local",
-    };
-
-    set((state) => ({
-      regions: {
-        ...state.regions,
-        [targetRegionId]: {
-          ...state.regions[targetRegionId],
-          tabs: [...state.regions[targetRegionId].tabs, tab],
-          activeTabId: tab.id,
-        },
-      },
-      tabCounter: nextCounter,
-    }));
   },
 
   addEditorTab: (regionId?: string, filePath?: string, scriptId?: string, forceText?: boolean) => {
@@ -784,24 +727,6 @@ export const useLayoutStore = create<LayoutState>((set, get) => ({
             ...region,
             tabs: region.tabs.map((t) =>
               t.id === tabId ? { ...t, title: trimmed } : t,
-            ),
-          },
-        },
-      };
-    });
-  },
-
-  updateTabBrowserUrl: (regionId: string, tabId: string, url: string) => {
-    set((state) => {
-      const region = state.regions[regionId];
-      if (!region) return state;
-      return {
-        regions: {
-          ...state.regions,
-          [regionId]: {
-            ...region,
-            tabs: region.tabs.map((t) =>
-              t.id === tabId ? { ...t, browserUrl: url } : t,
             ),
           },
         },

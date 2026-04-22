@@ -2,12 +2,12 @@
  * PathBar — Finder-style breadcrumb path bar + git status at the bottom.
  * @module
  */
-import { useState, useEffect, useLayoutEffect, useCallback, useRef } from "react";
-import { createPortal } from "react-dom";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { useLayoutStore } from "../../stores/layoutStore";
 import { useBookmarksStore } from "../../stores/bookmarksStore";
 import { parseBranchOutput, parseTagListOutput } from "../../lib/git-graph/gitParser";
+import { Popover } from "../Popover/Popover";
 import "./PathBar.css";
 
 interface GitInfo {
@@ -61,6 +61,23 @@ export function PathBar() {
   const [branchFilter, setBranchFilter] = useState("");
   const branchBtnRef = useRef<HTMLButtonElement>(null);
   const branchMenuRef = useRef<HTMLDivElement>(null);
+  const perfEnabledRef = useRef(false);
+
+  // Breadcrumb dropdown menu state
+  type DirEntry = { name: string; path: string; isDir: boolean };
+  const [openCrumb, setOpenCrumb] = useState<string | null>(null);
+  const [crumbEntries, setCrumbEntries] = useState<DirEntry[]>([]);
+  const crumbBtnRefs = useRef<Map<string, HTMLButtonElement | null>>(new Map());
+  // Stable wrapper ref that tracks the currently-open segment button.
+  // Popover's anchorRef needs a stable RefObject; we update .current on open.
+  const openCrumbAnchorRef = useRef<HTMLButtonElement | null>(null);
+
+  // Probe perf gating once on mount. Set PUTZ_PERF=1 to enable.
+  useEffect(() => {
+    invoke<boolean>("perf_enabled")
+      .then((v) => { perfEnabledRef.current = v; })
+      .catch(() => { perfEnabledRef.current = false; });
+  }, []);
   const focusedRegionId = useLayoutStore((s) => s.focusedRegionId);
   const regions = useLayoutStore((s) => s.regions);
   const addGitGraphTab = useLayoutStore((s) => s.addGitGraphTab);
@@ -105,16 +122,32 @@ export function PathBar() {
     return () => window.removeEventListener("putz-cwd-change", handler);
   }, [sessionId, checkGit]);
 
-  const handleSegmentClick = useCallback((path: string) => {
+  const navigateTo = useCallback((path: string) => {
     if (!sessionId) return;
+    const t0 = performance.now();
+    const perf = (msg: string) => {
+      if (!perfEnabledRef.current) return;
+      const ms = (performance.now() - t0).toFixed(1);
+      const line = `crumb t+${ms}ms ${msg}`;
+      console.log(`[PERF] ${line}`);
+      invoke("perf_log", { line }).catch(() => {});
+    };
+    perf(`click path=${path}`);
+    setCwd(path);
+    perf("after setCwd");
+    // NOTE: no dispatchEvent here — PathBar is the only listener for
+    // putz-cwd-change, so self-dispatching only causes a duplicate
+    // checkGit run (4 git invokes instead of 2). External callers
+    // (bookmarks, shell prompt) still drive the event.
+    checkGit(path);
+    perf("after checkGit call (async)");
     const escaped = path.replace(/\\/g, "\\\\").replace(/"/g, '\\"').replace(/\$/g, "\\$").replace(/`/g, "\\`");
     const data = Array.from(new TextEncoder().encode(`cd "${escaped}"\r`));
-    invoke("pty_write", { sessionId, data }).then(() => {
-      setTimeout(() => {
-        window.dispatchEvent(new CustomEvent("putz-cwd-change", { detail: { sessionId, cwd: path } }));
-      }, 300);
-    }).catch(() => {});
-  }, [sessionId]);
+    perf("before pty_write invoke");
+    invoke("pty_write", { sessionId, data })
+      .then(() => perf("pty_write OK"))
+      .catch((e) => perf(`pty_write FAIL err=${e}`));
+  }, [sessionId, checkGit]);
 
   // Open branch menu
   const toggleBranchMenu = useCallback(async () => {
@@ -177,17 +210,11 @@ export function PathBar() {
     return () => document.removeEventListener("mousedown", handler);
   }, [branchMenuOpen]);
 
-  const [openCrumb, setOpenCrumb] = useState<string | null>(null);
-  const crumbMenuRef = useRef<HTMLDivElement>(null);
-  const [crumbMenuStyle, setCrumbMenuStyle] = useState<React.CSSProperties>({ visibility: "hidden" });
   const [bookmarksOpen, setBookmarksOpen] = useState(false);
   const bookmarksBtnRef = useRef<HTMLButtonElement>(null);
-  const bookmarksMenuRef = useRef<HTMLDivElement>(null);
-  const [bookmarksMenuStyle, setBookmarksMenuStyle] = useState<React.CSSProperties>({ visibility: "hidden" });
   const bookmarks = useBookmarksStore((s) => s.bookmarks);
   const bookmarkFolders = useBookmarksStore((s) => s.folders);
   const removeBookmark = useBookmarksStore((s) => s.removeBookmark);
-  const crumbBtnRefs = useRef<Map<string, HTMLButtonElement>>(new Map());
 
   // Now playing radio
   const [radioName, setRadioName] = useState<string>("");
@@ -200,70 +227,42 @@ export function PathBar() {
     return () => window.removeEventListener("putz-radio-change", handler);
   }, []);
 
-  const toggleCrumbMenu = useCallback((segPath: string) => {
-    setOpenCrumb((prev) => {
-      if (prev === segPath) return null;
-      setCrumbMenuStyle({ visibility: "hidden" });
-      return segPath;
-    });
-  }, []);
-
-  // Close crumb menu on outside click
-  useEffect(() => {
-    if (!openCrumb) return;
-    const handler = (e: MouseEvent) => {
-      if (crumbMenuRef.current && !crumbMenuRef.current.contains(e.target as Node)) {
-        setOpenCrumb(null);
-      }
-    };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
+  // Breadcrumb click → fetch dir_list FIRST, then open popover.
+  // Fetching before opening prevents the prior WebView2/xterm-WebGL "black zone"
+  // compositor bug caused by async size growth of an overlay on top of WebGL.
+  // By the time the popover renders, entries are known and layout is stable.
+  const handleSegmentClick = useCallback(async (path: string) => {
+    if (openCrumb === path) { setOpenCrumb(null); return; }
+    try {
+      const entries = await invoke<DirEntry[]>("dir_list", { path });
+      setCrumbEntries(entries);
+      openCrumbAnchorRef.current = crumbBtnRefs.current.get(path) ?? null;
+      setOpenCrumb(path);
+    } catch {
+      // Permission or I/O error — silently skip; user can still use terminal.
+    }
   }, [openCrumb]);
 
-  // Close bookmarks menu on outside click
-  useEffect(() => {
-    if (!bookmarksOpen) return;
-    const handler = (e: MouseEvent) => {
-      if (bookmarksMenuRef.current && !bookmarksMenuRef.current.contains(e.target as Node) &&
-          bookmarksBtnRef.current && !bookmarksBtnRef.current.contains(e.target as Node)) {
-        setBookmarksOpen(false);
-      }
-    };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
-  }, [bookmarksOpen]);
+  const handleCrumbEntryClick = useCallback((entry: DirEntry) => {
+    setOpenCrumb(null);
+    if (entry.isDir) {
+      navigateTo(entry.path);
+    } else {
+      const regionId = useLayoutStore.getState().focusedRegionId;
+      useLayoutStore.getState().addEditorTab(regionId, entry.path);
+    }
+  }, [navigateTo]);
 
-  // Position bookmarks menu aligned to ★ button
-  useLayoutEffect(() => {
-    if (!bookmarksOpen || !bookmarksBtnRef.current) return;
-    const rect = bookmarksBtnRef.current.getBoundingClientRect();
-    let left = rect.left;
-    if (left + 260 > window.innerWidth) left = window.innerWidth - 268;
-    if (left < 4) left = 4;
-    setBookmarksMenuStyle({ position: "fixed", left, bottom: window.innerHeight - rect.top + 2, zIndex: 300, minWidth: 240, maxWidth: 320, maxHeight: 300, visibility: "visible" });
-  }, [bookmarksOpen]);
-
-  // Position crumb menu aligned to the clicked segment
-  useLayoutEffect(() => {
-    if (!openCrumb) return;
-    const btn = crumbBtnRefs.current.get(openCrumb);
-    if (!btn) return;
-    const rect = btn.getBoundingClientRect();
-    let left = rect.left;
-    if (left + 260 > window.innerWidth) left = window.innerWidth - 268;
-    if (left < 4) left = 4;
-    setCrumbMenuStyle({ position: "fixed", left, bottom: window.innerHeight - rect.top + 2, zIndex: 300, minWidth: 220, maxWidth: 320, maxHeight: 280, visibility: "visible" });
-  }, [openCrumb]);
-
+  // Position bookmarks menu aligned to ★ button — opens upward from path bar
   const handleBookmarkClick = useCallback((bm: { path: string; type: string }) => {
     if (bm.type === "folder") {
-      handleSegmentClick(bm.path);
+      navigateTo(bm.path);
     } else {
       const regionId = useLayoutStore.getState().focusedRegionId;
       useLayoutStore.getState().addEditorTab(regionId, bm.path);
     }
     setBookmarksOpen(false);
-  }, [handleSegmentClick]);
+  }, [navigateTo]);
 
   // Get root bookmarks sorted
   const rootBookmarks = bookmarks
@@ -293,8 +292,17 @@ export function PathBar() {
       >
         ★
       </button>
-      {bookmarksOpen && createPortal(
-        <div ref={bookmarksMenuRef} className="path-bar__bookmarks-menu" style={bookmarksMenuStyle}>
+      {bookmarksOpen && (
+        <Popover
+          anchorRef={bookmarksBtnRef}
+          open={bookmarksOpen}
+          onClose={() => setBookmarksOpen(false)}
+          placement="top"
+          minWidth={240}
+          maxWidth={320}
+          maxHeight={300}
+          className="path-bar__bookmarks-menu"
+        >
           {rootBookmarks.length === 0 && sortedFolders.length === 0 && (
             <span className="path-bar__crumb-loading">No bookmarks</span>
           )}
@@ -324,36 +332,62 @@ export function PathBar() {
               >★</button>
             </div>
           ))}
-        </div>,
-        document.body,
+        </Popover>
       )}
 
       {segments.map((seg, i) => (
-        <span key={seg.path} className="path-bar__segment-wrapper">
+        <span key={seg.path} style={{ display: "contents" }}>
           {i > 0 && <span className="path-bar__sep">›</span>}
           <button
-            ref={(el) => { if (el) crumbBtnRefs.current.set(seg.path, el); }}
+            type="button"
+            ref={(el) => { crumbBtnRefs.current.set(seg.path, el); }}
             className={`path-bar__segment ${openCrumb === seg.path ? "path-bar__segment--active" : ""}`}
-            onClick={() => toggleCrumbMenu(seg.path)}
+            onClick={() => handleSegmentClick(seg.path)}
             title={seg.path}
           >
             <span className="path-bar__icon">📁</span>
             {seg.name}
           </button>
-          {openCrumb === seg.path && createPortal(
-            <div ref={crumbMenuRef} className="path-bar__crumb-menu" style={crumbMenuStyle}>
-              <CrumbTree
-                path={seg.path}
-                onSelect={(dirPath) => {
-                  setOpenCrumb(null);
-                  handleSegmentClick(dirPath);
-                }}
-              />
-            </div>,
-            document.body,
-          )}
         </span>
       ))}
+
+      {openCrumb && (
+        <Popover
+          anchorRef={openCrumbAnchorRef}
+          open={true}
+          onClose={() => setOpenCrumb(null)}
+          placement="top"
+          minWidth={220}
+          maxWidth={360}
+          maxHeight={320}
+          className="path-bar__crumb-menu"
+        >
+          <button
+            type="button"
+            className="path-bar__crumb-item path-bar__crumb-item--current"
+            onClick={() => { setOpenCrumb(null); navigateTo(openCrumb); }}
+            title={`cd to ${openCrumb}`}
+          >
+            <span>→</span>
+            <span>Open here</span>
+          </button>
+          {crumbEntries.length === 0 && (
+            <span className="path-bar__crumb-loading">Empty directory</span>
+          )}
+          {crumbEntries.map((entry) => (
+            <button
+              key={entry.path}
+              type="button"
+              className="path-bar__crumb-item"
+              onClick={() => handleCrumbEntryClick(entry)}
+              title={entry.path}
+            >
+              <span>{entry.isDir ? "📁" : "📄"}</span>
+              <span>{entry.name}</span>
+            </button>
+          ))}
+        </Popover>
+      )}
 
       {radioName && (
         <span className="path-bar__radio">📻 {radioName}</span>
@@ -472,92 +506,4 @@ function BookmarkFolderItem({ folder, children, onSelect, onClose }: {
       ))}
     </div>
   );
-}
-
-/** Recursive lazy-loading directory tree for the breadcrumb picker. */
-function CrumbTree({ path, onSelect, depth = 0 }: { path: string; onSelect: (dirPath: string) => void; depth?: number }) {
-  const [entries, setEntries] = useState<{ name: string; path: string; isDir: boolean }[] | null>(null);
-  const [expanded, setExpanded] = useState<Set<string>>(new Set());
-  const bookmarks = useBookmarksStore((s) => s.bookmarks);
-  const addBookmark = useBookmarksStore((s) => s.addBookmark);
-  const removeBookmark = useBookmarksStore((s) => s.removeBookmark);
-
-  useEffect(() => {
-    invoke<{ name: string; path: string; isDir: boolean }[]>("dir_list", { path })
-      .then(setEntries)
-      .catch(() => setEntries([]));
-  }, [path]);
-
-  const handleFileClick = useCallback((filePath: string) => {
-    const regionId = useLayoutStore.getState().focusedRegionId;
-    useLayoutStore.getState().addEditorTab(regionId, filePath);
-  }, []);
-
-  if (!entries) return <span className="path-bar__crumb-loading" style={{ paddingLeft: depth * 14 + 10 }}>…</span>;
-  if (entries.length === 0) return <span className="path-bar__crumb-loading" style={{ paddingLeft: depth * 14 + 10 }}>Empty</span>;
-
-  return (
-    <>
-      {entries.map((e) => {
-        const bm = bookmarks.find((b) => b.path === e.path);
-        return (
-          <div key={e.path}>
-            <div className="path-bar__crumb-item" style={{ paddingLeft: depth * 14 + 8 }}>
-              {e.isDir ? (
-                <>
-                  <button
-                    className="path-bar__crumb-chevron"
-                    onClick={() => setExpanded((prev) => {
-                      const next = new Set(prev);
-                      if (next.has(e.path)) next.delete(e.path); else next.add(e.path);
-                      return next;
-                    })}
-                  >
-                    {expanded.has(e.path) ? "▾" : "▸"}
-                  </button>
-                  <button className="path-bar__crumb-name" onClick={() => onSelect(e.path)}>
-                    📁 {e.name}
-                  </button>
-                </>
-              ) : (
-                <>
-                  <span className="path-bar__crumb-chevron" style={{ visibility: "hidden" }}>▸</span>
-                  <button className="path-bar__crumb-name" onClick={() => handleFileClick(e.path)}>
-                    {getFileIcon(e.name)} {e.name}
-                  </button>
-                </>
-              )}
-              {e.isDir && (
-                <button
-                  className={`path-bar__crumb-star ${bm ? "path-bar__crumb-star--active" : ""}`}
-                  onClick={(ev) => {
-                    ev.stopPropagation();
-                    if (bm) removeBookmark(bm.id);
-                    else addBookmark(e.path, "folder");
-                  }}
-                  title={bm ? "Remove from bookmarks" : "Add to bookmarks"}
-                >
-                  {bm ? "★" : "☆"}
-                </button>
-              )}
-            </div>
-            {e.isDir && expanded.has(e.path) && (
-              <CrumbTree path={e.path} onSelect={onSelect} depth={depth + 1} />
-            )}
-          </div>
-        );
-      })}
-    </>
-  );
-}
-
-/** File extension to icon. */
-const FILE_ICONS: Record<string, string> = {
-  drawio: "📐", csv: "📊", tsv: "📊", md: "📖", py: "🐍",
-  js: "📜", ts: "📜", jsx: "📜", tsx: "📜", json: "⚙️",
-  yaml: "⚙️", yml: "⚙️", rs: "🦀", toml: "⚙️", sh: "📄",
-};
-function getFileIcon(name: string): string {
-  const ext = name.split(".").pop()?.toLowerCase() || "";
-  return FILE_ICONS[ext] ?? "📄";
 }

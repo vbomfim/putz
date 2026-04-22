@@ -66,7 +66,7 @@ export function MarkdownTab({ filePath, regionId, tabId }: MarkdownTabProps) {
   }, [filePath]);
 
   const handleEdit = useCallback(() => {
-    addEditorTab(undefined, filePath);
+    addEditorTab(undefined, filePath, undefined, true);
   }, [addEditorTab, filePath]);
 
   if (isLoading) {

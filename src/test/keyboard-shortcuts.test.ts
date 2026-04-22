@@ -11,7 +11,6 @@ import {
 } from "../components/TabBar/useKeyboardShortcuts";
 
 const mockAddTerminalTab = vi.fn();
-const mockAddBrowserTab = vi.fn();
 const mockCloseTab = vi.fn();
 const mockNextTab = vi.fn();
 const mockPrevTab = vi.fn();
@@ -33,7 +32,6 @@ const mockLayoutState = {
     },
   },
   addTerminalTab: mockAddTerminalTab,
-  addBrowserTab: mockAddBrowserTab,
   closeTab: mockCloseTab,
   nextTab: mockNextTab,
   prevTab: mockPrevTab,
@@ -163,12 +161,6 @@ describe("useKeyboardShortcuts", () => {
     expect(mockToggleShortcutsPanel).toHaveBeenCalledTimes(1);
   });
 
-  it("Ctrl+Shift+B opens new browser tab", () => {
-    renderHook(() => useKeyboardShortcuts());
-    simulateKeyDown("b", { ctrlKey: true, shiftKey: true });
-    expect(mockAddBrowserTab).toHaveBeenCalledWith(undefined, "");
-  });
-
   // ─── Cmd+D / Ctrl+D — Add Bookmark ───────────────────────────────
 
   it("Ctrl+D triggers add-bookmark when no xterm focused [AC1]", () => {
@@ -266,7 +258,8 @@ describe("useKeyboardShortcuts", () => {
     expect(mockToggleBookmarksPanel).toHaveBeenCalledTimes(1);
   });
 
-  it("Ctrl+Shift+O does NOT trigger toggle-bookmarks-panel when xterm focused [H3]", () => {
+  it("Ctrl+Shift+O fires toggle-bookmarks-panel even when xterm focused [H3]", () => {
+    // Ctrl+Shift+O no longer uses xterm guard — Shift makes it unambiguous.
     const xtermDiv = document.createElement("div");
     xtermDiv.classList.add("xterm");
     const child = document.createElement("textarea");
@@ -279,7 +272,7 @@ describe("useKeyboardShortcuts", () => {
       renderHook(() => useKeyboardShortcuts());
       simulateKeyDown("o", { ctrlKey: true, shiftKey: true });
 
-      expect(mockToggleBookmarksPanel).not.toHaveBeenCalled();
+      expect(mockToggleBookmarksPanel).toHaveBeenCalledTimes(1);
     } finally {
       document.body.removeChild(xtermDiv);
     }

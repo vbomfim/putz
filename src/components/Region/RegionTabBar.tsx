@@ -115,7 +115,7 @@ function RegionTab({
     .filter(Boolean)
     .join(" ");
 
-  const icon = tab.type === "browser" ? "🌐" : tab.type === "editor" ? "📝" : tab.type === "diff" ? "📄" : "";
+  const icon = tab.type === "editor" ? "📝" : tab.type === "diff" ? "📄" : "";
 
   // ─── Pointer-based drag ──────────────────────────────────
   const dragStartPos = useRef<{ x: number; y: number } | null>(null);
@@ -243,7 +243,6 @@ export function RegionTabBar({
   tabPosition,
 }: RegionTabBarProps) {
   const addTerminalTab = useLayoutStore((s) => s.addTerminalTab);
-  const addBrowserTab = useLayoutStore((s) => s.addBrowserTab);
   const addEditorTab = useLayoutStore((s) => s.addEditorTab);
   const addSearchTab = useLayoutStore((s) => s.addSearchTab);
   const closeTab = useLayoutStore((s) => s.closeTab);
@@ -309,9 +308,6 @@ export function RegionTabBar({
             }
           }
           break;
-        case "newBrowser":
-          addBrowserTab(regionId, "");
-          break;
         case "tabsTop":
           setTabPosition(regionId, "top");
           break;
@@ -343,7 +339,7 @@ export function RegionTabBar({
         }
       }
     },
-    [contextMenu, regionId, tabs, closeTab, addBrowserTab, setTabPosition, splitTabToNew],
+    [contextMenu, regionId, tabs, closeTab, setTabPosition, splitTabToNew],
   );
 
   const handleAddClick = useCallback(() => {
@@ -404,15 +400,6 @@ export function RegionTabBar({
           title="New Terminal"
         >
           ⌨
-        </button>
-        <button
-          className="region-tabbar__action"
-          onClick={() => { setFocusedRegion(regionId); addBrowserTab(regionId, ""); }}
-          aria-label="New Browser"
-          type="button"
-          title="New Browser Tab"
-        >
-          🌐
         </button>
         <button
           className="region-tabbar__action"
@@ -500,14 +487,6 @@ export function RegionTabBar({
             Split Up ⬒
           </button>
           <div className="region-tabbar__context-separator" />
-          <button
-            className="region-tabbar__context-item"
-            onClick={() => handleContextAction("newBrowser")}
-            role="menuitem"
-            type="button"
-          >
-            New Browser Tab
-          </button>
           {/* Bookmark context menu item — uses `isBookmarkActionAvailable`
               (the looser predicate) so terminal tabs without cached CWD still
               show the action. The handler in App.tsx resolves CWD via async

@@ -140,41 +140,6 @@ describe("layoutStore", () => {
     });
   });
 
-  describe("addBrowserTab", () => {
-    it("adds a browser tab to the focused region", () => {
-      act(() => {
-        useLayoutStore.getState().addBrowserTab(undefined, "https://example.com");
-      });
-
-      const state = useLayoutStore.getState();
-      const region = state.regions[state.focusedRegionId];
-      expect(region.tabs).toHaveLength(1);
-      expect(region.tabs[0].type).toBe("browser");
-      expect(region.tabs[0].browserUrl).toBe("https://example.com");
-      expect(region.tabs[0].sessionId).toMatch(/^browser-/);
-    });
-
-    it("derives title from URL hostname", () => {
-      act(() => {
-        useLayoutStore.getState().addBrowserTab(undefined, "https://grafana.local:3000/dashboard");
-      });
-
-      const state = useLayoutStore.getState();
-      const region = state.regions[state.focusedRegionId];
-      expect(region.tabs[0].title).toBe("grafana.local");
-    });
-
-    it("sets the new browser tab as active", () => {
-      act(() => {
-        useLayoutStore.getState().addBrowserTab(undefined, "https://test.com");
-      });
-
-      const state = useLayoutStore.getState();
-      const region = state.regions[state.focusedRegionId];
-      expect(region.activeTabId).toBe(region.tabs[0].id);
-    });
-  });
-
   describe("closeTab", () => {
     it("removes a tab from its region", async () => {
       mockInvoke.mockResolvedValueOnce("session-1");
@@ -210,23 +175,6 @@ describe("layoutStore", () => {
       });
 
       expect(mockInvoke).toHaveBeenCalledWith("pty_close", { sessionId: "session-to-close" });
-    });
-
-    it("calls browser_close for browser tabs", () => {
-      act(() => {
-        useLayoutStore.getState().addBrowserTab(undefined, "https://test.com");
-      });
-
-      const state = useLayoutStore.getState();
-      const regionId = state.focusedRegionId;
-      const tab = state.regions[regionId].tabs[0];
-      mockInvoke.mockClear();
-
-      act(() => {
-        useLayoutStore.getState().closeTab(regionId, tab.id);
-      });
-
-      expect(mockInvoke).toHaveBeenCalledWith("browser_close", { browserId: tab.sessionId });
     });
 
     it("activates the next tab when the active tab is closed", async () => {
@@ -356,8 +304,7 @@ describe("layoutStore", () => {
         await useLayoutStore.getState().addTerminalTab();
       });
 
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      const _originalRegionId = useLayoutStore.getState().focusedRegionId;
+      const originalRegionId = useLayoutStore.getState().focusedRegionId;
       mockInvoke.mockResolvedValueOnce("session-new");
       await act(async () => {
         await useLayoutStore.getState().splitRegion("vertical");
@@ -742,7 +689,7 @@ describe("layoutStore", () => {
       });
 
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      const _originalRegionId = useLayoutStore.getState().focusedRegionId;
+      const originalRegionId = useLayoutStore.getState().focusedRegionId;
 
       mockInvoke.mockResolvedValueOnce("session-split");
       await act(async () => {

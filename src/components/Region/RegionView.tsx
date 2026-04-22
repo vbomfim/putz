@@ -2,15 +2,13 @@
  * RegionView — Renders a single region with its tab bar and content.
  *
  * Displays a compact tab bar at the top and the active tab's content below.
- * Terminal tabs render TerminalView; browser tabs render BrowserView;
- * editor tabs render EditorTab (Monaco editor).
+ * Terminal tabs render TerminalView; editor tabs render EditorTab (Monaco editor).
  * Shows a subtle focus indicator when this region has keyboard focus.
  *
  * @module RegionView
  */
 import { useCallback } from "react";
 import { TerminalView } from "../Terminal";
-import { BrowserView } from "../Browser";
 import { EditorTab } from "../Scripting/EditorTab";
 import { DiffEditorTab } from "../Scripting/DiffEditorTab";
 import { SearchReplaceTab } from "../Scripting/SearchReplaceTab";
@@ -40,7 +38,7 @@ interface RegionViewProps {
  *
  * Each region is a self-contained container with:
  * - Top: mini tab bar (RegionTabBar)
- * - Content: active tab's terminal or browser
+ * - Content: active tab's terminal or editor
  * - Focused border indicator (2px left accent border)
  */
 export function RegionView({ region, isFocused }: RegionViewProps) {
@@ -93,19 +91,6 @@ export function RegionView({ region, isFocused }: RegionViewProps) {
       <div className="region-view__content">
         {region.tabs.map((tab) => {
           const isTabActive = tab.id === region.activeTabId;
-          if (tab.type === "browser") {
-            return (
-              <div key={tab.id} style={{ display: isTabActive ? "flex" : "none", flex: 1, flexDirection: "column", minHeight: 0, overflow: "hidden" }}>
-                <BrowserView
-                  browserId={tab.sessionId}
-                  initialUrl={tab.browserUrl || ""}
-                  isActive={isTabActive}
-                  regionId={region.id}
-                  tabId={tab.id}
-                />
-              </div>
-            );
-          }
           if (tab.type === "editor") {
             return (
               <div key={tab.id} style={{ display: isTabActive ? "flex" : "none", flex: 1, flexDirection: "column", minHeight: 0, overflow: "hidden" }}>

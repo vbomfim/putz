@@ -13,6 +13,7 @@
  */
 import { useCallback, useEffect, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import { openUrl } from "@tauri-apps/plugin-opener";
 import { useLayoutStore } from "./stores/layoutStore";
 import { useBookmarksStore } from "./stores/bookmarksStore";
 import { dispatchBookmarkClick, extractBasename } from "./utils/bookmarkDispatch";
@@ -62,7 +63,6 @@ function safeBasename(path: string): string {
 function App() {
   const regions = useLayoutStore((s) => s.regions);
   const addTerminalTab = useLayoutStore((s) => s.addTerminalTab);
-  const addBrowserTab = useLayoutStore((s) => s.addBrowserTab);
   const addEditorTab = useLayoutStore((s) => s.addEditorTab);
   const addVaultTab = useLayoutStore((s) => s.addVaultTab);
   const addHistoryTab = useLayoutStore((s) => s.addHistoryTab);
@@ -200,14 +200,13 @@ function App() {
       onTogglePing: () => setPingOpen((prev) => !prev),
       onToggleScript: () => addEditorTab(),
       onOpenSettings: () => addSettingsTab(),
-      onNewBrowserTab: () => addBrowserTab(undefined, ""),
       onToggleWorkspaceBar: () => toggleWorkspaceBar(),
       onToggleBookmarksBar: () => toggleBookmarksBar(),
       onAddBookmark: handleAddBookmark,
       onToggleBookmarksPanel: () => addBookmarksTab(),
     });
     return () => setMenuEventCallbacks({});
-  }, [addBrowserTab, addEditorTab, addVaultTab, addHistoryTab, addTemplateTab, addSettingsTab, addBookmarksTab, toggleWorkspaceBar, toggleBookmarksBar, handleAddBookmark]);
+  }, [addEditorTab, addVaultTab, addHistoryTab, addTemplateTab, addSettingsTab, addBookmarksTab, toggleWorkspaceBar, toggleBookmarksBar, handleAddBookmark]);
 
   // Create the first tab on mount only
   useEffect(() => {
@@ -306,17 +305,17 @@ function App() {
 
   /** Called when a connection is submitted from the quick connect bar. */
   const handleQuickConnect = useCallback((connection: ParsedConnection) => {
-    // Check if this is a browser URL (http:// or https://)
+    // HTTP(S) URLs → open in the system default browser
     if (connection.protocol === "ssh" && connection.host.startsWith("http")) {
       const url = connection.host.includes("://")
         ? connection.host
         : `https://${connection.host}`;
-      addBrowserTab(undefined, url);
+      openUrl(url).catch(() => {});
       return;
     }
     // Future: open a connection with the parsed details.
     addTerminalTab();
-  }, [addTerminalTab, addBrowserTab]);
+  }, [addTerminalTab]);
 
   // Empty state — all regions are empty
   // Note: don't render empty state here — RegionContainer handles all workspaces.

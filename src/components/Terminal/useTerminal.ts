@@ -10,7 +10,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Terminal } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
-import { WebglAddon } from "@xterm/addon-webgl";
+// WebglAddon intentionally NOT imported — known compositor bug with WebView2
+// causes stale-pixel artifacts under overlays. Using xterm's default renderer.
 import { Unicode11Addon } from "@xterm/addon-unicode11";
 import { WebLinksAddon } from "@xterm/addon-web-links";
 import { invoke } from "@tauri-apps/api/core";
@@ -100,6 +101,85 @@ async function pasteToTerminal(
 }
 
 /**
+ * Scan the terminal buffer upward from `startLine` for a shell prompt that
+ * embeds its cwd (PowerShell `PS C:\path>` or CMD `C:\path>`). Returns the
+ * most recent cwd found, or undefined.
+ *
+ * This is used as a fallback cwd source on Windows because PowerShell's
+ * `cd`/`Set-Location` updates `$PWD` but does NOT sync the Win32 process
+ * `CurrentDirectory` in the PEB — so reading it via NtQueryInformationProcess
+ * can return a stale value (usually the user's home directory).
+ */
+function scanPromptCwdAboveLine(terminal: Terminal, startLine: number): string | undefined {
+  const buf = terminal.buffer.active;
+  const start = Math.max(0, startLine - 200);
+  // Collapse `\\+` or `/+` to a single separator, strip trailing quote /
+  // punctuation, strip trailing separator. Some prompt themes (Oh-My-Posh,
+  // PSReadLine in debug) render paths with escaped double backslashes.
+  const clean = (p: string): string =>
+    p.replace(/["'`]+$/, "")
+     .replace(/\\{2,}/g, "\\")
+     .replace(/\/{2,}/g, "/")
+     .replace(/[\\/]+$/, "");
+  // PowerShell: "PS C:\path> " — may be prefixed with conda "(base) ",
+  // posh-git prompt glyphs, etc. We anchor on "PS " + drive letter.
+  const psRegex = /PS\s+([A-Za-z]:[\\/][^>]*?)\s*>/;
+  // CMD: line ends with "C:\path>" (optionally with a trailing space).
+  const cmdRegex = /([A-Za-z]:[\\/][^>\s]*)\s*>\s*$/;
+  // Oh-My-Posh / Starship style: path appears bare on a line with a prompt
+  // glyph (❯, →, ➜). We look for a drive-letter path on the same line.
+  // Exclude quotes and closing brackets so we don't pick up surrounding
+  // prompt decoration.
+  const glyphRegex = /[❯→➜►»]\s*.*?([A-Za-z]:[\\/][^\s>"'`()[\]]+)|([A-Za-z]:[\\/][^\s>"'`()[\]]+)\s*[❯→➜►»]/;
+  // Multi-line Oh-My-Posh: path on one line (often after "user@host  "),
+  // glyph alone on the next. Matches any drive-letter path on the line,
+  // which we use when scanning the line directly above a bare-glyph line.
+  const bareDrivePathRegex = /([A-Za-z]:[\\/][^\s>"'`()[\]]*)/;
+  const debugLines: string[] = [];
+  for (let y = startLine; y >= start; y--) {
+    const line = buf.getLine(y);
+    if (!line) continue;
+    const text = line.translateToString(true);
+    if (debugLines.length < 6 && text.trim()) debugLines.push(`y=${y}:${JSON.stringify(text.slice(0, 120))}`);
+    const psMatch = text.match(psRegex);
+    if (psMatch) {
+      const p = clean(psMatch[1]);
+      invoke("perf_log", { line: `promptScan HIT PS y=${y} cwd=${p}` }).catch(() => {});
+      return p;
+    }
+    const cmdMatch = text.match(cmdRegex);
+    if (cmdMatch) {
+      const p = clean(cmdMatch[1]);
+      invoke("perf_log", { line: `promptScan HIT CMD y=${y} cwd=${p}` }).catch(() => {});
+      return p;
+    }
+    const glyphMatch = text.match(glyphRegex);
+    if (glyphMatch) {
+      const p = clean(glyphMatch[1] || glyphMatch[2]);
+      invoke("perf_log", { line: `promptScan HIT GLYPH y=${y} cwd=${p}` }).catch(() => {});
+      return p;
+    }
+    // Multi-line glyph prompt: a line containing only a bare glyph means the
+    // cwd lives on the previous line (Oh-My-Posh two-line layout).
+    const bareGlyph = text.trim();
+    if (/^[❯→➜►»]\s*$/.test(bareGlyph)) {
+      const above = buf.getLine(y - 1);
+      if (above) {
+        const aboveText = above.translateToString(true);
+        const m = aboveText.match(bareDrivePathRegex);
+        if (m) {
+          const p = clean(m[1]);
+          invoke("perf_log", { line: `promptScan HIT GLYPH2L y=${y} cwd=${p}` }).catch(() => {});
+          return p;
+        }
+      }
+    }
+  }
+  invoke("perf_log", { line: `promptScan MISS startLine=${startLine} sampled=[${debugLines.join(" | ")}]` }).catch(() => {});
+  return undefined;
+}
+
+/**
  * React hook that manages the full xterm.js terminal lifecycle.
  *
  * Handles: Terminal creation → addon loading → event binding →
@@ -149,6 +229,55 @@ export function useTerminal({
     const container = terminalRef.current;
     const unlisteners: UnlistenFn[] = [];
     let disposed = false;
+    // Debounce pty_cwd: on Windows the backend enumerates processes and reads
+    // remote memory — each call can take 50-200ms. Burst-presses of Enter or
+    // rapid title changes would otherwise queue on the pty sessions mutex and
+    // stall pty_write. One trailing read after a quiet period is enough.
+    //
+    // IMPORTANT: the optional anchor (marker + line) lets the caller pin the
+    // cwd record at the line where the cd *was issued*, not at where the
+    // cursor happens to sit 300ms later (which is usually AFTER the command
+    // output has printed — causing clicks on listed files to walk past the
+    // record and hit a stale older entry instead).
+    let cwdProbeTimer: ReturnType<typeof setTimeout> | null = null;
+    let pendingAnchor: { marker: import("@xterm/xterm").IMarker | null; line: number } | null = null;
+    // Once OSC 7 has been received for this session we know the shell is
+    // self-reporting its cwd reliably — skip the PEB probe entirely, since
+    // on PowerShell the PEB lags behind and would stomp the OSC 7 value
+    // with a stale directory (usually the user's home).
+    let hasReceivedOsc7 = false;
+    const probeSessionCwd = (
+      anchor?: { marker: import("@xterm/xterm").IMarker | null; line: number },
+    ) => {
+      if (hasReceivedOsc7) return;
+      if (cwdProbeTimer) clearTimeout(cwdProbeTimer);
+      // Prefer the earliest anchor in the current debounce window — it's
+      // closest to when the cd was actually typed.
+      if (anchor && !pendingAnchor) pendingAnchor = anchor;
+      cwdProbeTimer = setTimeout(() => {
+        cwdProbeTimer = null;
+        const anchor = pendingAnchor;
+        pendingAnchor = null;
+        if (disposed) return;
+
+        // STRICT PEB read. PowerShell emits OSC 7 via our injected prompt
+        // wrapper (see pty/manager.rs), which is authoritative — we do NOT
+        // buffer-scan here anymore because scanning upward from the cursor
+        // can find an OLD prompt (e.g. after `cd ..` the prompt above the
+        // cursor still shows the previous directory) and stomp on the
+        // correct OSC 7 value.
+        invoke<string>("pty_cwd_strict", { sessionId })
+          .then((processCwd) => {
+            if (!processCwd || disposed) return;
+            if (anchor) {
+              recordSessionCwd(sessionId, processCwd, anchor.marker, anchor.line);
+            } else {
+              recordCwdAtCursor(processCwd);
+            }
+          })
+          .catch(() => { /* strict failure — rely on OSC 7 / title */ });
+      }, 300);
+    };
 
     // Read initial font/theme from themeStore
     const themeState = useThemeStore.getState();
@@ -232,17 +361,44 @@ export function useTerminal({
                 return cwd.endsWith(sep) ? `${cwd}${name}` : `${cwd}${sep}${name}`;
               };
 
-              // Prefer the line-aware history: resolves to the cwd that was
-              // active when this filename was printed, not the current cwd.
+              // Prompt-scan FIRST: the shell prompt (PS C:\path> / C:\path>)
+              // sits right next to the filename the user clicked and always
+              // reflects the real cwd at that moment. This beats:
+              //  - window-title parsing (PowerShell does NOT update the
+              //    title on `cd`, so titleCwd often sticks at the startup
+              //    value of user-home)
+              //  - `pty_cwd` (PowerShell's `cd` doesn't sync the Win32 PEB
+              //    CurrentDirectory, so NtQueryInformationProcess returns
+              //    a stale value)
+              const promptCwd = scanPromptCwdAboveLine(terminal, bufferLineNumber);
+              if (promptCwd) {
+                const resolved = joinPath(promptCwd, l.text);
+                invoke("perf_log", { line: `link activate name=${l.text} line=${bufferLineNumber} source=promptScan cwd=${promptCwd} resolved=${resolved}` }).catch(() => {});
+                openFn(resolved);
+                return;
+              }
+
+              // Line-aware title/OSC7 history — resolves to the cwd that
+              // was active when this filename was printed, not the current
+              // cwd. Works well for zsh/bash with title-update hooks.
               const titleCwd = getSessionCwdAtLine(sessionId, bufferLineNumber);
               if (titleCwd) {
-                openFn(joinPath(titleCwd, l.text));
+                const resolved = joinPath(titleCwd, l.text);
+                invoke("perf_log", { line: `link activate name=${l.text} line=${bufferLineNumber} source=titleCwd cwd=${titleCwd} resolved=${resolved}` }).catch(() => {});
+                openFn(resolved);
                 return;
               }
 
               invoke<string>("pty_cwd", { sessionId })
-                .then((cwd) => openFn(joinPath(cwd, l.text)))
-                .catch(() => openFn(l.text));
+                .then((cwd) => {
+                  const resolved = joinPath(cwd, l.text);
+                  invoke("perf_log", { line: `link activate name=${l.text} line=${bufferLineNumber} source=pty_cwd cwd=${cwd} resolved=${resolved}` }).catch(() => {});
+                  openFn(resolved);
+                })
+                .catch(() => {
+                  invoke("perf_log", { line: `link activate name=${l.text} line=${bufferLineNumber} source=fallback-bare-name` }).catch(() => {});
+                  openFn(l.text);
+                });
             };
 
             const ext = l.text.split(".").pop()?.toLowerCase() || "";
@@ -265,7 +421,7 @@ export function useTerminal({
                 if (action === "view") {
                   resolveAndOpen((path) => useLayoutStore.getState().addMarkdownTab(undefined, path));
                 } else if (action === "edit") {
-                  resolveAndOpen((path) => useLayoutStore.getState().addEditorTab(undefined, path));
+                  resolveAndOpen((path) => useLayoutStore.getState().addEditorTab(undefined, path, undefined, true));
                 }
               });
             } else {
@@ -279,16 +435,12 @@ export function useTerminal({
     // Open terminal in the DOM container
     terminal.open(container);
 
-    // Try WebGL addon for GPU-accelerated rendering, fall back to canvas
-    try {
-      const webglAddon = new WebglAddon();
-      webglAddon.onContextLoss(() => {
-        webglAddon.dispose();
-      });
-      terminal.loadAddon(webglAddon);
-    } catch {
-      // WebGL not available — canvas renderer is the automatic fallback
-    }
+    // NOTE: WebGL renderer is intentionally DISABLED on Windows / WebView2.
+    // The `WebglAddon` + WebView2 compositor has a known bug where any overlay
+    // (popover menus, modals) causes the canvas to go stale and render black
+    // zones or ghost pixels from prior frames. The default DOM renderer has
+    // none of these issues and is fast enough for typical terminal workloads.
+    // See checkpoint 004 for the full investigation history.
 
     /**
      * Safely fits the terminal to its container.
@@ -322,22 +474,16 @@ export function useTerminal({
     // immediately on mount. On Windows/Chromium (WebView2), the xterm helper
     // textarea does not auto-focus when inserted into the DOM, so moving a
     // tab between region groups (which remounts TerminalView) loses the
-    // cursor until the user clicks. Staggered calls cover the case where
-    // the container isn't fully laid out yet during a layout transition.
+    // cursor until the user clicks. One RAF after mount covers the case
+    // where the container isn't fully laid out yet. The ResizeObserver
+    // below handles any further layout changes.
     const safeFocus = () => {
       if (disposed) return;
       try { terminal.focus(); } catch { /* container not ready */ }
     };
     safeFocus();
 
-    // Staggered retry fits — Allotment split animation may not have
-    // settled dimensions yet. Multiple retries at increasing intervals
-    // ensure the terminal renders correctly in new split panes.
-    const fitTimers = [
-      setTimeout(() => { safeFit(); safeFocus(); }, 150),
-      setTimeout(safeFit, 500),
-      setTimeout(safeFit, 1000),
-    ];
+    const fitRaf = requestAnimationFrame(() => { safeFit(); safeFocus(); });
 
     // Initialize highlight engine
     const highlightEngine = new HighlightEngine(terminal);
@@ -421,14 +567,16 @@ export function useTerminal({
         // pty_write failure — input dropped silently
       });
 
-      // After Enter, check if CWD changed (shell ran a command)
+      // After Enter, check if CWD changed (shell ran a command).
+      // Capture a marker AT THE ENTER LINE so the eventual probe records the
+      // new cwd at the command line — not where the cursor sits 300ms later
+      // (which is typically AFTER the command's output has printed).
       if (data.includes("\r") || data.includes("\n")) {
-        setTimeout(() => {
-          if (disposed) return;
-          invoke<string>("pty_cwd", { sessionId })
-            .then((processCwd) => { if (processCwd && !disposed) recordCwdAtCursor(processCwd); })
-            .catch(() => {});
-        }, 300);
+        const buffer = terminal.buffer.active;
+        const cursorAbsLine = buffer.baseY + buffer.cursorY;
+        let marker: import("@xterm/xterm").IMarker | null = null;
+        try { marker = terminal.registerMarker(0); } catch { /* best effort */ }
+        probeSessionCwd({ marker, line: cursorAbsLine });
       }
     });
 
@@ -475,9 +623,7 @@ export function useTerminal({
         recordCwdAtCursor(cwd);
       } else {
         // Shell title didn't contain a parseable path — read CWD from the process
-        invoke<string>("pty_cwd", { sessionId })
-          .then((processCwd) => { if (processCwd) recordCwdAtCursor(processCwd); })
-          .catch(() => {});
+        probeSessionCwd();
       }
     });
 
@@ -490,7 +636,10 @@ export function useTerminal({
         // data is everything after "7;" up to ST/BEL.
         // Format: file://hostname/percent-encoded/path
         const cwd = parseCwdFromOsc7(data);
-        if (cwd) recordCwdAtCursor(cwd);
+        if (cwd) {
+          hasReceivedOsc7 = true;
+          recordCwdAtCursor(cwd);
+        }
         return false; // let other handlers (if any) run
       });
     } catch {
@@ -644,6 +793,18 @@ export function useTerminal({
     };
     window.addEventListener("resize", handleWindowResize);
 
+    // An overlay (popover/menu) opened or closed — the xterm WebGL canvas can
+    // leave stale pixels where the overlay was. Force a full refresh.
+    const handleOverlayToggle = () => {
+      if (disposed) return;
+      try {
+        terminal.refresh(0, terminal.rows - 1);
+      } catch {
+        // ignore — terminal may be disposed
+      }
+    };
+    window.addEventListener("putz-overlay-toggle", handleOverlayToggle);
+
     // ResizeObserver — re-fit when container size changes (e.g., Allotment split resize)
     // Debounced at 50ms to avoid fitting during rapid Allotment animation
     let resizeObserverTimer: ReturnType<typeof setTimeout> | null = null;
@@ -656,14 +817,14 @@ export function useTerminal({
     });
     resizeObserver.observe(container);
 
-    // Sync initial PTY size after a short delay (DOM needs to settle)
-    const initialSizeTimeout = setTimeout(safeFit, 100);
+    // Initial fit — ResizeObserver below fires on observe() when the
+    // container has dimensions, so no standalone timer is needed here.
 
     // Cleanup on unmount
     return () => {
       disposed = true;
-      clearTimeout(initialSizeTimeout);
-      for (const t of fitTimers) clearTimeout(t);
+      if (cwdProbeTimer) clearTimeout(cwdProbeTimer);
+      cancelAnimationFrame(fitRaf);
       if (resizeDebounceTimer !== null) {
         clearTimeout(resizeDebounceTimer);
       }
@@ -671,6 +832,7 @@ export function useTerminal({
         clearTimeout(resizeObserverTimer);
       }
       window.removeEventListener("resize", handleWindowResize);
+      window.removeEventListener("putz-overlay-toggle", handleOverlayToggle);
       resizeObserver.disconnect();
       container.removeEventListener("contextmenu", handleContextMenu);
       container.removeEventListener("mousedown", handlePaneFocus);

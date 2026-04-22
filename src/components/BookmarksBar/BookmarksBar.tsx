@@ -13,17 +13,18 @@ import {
   useState,
   useCallback,
   useEffect,
-  useLayoutEffect,
   useRef,
   useMemo,
   memo,
 } from "react";
 import { createPortal } from "react-dom";
 import { invoke } from "@tauri-apps/api/core";
+import { openUrl } from "@tauri-apps/plugin-opener";
 import { useSettingsStore } from "../../stores/settingsStore";
 import { useBookmarksStore } from "../../stores/bookmarksStore";
 import { useLayoutStore } from "../../stores/layoutStore";
 import { stripBidiControls } from "../../utils/sanitize";
+import { Popover } from "../Popover/Popover";
 import type {
   BookmarkItem,
   BookmarkFolder,
@@ -123,14 +124,11 @@ function cdInTerminal(dirPath: string) {
   const tab = region.tabs.find((t) => t.id === region.activeTabId);
   if (!tab || tab.type !== "terminal") return;
   const sessionId = tab.sessionId;
+  // Update UI immediately — we already know the destination.
+  window.dispatchEvent(new CustomEvent("putz-cwd-change", { detail: { sessionId, cwd: dirPath } }));
   const escaped = dirPath.replace(/\\/g, "\\\\").replace(/"/g, '\\"').replace(/\$/g, "\\$").replace(/`/g, "\\`");
   const data = Array.from(new TextEncoder().encode(`cd "${escaped}"\r`));
-  invoke("pty_write", { sessionId, data }).then(() => {
-    // Fire CWD update after shell processes the cd
-    setTimeout(() => {
-      window.dispatchEvent(new CustomEvent("putz-cwd-change", { detail: { sessionId, cwd: dirPath } }));
-    }, 300);
-  }).catch(() => {});
+  invoke("pty_write", { sessionId, data }).catch(() => {});
 }
 
 interface FileTreeDropdownProps {
@@ -141,45 +139,17 @@ interface FileTreeDropdownProps {
 
 /** Lazy-loading file tree dropdown for folder bookmarks. */
 function FileTreeDropdown({ rootPath, anchorRef, onClose }: FileTreeDropdownProps) {
-  const menuRef = useRef<HTMLDivElement>(null);
-  const [style, setStyle] = useState<React.CSSProperties>({});
-
-  useLayoutEffect(() => {
-    if (!anchorRef.current) return;
-    const rect = anchorRef.current.getBoundingClientRect();
-    const width = 260;
-    const maxH = 400;
-    let left = rect.left;
-    let top = rect.bottom + 2;
-    if (left + width > window.innerWidth) left = window.innerWidth - width - 8;
-    if (top + maxH > window.innerHeight) {
-      top = rect.top - maxH - 2;
-      if (top < 0) top = 8;
-    }
-    setStyle({ position: "fixed", left, top, zIndex: 200, width, maxHeight: maxH });
-  }, [anchorRef]);
-
-  useEffect(() => {
-    const handler = (e: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node) &&
-          anchorRef.current && !anchorRef.current.contains(e.target as Node)) {
-        onClose();
-      }
-    };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
-  }, [onClose, anchorRef]);
-
-  useEffect(() => {
-    const handler = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
-    };
-    document.addEventListener("keydown", handler);
-    return () => document.removeEventListener("keydown", handler);
-  }, [onClose]);
-
-  return createPortal(
-    <div ref={menuRef} className="bookmarks-bar__dropdown" style={style}>
+  return (
+    <Popover
+      anchorRef={anchorRef}
+      open={true}
+      onClose={onClose}
+      placement="bottom"
+      width={260}
+      maxHeight={400}
+      zIndex={200}
+      className="bookmarks-bar__dropdown"
+    >
       <button
         className="bookmarks-bar__dropdown-item"
         type="button"
@@ -191,8 +161,7 @@ function FileTreeDropdown({ rootPath, anchorRef, onClose }: FileTreeDropdownProp
         <span className="bookmarks-bar__label">Open in Terminal</span>
       </button>
       <FileTreeNode path={rootPath} depth={0} onClose={onClose} />
-    </div>,
-    document.body,
+    </Popover>
   );
 }
 
@@ -425,53 +394,6 @@ export const FolderButton = memo(function FolderButton({
     [folder.id, onDragStart],
   );
 
-  // Compute dropdown position when open
-  const [dropdownStyle, setDropdownStyle] = useState<React.CSSProperties>({});
-
-  useLayoutEffect(() => {
-    if (!isOpen || !buttonRef.current) return;
-    const rect = buttonRef.current.getBoundingClientRect();
-    const dropdownWidth = 200;
-    const dropdownMaxHeight = 300;
-
-    let left = rect.left;
-    let top = rect.bottom + 2;
-
-    // Viewport-edge clamping: prevent overflow on right
-    if (left + dropdownWidth > window.innerWidth) {
-      left = window.innerWidth - dropdownWidth - 8;
-    }
-    // Prevent overflow on bottom — flip upward if needed
-    if (top + dropdownMaxHeight > window.innerHeight) {
-      top = rect.top - dropdownMaxHeight - 2;
-      if (top < 0) top = 8;
-    }
-
-    setDropdownStyle({
-      position: "fixed",
-      left: `${left}px`,
-      top: `${top}px`,
-      zIndex: 200,
-    });
-  }, [isOpen]);
-
-  // Close on click outside
-  useEffect(() => {
-    if (!isOpen) return;
-    const handleMouseDown = (e: MouseEvent) => {
-      if (
-        containerRef.current &&
-        !containerRef.current.contains(e.target as Node) &&
-        menuRef.current &&
-        !menuRef.current.contains(e.target as Node)
-      ) {
-        setIsOpen(false);
-      }
-    };
-    document.addEventListener("mousedown", handleMouseDown);
-    return () => document.removeEventListener("mousedown", handleMouseDown);
-  }, [isOpen]);
-
   // Close on Escape + keyboard nav within dropdown
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
@@ -530,41 +452,48 @@ export const FolderButton = memo(function FolderButton({
     ? "bookmarks-bar__item bookmarks-bar__item--dragging"
     : "bookmarks-bar__item";
 
-  const dropdown = isOpen
-    ? createPortal(
-        <div
-          ref={menuRef}
-          className="bookmarks-bar__dropdown"
-          role="menu"
-          style={dropdownStyle}
-          onKeyDown={handleMenuKeyDown}
-        >
-          {children.map((child) => {
-            const childName = sanitizeDisplayName(child.name);
-            return (
-              <button
-                key={child.id}
-                className="bookmarks-bar__dropdown-item"
-                type="button"
-                role="menuitem"
-                title={childName}
-                aria-label={childName}
-                onClick={() => handleItemClick(child)}
-              >
-                <span className="bookmarks-bar__icon" aria-hidden="true">
-                  {getBookmarkIcon(child)}
-                </span>
-                <span className="bookmarks-bar__label">{childName}</span>
-              </button>
-            );
-          })}
-          {children.length === 0 && (
-            <span className="bookmarks-bar__empty">Empty folder</span>
-          )}
-        </div>,
-        document.body,
-      )
-    : null;
+  const dropdown = (
+    <Popover
+      anchorRef={buttonRef}
+      open={isOpen}
+      onClose={() => setIsOpen(false)}
+      placement="bottom"
+      width={200}
+      maxHeight={400}
+      zIndex={200}
+      className="bookmarks-bar__dropdown"
+    >
+      <div
+        ref={menuRef}
+        role="menu"
+        onKeyDown={handleMenuKeyDown}
+        style={{ display: "contents" }}
+      >
+        {children.map((child) => {
+          const childName = sanitizeDisplayName(child.name);
+          return (
+            <button
+              key={child.id}
+              className="bookmarks-bar__dropdown-item"
+              type="button"
+              role="menuitem"
+              title={childName}
+              aria-label={childName}
+              onClick={() => handleItemClick(child)}
+            >
+              <span className="bookmarks-bar__icon" aria-hidden="true">
+                {getBookmarkIcon(child)}
+              </span>
+              <span className="bookmarks-bar__label">{childName}</span>
+            </button>
+          );
+        })}
+        {children.length === 0 && (
+          <span className="bookmarks-bar__empty">Empty folder</span>
+        )}
+      </div>
+    </Popover>
+  );
 
   return (
     <div
@@ -620,8 +549,6 @@ const CommandButton = memo(function CommandButton({
   const [showMenu, setShowMenu] = useState(false);
   const [showEdit, setShowEdit] = useState(false);
   const btnRef = useRef<HTMLButtonElement>(null);
-  const menuRef = useRef<HTMLDivElement>(null);
-  const [menuStyle, setMenuStyle] = useState<React.CSSProperties>({});
 
   const handleClick = useCallback(() => {
     onExecute(command);
@@ -629,10 +556,6 @@ const CommandButton = memo(function CommandButton({
 
   const handleContextMenu = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
-    if (btnRef.current) {
-      const rect = btnRef.current.getBoundingClientRect();
-      setMenuStyle({ position: "fixed", left: rect.left, top: rect.bottom + 2, zIndex: 200 });
-    }
     setShowMenu(true);
   }, []);
 
@@ -643,15 +566,6 @@ const CommandButton = memo(function CommandButton({
     },
     [command.id, onDragStart],
   );
-
-  useEffect(() => {
-    if (!showMenu) return;
-    const handler = (e: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) setShowMenu(false);
-    };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
-  }, [showMenu]);
 
   const className = isDragging
     ? "bookmarks-bar__item bookmarks-bar__item--command bookmarks-bar__item--dragging"
@@ -678,8 +592,16 @@ const CommandButton = memo(function CommandButton({
           <span className="bookmarks-bar__hotkey">{formatHotkey(command.hotkey)}</span>
         )}
       </button>
-      {showMenu && createPortal(
-        <div ref={menuRef} className="bookmarks-bar__dropdown" style={menuStyle}>
+      {showMenu && (
+        <Popover
+          anchorRef={btnRef}
+          open={true}
+          onClose={() => setShowMenu(false)}
+          placement="bottom"
+          width={180}
+          zIndex={200}
+          className="bookmarks-bar__dropdown"
+        >
           <button className="bookmarks-bar__dropdown-item" type="button" role="menuitem"
             onClick={() => { setShowMenu(false); setShowEdit(true); }}>
             <span className="bookmarks-bar__icon">✏️</span>
@@ -690,8 +612,7 @@ const CommandButton = memo(function CommandButton({
             <span className="bookmarks-bar__icon">🗑</span>
             <span className="bookmarks-bar__label">Delete</span>
           </button>
-        </div>,
-        document.body,
+        </Popover>
       )}
       {showEdit && (
         <CommandDialog
@@ -737,8 +658,6 @@ const CommandGroupButton = memo(function CommandGroupButton({
   const [isOpen, setIsOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
-  const menuRef = useRef<HTMLDivElement>(null);
-  const [dropdownStyle, setDropdownStyle] = useState<React.CSSProperties>({});
 
   const handleToggle = useCallback(() => setIsOpen((p) => !p), []);
 
@@ -762,32 +681,21 @@ const CommandGroupButton = memo(function CommandGroupButton({
     onDragStart(group.id, e);
   }, [group.id, onDragStart]);
 
-  useLayoutEffect(() => {
-    if (!isOpen || !buttonRef.current) return;
-    const rect = buttonRef.current.getBoundingClientRect();
-    let left = rect.left;
-    let top = rect.bottom + 2;
-    if (left + 200 > window.innerWidth) left = window.innerWidth - 208;
-    if (top + 300 > window.innerHeight) { top = rect.top - 300 - 2; if (top < 0) top = 8; }
-    setDropdownStyle({ position: "fixed", left, top, zIndex: 200 });
-  }, [isOpen]);
-
-  useEffect(() => {
-    if (!isOpen) return;
-    const handler = (e: MouseEvent) => {
-      if (containerRef.current && !containerRef.current.contains(e.target as Node) &&
-          menuRef.current && !menuRef.current.contains(e.target as Node)) setIsOpen(false);
-    };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
-  }, [isOpen]);
-
   const className = isDragging
     ? "bookmarks-bar__item bookmarks-bar__item--command bookmarks-bar__item--dragging"
     : "bookmarks-bar__item bookmarks-bar__item--command";
 
-  const dropdown = isOpen ? createPortal(
-    <div ref={menuRef} className="bookmarks-bar__dropdown" style={dropdownStyle}>
+  const dropdown = (
+    <Popover
+      anchorRef={buttonRef}
+      open={isOpen}
+      onClose={() => setIsOpen(false)}
+      placement="bottom"
+      width={200}
+      maxHeight={400}
+      zIndex={200}
+      className="bookmarks-bar__dropdown"
+    >
       {children.map((child) => (
         <GroupCommandItem key={child.id} command={child}
           onExecute={(c) => { onExecute(c); setIsOpen(false); }}
@@ -796,9 +704,8 @@ const CommandGroupButton = memo(function CommandGroupButton({
       {children.length === 0 && (
         <span className="bookmarks-bar__empty">Empty group</span>
       )}
-    </div>,
-    document.body,
-  ) : null;
+    </Popover>
+  );
 
   const ctxMenu = showCtx ? createPortal(
     <div ref={ctxRef} className="bookmarks-bar__dropdown" style={ctxStyle}
@@ -886,8 +793,9 @@ function GroupCommandItem({ command, onExecute, onEdit }: {
     // Capture the command ref before any unmounting
     const cmd = command;
     setShowCtx(false);
-    // Use setTimeout to let the dropdown close first, then open the dialog
-    setTimeout(() => onEdit(cmd), 50);
+    // Defer to the next microtask so React finishes the state update and the
+    // dropdown fully closes before onEdit opens its dialog.
+    queueMicrotask(() => onEdit(cmd));
   }, [command, onEdit]);
 
   const handleDelete = useCallback((e: React.MouseEvent) => {
@@ -961,37 +869,6 @@ function CommandDialog({ anchorRef, onClose, editCommand }: CommandDialogProps) 
   const [icon, setIcon] = useState(editCommand?.icon ?? "⚡");
   const [groupId, setGroupId] = useState<string>(editCommand?.groupId ?? "");
   const [recordingHotkey, setRecordingHotkey] = useState(false);
-  const dialogRef = useRef<HTMLDivElement>(null);
-  const [style, setStyle] = useState<React.CSSProperties>({});
-
-  useLayoutEffect(() => {
-    if (!anchorRef.current) return;
-    const rect = anchorRef.current.getBoundingClientRect();
-    let left = rect.left;
-    if (left + 300 > window.innerWidth) left = window.innerWidth - 308;
-    if (left < 4) left = 4;
-    // Always position below the anchor, scrollable if needed
-    const top = Math.min(rect.bottom + 4, window.innerHeight - 60);
-    const maxH = window.innerHeight - top - 8;
-    setStyle({ position: "fixed", left, top, zIndex: 300, width: 300, maxHeight: maxH, overflowY: "auto" });
-  }, [anchorRef]);
-
-  useEffect(() => {
-    const handler = (e: MouseEvent) => {
-      if (dialogRef.current && !dialogRef.current.contains(e.target as Node) &&
-          anchorRef.current && !anchorRef.current.contains(e.target as Node)) {
-        onClose();
-      }
-    };
-    // Delay registration to avoid catching the click that opened the dialog
-    const timer = setTimeout(() => {
-      document.addEventListener("mousedown", handler);
-    }, 100);
-    return () => {
-      clearTimeout(timer);
-      document.removeEventListener("mousedown", handler);
-    };
-  }, [onClose, anchorRef]);
 
   useEffect(() => {
     if (!recordingHotkey) return;
@@ -1029,8 +906,17 @@ function CommandDialog({ anchorRef, onClose, editCommand }: CommandDialogProps) 
     onClose();
   };
 
-  return createPortal(
-    <div ref={dialogRef} className="bookmarks-bar__add-cmd" style={style}>
+  return (
+    <Popover
+      anchorRef={anchorRef}
+      open={true}
+      onClose={onClose}
+      placement="bottom"
+      width={300}
+      maxHeight={520}
+      zIndex={300}
+      className="bookmarks-bar__add-cmd"
+    >
       <div className="bookmarks-bar__add-cmd-title">
         {editCommand ? "Edit Command" : isGroupMode ? "Create Group" : "Add Command Shortcut"}
       </div>
@@ -1091,8 +977,7 @@ function CommandDialog({ anchorRef, onClose, editCommand }: CommandDialogProps) 
           {editCommand ? "Save" : isGroupMode ? "Create" : "Add"}
         </button>
       </div>
-    </div>,
-    document.body,
+    </Popover>
   );
 }
 
@@ -1280,6 +1165,20 @@ export function BookmarksBar({
 
   // Execute a command bookmark
   const executeCommand = useCallback((cmd: CommandBookmark) => {
+    // URL shortcut: if every non-empty line is an http(s) URL, open each in
+    // the system default browser instead of dispatching to a terminal.
+    const lines = cmd.command
+      .split(/\r?\n/)
+      .map((l) => l.trim())
+      .filter((l) => l.length > 0);
+    const isUrl = (s: string) => /^https?:\/\/\S+$/i.test(s);
+    if (lines.length > 0 && lines.every(isUrl)) {
+      for (const url of lines) {
+        openUrl(url).catch(() => {});
+      }
+      return;
+    }
+
     const state = useLayoutStore.getState();
 
     // Find active terminal: prefer focused region, fallback to any region

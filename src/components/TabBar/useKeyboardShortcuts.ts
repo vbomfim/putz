@@ -46,7 +46,6 @@ function isXtermFocused(): boolean {
 /** Registers global keyboard shortcuts for tab and region management. */
 export function useKeyboardShortcuts(): void {
   const addTerminalTab = useLayoutStore((s) => s.addTerminalTab);
-  const addBrowserTab = useLayoutStore((s) => s.addBrowserTab);
   const closeTab = useLayoutStore((s) => s.closeTab);
   const nextTab = useLayoutStore((s) => s.nextTab);
   const prevTab = useLayoutStore((s) => s.prevTab);
@@ -70,10 +69,8 @@ export function useKeyboardShortcuts(): void {
         return;
       }
 
-      // Ctrl+Shift+B — New browser tab in focused region
       if (key === "b" && e.shiftKey) {
         e.preventDefault();
-        addBrowserTab(undefined, "");
         return;
       }
 
@@ -171,7 +168,6 @@ export function useKeyboardShortcuts(): void {
     },
     [
       addTerminalTab,
-      addBrowserTab,
       closeTab,
       nextTab,
       prevTab,

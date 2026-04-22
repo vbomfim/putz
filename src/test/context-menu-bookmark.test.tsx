@@ -42,7 +42,6 @@ const mockStoreActions = {
   splitRegion: vi.fn(),
   splitTabToNew: vi.fn(),
   addTerminalTab: vi.fn(),
-  addBrowserTab: vi.fn(),
   addEditorTab: vi.fn(),
   addSearchTab: vi.fn(),
   moveTab: vi.fn(),
@@ -100,18 +99,6 @@ describe("RegionTabBar context menu bookmark item [F5]", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockIsBookmarkActionAvailable.mockReturnValue(false);
-  });
-
-  it("does NOT show bookmark item for browser tab", () => {
-    const tab = makeTab({ id: "t-browser", type: "browser", title: "Browser" });
-    mockIsBookmarkActionAvailable.mockReturnValue(false);
-
-    renderTabBar([tab]);
-    openContextMenu("t-browser");
-
-    // Context menu is open — verify no bookmark item exists
-    expect(screen.queryByText("⭐ Bookmark this file")).toBeNull();
-    expect(screen.queryByText("⭐ Bookmark current folder")).toBeNull();
   });
 
   it("shows '⭐ Bookmark this file' for editor tab with path", () => {

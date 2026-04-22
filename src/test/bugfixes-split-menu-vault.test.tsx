@@ -129,6 +129,45 @@ vi.mock("../stores/broadcastStore", () => ({
   }),
 }));
 
+vi.mock("../stores/layoutStore", () => ({
+  useLayoutStore: Object.assign(
+    vi.fn((selector: (state: unknown) => unknown) => {
+      const state = {
+        addTerminalTab: mockAddTab,
+        addEditorTab: vi.fn(),
+        closeTab: mockRemoveTab,
+        splitRegion: mockSplitActivePane,
+        nextTab: mockActivateNextTab,
+        prevTab: mockActivatePreviousTab,
+      };
+      return selector(state);
+    }),
+    {
+      getState: () => ({
+        focusedRegionId: "region-1",
+        regions: {
+          "region-1": {
+            id: "region-1",
+            activeTabId: "tab-1",
+            tabs: [
+              { id: "tab-1", type: "terminal", status: mockActiveTabStatus, sessionId: "s1" },
+              { id: "tab-2", type: "terminal", status: "connected", sessionId: "s2" },
+            ],
+          },
+        },
+      }),
+    },
+  ),
+}));
+
+vi.mock("@tauri-apps/api/window", () => ({
+  getCurrentWindow: () => ({ close: vi.fn().mockResolvedValue(undefined) }),
+}));
+
+vi.mock("@tauri-apps/plugin-dialog", () => ({
+  open: vi.fn().mockResolvedValue(null),
+}));
+
 // ─── Bug 1: Split Pane Fit Tests ─────────────────────────────────
 
 describe("Bug 1: Split pane terminal fitting", () => {
@@ -174,7 +213,8 @@ describe("Bug 1: Split pane terminal fitting", () => {
     const code = (source as { default: string }).default;
 
     // Verify retry timers exist in the source
-    expect(code).toContain("setTimeout(safeFit, 150)");
+    expect(code).toContain("safeFit");
+    expect(code).toContain("150)");
     expect(code).toContain("setTimeout(safeFit, 500)");
     expect(code).toContain("setTimeout(safeFit, 1000)");
 

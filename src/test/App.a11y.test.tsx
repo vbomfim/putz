@@ -42,12 +42,14 @@ describe("App — Accessibility", () => {
     mockInvoke.mockReset().mockResolvedValue(undefined);
     mockListen.mockReset().mockResolvedValue(vi.fn());
     // Reset layoutStore to empty region
+    const regionId = "region-init";
     useLayoutStore.setState({
-      layout: { type: "region", regionId: "region-1" },
+      layout: { type: "region", regionId },
       regions: {
-        "region-1": { id: "region-1", tabs: [], activeTabId: "" },
+        [regionId]: { id: regionId, tabs: [], activeTabId: "", tabPosition: "top" },
       },
-      focusedRegionId: "region-1",
+      focusedRegionId: regionId,
+      tabCounter: 0,
     });
   });
 
@@ -104,7 +106,7 @@ describe("App — Accessibility", () => {
     render(<App />);
 
     await waitFor(() => {
-      const addBtn = screen.getByLabelText("New tab");
+      const addBtn = screen.getByLabelText("New Terminal");
       expect(addBtn).toBeInTheDocument();
     });
   });

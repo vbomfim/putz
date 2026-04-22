@@ -51,7 +51,10 @@ export function parseCwdFromOsc7(data: string): string | null {
   // After file://, format is hostname/path — drop hostname (everything up to first /)
   const slash = s.indexOf("/");
   if (slash < 0) return null;
-  const path = s.slice(slash);
+  let path = s.slice(slash);
+  // Windows: "/C:/Users/..." → "C:/Users/..." (strip the leading slash that
+  // precedes a drive letter from file:// URLs).
+  if (/^\/[A-Za-z]:[\\/]/.test(path)) path = path.slice(1);
   try {
     return decodeURIComponent(path);
   } catch {
@@ -162,9 +165,10 @@ export function getSessionCwdAtLine(
       : entry.recordedLine;
     if (entryLine <= bufferLine) return entry.cwd;
   }
-  // Nothing matched — clicked line is older than any tracked cwd.
-  // Return the oldest known cwd as a best-effort guess.
-  return history[0].cwd;
+  // Nothing matched — clicked line is older than any tracked cwd entry.
+  // Return undefined so the caller can fall back to the live pty_cwd,
+  // which is usually more accurate than an ancient stale history[0].
+  return undefined;
 }
 
 export function clearSessionCwd(sessionId: string): void {

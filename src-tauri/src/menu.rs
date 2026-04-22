@@ -44,12 +44,6 @@ pub fn build_menu(app: &AppHandle<Wry>) -> Result<tauri::menu::Menu<Wry>, tauri:
         ))
         .item(&menu_item!(
             app,
-            "menu-new-browser-tab",
-            "New Browser Tab",
-            "CmdOrCtrl+Shift+B"
-        ))
-        .item(&menu_item!(
-            app,
             "menu-new-connection",
             "New Connection...",
             "CmdOrCtrl+N"
@@ -131,16 +125,6 @@ pub fn build_menu(app: &AppHandle<Wry>) -> Result<tauri::menu::Menu<Wry>, tauri:
             "menu-split-horizontal",
             "Split Horizontal",
             "CmdOrCtrl+Shift+D"
-        ))
-        .item(&menu_item!(
-            app,
-            "menu-split-vertical-browser",
-            "Split with Browser ↔"
-        ))
-        .item(&menu_item!(
-            app,
-            "menu-split-horizontal-browser",
-            "Split with Browser ↕"
         ))
         .item(&menu_item!(app, "menu-unsplit-pane", "Unsplit Pane"))
         .separator()

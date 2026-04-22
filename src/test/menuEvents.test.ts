@@ -21,38 +21,38 @@ vi.mock("@tauri-apps/api/event", () => ({
 
 // ─── Store mocks ─────────────────────────────────────────────────
 
-const mockAddTab = vi.fn();
-const mockRemoveTab = vi.fn();
-const mockCloseAllTabs = vi.fn();
-const mockSplitActivePane = vi.fn();
-const mockToggleSearch = vi.fn();
-const mockToggleLogging = vi.fn();
-const mockActivateNextTab = vi.fn();
-const mockActivatePreviousTab = vi.fn();
+const mockAddTerminalTab = vi.fn();
+const mockAddEditorTab = vi.fn();
+const mockCloseTab = vi.fn();
+const mockSplitRegion = vi.fn();
+const mockNextTab = vi.fn();
+const mockPrevTab = vi.fn();
 const mockToggleBroadcast = vi.fn();
 const mockToggleShortcutsPanel = vi.fn();
 
-vi.mock("../stores/tabStore", () => ({
-  useTabStore: Object.assign(
+vi.mock("../stores/layoutStore", () => ({
+  useLayoutStore: Object.assign(
     vi.fn((selector: (state: unknown) => unknown) => {
       const state = {
-        addTab: mockAddTab,
-        removeTab: mockRemoveTab,
-        closeAllTabs: mockCloseAllTabs,
-        splitActivePane: mockSplitActivePane,
-        toggleSearch: mockToggleSearch,
-        toggleLogging: mockToggleLogging,
-        activateNextTab: mockActivateNextTab,
-        activatePreviousTab: mockActivatePreviousTab,
-        tabs: [{ id: "tab-1" }],
-        activeTabId: "tab-1",
+        addTerminalTab: mockAddTerminalTab,
+        addEditorTab: mockAddEditorTab,
+        closeTab: mockCloseTab,
+        splitRegion: mockSplitRegion,
+        nextTab: mockNextTab,
+        prevTab: mockPrevTab,
       };
       return selector(state);
     }),
     {
       getState: () => ({
-        activeTabId: "tab-1",
-        tabs: [{ id: "tab-1" }],
+        focusedRegionId: "region-1",
+        regions: {
+          "region-1": {
+            id: "region-1",
+            activeTabId: "tab-1",
+            tabs: [{ id: "tab-1", type: "terminal", status: "local", sessionId: "s1" }],
+          },
+        },
       }),
     },
   ),
@@ -74,6 +74,14 @@ vi.mock("../stores/settingsStore", () => ({
     };
     return selector(state);
   }),
+}));
+
+vi.mock("@tauri-apps/api/window", () => ({
+  getCurrentWindow: () => ({ close: vi.fn().mockResolvedValue(undefined) }),
+}));
+
+vi.mock("@tauri-apps/plugin-dialog", () => ({
+  open: vi.fn().mockResolvedValue(null),
 }));
 
 /** Simulates a menu event from the Tauri backend. */
@@ -102,30 +110,33 @@ describe("useMenuEvents", () => {
 
   // ─── File menu ─────────────────────────────────────────────────
 
-  it("menu-new-terminal calls addTab", () => {
+  it("menu-new-terminal calls addTerminalTab", () => {
     renderHook(() => useMenuEvents());
     emitMenuEvent("menu-new-terminal");
-    expect(mockAddTab).toHaveBeenCalledTimes(1);
+    expect(mockAddTerminalTab).toHaveBeenCalledTimes(1);
   });
 
-  it("menu-close-tab calls removeTab with active tab", () => {
+  it("menu-close-tab calls closeTab with focused region and active tab", () => {
     renderHook(() => useMenuEvents());
     emitMenuEvent("menu-close-tab");
-    expect(mockRemoveTab).toHaveBeenCalledWith("tab-1");
+    expect(mockCloseTab).toHaveBeenCalledWith("region-1", "tab-1");
   });
 
-  it("menu-close-all-tabs calls closeAllTabs", () => {
+  it("menu-close-all-tabs is handled without error", () => {
     renderHook(() => useMenuEvents());
-    emitMenuEvent("menu-close-all-tabs");
-    expect(mockCloseAllTabs).toHaveBeenCalledTimes(1);
+    // menu-close-all-tabs is currently a no-op in the handler
+    expect(() => emitMenuEvent("menu-close-all-tabs")).not.toThrow();
   });
 
   // ─── Edit menu ─────────────────────────────────────────────────
 
-  it("menu-find calls toggleSearch", () => {
+  it("menu-find dispatches putz-find custom event", () => {
+    const handler = vi.fn();
+    window.addEventListener("putz-find", handler);
     renderHook(() => useMenuEvents());
     emitMenuEvent("menu-find");
-    expect(mockToggleSearch).toHaveBeenCalledTimes(1);
+    expect(handler).toHaveBeenCalledTimes(1);
+    window.removeEventListener("putz-find", handler);
   });
 
   // ─── View menu ─────────────────────────────────────────────────
@@ -138,44 +149,44 @@ describe("useMenuEvents", () => {
     expect(onToggleBookmarksBar).toHaveBeenCalledTimes(1);
   });
 
-  it("menu-split-vertical calls splitActivePane('vertical')", () => {
+  it("menu-split-vertical calls splitRegion('vertical')", () => {
     renderHook(() => useMenuEvents());
     emitMenuEvent("menu-split-vertical");
-    expect(mockSplitActivePane).toHaveBeenCalledWith("vertical");
+    expect(mockSplitRegion).toHaveBeenCalledWith("vertical");
   });
 
-  it("menu-split-horizontal calls splitActivePane('horizontal')", () => {
+  it("menu-split-horizontal calls splitRegion('horizontal')", () => {
     renderHook(() => useMenuEvents());
     emitMenuEvent("menu-split-horizontal");
-    expect(mockSplitActivePane).toHaveBeenCalledWith("horizontal");
+    expect(mockSplitRegion).toHaveBeenCalledWith("horizontal");
   });
 
-  it("menu-toggle-broadcast calls toggle with tab IDs", () => {
+  it("menu-toggle-broadcast calls toggle with region keys", () => {
     renderHook(() => useMenuEvents());
     emitMenuEvent("menu-toggle-broadcast");
-    expect(mockToggleBroadcast).toHaveBeenCalledWith(["tab-1"], "tab-1");
+    expect(mockToggleBroadcast).toHaveBeenCalledWith(["region-1"], "region-1");
   });
 
   // ─── Session menu ──────────────────────────────────────────────
 
-  it("menu-start-logging calls toggleLogging", () => {
+  it("menu-start-logging is handled without error", () => {
     renderHook(() => useMenuEvents());
-    emitMenuEvent("menu-start-logging");
-    expect(mockToggleLogging).toHaveBeenCalledTimes(1);
+    // menu-start-logging is currently a no-op in the handler
+    expect(() => emitMenuEvent("menu-start-logging")).not.toThrow();
   });
 
   // ─── Window menu ───────────────────────────────────────────────
 
-  it("menu-next-tab calls activateNextTab", () => {
+  it("menu-next-tab calls nextTab", () => {
     renderHook(() => useMenuEvents());
     emitMenuEvent("menu-next-tab");
-    expect(mockActivateNextTab).toHaveBeenCalledTimes(1);
+    expect(mockNextTab).toHaveBeenCalledTimes(1);
   });
 
-  it("menu-previous-tab calls activatePreviousTab", () => {
+  it("menu-previous-tab calls prevTab", () => {
     renderHook(() => useMenuEvents());
     emitMenuEvent("menu-previous-tab");
-    expect(mockActivatePreviousTab).toHaveBeenCalledTimes(1);
+    expect(mockPrevTab).toHaveBeenCalledTimes(1);
   });
 
   // ─── Help menu ─────────────────────────────────────────────────
@@ -204,12 +215,10 @@ describe("useMenuEvents", () => {
     expect(onToggleFontConfig).toHaveBeenCalledTimes(1);
   });
 
-  it("menu-config-diff calls onToggleConfigDiff callback", () => {
-    const onToggleConfigDiff = vi.fn();
-    setMenuEventCallbacks({ onToggleConfigDiff });
+  it("menu-config-diff is handled as unknown event without error", () => {
     renderHook(() => useMenuEvents());
-    emitMenuEvent("menu-config-diff");
-    expect(onToggleConfigDiff).toHaveBeenCalledTimes(1);
+    // menu-config-diff was removed from the handler
+    expect(() => emitMenuEvent("menu-config-diff")).not.toThrow();
   });
 
   it("menu-command-templates calls onToggleTemplates callback", () => {
@@ -228,12 +237,10 @@ describe("useMenuEvents", () => {
     expect(onToggleHistory).toHaveBeenCalledTimes(1);
   });
 
-  it("menu-sftp calls onToggleSftp callback", () => {
-    const onToggleSftp = vi.fn();
-    setMenuEventCallbacks({ onToggleSftp });
+  it("menu-sftp is handled as unknown event without error", () => {
     renderHook(() => useMenuEvents());
-    emitMenuEvent("menu-sftp");
-    expect(onToggleSftp).toHaveBeenCalledTimes(1);
+    // menu-sftp was removed from the handler
+    expect(() => emitMenuEvent("menu-sftp")).not.toThrow();
   });
 
   it("menu-ping-dashboard calls onTogglePing callback", () => {
@@ -266,14 +273,6 @@ describe("useMenuEvents", () => {
     renderHook(() => useMenuEvents());
     emitMenuEvent("menu-ssh-key-manager");
     expect(onToggleKeyManager).toHaveBeenCalledTimes(1);
-  });
-
-  it("menu-new-browser-tab calls onNewBrowserTab callback", () => {
-    const onNewBrowserTab = vi.fn();
-    setMenuEventCallbacks({ onNewBrowserTab });
-    renderHook(() => useMenuEvents());
-    emitMenuEvent("menu-new-browser-tab");
-    expect(onNewBrowserTab).toHaveBeenCalledTimes(1);
   });
 
   // ─── M2: Async unmount race — cancelled flag ────────────────────

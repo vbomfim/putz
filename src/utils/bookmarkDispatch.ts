@@ -145,11 +145,9 @@ async function dispatchFolderBookmark(bookmark: BookmarkItem): Promise<void> {
   const data = Array.from(encoded);
 
   try {
+    // Fire CWD update immediately — we already know the destination.
+    window.dispatchEvent(new CustomEvent("putz-cwd-change", { detail: { sessionId, cwd: bookmark.path } }));
     await invoke("pty_write", { sessionId, data });
-    // Fire CWD update after shell processes the cd
-    setTimeout(() => {
-      window.dispatchEvent(new CustomEvent("putz-cwd-change", { detail: { sessionId, cwd: bookmark.path } }));
-    }, 300);
   } catch {
     showBookmarkWarning("Failed to send command to terminal");
   }

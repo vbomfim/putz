@@ -85,7 +85,7 @@ describe("TerminalView", () => {
     );
   });
 
-  it("invokes pty_close on unmount", async () => {
+  it("does not invoke pty_close on unmount (lifecycle managed by layoutStore)", async () => {
     let unmountFn: () => void;
     await act(async () => {
       const result = render(<TerminalView sessionId="close-test-session" />);
@@ -96,8 +96,7 @@ describe("TerminalView", () => {
       unmountFn!();
     });
 
-    expect(mockInvoke).toHaveBeenCalledWith("pty_close", {
-      sessionId: "close-test-session",
-    });
+    // pty_close is NOT called on unmount — lifecycle is managed by layoutStore.closeTab()
+    expect(mockInvoke).not.toHaveBeenCalledWith("pty_close", expect.anything());
   });
 });

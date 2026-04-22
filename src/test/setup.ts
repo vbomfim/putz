@@ -2,6 +2,18 @@ import "@testing-library/jest-dom/vitest";
 import { vi } from "vitest";
 
 /**
+ * Polyfill document.queryCommandSupported for jsdom — required by
+ * monaco-editor's clipboard module which calls this at import time.
+ * Without this, any test that transitively imports monaco will crash.
+ */
+if (
+  typeof document !== "undefined" &&
+  typeof document.queryCommandSupported !== "function"
+) {
+  document.queryCommandSupported = () => false;
+}
+
+/**
  * Polyfill PointerEvent for jsdom — required by components using
  * pointer-based drag and drop (BookmarksBar, RegionTabBar).
  * jsdom does not implement PointerEvent natively.
@@ -86,6 +98,7 @@ vi.mock("@xterm/xterm", () => {
       onRender: vi.fn(),
     });
     attachCustomKeyEventHandler = vi.fn().mockReturnValue(createDisposable());
+    registerLinkProvider = vi.fn().mockReturnValue(createDisposable());
     getSelection = vi.fn().mockReturnValue("");
     paste = vi.fn();
 

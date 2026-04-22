@@ -12,7 +12,7 @@
 import { create } from "zustand";
 import { invoke } from "@tauri-apps/api/core";
 import type { Tab, PaneNode } from "../types";
-import { MAX_SPLIT_DEPTH, BROWSER_SESSION_PREFIX } from "../types";
+import { MAX_SPLIT_DEPTH } from "../types";
 import { TERMINAL_CONFIG } from "../components/Terminal";
 import { useBroadcastStore } from "./broadcastStore";
 
@@ -32,22 +32,10 @@ async function spawnPtySession(): Promise<string> {
   });
 }
 
-/** Closes a PTY session via Tauri IPC (fire-and-forget). For browser sessions, closes the webview. */
+/** Closes a PTY session via Tauri IPC (fire-and-forget). */
 function closePtySession(sessionId: string): void {
-  if (sessionId.startsWith(BROWSER_SESSION_PREFIX)) {
-    // Close the browser webview — use the tab ID from the session ID
-    invoke("browser_close", { tabId: sessionId }).catch(() => {});
-    return;
-  }
   invoke("pty_close", { sessionId }).catch(() => {
     // Ignore — session may already be closed
-  });
-}
-
-/** Closes a browser webview via Tauri IPC (fire-and-forget). */
-function closeBrowserSession(tabId: string): void {
-  invoke("browser_close", { tabId }).catch(() => {
-    // Ignore — webview may already be closed
   });
 }
 
@@ -199,7 +187,6 @@ interface TabState {
 
   // Tab lifecycle
   addTab: () => Promise<void>;
-  addBrowserTab: (url: string) => void;
   removeTab: (id: string) => void;
   activateTab: (id: string) => void;
   moveTab: (fromIndex: number, toIndex: number) => void;
@@ -220,7 +207,6 @@ interface TabState {
     direction: "horizontal" | "vertical",
   ) => Promise<void>;
   splitActivePane: (direction: "horizontal" | "vertical") => Promise<void>;
-  splitActivePaneWithBrowser: (direction: "horizontal" | "vertical") => void;
   unsplitPane: (tabId: string, paneSessionId: string) => void;
   resizePane: (tabId: string, ratio: number) => void;
 
@@ -288,37 +274,6 @@ export const useTabStore = create<TabState>((set, get) => ({
     }, 100);
   },
 
-  addBrowserTab: (url: string) => {
-    const sessionId = `${BROWSER_SESSION_PREFIX}${generateId()}`;
-    const nextCounter = get().tabCounter + 1;
-
-    // Derive a title from the URL (hostname or truncated path)
-    let title: string;
-    try {
-      const parsed = new URL(url);
-      title = parsed.hostname || url;
-    } catch {
-      title = url.length > 40 ? url.slice(0, 37) + "..." : url;
-    }
-
-    const tab: Tab = {
-      id: generateId(),
-      title,
-      layout: { type: "leaf", terminalSessionId: sessionId },
-      status: "local",
-      createdAt: Date.now(),
-      contentType: "browser",
-      browserUrl: url,
-    };
-
-    set((state) => ({
-      tabs: [...state.tabs, tab],
-      activeTabId: tab.id,
-      tabCounter: nextCounter,
-      focusedPaneSessionId: sessionId,
-    }));
-  },
-
   removeTab: (id: string) => {
     const { tabs } = get();
     const tabIndex = tabs.findIndex((t) => t.id === id);
@@ -326,16 +281,10 @@ export const useTabStore = create<TabState>((set, get) => ({
 
     const tab = tabs[tabIndex];
 
-    // Close all sessions in the tab's layout tree
-    if (tab.contentType === "browser") {
-      // Close browser webview
-      closeBrowserSession(tab.id);
-    } else {
-      // Close PTY sessions (closePtySession already skips browser- prefixed IDs)
-      const sessionIds = collectSessionIds(tab.layout);
-      for (const sessionId of sessionIds) {
-        closePtySession(sessionId);
-      }
+    // Close all PTY sessions in the tab's layout tree
+    const sessionIds = collectSessionIds(tab.layout);
+    for (const sessionId of sessionIds) {
+      closePtySession(sessionId);
     }
 
     const newTabs = tabs.filter((t) => t.id !== id);
@@ -551,35 +500,6 @@ export const useTabStore = create<TabState>((set, get) => ({
     // Use the focused pane if available, otherwise fall back to first leaf
     const targetSession = focusedPaneSessionId || getFirstLeafSessionId(activeTab.layout);
     await splitPane(activeTabId, targetSession, direction);
-  },
-
-  splitActivePaneWithBrowser: (direction: "horizontal" | "vertical") => {
-    const { activeTabId, tabs, focusedPaneSessionId } = get();
-    const activeTab = tabs.find((t) => t.id === activeTabId);
-    if (!activeTab) return;
-
-    const currentDepth = getPaneDepth(activeTab.layout);
-    if (currentDepth >= MAX_SPLIT_DEPTH) return;
-
-    const targetSession = focusedPaneSessionId || getFirstLeafSessionId(activeTab.layout);
-    const newSessionId = `${BROWSER_SESSION_PREFIX}${generateId()}`;
-
-    const newLayout = splitNodeBySession(
-      activeTab.layout,
-      targetSession,
-      direction,
-      newSessionId,
-      1,
-    );
-
-    if (!newLayout) return;
-
-    set((state) => ({
-      tabs: state.tabs.map((t) =>
-        t.id === activeTabId ? { ...t, layout: newLayout, focusedSessionId: newSessionId } : t,
-      ),
-      focusedPaneSessionId: newSessionId,
-    }));
   },
 
   unsplitPane: (tabId: string, paneSessionId: string) => {

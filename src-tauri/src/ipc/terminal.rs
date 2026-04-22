@@ -44,7 +44,14 @@ pub fn pty_write(
     session_id: String,
     data: Vec<u8>,
 ) -> Result<(), String> {
-    state.write(&session_id, &data).map_err(|e| e.to_string())
+    let sid = &session_id[..8.min(session_id.len())];
+    let len = data.len();
+    crate::perf::log(&format!("pty_write ENTER session={sid} bytes={len}"));
+    let t0 = std::time::Instant::now();
+    let result = state.write(&session_id, &data).map_err(|e| e.to_string());
+    let us = t0.elapsed().as_micros();
+    crate::perf::log(&format!("pty_write EXIT  session={sid} bytes={len} took_us={us}"));
+    result
 }
 
 /// Resizes a PTY session to new dimensions (cols × rows).
@@ -74,7 +81,26 @@ pub fn pty_close(state: State<'_, PtyManager>, session_id: String) -> Result<(),
 /// Gets the current working directory of a PTY session's shell process.
 #[tauri::command]
 pub fn pty_cwd(state: State<'_, PtyManager>, session_id: String) -> Result<String, String> {
-    state.get_cwd(&session_id).map_err(|e| e.to_string())
+    let t0 = std::time::Instant::now();
+    let result = state.get_cwd(&session_id).map_err(|e| e.to_string());
+    let us = t0.elapsed().as_micros();
+    if us > 5_000 {
+        crate::perf::log(&format!(
+            "pty_cwd session={} took_us={}",
+            &session_id[..8.min(session_id.len())],
+            us
+        ));
+    }
+    result
+}
+
+/// Strict variant of `pty_cwd` — returns Err instead of falling back to
+/// USERPROFILE when the PEB read fails on Windows. Callers that record the
+/// cwd for later use (cwd registry) should prefer this to avoid polluting
+/// history with stale/fallback values.
+#[tauri::command]
+pub fn pty_cwd_strict(state: State<'_, PtyManager>, session_id: String) -> Result<String, String> {
+    state.get_cwd_strict(&session_id).map_err(|e| e.to_string())
 }
 
 /// Lists available shells on the system.

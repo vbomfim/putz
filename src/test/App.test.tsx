@@ -9,7 +9,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import App from "../App";
-import { useTabStore } from "../stores/tabStore";
+import { useLayoutStore } from "../stores/layoutStore";
 
 // Mock the Tauri invoke API — must always return a promise
 const mockInvoke = vi.fn().mockResolvedValue(undefined);
@@ -42,7 +42,20 @@ describe("App", () => {
   beforeEach(() => {
     mockInvoke.mockReset().mockResolvedValue(undefined);
     mockListen.mockReset().mockResolvedValue(vi.fn());
-    useTabStore.setState({ tabs: [], activeTabId: "", tabCounter: 0 });
+    const regionId = "region-init";
+    useLayoutStore.setState({
+      layout: { type: "region" as const, regionId },
+      regions: {
+        [regionId]: {
+          id: regionId,
+          tabs: [],
+          activeTabId: "",
+          tabPosition: "top" as const,
+        },
+      },
+      focusedRegionId: regionId,
+      tabCounter: 0,
+    });
   });
 
   it("has the app-root test id on the main container", async () => {
@@ -97,7 +110,7 @@ describe("App", () => {
     render(<App />);
 
     await waitFor(() => {
-      const addBtn = screen.getByLabelText("New tab");
+      const addBtn = screen.getByLabelText("New Terminal");
       expect(addBtn).toBeInTheDocument();
     });
   });

@@ -1,6 +1,5 @@
 /// IPC module — Tauri command handlers for frontend–backend communication.
 pub mod autologin;
-pub mod browser;
 pub mod compliance;
 pub mod connection;
 pub mod editor;
@@ -10,6 +9,7 @@ pub mod history;
 pub mod keys;
 pub mod logging;
 pub mod nettools;
+pub mod perf;
 pub mod scripting;
 pub mod session;
 pub mod sftp;
@@ -25,10 +25,6 @@ pub use audio_proxy::audio_proxy_url;
 pub use autologin::{
     autologin_cancel, autologin_delete_profile, autologin_get_profile, autologin_process,
     autologin_set_profile, autologin_start,
-};
-pub use browser::{
-    browser_close, browser_hide_all, browser_navigate, browser_open, browser_resize,
-    browser_set_visible, log_debug,
 };
 pub use compliance::{
     change_window_active, change_window_check, change_window_delete, change_window_list,
@@ -48,6 +44,7 @@ pub use history::{history_add, history_clear, history_get_recent, history_search
 pub use keys::{key_delete, key_generate, key_get_public, key_import, key_list};
 pub use logging::{logging_start, logging_status, logging_stop};
 pub use nettools::{ping_start, ping_stop, save_backup};
+pub use perf::{perf_enabled, perf_log, perf_log_path};
 pub use scripting::{
     script_delete, script_get, script_list, script_record_start, script_record_stop, script_run,
     script_run_multi, script_save, script_status, script_stop,
@@ -64,7 +61,7 @@ pub use sftp::{
 pub use templates::{
     template_create, template_delete, template_execute, template_get, template_list,
 };
-pub use terminal::{pty_close, pty_cwd, pty_list_shells, pty_resize, pty_spawn, pty_write};
+pub use terminal::{pty_close, pty_cwd, pty_cwd_strict, pty_list_shells, pty_resize, pty_spawn, pty_write};
 pub use theme::{
     theme_create, theme_delete, theme_export, theme_get, theme_import, theme_list, theme_update,
 };

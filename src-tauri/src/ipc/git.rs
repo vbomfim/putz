@@ -5,13 +5,36 @@
 
 use std::process::Command;
 
+#[cfg(windows)]
+use std::os::windows::process::CommandExt;
+
+/// Windows: suppress the flash of the `git.exe` console window when spawning.
+/// Without this flag, every git call briefly pops a black console on top of
+/// putz and interrupts focus.
+#[cfg(windows)]
+const CREATE_NO_WINDOW: u32 = 0x0800_0000;
+
 /// Run a git command in a given directory and return stdout.
 fn run_git(repo_path: &str, args: &[&str]) -> Result<String, String> {
-    let output = Command::new("git")
-        .args(args)
-        .current_dir(repo_path)
+    let t0 = std::time::Instant::now();
+    let mut cmd = Command::new("git");
+    cmd.args(args).current_dir(repo_path);
+
+    #[cfg(windows)]
+    cmd.creation_flags(CREATE_NO_WINDOW);
+
+    let output = cmd
         .output()
         .map_err(|e| format!("Failed to run git: {}", e))?;
+    let us = t0.elapsed().as_micros();
+    if us > 20_000 {
+        crate::perf::log(&format!(
+            "git {} cwd={} took_us={}",
+            args.get(0).copied().unwrap_or(""),
+            repo_path,
+            us
+        ));
+    }
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);
         return Err(format!("git error: {}", stderr));

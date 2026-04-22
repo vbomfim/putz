@@ -31,7 +31,6 @@ export interface MenuEventCallbacks {
   onTogglePing?: () => void;
   onToggleScript?: () => void;
   onOpenSettings?: () => void;
-  onNewBrowserTab?: () => void;
   onToggleWorkspaceBar?: () => void;
   onToggleBookmarksBar?: () => void;
   onAddBookmark?: () => void;
@@ -81,9 +80,6 @@ export function useMenuEvents(): void {
         // ─── File ──────────────────────────────────────────
         case "menu-new-terminal":
           addTerminalTab();
-          break;
-        case "menu-new-browser-tab":
-          menuCallbacks.onNewBrowserTab?.();
           break;
         case "menu-open-file":
           openFileDialog({
@@ -139,12 +135,6 @@ export function useMenuEvents(): void {
           splitRegion("vertical");
           break;
         case "menu-split-horizontal":
-          splitRegion("horizontal");
-          break;
-        case "menu-split-vertical-browser":
-          splitRegion("vertical");
-          break;
-        case "menu-split-horizontal-browser":
           splitRegion("horizontal");
           break;
         case "menu-toggle-highlighting":

@@ -50,7 +50,6 @@ const DEFAULT_LAYOUT_STATE = {
     },
   },
   addTerminalTab: vi.fn(),
-  addBrowserTab: vi.fn(),
   closeTab: vi.fn(),
   nextTab: vi.fn(),
   prevTab: vi.fn(),
@@ -187,11 +186,6 @@ describe("getBookmarkableFromTab", () => {
   it("returns null for terminal tab with no CWD", () => {
     mockGetSessionCwd.mockReturnValue(undefined);
     const tab = makeTab({ type: "terminal", sessionId: "sess-42" });
-    expect(getBookmarkableFromTab(tab)).toBeNull();
-  });
-
-  it("returns null for browser tab", () => {
-    const tab = makeTab({ type: "browser" });
     expect(getBookmarkableFromTab(tab)).toBeNull();
   });
 
@@ -404,10 +398,6 @@ describe("isBookmarkActionAvailable", () => {
       ...overrides,
     };
   }
-
-  it("returns false for browser tab", () => {
-    expect(isBookmarkActionAvailable(makeTab({ type: "browser" }))).toBe(false);
-  });
 
   it("returns false for settings tab", () => {
     expect(isBookmarkActionAvailable(makeTab({ type: "settings" }))).toBe(false);

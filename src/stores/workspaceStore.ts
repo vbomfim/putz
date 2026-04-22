@@ -9,7 +9,7 @@
  * @module workspaceStore
  */
 import { create } from "zustand";
-import { invoke } from "@tauri-apps/api/core";
+
 import { useLayoutStore } from "./layoutStore";
 import type { Region, LayoutNode } from "../types";
 
@@ -252,27 +252,11 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => {
       // 1. Save current layout into current workspace
       const currentLayout = captureLayoutState();
 
-      // 2. Hide ALL browser webviews globally via Rust (catches all webviews regardless of tab state)
-      invoke("browser_hide_all", {}).catch(() => {});
-
-      // 3. Restore target workspace layout
+      // 2. Restore target workspace layout
       const targetWorkspace = workspaces.find((w) => w.id === id)!;
       restoreLayoutState(targetWorkspace.savedLayout);
 
-      // 4. Re-show active browser webviews in the restored workspace
-      //    (browser_hide_all hid everything, but isActive effect won't re-fire
-      //    if isActive was already true before the switch)
-      setTimeout(() => {
-        const newRegions = useLayoutStore.getState().regions;
-        for (const region of Object.values(newRegions)) {
-          const activeTab = region.tabs.find((t) => t.id === region.activeTabId);
-          if (activeTab?.type === "browser" && activeTab.sessionId) {
-            invoke("browser_set_visible", { tabId: activeTab.sessionId, visible: true }).catch(() => {});
-          }
-        }
-      }, 100);
-
-      // 5. Update workspace store
+      // 3. Update workspace store
       set((state) => {
         const updated = {
           workspaces: state.workspaces.map((w) => {

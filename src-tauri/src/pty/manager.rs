@@ -155,7 +155,30 @@ impl PtyManager {
         // Spawn as login shell so it sources ~/.zprofile / ~/.bash_profile
         // This ensures the full PATH is available (Homebrew, cargo, nvm, etc.)
         // Without this, macOS GUI apps get a minimal PATH (/usr/bin:/bin only)
+        #[cfg(unix)]
         cmd.arg("-l");
+
+        // Windows: inject OSC 7 cwd notification into PowerShell so the
+        // frontend can track `cd` reliably. PowerShell does NOT sync the
+        // Win32 PEB CurrentDirectory on Set-Location, so reading cwd via
+        // NtQueryInformationProcess returns stale values. OSC 7 lets the
+        // shell itself authoritatively announce its cwd before every prompt.
+        //
+        // Strategy: skip auto-profile loading, manually dot-source all four
+        // profile paths (so Oh-My-Posh etc. still install their prompt),
+        // then wrap the user's `prompt` function with an OSC 7 emitter.
+        #[cfg(windows)]
+        {
+            let shell_lower = shell_path.to_lowercase();
+            if shell_lower.ends_with("powershell.exe") || shell_lower.ends_with("pwsh.exe") {
+                let script = r#"foreach ($p in @($PROFILE.AllUsersAllHosts, $PROFILE.AllUsersCurrentHost, $PROFILE.CurrentUserAllHosts, $PROFILE.CurrentUserCurrentHost)) { if ($p -and (Test-Path $p)) { . $p } }; $global:__putzOrigPrompt = $function:prompt; function global:prompt { try { [Console]::Write([char]27 + ']7;file://' + [System.Net.Dns]::GetHostName() + ($PWD.ProviderPath -replace '\\','/') + [char]27 + '\') } catch {}; & $global:__putzOrigPrompt }"#;
+                cmd.arg("-NoLogo");
+                cmd.arg("-NoProfile");
+                cmd.arg("-NoExit");
+                cmd.arg("-Command");
+                cmd.arg(script);
+            }
+        }
 
         // Set TERM so the shell knows how to handle terminal features
         cmd.env("TERM", "xterm-256color");
@@ -219,15 +242,18 @@ impl PtyManager {
     pub fn write(&self, session_id: &str, data: &[u8]) -> Result<(), PtyError> {
         validate_session_id(session_id)?;
 
+        let t_start = std::time::Instant::now();
         let mut sessions = self
             .sessions
             .lock()
             .map_err(|e| PtyError::WriteFailed(e.to_string()))?;
+        let t_lock = t_start.elapsed().as_micros();
 
         let session = sessions
             .get_mut(session_id)
             .ok_or_else(|| PtyError::NotFound(session_id.to_string()))?;
 
+        let t_write_start = std::time::Instant::now();
         session
             .writer
             .write_all(data)
@@ -237,6 +263,16 @@ impl PtyManager {
             .writer
             .flush()
             .map_err(|e| PtyError::WriteFailed(e.to_string()))?;
+        let t_write = t_write_start.elapsed().as_micros();
+
+        if t_lock > 5_000 || t_write > 5_000 {
+            crate::perf::log(&format!(
+                "manager.write session={} lock_wait_us={} write_flush_us={}",
+                &session_id[..8.min(session_id.len())],
+                t_lock,
+                t_write
+            ));
+        }
 
         Ok(())
     }
@@ -275,20 +311,60 @@ impl PtyManager {
     pub fn get_cwd(&self, session_id: &str) -> Result<String, PtyError> {
         validate_session_id(session_id)?;
 
-        let sessions = self
-            .sessions
-            .lock()
-            .map_err(|e| PtyError::WriteFailed(e.to_string()))?;
+        let t_start = std::time::Instant::now();
+        let pid = {
+            let sessions = self
+                .sessions
+                .lock()
+                .map_err(|e| PtyError::WriteFailed(e.to_string()))?;
 
-        let session = sessions
-            .get(session_id)
-            .ok_or_else(|| PtyError::NotFound(session_id.to_string()))?;
+            let session = sessions
+                .get(session_id)
+                .ok_or_else(|| PtyError::NotFound(session_id.to_string()))?;
 
-        let pid = session.pid.ok_or_else(|| {
-            PtyError::WriteFailed("No PID available for this session".to_string())
-        })?;
+            session.pid.ok_or_else(|| {
+                PtyError::WriteFailed("No PID available for this session".to_string())
+            })?
+        };
+        let t_lock = t_start.elapsed().as_micros();
 
-        get_process_cwd(pid)
+        let t_probe = std::time::Instant::now();
+        let result = get_process_cwd(pid);
+        let t_probe_us = t_probe.elapsed().as_micros();
+
+        if t_lock > 5_000 || t_probe_us > 20_000 {
+            crate::perf::log(&format!(
+                "manager.get_cwd session={} pid={} lock_wait_us={} probe_us={}",
+                &session_id[..8.min(session_id.len())],
+                pid,
+                t_lock,
+                t_probe_us
+            ));
+        }
+
+        result
+    }
+
+    /// Like `get_cwd` but returns Err when the PEB read fails instead of
+    /// falling back to USERPROFILE. Use for cwd-tracking (per-line registry)
+    /// so stale/fallback values don't get recorded as real cwd changes.
+    pub fn get_cwd_strict(&self, session_id: &str) -> Result<String, PtyError> {
+        validate_session_id(session_id)?;
+
+        let pid = {
+            let sessions = self
+                .sessions
+                .lock()
+                .map_err(|e| PtyError::WriteFailed(e.to_string()))?;
+            let session = sessions
+                .get(session_id)
+                .ok_or_else(|| PtyError::NotFound(session_id.to_string()))?;
+            session.pid.ok_or_else(|| {
+                PtyError::WriteFailed("No PID available for this session".to_string())
+            })?
+        };
+
+        get_process_cwd_strict(pid)
     }
 
     /// Closes a PTY session and removes it from the manager.
@@ -485,7 +561,29 @@ fn validate_env_vars(vars: &HashMap<String, String>) -> Result<(), PtyError> {
 }
 
 /// Gets the current working directory of a process by PID.
+/// On Windows, falls back to `USERPROFILE` if the PEB read fails — this keeps
+/// the UI (breadcrumb) functional even when we can't read the true cwd. For
+/// callers that need to distinguish "real cwd" from "fallback", use
+/// `get_process_cwd_strict` instead.
 fn get_process_cwd(_pid: u32) -> Result<String, PtyError> {
+    let result = get_process_cwd_strict(_pid);
+    #[cfg(windows)]
+    {
+        if result.is_err() {
+            return std::env::var("USERPROFILE").map_err(|_| {
+                PtyError::WriteFailed("Could not determine CWD on Windows".to_string())
+            });
+        }
+    }
+    result
+}
+
+/// Gets the current working directory of a process by PID — strict variant.
+/// Returns Err if the real cwd can't be determined (no fallback). Callers
+/// that record the value for later use (e.g. per-line cwd registry) should
+/// prefer this over `get_process_cwd` so stale/fallback values don't pollute
+/// history.
+fn get_process_cwd_strict(_pid: u32) -> Result<String, PtyError> {
     #[cfg(target_os = "linux")]
     {
         let link = format!("/proc/{}/cwd", _pid);
@@ -602,9 +700,7 @@ fn get_process_cwd(_pid: u32) -> Result<String, PtyError> {
 
         let handle = unsafe { OpenProcess(PROCESS_QUERY_INFORMATION | PROCESS_VM_READ, 0, target_pid) };
         if handle.is_null() {
-            return std::env::var("USERPROFILE").map_err(|_| {
-                PtyError::WriteFailed("Could not open process".to_string())
-            });
+            return Err(PtyError::WriteFailed("Could not open process".to_string()));
         }
 
         let result = (|| -> Result<String, PtyError> {
@@ -648,9 +744,8 @@ fn get_process_cwd(_pid: u32) -> Result<String, PtyError> {
 
         match result {
             Ok(cwd) if !cwd.is_empty() && std::path::Path::new(&cwd).exists() => Ok(cwd),
-            _ => std::env::var("USERPROFILE").map_err(|_| {
-                PtyError::WriteFailed("Could not determine CWD on Windows".to_string())
-            }),
+            Ok(_) => Err(PtyError::WriteFailed("PEB returned empty or non-existent CWD".into())),
+            Err(e) => Err(e),
         }
     }
 }

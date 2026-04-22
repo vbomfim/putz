@@ -1,7 +1,6 @@
 #![allow(dead_code)]
 
 mod autologin;
-mod browser;
 mod commands;
 mod compliance;
 mod highlight;
@@ -11,6 +10,7 @@ mod keys;
 mod logging;
 mod menu;
 mod nettools;
+mod perf;
 mod protocol;
 mod pty;
 mod scripting;
@@ -20,15 +20,13 @@ mod theme;
 mod vault;
 
 use autologin::AutoLoginManager;
-use browser::BrowserManager;
 use commands::greet;
 use compliance::ChangeWindowManager;
 use highlight::HighlightManager;
 use history::CommandHistoryManager;
 use ipc::{
     autologin_cancel, autologin_delete_profile, autologin_get_profile, autologin_process,
-    autologin_set_profile, autologin_start, browser_close, browser_hide_all, browser_navigate,
-    browser_open, browser_resize, browser_set_visible, change_window_active, change_window_check,
+    autologin_set_profile, autologin_start, change_window_active, change_window_check,
     change_window_delete, change_window_list, change_window_set, connection_close, connection_open,
     connection_resize, connection_write, dir_list, file_mtime, file_read, file_replace, file_replace_all,
     file_search, file_write, forwarding_add, forwarding_list, forwarding_remove, forwarding_status,
@@ -36,8 +34,8 @@ use ipc::{
     git_branches, git_checkout, git_file_at_commit, git_pull, git_push, git_tags, git_log, git_remotes, git_repo_root, git_rev_parse_head, git_show, git_stash_list, git_status, git_status_summary, git_worktree_list,
     highlight_create_set, highlight_delete_set, highlight_get_set, highlight_list_sets,
     highlight_update_set, history_add, history_clear, history_get_recent, history_search,
-    key_delete, key_generate, key_get_public, key_import, key_list, log_debug, logging_start,
-    logging_status, logging_stop, ping_start, ping_stop, pty_close, pty_cwd, pty_list_shells,
+    key_delete, key_generate, key_get_public, key_import, key_list, logging_start,
+    logging_status, logging_stop, perf_enabled, perf_log, perf_log_path, ping_start, ping_stop, pty_close, pty_cwd, pty_cwd_strict, pty_list_shells,
     pty_resize, pty_spawn,
     pty_write, save_backup, script_delete, script_get, script_list, script_record_start,
     script_record_stop, script_run, script_run_multi, script_save, script_status, script_stop,
@@ -67,6 +65,7 @@ use tauri::Manager;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    perf::log("=== putz startup ===");
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_process::init())
@@ -97,7 +96,6 @@ pub fn run() {
         .manage(AutoLoginManager::new())
         .manage(PingManager::new())
         .manage(TemplateManager::new())
-        .manage(BrowserManager::new())
         .invoke_handler(tauri::generate_handler![
             greet,
             pty_spawn,
@@ -105,7 +103,11 @@ pub fn run() {
             pty_resize,
             pty_close,
             pty_cwd,
+            pty_cwd_strict,
             pty_list_shells,
+            perf_enabled,
+            perf_log,
+            perf_log_path,
             connection_open,
             connection_write,
             connection_resize,
@@ -195,13 +197,6 @@ pub fn run() {
             template_create,
             template_delete,
             template_execute,
-            browser_open,
-            browser_navigate,
-            browser_close,
-            browser_resize,
-            browser_set_visible,
-            browser_hide_all,
-            log_debug,
             file_read,
             file_write,
             file_mtime,
@@ -229,7 +224,6 @@ pub fn run() {
         // Fix 8: Graceful app exit — clean up PTY sessions and protocol connections
         .on_window_event(|window, event| {
             if let tauri::WindowEvent::CloseRequested { .. } = event {
-                // Only clean up when the MAIN window closes, not popup browsers
                 if window.label() != "main" {
                     return;
                 }
@@ -239,9 +233,6 @@ pub fn run() {
                 // Close all protocol connections
                 let conn_mgr: tauri::State<'_, ConnectionManager> = window.state();
                 tauri::async_runtime::block_on(conn_mgr.close_all());
-                // Close all browser webviews
-                let browser_mgr: tauri::State<'_, BrowserManager> = window.state();
-                browser_mgr.close_all();
             }
         })
         .run(tauri::generate_context!())

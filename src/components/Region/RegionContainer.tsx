@@ -62,17 +62,9 @@ function PaneSlot({ regionId }: { regionId: string }) {
     const target = getPortalTarget(regionId);
     slot.appendChild(target);
 
-    // Staggered resize events after portal target is moved into the pane.
-    // The DOM may not have settled dimensions immediately after appendChild,
-    // so fire multiple resize events to ensure terminals refit correctly.
-    const timers = [
-      setTimeout(() => window.dispatchEvent(new Event("resize")), 50),
-      setTimeout(() => window.dispatchEvent(new Event("resize")), 200),
-      setTimeout(() => window.dispatchEvent(new Event("resize")), 500),
-    ];
-
-    // Watch the SLOT size — when Allotment resizes panes (drag divider),
-    // fire resize so terminals refit to the new dimensions
+    // Watch the SLOT size — ResizeObserver fires once on observe() (when the
+    // slot first has dimensions) and on every subsequent change. This covers
+    // both the initial portal insertion and Allotment divider drags.
     const observer = new ResizeObserver(() => {
       window.dispatchEvent(new Event("resize"));
     });
@@ -80,7 +72,6 @@ function PaneSlot({ regionId }: { regionId: string }) {
 
     return () => {
       observer.disconnect();
-      for (const t of timers) clearTimeout(t);
     };
   }, [regionId]);
   return <div ref={ref} style={{ width: "100%", height: "100%", overflow: "hidden", position: "relative" }} />;

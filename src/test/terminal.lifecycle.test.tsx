@@ -236,7 +236,7 @@ describe("Terminal Lifecycle — Event Listeners", () => {
   /**
    * [COVERAGE] Unmount calls pty_close to clean up the backend session.
    */
-  it("calls pty_close on unmount", async () => {
+  it("does not call pty_close on unmount (lifecycle managed by layoutStore)", async () => {
     let unmountFn: () => void;
 
     await act(async () => {
@@ -248,9 +248,8 @@ describe("Terminal Lifecycle — Event Listeners", () => {
       unmountFn!();
     });
 
-    expect(mockInvoke).toHaveBeenCalledWith("pty_close", {
-      sessionId: "close-on-unmount",
-    });
+    // pty_close is NOT called on unmount — lifecycle is managed by layoutStore.closeTab()
+    expect(mockInvoke).not.toHaveBeenCalledWith("pty_close", expect.anything());
   });
 });
 
