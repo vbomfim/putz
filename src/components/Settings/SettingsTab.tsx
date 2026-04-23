@@ -19,6 +19,13 @@ interface Theme {
   colors: Record<string, string>;
 }
 
+interface SwarmState {
+  enabled: boolean;
+  url: string | null;
+  colleague_count: number;
+  colleague_ids: string[];
+}
+
 const EFFECTS: { id: BackgroundEffect; label: string; desc: string }[] = [
   { id: "none", label: "None", desc: "Clean background" },
   { id: "matrix", label: "Matrix", desc: "Green digital rain" },
@@ -43,15 +50,33 @@ export function SettingsTab() {
   const setBackgroundSize = useSettingsStore((s) => s.setBackgroundSize);
   const defaultShell = useSettingsStore((s) => s.defaultShell);
   const setDefaultShell = useSettingsStore((s) => s.setDefaultShell);
+  const swarmEnabled = useSettingsStore((s) => s.swarmEnabled);
+  const setSwarmEnabled = useSettingsStore((s) => s.setSwarmEnabled);
   const activeThemeId = useThemeStore((s) => s.activeThemeId);
   const setActiveTheme = useThemeStore((s) => s.setActiveTheme);
   const [themes, setThemes] = useState<Theme[]>([]);
   const [availableShells, setAvailableShells] = useState<{ name: string; path: string }[]>([]);
+  const [swarmState, setSwarmState] = useState<SwarmState | null>(null);
 
   useEffect(() => {
     invoke<Theme[]>("theme_list").then(setThemes).catch(() => {});
     invoke<{ name: string; path: string }[]>("pty_list_shells").then(setAvailableShells).catch(() => {});
+    invoke<SwarmState>("swarm_get_state").then(setSwarmState).catch(() => {});
   }, []);
+
+  const handleSwarmToggle = useCallback(async () => {
+    const next = !swarmEnabled;
+    setSwarmEnabled(next);
+    try {
+      await invoke("swarm_set_enabled", { enabled: next });
+      const state = await invoke<SwarmState>("swarm_get_state");
+      setSwarmState(state);
+    } catch (err) {
+      // Revert on failure
+      setSwarmEnabled(!next);
+      console.warn("[SettingsTab] swarm toggle failed:", err);
+    }
+  }, [swarmEnabled, setSwarmEnabled]);
 
   const handleThemeSelect = useCallback((theme: Theme) => {
     setActiveTheme(theme.id, theme.colors as unknown as Parameters<typeof setActiveTheme>[1]);
@@ -248,6 +273,45 @@ export function SettingsTab() {
               </button>
             ))}
           </div>
+        </section>
+
+        {/* ── Copilot Swarm ─────────────────────────── */}
+        <section>
+          <h3 style={{ fontSize: 13, margin: "0 0 8px", color: "var(--text-primary)" }}>Copilot Swarm</h3>
+          <p style={{ fontSize: 11, color: "var(--text-secondary)", margin: "0 0 12px" }}>
+            Enable a local HTTP broker so Copilot CLI agents running in terminal tabs can
+            discover, message, and coordinate with each other. The broker binds to 127.0.0.1
+            only — no external network access.
+          </p>
+          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            <button
+              onClick={handleSwarmToggle}
+              style={{
+                padding: "6px 16px",
+                border: swarmEnabled ? "2px solid var(--accent)" : "1px solid var(--hover-bg)",
+                borderRadius: 6,
+                background: swarmEnabled ? "var(--accent)" : "var(--bg-secondary)",
+                color: swarmEnabled ? "white" : "var(--text-primary)",
+                cursor: "pointer",
+                fontSize: 12,
+                fontFamily: "inherit",
+                fontWeight: swarmEnabled ? 600 : 400,
+              }}
+            >
+              {swarmEnabled ? "● Enabled" : "○ Disabled"}
+            </button>
+            {swarmState && swarmEnabled && swarmState.url && (
+              <span style={{ fontSize: 11, color: "var(--text-secondary)" }}>
+                Broker: {swarmState.url} · {swarmState.colleague_count} colleague{swarmState.colleague_count !== 1 ? "s" : ""}
+              </span>
+            )}
+          </div>
+          {/* L3: PII / sensitive-data warning */}
+          <p style={{ fontSize: 10, color: "var(--text-tertiary, #888)", margin: "8px 0 0", fontStyle: "italic" }}>
+            ⚠ Messages exchanged between swarm agents may contain prompts with sensitive data.
+            The broker runs locally and does not transmit data externally, but exercise caution
+            when using agent prompts that reference personal or confidential information.
+          </p>
         </section>
 
         {/* ── Info ─────────────────────────────────────── */}

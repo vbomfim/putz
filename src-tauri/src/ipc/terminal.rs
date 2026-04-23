@@ -12,6 +12,7 @@ use tauri::{AppHandle, State};
 
 use crate::logging::LogManager;
 use crate::pty::PtyManager;
+use crate::swarm::SwarmCoordinator;
 
 #[cfg(test)]
 use crate::pty::PtyError;
@@ -20,20 +21,43 @@ use crate::pty::PtyError;
 ///
 /// Returns the UUID session ID that identifies this session for
 /// all subsequent operations (write, resize, close).
+///
+/// If the swarm broker is enabled, injects `PUTZ_SWARM_URL`,
+/// `PUTZ_SWARM_TOKEN`, and `PUTZ_TAB_ID` env vars into the session.
 #[tauri::command]
 #[allow(clippy::too_many_arguments)]
-pub fn pty_spawn(
+pub async fn pty_spawn(
     app: AppHandle,
     state: State<'_, PtyManager>,
     log_state: State<'_, LogManager>,
+    swarm: State<'_, SwarmCoordinator>,
     shell: Option<String>,
     cwd: Option<String>,
     cols: u16,
     rows: u16,
     env: Option<HashMap<String, String>>,
+    tab_id: Option<String>,
 ) -> Result<String, String> {
+    // H6: Use .await instead of block_on() to avoid deadlock risk
+    let merged_env = if swarm.enabled() {
+        let tid = tab_id.unwrap_or_else(|| uuid::Uuid::new_v4().to_string());
+        let swarm_vars = swarm.env_vars(&tid).await;
+        match swarm_vars {
+            Some(vars) => {
+                let mut base = env.unwrap_or_default();
+                for (k, v) in vars {
+                    base.entry(k).or_insert(v);
+                }
+                Some(base)
+            }
+            None => env,
+        }
+    } else {
+        env
+    };
+
     state
-        .spawn(&app, shell, cwd, cols, rows, env, log_state.get_loggers())
+        .spawn(&app, shell, cwd, cols, rows, merged_env, log_state.get_loggers())
         .map_err(|e| e.to_string())
 }
 

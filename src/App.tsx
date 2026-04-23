@@ -13,6 +13,7 @@
  */
 import { useCallback, useEffect, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import { listen } from "@tauri-apps/api/event";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { useLayoutStore } from "./stores/layoutStore";
 import { useBookmarksStore } from "./stores/bookmarksStore";
@@ -228,8 +229,31 @@ function App() {
           themes.map((t) => ({ id: t.id, name: t.name, isBuiltin: t.isBuiltin }))
         );
       }).catch(() => {});
+
+      // Swarm boot sync — tell backend the persisted swarm preference
+      const swarmEnabled = useSettingsStore.getState().swarmEnabled;
+      invoke("swarm_set_enabled", { enabled: swarmEnabled }).catch((err: unknown) => {
+        console.warn("[App] swarm boot sync failed:", err);
+      });
     }
   }, [addTerminalTab, regions]);
+
+  // Swarm event listeners — handle spawn-tab requests from the broker
+  useEffect(() => {
+    const unlistenSpawn = listen<{ name: string; env: Record<string, string>; tab_id: string; colleague_id: string }>(
+      "swarm://spawn-tab",
+      (event) => {
+        // TODO: Phase 2+ — spawn a colleague tab with the given env vars
+        // For now, just log the event for verification
+        // H3: Log event receipt without full payload (may contain token in env)
+        console.info("[App] swarm://spawn-tab event received, colleague:", event.payload.colleague_id);
+      },
+    );
+
+    return () => {
+      unlistenSpawn.then((fn) => fn());
+    };
+  }, []);
 
   // Global keyboard shortcuts for History (Ctrl+R) and QuickConnect (Ctrl+K)
   useEffect(() => {

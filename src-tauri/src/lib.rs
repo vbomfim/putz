@@ -15,6 +15,7 @@ mod protocol;
 mod pty;
 mod scripting;
 mod session;
+mod swarm;
 mod templates;
 mod theme;
 mod vault;
@@ -43,6 +44,7 @@ use ipc::{
     session_delete_folder, session_duplicate, session_export, session_get, session_import,
     session_list, session_move, session_search, session_update, sftp_close, sftp_delete,
     sftp_download, sftp_list, sftp_mkdir, sftp_open, sftp_rename, sftp_stat, sftp_upload,
+    swarm_get_state, swarm_set_enabled, swarm_spawn_colleague,
     template_create, template_delete, template_execute, template_get, template_list, theme_create,
     theme_delete, theme_export, theme_get, theme_import, theme_list, theme_update,
     vault_check_expiring, vault_delete, vault_get, vault_list, vault_set,
@@ -56,6 +58,7 @@ use protocol::ssh::forwarding::ForwardingManager;
 use pty::PtyManager;
 use scripting::ScriptManager;
 use session::SessionManager;
+use swarm::SwarmCoordinator;
 use templates::TemplateManager;
 use theme::ThemeManager;
 use vault::VaultManager;
@@ -96,6 +99,7 @@ pub fn run() {
         .manage(AutoLoginManager::new())
         .manage(PingManager::new())
         .manage(TemplateManager::new())
+        .manage(SwarmCoordinator::new())
         .invoke_handler(tauri::generate_handler![
             greet,
             pty_spawn,
@@ -220,6 +224,9 @@ pub fn run() {
     git_push,
             git_pull,
             git_tags,
+            swarm_set_enabled,
+            swarm_get_state,
+            swarm_spawn_colleague,
         ])
         // Fix 8: Graceful app exit — clean up PTY sessions and protocol connections
         .on_window_event(|window, event| {
@@ -233,6 +240,9 @@ pub fn run() {
                 // Close all protocol connections
                 let conn_mgr: tauri::State<'_, ConnectionManager> = window.state();
                 tauri::async_runtime::block_on(conn_mgr.close_all());
+                // Stop swarm broker if running
+                let swarm: tauri::State<'_, SwarmCoordinator> = window.state();
+                tauri::async_runtime::block_on(swarm.stop());
             }
         })
         .run(tauri::generate_context!())

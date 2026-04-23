@@ -313,6 +313,7 @@ impl AutoLoginManager {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::autologin::DeviceType;
 
     fn make_manager() -> AutoLoginManager {
         AutoLoginManager::new_in_memory()
