@@ -58,6 +58,8 @@ pub use sftp::{
     sftp_close, sftp_delete, sftp_download, sftp_list, sftp_mkdir, sftp_open, sftp_rename,
     sftp_stat, sftp_upload,
 };
+pub mod swarm;
+pub use swarm::{swarm_get_state, swarm_set_enabled, swarm_spawn_colleague};
 pub use templates::{
     template_create, template_delete, template_execute, template_get, template_list,
 };

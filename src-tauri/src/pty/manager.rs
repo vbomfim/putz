@@ -58,7 +58,7 @@ const ALLOWED_ENV_NAMES: &[&str] = &[
     "PAGER",
     "TZ",
 ];
-const ALLOWED_ENV_PREFIXES: &[&str] = &["LC_", "PUTZ_"];
+const ALLOWED_ENV_PREFIXES: &[&str] = &["LC_", "PUTZ_", "COPILOT_"];
 
 /// Holds the resources for a single PTY session.
 struct PtySession {

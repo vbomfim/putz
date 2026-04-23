@@ -22,6 +22,7 @@ interface PersistedSettings {
   backgroundSpeed: number;
   backgroundSize: string;
   defaultShell: string;
+  swarmEnabled: boolean;
 }
 
 /** Loads persisted settings from localStorage, returning defaults on failure. */
@@ -40,12 +41,13 @@ function loadPersistedSettings(): PersistedSettings {
         backgroundSpeed: parsed.backgroundSpeed ?? 1,
         backgroundSize: parsed.backgroundSize ?? "large",
         defaultShell: parsed.defaultShell ?? "",
+        swarmEnabled: parsed.swarmEnabled ?? false,
       };
     }
   } catch {
     // Corrupted localStorage — fall through to defaults
   }
-  return { workspaceBarVisible: true, bookmarksBarVisible: false, backgroundEffect: "none", backgroundOpacity: 0.15, backgroundColorMode: "theme", backgroundCustomColor: "#50fa7b", backgroundSpeed: 1, backgroundSize: "large", defaultShell: "" };
+  return { workspaceBarVisible: true, bookmarksBarVisible: false, backgroundEffect: "none", backgroundOpacity: 0.15, backgroundColorMode: "theme", backgroundCustomColor: "#50fa7b", backgroundSpeed: 1, backgroundSize: "large", defaultShell: "", swarmEnabled: false };
 }
 
 /** Saves settings to localStorage. */
@@ -90,6 +92,9 @@ interface SettingsState {
   /** Default shell path (empty = system default). */
   defaultShell: string;
 
+  /** Whether the Copilot swarm broker is enabled. */
+  swarmEnabled: boolean;
+
   /** Toggles the workspace bar visibility and persists to localStorage. */
   toggleWorkspaceBar: () => void;
 
@@ -125,6 +130,9 @@ interface SettingsState {
 
   /** Sets the default shell. */
   setDefaultShell: (shell: string) => void;
+
+  /** Sets the swarm enabled state. */
+  setSwarmEnabled: (enabled: boolean) => void;
 }
 
 export const useSettingsStore = create<SettingsState>((set, get) => {
@@ -142,6 +150,7 @@ export const useSettingsStore = create<SettingsState>((set, get) => {
       backgroundSpeed: s.backgroundSpeed,
       backgroundSize: s.backgroundSize,
       defaultShell: s.defaultShell,
+      swarmEnabled: s.swarmEnabled,
     });
   };
 
@@ -155,6 +164,7 @@ export const useSettingsStore = create<SettingsState>((set, get) => {
     backgroundSpeed: persisted.backgroundSpeed,
     backgroundSize: persisted.backgroundSize,
     defaultShell: persisted.defaultShell,
+    swarmEnabled: persisted.swarmEnabled,
     shortcutsPanelOpen: false,
 
     toggleWorkspaceBar: () => {
@@ -212,6 +222,11 @@ export const useSettingsStore = create<SettingsState>((set, get) => {
 
     setDefaultShell: (shell: string) => {
       set({ defaultShell: shell });
+      persist();
+    },
+
+    setSwarmEnabled: (enabled: boolean) => {
+      set({ swarmEnabled: enabled });
       persist();
     },
   };
