@@ -129,17 +129,7 @@ impl PtyManager {
         }
 
         // Validate and resolve shell path
-        let shell_path = match shell {
-            Some(ref path) if path == "copilot" => {
-                // Resolve copilot binary from PATH to an absolute path
-                resolve_copilot_binary()?
-            }
-            Some(path) => {
-                validate_shell(&path)?;
-                path
-            }
-            None => default_shell(),
-        };
+        let shell_path = resolve_shell_path(shell)?;
 
         // Validate CLI arguments against per-shell allowlist
         if let Some(ref extra_args) = args {
@@ -586,10 +576,37 @@ fn validate_env_vars(vars: &HashMap<String, String>) -> Result<(), PtyError> {
     Ok(())
 }
 
+/// Resolve the user-supplied shell option into a validated shell path.
+///
+/// - `Some("copilot")` → resolves via `resolve_copilot_binary()` (PATH search).
+/// - `Some(abs_copilot_path)` → accepted if `is_copilot_shell` matches; still
+///   subject to `validate_args` category routing downstream.
+/// - `Some(other)` → must pass `validate_shell` allowlist.
+/// - `None` → falls back to `default_shell()`.
+fn resolve_shell_path(shell: Option<String>) -> Result<String, PtyError> {
+    match shell {
+        Some(ref path) if path == "copilot" => {
+            // Resolve copilot binary from PATH to an absolute path
+            resolve_copilot_binary()
+        }
+        Some(path) => {
+            // Accept absolute copilot paths (already resolved by swarm_spawn_colleague
+            // or a trusted caller). Otherwise enforce the standard shell allowlist.
+            if is_copilot_shell(&path) {
+                Ok(path)
+            } else {
+                validate_shell(&path)?;
+                Ok(path)
+            }
+        }
+        None => Ok(default_shell()),
+    }
+}
+
 /// Resolve the `copilot` binary to an absolute path by searching PATH.
 ///
-/// On Windows, prefers `.cmd` → `.exe` → bare name.
-/// On Unix, searches for `copilot` in each PATH directory.
+/// On Windows, searches for `copilot.cmd` then `copilot.exe` in each PATH dir.
+/// On Unix, searches for `copilot` in each PATH dir.
 /// Returns the resolved absolute path or an error if not found.
 pub fn resolve_copilot_binary() -> Result<String, PtyError> {
     let path_var = std::env::var("PATH").unwrap_or_default();
@@ -1414,6 +1431,162 @@ mod tests {
             }
             other => panic!("Expected InvalidShell, got: {other:?}"),
         }
+    }
+
+    // ====================================================================
+    // resolve_shell_path tests — [C1] regression coverage
+    // ====================================================================
+
+    #[test]
+    fn resolve_shell_path_literal_copilot_delegates_to_resolve_binary() {
+        // With empty PATH, "copilot" literal should fail (proves delegation)
+        let orig = std::env::var("PATH").unwrap_or_default();
+        std::env::set_var("PATH", "");
+        let result = resolve_shell_path(Some("copilot".into()));
+        std::env::set_var("PATH", &orig);
+        assert!(result.is_err());
+        match result.unwrap_err() {
+            PtyError::InvalidShell(msg) => {
+                assert!(msg.contains("not found"), "Expected 'not found' in: {msg}");
+            }
+            other => panic!("Expected InvalidShell, got: {other:?}"),
+        }
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn resolve_shell_path_accepts_copilot_absolute_path_windows() {
+        // Absolute copilot.cmd path should be accepted via is_copilot_shell bypass
+        let result = resolve_shell_path(Some(
+            r"C:\Users\someone\AppData\Local\npm\copilot.cmd".into(),
+        ));
+        assert!(result.is_ok());
+        assert_eq!(
+            result.unwrap(),
+            r"C:\Users\someone\AppData\Local\npm\copilot.cmd"
+        );
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn resolve_shell_path_accepts_copilot_absolute_path_unix() {
+        // Absolute copilot path should be accepted via is_copilot_shell bypass
+        let result = resolve_shell_path(Some("/usr/local/bin/copilot".into()));
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), "/usr/local/bin/copilot");
+    }
+
+    #[test]
+    fn resolve_shell_path_rejects_arbitrary_absolute_path() {
+        // Non-copilot absolute paths must be rejected by validate_shell
+        #[cfg(unix)]
+        {
+            let result = resolve_shell_path(Some("/bin/ls".into()));
+            assert!(result.is_err());
+            match result.unwrap_err() {
+                PtyError::InvalidShell(path) => assert_eq!(path, "/bin/ls"),
+                other => panic!("Expected InvalidShell, got: {other:?}"),
+            }
+        }
+        #[cfg(windows)]
+        {
+            let result = resolve_shell_path(Some(
+                r"C:\Windows\System32\calc.exe".into(),
+            ));
+            assert!(result.is_err());
+            match result.unwrap_err() {
+                PtyError::InvalidShell(path) => {
+                    assert_eq!(path, r"C:\Windows\System32\calc.exe")
+                }
+                other => panic!("Expected InvalidShell, got: {other:?}"),
+            }
+        }
+    }
+
+    #[test]
+    fn resolve_shell_path_accepts_allowed_shell() {
+        #[cfg(unix)]
+        {
+            let result = resolve_shell_path(Some("/bin/bash".into()));
+            assert!(result.is_ok());
+            assert_eq!(result.unwrap(), "/bin/bash");
+        }
+        #[cfg(windows)]
+        {
+            let result = resolve_shell_path(Some("powershell.exe".into()));
+            assert!(result.is_ok());
+            assert_eq!(result.unwrap(), "powershell.exe");
+        }
+    }
+
+    #[test]
+    fn resolve_shell_path_none_returns_default_shell() {
+        let result = resolve_shell_path(None);
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), default_shell());
+    }
+
+    #[test]
+    fn resolve_shell_path_copilot_exe_absolute_accepted() {
+        // copilot.exe variant (Windows-style)
+        #[cfg(windows)]
+        {
+            let result = resolve_shell_path(Some(
+                r"C:\Program Files\copilot.exe".into(),
+            ));
+            assert!(result.is_ok());
+        }
+        // copilot bare name (Unix-style, passes is_copilot_shell)
+        #[cfg(unix)]
+        {
+            let result = resolve_shell_path(Some("/home/user/.local/bin/copilot".into()));
+            assert!(result.is_ok());
+        }
+    }
+
+    #[test]
+    fn resolve_shell_path_with_temp_copilot_binary() {
+        // Create a temp dir with a mock copilot binary, add to PATH, resolve
+        let temp_dir = std::env::temp_dir().join(format!("putz-test-{}", Uuid::new_v4()));
+        std::fs::create_dir_all(&temp_dir).expect("create temp dir");
+
+        #[cfg(windows)]
+        let binary_name = "copilot.cmd";
+        #[cfg(unix)]
+        let binary_name = "copilot";
+
+        let binary_path = temp_dir.join(binary_name);
+        std::fs::write(&binary_path, "echo mock").expect("write mock binary");
+
+        // Make executable on Unix
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            std::fs::set_permissions(&binary_path, std::fs::Permissions::from_mode(0o755))
+                .expect("chmod");
+        }
+
+        // Set PATH to include our temp dir
+        let orig = std::env::var("PATH").unwrap_or_default();
+        let sep = if cfg!(windows) { ";" } else { ":" };
+        std::env::set_var("PATH", format!("{}{sep}{orig}", temp_dir.display()));
+
+        // resolve_copilot_binary should find it
+        let resolved = resolve_copilot_binary();
+        assert!(resolved.is_ok(), "Expected OK, got: {resolved:?}");
+        let resolved_path = resolved.unwrap();
+
+        // Now pass the resolved path through resolve_shell_path — this is the
+        // regression test: before the fix, this would fail via validate_shell
+        let result = resolve_shell_path(Some(resolved_path.clone()));
+        assert!(
+            result.is_ok(),
+            "resolve_shell_path rejected resolved copilot path '{resolved_path}': {result:?}"
+        );
+
+        // Cleanup
+        std::env::set_var("PATH", &orig);
+        let _ = std::fs::remove_dir_all(&temp_dir);
     }
 
     // ====================================================================

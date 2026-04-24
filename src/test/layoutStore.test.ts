@@ -965,7 +965,7 @@ describe("layoutStore", () => {
       // Split creates a second region (also spawns a tab via mockInvoke)
       mockInvoke.mockResolvedValueOnce("session-split-child");
       await act(async () => {
-        await useLayoutStore.getState().splitRegion(initialRegionId, "horizontal");
+        await useLayoutStore.getState().splitRegion("horizontal");
       });
 
       const afterSplit = useLayoutStore.getState();
