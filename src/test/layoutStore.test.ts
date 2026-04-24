@@ -821,4 +821,194 @@ describe("layoutStore", () => {
       expect(tab!.type).toBe("editor");
     });
   });
+
+  // ─── Swarm Features (C2) ────────────────────────────────────────────
+
+  describe("addColleagueTab", () => {
+    it("spawns a colleague tab with swarmTabId and colleagueId", async () => {
+      mockInvoke.mockResolvedValueOnce("session-colleague");
+
+      await act(async () => {
+        await useLayoutStore.getState().addColleagueTab({
+          name: "helper",
+          tabId: "swarm-tab-1",
+          colleagueId: "coll-1",
+          shell: "copilot",
+          args: ["--yolo"],
+          env: { SWARM_URL: "http://localhost:9090" },
+        });
+      });
+
+      const state = useLayoutStore.getState();
+      const region = state.regions[state.focusedRegionId];
+      expect(region.tabs).toHaveLength(1);
+
+      const tab = region.tabs[0];
+      expect(tab.type).toBe("terminal");
+      expect(tab.sessionId).toBe("session-colleague");
+      expect(tab.swarmTabId).toBe("swarm-tab-1");
+      expect(tab.colleagueId).toBe("coll-1");
+      expect(tab.title).toBe("🤖 helper");
+    });
+
+    it("calls pty_spawn with correct shell, args, and env", async () => {
+      mockInvoke.mockResolvedValueOnce("session-abc");
+
+      await act(async () => {
+        await useLayoutStore.getState().addColleagueTab({
+          name: "copilot-agent",
+          tabId: "tab-42",
+          colleagueId: "c-42",
+          shell: "/usr/bin/copilot",
+          args: ["--experimental"],
+          env: { FOO: "bar" },
+        });
+      });
+
+      expect(mockInvoke).toHaveBeenCalledWith("pty_spawn", expect.objectContaining({
+        shell: "/usr/bin/copilot",
+        args: ["--experimental"],
+        env: { FOO: "bar" },
+        tabId: "tab-42",
+      }));
+    });
+
+    it("does not add tab when pty_spawn fails", async () => {
+      mockInvoke.mockRejectedValueOnce(new Error("spawn failed"));
+      const consoleSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+
+      await act(async () => {
+        await useLayoutStore.getState().addColleagueTab({
+          name: "bad-agent",
+          tabId: "tab-bad",
+          colleagueId: "c-bad",
+        });
+      });
+
+      const state = useLayoutStore.getState();
+      const region = state.regions[state.focusedRegionId];
+      expect(region.tabs).toHaveLength(0);
+      expect(consoleSpy).toHaveBeenCalledWith(
+        expect.stringContaining("Failed to spawn colleague PTY"),
+        expect.stringContaining("spawn failed"),
+      );
+      consoleSpy.mockRestore();
+    });
+  });
+
+  describe("closeTab — swarm deregister", () => {
+    it("calls swarm_deregister_by_tab when closing a colleague tab", async () => {
+      mockInvoke.mockResolvedValueOnce("session-sw");
+
+      await act(async () => {
+        await useLayoutStore.getState().addColleagueTab({
+          name: "agent-1",
+          tabId: "swarm-close-1",
+          colleagueId: "c-close-1",
+        });
+      });
+
+      // Reset to track deregister call
+      mockInvoke.mockReset();
+      mockInvoke.mockResolvedValue(undefined);
+
+      const state = useLayoutStore.getState();
+      const region = state.regions[state.focusedRegionId];
+      const tab = region.tabs[0];
+
+      act(() => {
+        useLayoutStore.getState().closeTab(state.focusedRegionId, tab.id);
+      });
+
+      expect(mockInvoke).toHaveBeenCalledWith(
+        "swarm_deregister_by_tab",
+        { tabId: "swarm-close-1" },
+      );
+    });
+
+    it("does NOT call swarm_deregister_by_tab for normal tabs", async () => {
+      mockInvoke.mockResolvedValueOnce("session-normal");
+
+      await act(async () => {
+        await useLayoutStore.getState().addTerminalTab();
+      });
+
+      mockInvoke.mockReset();
+      mockInvoke.mockResolvedValue(undefined);
+
+      const state = useLayoutStore.getState();
+      const region = state.regions[state.focusedRegionId];
+      const tab = region.tabs[0];
+
+      act(() => {
+        useLayoutStore.getState().closeTab(state.focusedRegionId, tab.id);
+      });
+
+      // Should only call pty_close, not swarm_deregister_by_tab
+      const deregCalls = mockInvoke.mock.calls.filter(
+        ([cmd]: [string]) => cmd === "swarm_deregister_by_tab",
+      );
+      expect(deregCalls).toHaveLength(0);
+    });
+  });
+
+  describe("closeRegion — swarm deregister (M8)", () => {
+    it("deregisters swarm tabs when closing a region", async () => {
+      // splitRegion requires at least one tab in the source region
+      mockInvoke.mockResolvedValueOnce("session-prereq");
+      await act(async () => {
+        await useLayoutStore.getState().addTerminalTab();
+      });
+
+      const initialRegionId = useLayoutStore.getState().focusedRegionId;
+
+      // Split creates a second region (also spawns a tab via mockInvoke)
+      mockInvoke.mockResolvedValueOnce("session-split-child");
+      await act(async () => {
+        await useLayoutStore.getState().splitRegion(initialRegionId, "horizontal");
+      });
+
+      const afterSplit = useLayoutStore.getState();
+      const regionIds = Object.keys(afterSplit.regions);
+      expect(regionIds.length).toBeGreaterThanOrEqual(2);
+
+      // Find the OTHER region (not the initial one)
+      const secondRegionId = regionIds.find((id) => id !== initialRegionId)!;
+      expect(secondRegionId).toBeDefined();
+
+      // Add a colleague tab to the second region
+      mockInvoke.mockResolvedValueOnce("session-colleague-region");
+
+      await act(async () => {
+        await useLayoutStore.getState().addColleagueTab({
+          name: "region-agent",
+          tabId: "swarm-region-1",
+          colleagueId: "c-region-1",
+          regionId: secondRegionId,
+        });
+      });
+
+      // Verify tab was added
+      const stateBeforeClose = useLayoutStore.getState();
+      const swarmTabs = stateBeforeClose.regions[secondRegionId].tabs.filter(
+        (t) => t.swarmTabId === "swarm-region-1",
+      );
+      expect(swarmTabs).toHaveLength(1);
+
+      // Reset invoke to track deregister
+      mockInvoke.mockReset();
+      mockInvoke.mockResolvedValue(undefined);
+
+      // Close the region containing the swarm tab
+      act(() => {
+        useLayoutStore.getState().closeRegion(secondRegionId);
+      });
+
+      // Should have called swarm_deregister_by_tab
+      expect(mockInvoke).toHaveBeenCalledWith(
+        "swarm_deregister_by_tab",
+        { tabId: "swarm-region-1" },
+      );
+    });
+  });
 });

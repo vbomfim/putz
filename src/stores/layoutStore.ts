@@ -1023,6 +1023,12 @@ export const useLayoutStore = create<LayoutState>((set, get) => ({
     if (region) {
       for (const tab of region.tabs) {
         closeTabSession(tab);
+        // M8: Deregister swarm colleague when closing region (same as closeTab)
+        if (tab.swarmTabId) {
+          invoke("swarm_deregister_by_tab", { tabId: tab.swarmTabId }).catch(() => {
+            // Best-effort — swarm may be disabled or tab already deregistered
+          });
+        }
       }
     }
 

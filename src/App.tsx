@@ -262,15 +262,21 @@ function App() {
       "swarm://focus-tab",
       (event) => {
         const { tab_id } = event.payload;
-        // Find the tab with matching swarmTabId across all regions and activate it
-        const { regions } = useLayoutStore.getState();
+        // M7: Destructure getState() once to avoid redundant calls
+        const { regions, activateTab, setFocusedRegion } = useLayoutStore.getState();
+        let found = false;
         for (const [regionId, region] of Object.entries(regions)) {
           const tab = region.tabs.find((t) => t.swarmTabId === tab_id);
           if (tab) {
-            useLayoutStore.getState().activateTab(regionId, tab.id);
-            useLayoutStore.getState().setFocusedRegion(regionId);
+            activateTab(regionId, tab.id);
+            setFocusedRegion(regionId);
+            found = true;
             break;
           }
+        }
+        // L1: Warn when focus-tab target is not found
+        if (!found) {
+          console.warn(`[App] swarm://focus-tab — tab_id "${tab_id}" not found in any region`);
         }
       },
     );
