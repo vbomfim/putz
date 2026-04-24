@@ -591,8 +591,9 @@ fn resolve_shell_path(shell: Option<String>) -> Result<String, PtyError> {
         }
         Some(path) => {
             // Accept absolute copilot paths (already resolved by swarm_spawn_colleague
-            // or a trusted caller). Otherwise enforce the standard shell allowlist.
-            if is_copilot_shell(&path) {
+            // or a trusted caller). Relative paths with copilot-like basenames must
+            // still go through validate_shell (defense in depth).
+            if std::path::Path::new(&path).is_absolute() && is_copilot_shell(&path) {
                 Ok(path)
             } else {
                 validate_shell(&path)?;
@@ -1587,6 +1588,19 @@ mod tests {
         // Cleanup
         std::env::set_var("PATH", &orig);
         let _ = std::fs::remove_dir_all(&temp_dir);
+    }
+
+    #[test]
+    fn resolve_shell_path_rejects_relative_copilot_path() {
+        // Relative paths with copilot-like basenames must NOT bypass validate_shell.
+        // They should be rejected because validate_shell won't allowlist them.
+        for relative in &["copilot.cmd", ".\\copilot.cmd", "tools/copilot", "./copilot"] {
+            let result = resolve_shell_path(Some(relative.to_string()));
+            assert!(
+                result.is_err(),
+                "Expected Err for relative copilot path '{relative}', got: {result:?}"
+            );
+        }
     }
 
     // ====================================================================
