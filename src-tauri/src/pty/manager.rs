@@ -47,6 +47,15 @@ const ALLOWED_SHELLS_WINDOWS: &[&str] = &[
     "nu.exe",
 ];
 
+/// Allowed CLI argument prefixes by shell category.
+/// Only arguments starting with these prefixes are passed to the PTY.
+const ALLOWED_ARG_PREFIXES_COPILOT: &[&str] = &["--yolo", "--experimental", "--debug"];
+const ALLOWED_ARG_PREFIXES_POWERSHELL: &[&str] =
+    &["-NoLogo", "-NoProfile", "-NoExit", "-Command", "-File"];
+/// Explicit deny list for PowerShell (checked before prefix allow).
+const DENIED_ARG_PREFIXES_POWERSHELL: &[&str] = &["-EncodedCommand", "-e ", "-ec "];
+const ALLOWED_ARG_PREFIXES_BASH: &[&str] = &["-c", "-i", "-l"];
+
 /// Allowed environment variable name patterns.
 /// Only these prefixes/exact names may be passed to the PTY.
 const ALLOWED_ENV_NAMES: &[&str] = &[
@@ -121,12 +130,21 @@ impl PtyManager {
 
         // Validate and resolve shell path
         let shell_path = match shell {
+            Some(ref path) if path == "copilot" => {
+                // Resolve copilot binary from PATH to an absolute path
+                resolve_copilot_binary()?
+            }
             Some(path) => {
                 validate_shell(&path)?;
                 path
             }
             None => default_shell(),
         };
+
+        // Validate CLI arguments against per-shell allowlist
+        if let Some(ref extra_args) = args {
+            validate_args(&shell_path, extra_args)?;
+        }
 
         // Validate working directory
         if let Some(ref dir) = cwd {
@@ -565,6 +583,147 @@ fn validate_env_vars(vars: &HashMap<String, String>) -> Result<(), PtyError> {
             return Err(PtyError::InvalidEnvironment(key.clone()));
         }
     }
+    Ok(())
+}
+
+/// Resolve the `copilot` binary to an absolute path by searching PATH.
+///
+/// On Windows, prefers `.cmd` → `.exe` → bare name.
+/// On Unix, searches for `copilot` in each PATH directory.
+/// Returns the resolved absolute path or an error if not found.
+pub fn resolve_copilot_binary() -> Result<String, PtyError> {
+    let path_var = std::env::var("PATH").unwrap_or_default();
+
+    #[cfg(windows)]
+    let separator = ';';
+    #[cfg(unix)]
+    let separator = ':';
+
+    #[cfg(windows)]
+    let candidates = &["copilot.cmd", "copilot.exe"];
+    #[cfg(unix)]
+    let candidates = &["copilot"];
+
+    for dir in path_var.split(separator) {
+        if dir.is_empty() {
+            continue;
+        }
+        let dir_path = std::path::Path::new(dir);
+        for candidate in candidates {
+            let full = dir_path.join(candidate);
+            if full.is_file() {
+                return full
+                    .to_str()
+                    .map(|s| s.to_string())
+                    .ok_or_else(|| PtyError::InvalidShell("copilot path is not valid UTF-8".into()));
+            }
+        }
+    }
+
+    Err(PtyError::InvalidShell(
+        "copilot binary not found in PATH".into(),
+    ))
+}
+
+/// Returns true if the resolved shell path is a copilot binary.
+fn is_copilot_shell(shell: &str) -> bool {
+    let lower = shell.to_lowercase();
+    let name = std::path::Path::new(&lower)
+        .file_name()
+        .and_then(|n| n.to_str())
+        .unwrap_or("");
+    matches!(name, "copilot" | "copilot.exe" | "copilot.cmd" | "copilot.bat")
+}
+
+/// Determines the shell category for arg validation.
+enum ShellCategory {
+    Copilot,
+    PowerShell,
+    Bash,
+    Other,
+}
+
+fn classify_shell(shell: &str) -> ShellCategory {
+    if is_copilot_shell(shell) {
+        return ShellCategory::Copilot;
+    }
+    let lower = shell.to_lowercase();
+    let name = std::path::Path::new(&lower)
+        .file_name()
+        .and_then(|n| n.to_str())
+        .unwrap_or("");
+    if name.contains("powershell") || name.contains("pwsh") {
+        ShellCategory::PowerShell
+    } else if matches!(name, "bash" | "bash.exe" | "zsh" | "sh" | "fish") {
+        ShellCategory::Bash
+    } else {
+        ShellCategory::Other
+    }
+}
+
+/// Validates that CLI arguments are in the per-shell allowlist.
+///
+/// Rejects arguments containing NUL bytes or newlines, and enforces
+/// prefix-based allowlists specific to each shell category.
+fn validate_args(shell: &str, args: &[String]) -> Result<(), PtyError> {
+    // Reject dangerous characters in any arg
+    for arg in args {
+        if arg.contains('\0') || arg.contains('\n') || arg.contains('\r') {
+            return Err(PtyError::InvalidArgs(
+                "argument contains NUL or newline".into(),
+            ));
+        }
+    }
+
+    let allowed_prefixes = match classify_shell(shell) {
+        ShellCategory::Copilot => ALLOWED_ARG_PREFIXES_COPILOT,
+        ShellCategory::PowerShell => {
+            // Check explicit deny list first (case-insensitive)
+            for arg in args {
+                let lower = arg.to_lowercase();
+                for denied in DENIED_ARG_PREFIXES_POWERSHELL {
+                    if lower.starts_with(&denied.to_lowercase()) {
+                        return Err(PtyError::InvalidArgs(format!(
+                            "denied for PowerShell: {arg}"
+                        )));
+                    }
+                }
+                // Also block bare "-e" and "-ec" (shorthand for -EncodedCommand)
+                if lower == "-e" || lower == "-ec" {
+                    return Err(PtyError::InvalidArgs(format!(
+                        "denied for PowerShell: {arg}"
+                    )));
+                }
+            }
+            ALLOWED_ARG_PREFIXES_POWERSHELL
+        }
+        ShellCategory::Bash => ALLOWED_ARG_PREFIXES_BASH,
+        ShellCategory::Other => {
+            // Unknown shells get no args through
+            if !args.is_empty() {
+                return Err(PtyError::InvalidArgs(
+                    "arguments not allowed for this shell".into(),
+                ));
+            }
+            return Ok(());
+        }
+    };
+
+    for arg in args {
+        let matches_prefix = allowed_prefixes
+            .iter()
+            .any(|prefix| arg.starts_with(prefix));
+        if !matches_prefix {
+            return Err(PtyError::InvalidArgs(format!(
+                "{arg} not allowed for {}",
+                std::path::Path::new(shell)
+                    .file_name()
+                    .and_then(|n| n.to_str())
+                    .unwrap_or(shell)
+            )));
+        }
+    }
+
     Ok(())
 }
 
@@ -1209,5 +1368,253 @@ mod tests {
                 "Unexpected shell: {shell}"
             );
         }
+    }
+
+    // ====================================================================
+    // Copilot binary resolution tests — [C1]
+    // ====================================================================
+
+    #[test]
+    fn is_copilot_shell_recognizes_copilot_variants() {
+        assert!(is_copilot_shell("copilot"));
+        assert!(is_copilot_shell("copilot.exe"));
+        assert!(is_copilot_shell("copilot.cmd"));
+        assert!(is_copilot_shell("copilot.bat"));
+        assert!(is_copilot_shell("COPILOT.EXE"));
+        assert!(is_copilot_shell("COPILOT.CMD"));
+    }
+
+    #[test]
+    fn is_copilot_shell_rejects_non_copilot() {
+        assert!(!is_copilot_shell("bash"));
+        assert!(!is_copilot_shell("powershell.exe"));
+        assert!(!is_copilot_shell("cmd.exe"));
+        assert!(!is_copilot_shell("copilot-helper.exe"));
+    }
+
+    #[test]
+    fn is_copilot_shell_with_full_path() {
+        #[cfg(windows)]
+        assert!(is_copilot_shell(r"C:\Users\someone\AppData\Local\npm\copilot.cmd"));
+        #[cfg(unix)]
+        assert!(is_copilot_shell("/usr/local/bin/copilot"));
+    }
+
+    #[test]
+    fn resolve_copilot_binary_returns_error_with_empty_path() {
+        // Temporarily override PATH to empty to test failure
+        let orig = std::env::var("PATH").unwrap_or_default();
+        std::env::set_var("PATH", "");
+        let result = resolve_copilot_binary();
+        std::env::set_var("PATH", &orig);
+        assert!(result.is_err());
+        match result.unwrap_err() {
+            PtyError::InvalidShell(msg) => {
+                assert!(msg.contains("not found"), "Expected 'not found' in: {msg}");
+            }
+            other => panic!("Expected InvalidShell, got: {other:?}"),
+        }
+    }
+
+    // ====================================================================
+    // Shell classification tests
+    // ====================================================================
+
+    #[test]
+    fn classify_shell_copilot() {
+        assert!(matches!(classify_shell("copilot"), ShellCategory::Copilot));
+        assert!(matches!(classify_shell("copilot.exe"), ShellCategory::Copilot));
+        assert!(matches!(classify_shell("copilot.cmd"), ShellCategory::Copilot));
+    }
+
+    #[test]
+    fn classify_shell_powershell() {
+        assert!(matches!(classify_shell("powershell.exe"), ShellCategory::PowerShell));
+        assert!(matches!(classify_shell("pwsh.exe"), ShellCategory::PowerShell));
+        assert!(matches!(classify_shell("pwsh"), ShellCategory::PowerShell));
+    }
+
+    #[test]
+    fn classify_shell_bash() {
+        assert!(matches!(classify_shell("bash"), ShellCategory::Bash));
+        assert!(matches!(classify_shell("bash.exe"), ShellCategory::Bash));
+        assert!(matches!(classify_shell("zsh"), ShellCategory::Bash));
+        assert!(matches!(classify_shell("sh"), ShellCategory::Bash));
+        assert!(matches!(classify_shell("fish"), ShellCategory::Bash));
+    }
+
+    #[test]
+    fn classify_shell_other() {
+        assert!(matches!(classify_shell("cmd.exe"), ShellCategory::Other));
+        assert!(matches!(classify_shell("nu.exe"), ShellCategory::Other));
+    }
+
+    // ====================================================================
+    // Argument validation tests — [H1] [SECURITY]
+    // ====================================================================
+
+    #[test]
+    fn validate_args_copilot_allows_yolo() {
+        assert!(validate_args("copilot", &["--yolo".into()]).is_ok());
+    }
+
+    #[test]
+    fn validate_args_copilot_allows_experimental() {
+        assert!(validate_args("copilot", &["--experimental".into()]).is_ok());
+    }
+
+    #[test]
+    fn validate_args_copilot_allows_debug() {
+        assert!(validate_args("copilot", &["--debug".into()]).is_ok());
+    }
+
+    #[test]
+    fn validate_args_copilot_rejects_unknown() {
+        let result = validate_args("copilot", &["--evil".into()]);
+        assert!(result.is_err());
+        match result.unwrap_err() {
+            PtyError::InvalidArgs(msg) => assert!(msg.contains("--evil")),
+            other => panic!("Expected InvalidArgs, got: {other:?}"),
+        }
+    }
+
+    #[test]
+    fn validate_args_copilot_rejects_encoded_command() {
+        let result = validate_args("copilot.exe", &["-EncodedCommand".into(), "base64data".into()]);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn validate_args_powershell_allows_noprofile() {
+        assert!(validate_args("powershell.exe", &["-NoProfile".into()]).is_ok());
+    }
+
+    #[test]
+    fn validate_args_powershell_allows_nologo() {
+        assert!(validate_args("powershell.exe", &["-NoLogo".into()]).is_ok());
+    }
+
+    #[test]
+    fn validate_args_powershell_rejects_encoded_command() {
+        let result = validate_args("powershell.exe", &["-EncodedCommand".into(), "YQBiAGMA".into()]);
+        assert!(result.is_err());
+        match result.unwrap_err() {
+            PtyError::InvalidArgs(msg) => {
+                assert!(msg.contains("denied"), "Expected 'denied' in: {msg}");
+            }
+            other => panic!("Expected InvalidArgs, got: {other:?}"),
+        }
+    }
+
+    #[test]
+    fn validate_args_powershell_rejects_encoded_command_case_insensitive() {
+        let result = validate_args("powershell.exe", &["-encodedcommand".into()]);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn validate_args_powershell_rejects_e_shorthand() {
+        assert!(validate_args("powershell.exe", &["-e".into()]).is_err());
+        assert!(validate_args("powershell.exe", &["-ec".into()]).is_err());
+    }
+
+    #[test]
+    fn validate_args_pwsh_rejects_encoded_command() {
+        let result = validate_args("pwsh.exe", &["-EncodedCommand".into()]);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn validate_args_bash_allows_c() {
+        assert!(validate_args("bash", &["-c".into()]).is_ok());
+    }
+
+    #[test]
+    fn validate_args_bash_allows_interactive() {
+        assert!(validate_args("bash", &["-i".into()]).is_ok());
+    }
+
+    #[test]
+    fn validate_args_bash_allows_login() {
+        assert!(validate_args("bash", &["-l".into()]).is_ok());
+    }
+
+    #[test]
+    fn validate_args_bash_rejects_unknown() {
+        let result = validate_args("bash", &["--evil".into()]);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn validate_args_other_shell_rejects_any_args() {
+        let result = validate_args("cmd.exe", &["/c".into()]);
+        assert!(result.is_err());
+        match result.unwrap_err() {
+            PtyError::InvalidArgs(msg) => {
+                assert!(msg.contains("not allowed"), "Expected 'not allowed' in: {msg}");
+            }
+            other => panic!("Expected InvalidArgs, got: {other:?}"),
+        }
+    }
+
+    #[test]
+    fn validate_args_other_shell_allows_empty() {
+        assert!(validate_args("cmd.exe", &[]).is_ok());
+    }
+
+    #[test]
+    fn validate_args_rejects_nul_bytes() {
+        let result = validate_args("copilot", &["--yolo\0evil".into()]);
+        assert!(result.is_err());
+        match result.unwrap_err() {
+            PtyError::InvalidArgs(msg) => {
+                assert!(msg.contains("NUL"), "Expected 'NUL' in: {msg}");
+            }
+            other => panic!("Expected InvalidArgs, got: {other:?}"),
+        }
+    }
+
+    #[test]
+    fn validate_args_rejects_newlines() {
+        let result = validate_args("bash", &["-c\nrm -rf /".into()]);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn validate_args_rejects_carriage_return() {
+        let result = validate_args("copilot", &["--yolo\revil".into()]);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn validate_args_empty_is_ok() {
+        assert!(validate_args("copilot", &[]).is_ok());
+        assert!(validate_args("powershell.exe", &[]).is_ok());
+        assert!(validate_args("bash", &[]).is_ok());
+    }
+
+    #[test]
+    fn validate_args_multiple_valid() {
+        assert!(validate_args("copilot", &["--yolo".into(), "--experimental".into()]).is_ok());
+    }
+
+    #[test]
+    fn validate_args_mixed_valid_invalid() {
+        let result = validate_args("copilot", &["--yolo".into(), "--evil".into()]);
+        assert!(result.is_err());
+    }
+
+    // L3: Full-path copilot shell with arg validation
+    #[cfg(windows)]
+    #[test]
+    fn validate_args_copilot_full_path_allows_yolo() {
+        assert!(validate_args(r"C:\npm\copilot.cmd", &["--yolo".into()]).is_ok());
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn validate_args_copilot_full_path_rejects_unknown() {
+        let result = validate_args(r"C:\npm\copilot.cmd", &["--malicious".into()]);
+        assert!(result.is_err());
     }
 }

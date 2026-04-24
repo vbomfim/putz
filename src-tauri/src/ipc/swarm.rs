@@ -49,6 +49,16 @@ pub async fn swarm_get_state(
 ///
 /// This is a fire-and-forget command. The actual tab creation happens
 /// via a `swarm://spawn-tab` event emitted to the frontend.
+/// ADR: Trust model for swarm IPC commands
+///
+/// IPC commands are callable by any code in the renderer. We trust the
+/// renderer because Tauri enforces CSP and the frontend is bundled.
+/// Security boundaries for swarm ops are enforced at:
+/// - The broker (localhost-only bind)
+/// - `validate_shell` / `validate_args` in the PTY manager
+/// - `resolve_copilot_binary` (PATH-based, absolute path only)
+/// - Input length/format checks on names, prompts, and IDs
+
 #[tauri::command]
 pub async fn swarm_spawn_colleague(
     state: State<'_, SwarmCoordinator>,
@@ -61,6 +71,21 @@ pub async fn swarm_spawn_colleague(
     if !state.enabled() {
         return Err("Swarm is not enabled".into());
     }
+
+    // M3: Validate initial_prompt length (same limit as HTTP path)
+    if initial_prompt
+        .as_ref()
+        .map(|p| p.len() > 4096)
+        .unwrap_or(false)
+    {
+        return Err("initial_prompt exceeds 4096 character limit".into());
+    }
+
+    // C1: Resolve copilot binary to an absolute path BEFORE emitting
+    // the spawn-tab event. This ensures pty_spawn receives a path that
+    // passes validate_shell on both platforms.
+    let copilot_path = crate::pty::resolve_copilot_binary()
+        .map_err(|e| format!("Cannot spawn colleague: {e}"))?;
 
     let colleague_id = SwarmCoordinator::generate_colleague_id(&name);
     let tab_id = uuid::Uuid::new_v4().to_string();
@@ -80,7 +105,7 @@ pub async fn swarm_spawn_colleague(
     let payload = serde_json::json!({
         "name": name,
         "env": env,
-        "shell": "copilot",
+        "shell": copilot_path,
         "args": ["--yolo", "--experimental"],
         "colleague_id": colleague_id,
         "tab_id": tab_id,

@@ -24,6 +24,8 @@ pub enum PtyError {
     InvalidEnvironment(String),
     /// Working directory is invalid or does not exist.
     InvalidWorkingDirectory(String),
+    /// CLI argument not allowed for this shell.
+    InvalidArgs(String),
     /// Maximum number of concurrent sessions reached.
     SessionLimitReached,
 }
@@ -43,6 +45,7 @@ impl fmt::Display for PtyError {
             Self::InvalidWorkingDirectory(path) => {
                 write!(f, "Invalid working directory: {path}")
             }
+            Self::InvalidArgs(detail) => write!(f, "Argument not allowed: {detail}"),
             Self::SessionLimitReached => {
                 write!(f, "Maximum number of sessions reached (64)")
             }
@@ -126,5 +129,19 @@ mod tests {
         let err = PtyError::NotFound("id".into());
         let cloned = err.clone();
         assert_eq!(err.to_string(), cloned.to_string());
+    }
+
+    #[test]
+    fn display_invalid_args() {
+        let err = PtyError::InvalidArgs("-EncodedCommand".into());
+        assert_eq!(err.to_string(), "Argument not allowed: -EncodedCommand");
+    }
+
+    #[test]
+    fn invalid_args_is_serializable() {
+        let err = PtyError::InvalidArgs("--evil".into());
+        let json = serde_json::to_string(&err).unwrap();
+        assert!(json.contains("InvalidArgs"));
+        assert!(json.contains("--evil"));
     }
 }
