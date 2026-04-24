@@ -1,0 +1,9 @@
+{
+  "name": "copilot-colleagues",
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Copilot CLI extension for putz swarm — lets agents self-register, heartbeat, see roster, spawn peers, and share messages via a localhost broker.",
+  "scripts": {
+    "test": "node --test test/extension.test.mjs"
+  }
+}
