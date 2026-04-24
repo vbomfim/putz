@@ -222,6 +222,29 @@ async fn handle_spawn(
     Json(req): Json<SpawnRequest>,
 ) -> impl IntoResponse {
     use tauri::Emitter;
+
+    // N1 (Security): validate inputs before constructing colleague_id / env vars.
+    if !crate::swarm::coordinator::is_valid_identifier(&req.name) {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(json!({"error": "invalid name"})),
+        );
+    }
+    if !crate::swarm::coordinator::is_valid_identifier(&req.parent_id) {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(json!({"error": "invalid parent_id"})),
+        );
+    }
+    if let Some(prompt) = &req.initial_prompt {
+        if prompt.len() > 4096 {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(json!({"error": "initial_prompt too long"})),
+            );
+        }
+    }
+
     let colleague_id = SwarmCoordinator::generate_colleague_id(&req.name);
     let tab_id = uuid::Uuid::new_v4().to_string();
 

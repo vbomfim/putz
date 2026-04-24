@@ -36,7 +36,7 @@ const SSE_CHANNEL_SIZE: usize = 256;
 const MAX_PROMPT_LENGTH: usize = 4096;
 
 /// Check if a string is a valid identifier: alphanumeric + hyphens + underscores, 1-100 chars (M4).
-fn is_valid_identifier(s: &str) -> bool {
+pub(crate) fn is_valid_identifier(s: &str) -> bool {
     !s.is_empty()
         && s.len() <= 100
         && s.chars()
