@@ -44,7 +44,7 @@ use ipc::{
     session_delete_folder, session_duplicate, session_export, session_get, session_import,
     session_list, session_move, session_search, session_update, sftp_close, sftp_delete,
     sftp_download, sftp_list, sftp_mkdir, sftp_open, sftp_rename, sftp_stat, sftp_upload,
-    swarm_get_state, swarm_set_enabled, swarm_spawn_colleague,
+    swarm_deregister_by_tab, swarm_get_state, swarm_set_enabled, swarm_spawn_colleague,
     template_create, template_delete, template_execute, template_get, template_list, theme_create,
     theme_delete, theme_export, theme_get, theme_import, theme_list, theme_update,
     vault_check_expiring, vault_delete, vault_get, vault_list, vault_set,
@@ -227,6 +227,7 @@ pub fn run() {
             swarm_set_enabled,
             swarm_get_state,
             swarm_spawn_colleague,
+            swarm_deregister_by_tab,
         ])
         // Fix 8: Graceful app exit — clean up PTY sessions and protocol connections
         .on_window_event(|window, event| {

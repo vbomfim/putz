@@ -75,6 +75,10 @@ export interface RegionTab {
   diffRightContent?: string;
   /** Connection status of the tab. */
   status: TabStatus;
+  /** Swarm colleague ID (only for swarm-spawned tabs). */
+  colleagueId?: string;
+  /** Swarm tab ID (only for swarm-spawned tabs). */
+  swarmTabId?: string;
 }
 
 /** Prefix for editor tab session IDs. */

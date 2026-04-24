@@ -192,6 +192,17 @@ interface LayoutState {
   /** Adds a radio player tab. */
   addRadioTab: (regionId?: string) => void;
 
+  /** Adds a swarm colleague terminal tab with custom shell, args, and env. */
+  addColleagueTab: (opts: {
+    shell: string;
+    args: string[];
+    env: Record<string, string>;
+    tabId: string;
+    name: string;
+    colleagueId: string;
+    regionId?: string;
+  }) => Promise<void>;
+
   /** Closes a tab in a region. If last tab, closes the region. */
   closeTab: (regionId: string, tabId: string) => void;
 
@@ -629,6 +640,61 @@ export const useLayoutStore = create<LayoutState>((set, get) => ({
     set((state) => ({ regions: { ...state.regions, [targetRegionId]: { ...state.regions[targetRegionId], tabs: [...state.regions[targetRegionId].tabs, tab], activeTabId: tab.id } }, tabCounter: state.tabCounter + 1 }));
   },
 
+  addColleagueTab: async (opts) => {
+    const targetRegionId = opts.regionId || get().focusedRegionId;
+    const region = get().regions[targetRegionId];
+    if (!region) return;
+
+    let sessionId: string;
+    try {
+      sessionId = await invoke<string>("pty_spawn", {
+        cols: TERMINAL_CONFIG.defaultCols,
+        rows: TERMINAL_CONFIG.defaultRows,
+        shell: opts.shell || undefined,
+        args: opts.args,
+        env: opts.env,
+        tabId: opts.tabId,
+      });
+    } catch (err: unknown) {
+      const message =
+        err instanceof Error ? err.message : "Unknown PTY spawn error";
+      console.error("[layoutStore] Failed to spawn colleague PTY:", message);
+      return;
+    }
+
+    const nextCounter = get().tabCounter + 1;
+    const tab: RegionTab = {
+      id: generateId(),
+      title: `🤖 ${opts.name}`,
+      type: "terminal",
+      sessionId,
+      status: "local",
+      colleagueId: opts.colleagueId,
+      swarmTabId: opts.tabId,
+    };
+
+    set((state) => ({
+      regions: {
+        ...state.regions,
+        [targetRegionId]: {
+          ...state.regions[targetRegionId],
+          tabs: [...state.regions[targetRegionId].tabs, tab],
+          activeTabId: tab.id,
+        },
+      },
+      tabCounter: nextCounter,
+    }));
+
+    // Auto-focus the new terminal
+    setTimeout(() => {
+      if (typeof document === "undefined") return;
+      const el = document.querySelector(
+        `[data-session-id="${sessionId}"] .xterm-helper-textarea`,
+      ) as HTMLElement;
+      el?.focus();
+    }, 100);
+  },
+
   closeTab: (regionId: string, tabId: string) => {
     const { regions } = get();
     const region = regions[regionId];
@@ -641,6 +707,13 @@ export const useLayoutStore = create<LayoutState>((set, get) => ({
 
     // Close the session
     closeTabSession(tab);
+
+    // Deregister swarm colleague when closing a colleague tab
+    if (tab.swarmTabId) {
+      invoke("swarm_deregister_by_tab", { tabId: tab.swarmTabId }).catch(() => {
+        // Best-effort — swarm may be disabled or tab already deregistered
+      });
+    }
 
     const newTabs = region.tabs.filter((t) => t.id !== tabId);
 

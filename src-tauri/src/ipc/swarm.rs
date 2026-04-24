@@ -91,3 +91,20 @@ pub async fn swarm_spawn_colleague(
 
     Ok(())
 }
+
+/// Deregister all colleagues associated with a tab.
+///
+/// Called by the frontend when a swarm tab is closed, ensuring the
+/// broker cleans up the colleague entry immediately rather than
+/// waiting for the stale sweeper.
+#[tauri::command]
+pub async fn swarm_deregister_by_tab(
+    state: State<'_, SwarmCoordinator>,
+    tab_id: String,
+) -> Result<(), String> {
+    if !state.enabled() {
+        return Ok(()); // No-op when swarm is disabled
+    }
+    state.deregister_by_tab(&tab_id).await;
+    Ok(())
+}

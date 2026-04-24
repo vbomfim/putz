@@ -37,6 +37,7 @@ pub async fn pty_spawn(
     rows: u16,
     env: Option<HashMap<String, String>>,
     tab_id: Option<String>,
+    args: Option<Vec<String>>,
 ) -> Result<String, String> {
     // H6: Use .await instead of block_on() to avoid deadlock risk
     let merged_env = if swarm.enabled() {
@@ -57,7 +58,7 @@ pub async fn pty_spawn(
     };
 
     state
-        .spawn(&app, shell, cwd, cols, rows, merged_env, log_state.get_loggers())
+        .spawn(&app, shell, cwd, cols, rows, merged_env, log_state.get_loggers(), args)
         .map_err(|e| e.to_string())
 }
 

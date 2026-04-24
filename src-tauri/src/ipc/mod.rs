@@ -59,7 +59,7 @@ pub use sftp::{
     sftp_stat, sftp_upload,
 };
 pub mod swarm;
-pub use swarm::{swarm_get_state, swarm_set_enabled, swarm_spawn_colleague};
+pub use swarm::{swarm_deregister_by_tab, swarm_get_state, swarm_set_enabled, swarm_spawn_colleague};
 pub use templates::{
     template_create, template_delete, template_execute, template_get, template_list,
 };

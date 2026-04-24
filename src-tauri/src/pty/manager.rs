@@ -106,6 +106,7 @@ impl PtyManager {
         rows: u16,
         env: Option<HashMap<String, String>>,
         log_loggers: Arc<Mutex<HashMap<String, Arc<SessionLogger>>>>,
+        args: Option<Vec<String>>,
     ) -> Result<String, PtyError> {
         // Check session limit before doing anything else
         {
@@ -192,6 +193,13 @@ impl PtyManager {
         if let Some(vars) = env {
             for (key, value) in vars {
                 cmd.env(key, value);
+            }
+        }
+
+        // Append extra CLI arguments (e.g. --yolo for Copilot CLI colleagues)
+        if let Some(extra_args) = args {
+            for arg in extra_args {
+                cmd.arg(arg);
             }
         }
 

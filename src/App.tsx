@@ -70,6 +70,7 @@ function App() {
   const addTemplateTab = useLayoutStore((s) => s.addTemplateTab);
   const addSettingsTab = useLayoutStore((s) => s.addSettingsTab);
   const addBookmarksTab = useLayoutStore((s) => s.addBookmarksTab);
+  const addColleagueTab = useLayoutStore((s) => s.addColleagueTab);
   const workspaceBarVisible = useSettingsStore((s) => s.workspaceBarVisible);
   const toggleWorkspaceBar = useSettingsStore((s) => s.toggleWorkspaceBar);
   const bookmarksBarVisible = useSettingsStore((s) => s.bookmarksBarVisible);
@@ -238,22 +239,47 @@ function App() {
     }
   }, [addTerminalTab, regions]);
 
-  // Swarm event listeners — handle spawn-tab requests from the broker
+  // Swarm event listeners — handle spawn-tab and focus-tab requests from the broker
   useEffect(() => {
-    const unlistenSpawn = listen<{ name: string; env: Record<string, string>; tab_id: string; colleague_id: string }>(
+    const unlistenSpawn = listen<{
+      name: string;
+      env: Record<string, string>;
+      shell: string;
+      args: string[];
+      tab_id: string;
+      colleague_id: string;
+    }>(
       "swarm://spawn-tab",
       (event) => {
-        // TODO: Phase 2+ — spawn a colleague tab with the given env vars
-        // For now, just log the event for verification
-        // H3: Log event receipt without full payload (may contain token in env)
-        console.info("[App] swarm://spawn-tab event received, colleague:", event.payload.colleague_id);
+        const { name, env, shell, args, tab_id, colleague_id } = event.payload;
+        // H3: Log event receipt without full payload (env may contain token)
+        console.info("[App] swarm://spawn-tab → spawning colleague:", colleague_id);
+        addColleagueTab({ shell, args, env, tabId: tab_id, name, colleagueId: colleague_id });
+      },
+    );
+
+    const unlistenFocus = listen<{ tab_id: string }>(
+      "swarm://focus-tab",
+      (event) => {
+        const { tab_id } = event.payload;
+        // Find the tab with matching swarmTabId across all regions and activate it
+        const { regions } = useLayoutStore.getState();
+        for (const [regionId, region] of Object.entries(regions)) {
+          const tab = region.tabs.find((t) => t.swarmTabId === tab_id);
+          if (tab) {
+            useLayoutStore.getState().activateTab(regionId, tab.id);
+            useLayoutStore.getState().setFocusedRegion(regionId);
+            break;
+          }
+        }
       },
     );
 
     return () => {
       unlistenSpawn.then((fn) => fn());
+      unlistenFocus.then((fn) => fn());
     };
-  }, []);
+  }, [addColleagueTab]);
 
   // Global keyboard shortcuts for History (Ctrl+R) and QuickConnect (Ctrl+K)
   useEffect(() => {
