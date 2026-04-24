@@ -1,18 +1,31 @@
 /**
- * Unit tests for the colleagues Copilot CLI extension.
+ * Unit tests for the colleagues Copilot CLI extension core logic.
  *
- * Uses node:test + node:assert with a mock fetch to test:
- * - No-op mode when PUTZ_SWARM_URL is unset
- * - Self-registration on session start
- * - Heartbeat loop (fires, stops on end)
- * - Tool handlers: swarm_roster, swarm_spawn, swarm_send_message
- * - Auto-prompt injection via onUserPromptSubmitted
- * - Environment variable masking (no token in logs)
+ * Uses node:test + node:assert with a mock fetch.
+ * Imports the REAL `createCore` from `../core.mjs` (C3 fix) — no
+ * parallel reimplementation.
+ *
+ * Covers:
+ * - No-op mode when env vars are missing
+ * - Self-registration (with and without parent)
+ * - Heartbeat loop
+ * - Tool handlers: swarm_roster, swarm_spawn, swarm_send_message, swarm_focus
+ * - Initial prompt injection
+ * - Token masking
+ * - Error sanitization (H2)
+ * - Orphan colleague ID derivation (H3)
+ * - Roster context injection (H4)
+ * - M1 localhost-only SWARM_URL validation
+ * - M9 HTTP error path coverage
+ * - M10 Initial prompt delivered once
+ * - M12 Heartbeat interval constant
+ * - M13 No PID in registration payload
  *
  * Tags: [TDD], [AC-extension]
  */
-import { describe, it, beforeEach, afterEach, mock } from "node:test";
+import { describe, it, beforeEach, afterEach } from "node:test";
 import assert from "node:assert/strict";
+import { createCore, deriveColleagueId, HEARTBEAT_INTERVAL_MS } from "../core.mjs";
 
 // ─── Mock fetch ─────────────────────────────────────────────────────
 let fetchCalls = [];
@@ -28,35 +41,6 @@ function mockFetch(url, opts) {
     json: async () => (typeof response.body === "function" ? response.body() : response.body ?? {}),
     text: async () => JSON.stringify(typeof response.body === "function" ? response.body() : response.body ?? {}),
   });
-}
-
-// ─── Helpers to import extension module fresh each time ─────────────
-// We use dynamic import with a cache-buster to get a fresh module per test.
-// But since node caches ESM, we'll instead extract the logic into testable functions.
-
-// Instead of importing the actual extension.mjs (which calls joinSession),
-// we test the internal logic by importing a "testable" version.
-// The extension.mjs itself will be a thin wrapper.
-
-// For testability, we extract the core logic into functions that we can
-// import and test directly. The extension.mjs calls these.
-
-// Let's test the exported helpers from the extension module.
-// We'll use a helper module pattern: extension.mjs exports its internals
-// for testing via a named export.
-
-// ─── Import the core logic ──────────────────────────────────────────
-// We'll dynamically import after setting env vars
-let core;
-
-async function loadCore(env = {}) {
-  // Set env vars before import
-  for (const [k, v] of Object.entries(env)) {
-    process.env[k] = v;
-  }
-  // Dynamic import with cache buster
-  const mod = await import(`../core.mjs?t=${Date.now()}-${Math.random()}`);
-  return mod;
 }
 
 // ─── Test helpers ───────────────────────────────────────────────────
@@ -89,30 +73,12 @@ describe("colleagues extension — core logic", () => {
 
   beforeEach(() => {
     resetFetch();
-    // Clean env
-    delete process.env.PUTZ_SWARM_URL;
-    delete process.env.PUTZ_SWARM_TOKEN;
-    delete process.env.PUTZ_TAB_ID;
-    delete process.env.COPILOT_COLLEAGUE_ID;
-    delete process.env.COPILOT_COLLEAGUE_NAME;
-    delete process.env.COPILOT_COLLEAGUE_PARENT;
-    delete process.env.COPILOT_COLLEAGUE_INITIAL_PROMPT;
-  });
-
-  afterEach(() => {
-    // Clean env
-    for (const k of Object.keys(BASE_ENV)) {
-      delete process.env[k];
-    }
-    delete process.env.COPILOT_COLLEAGUE_PARENT;
-    delete process.env.COPILOT_COLLEAGUE_INITIAL_PROMPT;
   });
 
   // ── No-op mode ──────────────────────────────────────────────────
 
   describe("no-op mode", () => {
     it("isEnabled returns false when PUTZ_SWARM_URL is unset", () => {
-      // Don't set any env vars
       const { isEnabled } = createCore({});
       assert.equal(isEnabled(), false);
     });
@@ -124,6 +90,31 @@ describe("colleagues extension — core logic", () => {
 
     it("isEnabled returns true when all required env vars are set", () => {
       const { isEnabled } = createCore(BASE_ENV);
+      assert.equal(isEnabled(), true);
+    });
+
+    // M1: Localhost-only validation
+    it("isEnabled returns false for non-localhost URL", () => {
+      const env = { ...BASE_ENV, PUTZ_SWARM_URL: "http://evil.com:9111" };
+      const { isEnabled } = createCore(env);
+      assert.equal(isEnabled(), false);
+    });
+
+    it("isEnabled returns false for malformed URL", () => {
+      const env = { ...BASE_ENV, PUTZ_SWARM_URL: "not-a-url" };
+      const { isEnabled } = createCore(env);
+      assert.equal(isEnabled(), false);
+    });
+
+    it("isEnabled returns true for localhost hostname", () => {
+      const env = { ...BASE_ENV, PUTZ_SWARM_URL: "http://localhost:9111" };
+      const { isEnabled } = createCore(env);
+      assert.equal(isEnabled(), true);
+    });
+
+    it("isEnabled returns true for ::1 IPv6", () => {
+      const env = { ...BASE_ENV, PUTZ_SWARM_URL: "http://[::1]:9111" };
+      const { isEnabled } = createCore(env);
       assert.equal(isEnabled(), true);
     });
   });
@@ -166,6 +157,18 @@ describe("colleagues extension — core logic", () => {
       const call = findFetchCall("POST", "/swarm/register");
       assert.equal(call.opts.headers["Authorization"], "Bearer test-token-abc");
     });
+
+    // M13: No PID in registration payload
+    it("does NOT include pid in registration payload", async () => {
+      const { register } = createCore(BASE_ENV);
+      setFetchResponse("POST", "/swarm/register", { registered_at: "2025-01-01T00:00:00Z" });
+
+      await register(mockFetch);
+
+      const call = findFetchCall("POST", "/swarm/register");
+      const body = JSON.parse(call.opts.body);
+      assert.equal(body.pid, undefined, "pid should not be in registration payload");
+    });
   });
 
   // ── Deregister ──────────────────────────────────────────────────
@@ -199,6 +202,11 @@ describe("colleagues extension — core logic", () => {
       assert.equal(body.colleague_id, "alice-ab12");
       assert.equal(body.status, "idle");
     });
+
+    // M12: Heartbeat interval is 15s
+    it("HEARTBEAT_INTERVAL_MS is 15000", () => {
+      assert.equal(HEARTBEAT_INTERVAL_MS, 15_000);
+    });
   });
 
   // ── Roster tool ─────────────────────────────────────────────────
@@ -226,7 +234,7 @@ describe("colleagues extension — core logic", () => {
       const { getRoster } = createCore(BASE_ENV);
       const result = await getRoster(mockFetch);
 
-      assert.ok(result.toLowerCase().includes("no") || result.toLowerCase().includes("empty") || result.includes("0"));
+      assert.ok(result.toLowerCase().includes("no"));
     });
   });
 
@@ -237,7 +245,7 @@ describe("colleagues extension — core logic", () => {
       setFetchResponse("POST", "/swarm/spawn", { colleague_id: "eve-ef56", tab_id: "t3" });
 
       const { spawnColleague } = createCore(BASE_ENV);
-      await spawnColleague(mockFetch, "eve", "Do something");
+      const result = await spawnColleague(mockFetch, "eve", "Do something");
 
       const call = findFetchCall("POST", "/swarm/spawn");
       assert.ok(call, "spawn call should have been made");
@@ -245,6 +253,9 @@ describe("colleagues extension — core logic", () => {
       assert.equal(body.name, "eve");
       assert.equal(body.parent_id, "alice-ab12");
       assert.equal(body.initial_prompt, "Do something");
+      // M6: Assert return format includes colleague name and ID
+      assert.ok(result.includes("eve"), "result should mention colleague name");
+      assert.ok(result.includes("eve-ef56"), "result should mention colleague ID");
     });
   });
 
@@ -255,7 +266,7 @@ describe("colleagues extension — core logic", () => {
       setFetchResponse("POST", "/swarm/message", { id: "msg-001" });
 
       const { sendMessage } = createCore(BASE_ENV);
-      await sendMessage(mockFetch, "bob-cd34", "Hello Bob");
+      const result = await sendMessage(mockFetch, "bob-cd34", "Hello Bob");
 
       const call = findFetchCall("POST", "/swarm/message");
       assert.ok(call, "message call should have been made");
@@ -264,6 +275,8 @@ describe("colleagues extension — core logic", () => {
       assert.equal(body.to, "bob-cd34");
       assert.equal(body.body, "Hello Bob");
       assert.equal(body.severity, "normal");
+      // M6: Assert return format includes message ID
+      assert.ok(result.includes("msg-001"), "result should mention message ID");
     });
   });
 
@@ -284,6 +297,16 @@ describe("colleagues extension — core logic", () => {
       assert.ok(call, "focus call should have been made");
       const body = JSON.parse(call.opts.body);
       assert.equal(body.tab_id, "tab-bob");
+      assert.ok(result.includes("bob"), "result should mention colleague name");
+    });
+
+    it("returns not-found message for unknown colleague", async () => {
+      setFetchResponse("GET", "/swarm/roster", { peers: [] });
+
+      const { focusColleague } = createCore(BASE_ENV);
+      const result = await focusColleague(mockFetch, "unknown-id");
+
+      assert.ok(result.includes("not found"));
     });
   });
 
@@ -300,6 +323,15 @@ describe("colleagues extension — core logic", () => {
       const { getInitialPrompt } = createCore(BASE_ENV);
       assert.equal(getInitialPrompt(), null);
     });
+
+    // M10: Initial prompt delivered once — the core returns a static value;
+    // M2 (env deletion) is handled in extension.mjs, tested in integration.
+    it("returns same value on repeated calls (pure function)", () => {
+      const env = { ...BASE_ENV, COPILOT_COLLEAGUE_INITIAL_PROMPT: "Do X" };
+      const { getInitialPrompt } = createCore(env);
+      assert.equal(getInitialPrompt(), "Do X");
+      assert.equal(getInitialPrompt(), "Do X");
+    });
   });
 
   // ── Token masking ───────────────────────────────────────────────
@@ -313,136 +345,138 @@ describe("colleagues extension — core logic", () => {
       assert.equal(config.tokenSet, true);
     });
   });
+
+  // ── H2: Error sanitization ──────────────────────────────────────
+
+  describe("error sanitization (H2)", () => {
+    it("throws on HTTP error with sanitized body", async () => {
+      setFetchResponse("POST", "/swarm/register", "Detailed internal error info", false, 500);
+
+      const { register } = createCore(BASE_ENV);
+      await assert.rejects(
+        () => register(mockFetch),
+        (err) => {
+          assert.ok(err.message.includes("500"), "should include status code");
+          return true;
+        }
+      );
+    });
+
+    it("truncates very long error bodies", async () => {
+      const longBody = "x".repeat(500);
+      setFetchResponse("POST", "/swarm/register", longBody, false, 500);
+
+      const { register } = createCore(BASE_ENV);
+      await assert.rejects(
+        () => register(mockFetch),
+        (err) => {
+          // Error body should be truncated (200 chars max + "…")
+          assert.ok(err.message.length < 500, "error message should be truncated");
+          return true;
+        }
+      );
+    });
+  });
+
+  // ── H3: Orphan colleague ID derivation ──────────────────────────
+
+  describe("deriveColleagueId (H3)", () => {
+    it("returns COPILOT_COLLEAGUE_ID when set", () => {
+      assert.equal(deriveColleagueId({ COPILOT_COLLEAGUE_ID: "alice-ab12" }), "alice-ab12");
+    });
+
+    it("returns orphan-<tabId prefix> when only TAB_ID is set", () => {
+      const result = deriveColleagueId({ PUTZ_TAB_ID: "abcdef12-3456-7890" });
+      assert.equal(result, "orphan-abcdef12");
+    });
+
+    it("returns empty string when neither is set", () => {
+      assert.equal(deriveColleagueId({}), "");
+    });
+
+    it("prefers COLLEAGUE_ID over TAB_ID", () => {
+      const result = deriveColleagueId({
+        COPILOT_COLLEAGUE_ID: "explicit-id",
+        PUTZ_TAB_ID: "tab-12345678",
+      });
+      assert.equal(result, "explicit-id");
+    });
+  });
+
+  // ── H4: Roster context injection ────────────────────────────────
+
+  describe("getRosterContext (H4)", () => {
+    it("returns null when no other peers exist", async () => {
+      setFetchResponse("GET", "/swarm/roster", { peers: [] });
+
+      const { getRosterContext } = createCore(BASE_ENV);
+      const result = await getRosterContext(mockFetch);
+      assert.equal(result, null);
+    });
+
+    it("excludes self from roster context", async () => {
+      const peers = [
+        { id: "alice-ab12", name: "alice", status: "idle", tab_id: "t1" },
+      ];
+      setFetchResponse("GET", "/swarm/roster", { peers });
+
+      const { getRosterContext } = createCore(BASE_ENV);
+      const result = await getRosterContext(mockFetch);
+      assert.equal(result, null, "self-only roster should return null");
+    });
+
+    it("returns formatted context with peer info", async () => {
+      const peers = [
+        { id: "alice-ab12", name: "alice", status: "idle", tab_id: "t1" },
+        { id: "bob-cd34", name: "bob", status: "working", tab_id: "t2" },
+      ];
+      setFetchResponse("GET", "/swarm/roster", { peers });
+
+      const { getRosterContext } = createCore(BASE_ENV);
+      const result = await getRosterContext(mockFetch);
+      assert.ok(result.includes("bob"));
+      assert.ok(result.includes("working"));
+      assert.ok(result.includes("alice-ab12"), "should mention self identity");
+    });
+  });
+
+  // ── M9: HTTP error path tests ───────────────────────────────────
+
+  describe("HTTP error paths (M9)", () => {
+    it("getRoster throws on 500 response", async () => {
+      setFetchResponse("GET", "/swarm/roster", "Internal error", false, 500);
+
+      const { getRoster } = createCore(BASE_ENV);
+      await assert.rejects(() => getRoster(mockFetch), /500/);
+    });
+
+    it("spawnColleague throws on 400 response", async () => {
+      setFetchResponse("POST", "/swarm/spawn", "Bad request", false, 400);
+
+      const { spawnColleague } = createCore(BASE_ENV);
+      await assert.rejects(() => spawnColleague(mockFetch, "test", null), /400/);
+    });
+
+    it("sendMessage throws on 404 response", async () => {
+      setFetchResponse("POST", "/swarm/message", "Not found", false, 404);
+
+      const { sendMessage } = createCore(BASE_ENV);
+      await assert.rejects(() => sendMessage(mockFetch, "bob", "hi"), /404/);
+    });
+
+    it("deregister throws on 401 response", async () => {
+      setFetchResponse("POST", "/swarm/deregister", "Unauthorized", false, 401);
+
+      const { deregister } = createCore(BASE_ENV);
+      await assert.rejects(() => deregister(mockFetch), /401/);
+    });
+
+    it("sendHeartbeat throws on 503 response", async () => {
+      setFetchResponse("POST", "/swarm/heartbeat", "Service unavailable", false, 503);
+
+      const { sendHeartbeat } = createCore(BASE_ENV);
+      await assert.rejects(() => sendHeartbeat(mockFetch, "idle"), /503/);
+    });
+  });
 });
 
-// ─── Core factory ───────────────────────────────────────────────────
-// Simulates what the extension module does: reads env, creates helpers.
-// This is the contract that extension.mjs must implement.
-
-function createCore(env) {
-  const url = env.PUTZ_SWARM_URL || "";
-  const token = env.PUTZ_SWARM_TOKEN || "";
-  const tabId = env.PUTZ_TAB_ID || "";
-  const colleagueId = env.COPILOT_COLLEAGUE_ID || "";
-  const colleagueName = env.COPILOT_COLLEAGUE_NAME || "";
-  const parent = env.COPILOT_COLLEAGUE_PARENT || null;
-  const initialPrompt = env.COPILOT_COLLEAGUE_INITIAL_PROMPT || null;
-
-  const headers = () => ({
-    "Content-Type": "application/json",
-    Authorization: `Bearer ${token}`,
-  });
-
-  const isEnabled = () => !!(url && token);
-
-  const register = async (fetchFn) => {
-    const resp = await fetchFn(`${url}/swarm/register`, {
-      method: "POST",
-      headers: headers(),
-      body: JSON.stringify({
-        colleague_id: colleagueId,
-        name: colleagueName,
-        tab_id: tabId,
-        parent: parent || undefined,
-        pid: process.pid,
-      }),
-    });
-    return resp.json();
-  };
-
-  const deregister = async (fetchFn) => {
-    const resp = await fetchFn(`${url}/swarm/deregister`, {
-      method: "POST",
-      headers: headers(),
-      body: JSON.stringify({ colleague_id: colleagueId }),
-    });
-    return resp.json();
-  };
-
-  const sendHeartbeat = async (fetchFn, status) => {
-    const resp = await fetchFn(`${url}/swarm/heartbeat`, {
-      method: "POST",
-      headers: headers(),
-      body: JSON.stringify({ colleague_id: colleagueId, status }),
-    });
-    return resp.json();
-  };
-
-  const getRoster = async (fetchFn) => {
-    const resp = await fetchFn(`${url}/swarm/roster`, {
-      method: "GET",
-      headers: headers(),
-    });
-    const data = await resp.json();
-    const peers = data.peers || [];
-    if (peers.length === 0) return "No peers currently registered in the swarm.";
-    const lines = peers.map(
-      (p) => `• ${p.name} (${p.id}) — ${p.status} [tab: ${p.tab_id}]`
-    );
-    return `Swarm roster (${peers.length} peer${peers.length !== 1 ? "s" : ""}):\n${lines.join("\n")}`;
-  };
-
-  const spawnColleague = async (fetchFn, name, prompt) => {
-    const resp = await fetchFn(`${url}/swarm/spawn`, {
-      method: "POST",
-      headers: headers(),
-      body: JSON.stringify({
-        name,
-        parent_id: colleagueId,
-        initial_prompt: prompt || undefined,
-      }),
-    });
-    return resp.json();
-  };
-
-  const sendMessage = async (fetchFn, to, body, severity = "normal") => {
-    const resp = await fetchFn(`${url}/swarm/message`, {
-      method: "POST",
-      headers: headers(),
-      body: JSON.stringify({ from: colleagueId, to, body, severity }),
-    });
-    return resp.json();
-  };
-
-  const focusColleague = async (fetchFn, targetId) => {
-    // Look up the tab_id from roster
-    const rosterResp = await fetchFn(`${url}/swarm/roster`, {
-      method: "GET",
-      headers: headers(),
-    });
-    const rosterData = await rosterResp.json();
-    const peer = (rosterData.peers || []).find((p) => p.id === targetId);
-    if (!peer) return `Colleague ${targetId} not found in roster.`;
-
-    await fetchFn(`${url}/swarm/focus`, {
-      method: "POST",
-      headers: headers(),
-      body: JSON.stringify({ tab_id: peer.tab_id }),
-    });
-    return `Focused tab for ${peer.name} (${targetId}).`;
-  };
-
-  const getInitialPrompt = () => initialPrompt || null;
-
-  const getConfig = () => ({
-    url,
-    tokenSet: !!token,
-    tabId,
-    colleagueId,
-    colleagueName,
-    parent,
-  });
-
-  return {
-    isEnabled,
-    register,
-    deregister,
-    sendHeartbeat,
-    getRoster,
-    spawnColleague,
-    sendMessage,
-    focusColleague,
-    getInitialPrompt,
-    getConfig,
-  };
-}

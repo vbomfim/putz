@@ -6,9 +6,10 @@
  *
  * Capabilities:
  * - Self-registers on session start, deregisters on end
- * - Heartbeat loop (30s interval) to keep alive in the broker
+ * - Heartbeat loop (15s interval) to keep alive in the broker
  * - Tools: swarm_roster, swarm_spawn, swarm_send_message, swarm_focus
  * - Auto-fires initial prompt if COPILOT_COLLEAGUE_INITIAL_PROMPT is set
+ * - Injects roster context on each user prompt (H4)
  *
  * No-op when PUTZ_SWARM_URL is not set (non-swarm terminals).
  *
@@ -17,113 +18,14 @@
  * @see https://github.com/vbomfim/putz — Phase 2 swarm spec
  */
 import { joinSession } from "@github/copilot-sdk/extension";
+import { createCore, HEARTBEAT_INTERVAL_MS } from "./core.mjs";
 
-// ─── Environment ────────────────────────────────────────────────────
-const SWARM_URL = process.env.PUTZ_SWARM_URL || "";
-const SWARM_TOKEN = process.env.PUTZ_SWARM_TOKEN || "";
-const TAB_ID = process.env.PUTZ_TAB_ID || "";
-const COLLEAGUE_ID = process.env.COPILOT_COLLEAGUE_ID || "";
-const COLLEAGUE_NAME = process.env.COPILOT_COLLEAGUE_NAME || "";
-const COLLEAGUE_PARENT = process.env.COPILOT_COLLEAGUE_PARENT || null;
-const INITIAL_PROMPT = process.env.COPILOT_COLLEAGUE_INITIAL_PROMPT || null;
+// ─── Build core from process.env ────────────────────────────────────
+const core = createCore(process.env);
 
-const HEARTBEAT_INTERVAL_MS = 30_000;
-const ENABLED = !!(SWARM_URL && SWARM_TOKEN);
-
-// ─── HTTP helpers ───────────────────────────────────────────────────
-
-function headers() {
-  return {
-    "Content-Type": "application/json",
-    Authorization: `Bearer ${SWARM_TOKEN}`,
-  };
-}
-
-async function swarmPost(path, body) {
-  const resp = await fetch(`${SWARM_URL}${path}`, {
-    method: "POST",
-    headers: headers(),
-    body: JSON.stringify(body),
-  });
-  if (!resp.ok) {
-    const text = await resp.text().catch(() => "");
-    throw new Error(`Swarm ${path} failed (${resp.status}): ${text}`);
-  }
-  return resp.json();
-}
-
-async function swarmGet(path) {
-  const resp = await fetch(`${SWARM_URL}${path}`, {
-    method: "GET",
-    headers: headers(),
-  });
-  if (!resp.ok) {
-    const text = await resp.text().catch(() => "");
-    throw new Error(`Swarm ${path} failed (${resp.status}): ${text}`);
-  }
-  return resp.json();
-}
-
-// ─── Core operations ────────────────────────────────────────────────
-
-async function register() {
-  return swarmPost("/swarm/register", {
-    colleague_id: COLLEAGUE_ID,
-    name: COLLEAGUE_NAME,
-    tab_id: TAB_ID,
-    parent: COLLEAGUE_PARENT || undefined,
-    pid: process.pid,
-  });
-}
-
-async function deregister() {
-  return swarmPost("/swarm/deregister", {
-    colleague_id: COLLEAGUE_ID,
-  });
-}
-
-async function sendHeartbeat(status = "idle") {
-  return swarmPost("/swarm/heartbeat", {
-    colleague_id: COLLEAGUE_ID,
-    status,
-  });
-}
-
-async function getRoster() {
-  const data = await swarmGet("/swarm/roster");
-  const peers = data.peers || [];
-  if (peers.length === 0) return "No peers currently registered in the swarm.";
-  const lines = peers.map(
-    (p) => `• ${p.name} (${p.id}) — ${p.status} [tab: ${p.tab_id}]`
-  );
-  return `Swarm roster (${peers.length} peer${peers.length !== 1 ? "s" : ""}):\n${lines.join("\n")}`;
-}
-
-async function spawnColleague(name, initialPrompt) {
-  const result = await swarmPost("/swarm/spawn", {
-    name,
-    parent_id: COLLEAGUE_ID,
-    initial_prompt: initialPrompt || undefined,
-  });
-  return `Spawned colleague "${name}" (${result.colleague_id}) in tab ${result.tab_id}.`;
-}
-
-async function sendMessageTo(to, body, severity = "normal") {
-  const result = await swarmPost("/swarm/message", {
-    from: COLLEAGUE_ID,
-    to,
-    body,
-    severity,
-  });
-  return `Message sent (id: ${result.id}).`;
-}
-
-async function focusColleague(targetId) {
-  const data = await swarmGet("/swarm/roster");
-  const peer = (data.peers || []).find((p) => p.id === targetId);
-  if (!peer) return `Colleague ${targetId} not found in roster.`;
-  await swarmPost("/swarm/focus", { tab_id: peer.tab_id });
-  return `Focused tab for ${peer.name} (${targetId}).`;
+// M2: Delete INITIAL_PROMPT from env after reading so it fires only once
+if (process.env.COPILOT_COLLEAGUE_INITIAL_PROMPT) {
+  delete process.env.COPILOT_COLLEAGUE_INITIAL_PROMPT;
 }
 
 // ─── Heartbeat timer ────────────────────────────────────────────────
@@ -132,7 +34,7 @@ let heartbeatTimer = null;
 function startHeartbeat() {
   if (heartbeatTimer) return;
   heartbeatTimer = setInterval(() => {
-    sendHeartbeat("idle").catch(() => {
+    core.sendHeartbeat(fetch, "idle").catch(() => {
       // Swarm may have stopped; silently ignore
     });
   }, HEARTBEAT_INTERVAL_MS);
@@ -148,7 +50,7 @@ function stopHeartbeat() {
 }
 
 // ─── No-op guard ────────────────────────────────────────────────────
-if (!ENABLED) {
+if (!core.isEnabled()) {
   // Not in a swarm session — register with empty tools/hooks
   // so the extension loads cleanly but does nothing.
   joinSession({ tools: [], hooks: {} });
@@ -164,8 +66,7 @@ if (!ENABLED) {
         parameters: { type: "object", properties: {} },
         handler: async () => {
           try {
-            const result = await getRoster();
-            return result;
+            return await core.getRoster(fetch);
           } catch (err) {
             return { textResultForLlm: `Error: ${err.message}`, resultType: "failure" };
           }
@@ -191,8 +92,7 @@ if (!ENABLED) {
         },
         handler: async (args) => {
           try {
-            const result = await spawnColleague(args.name, args.initial_prompt);
-            return result;
+            return await core.spawnColleague(fetch, args.name, args.initial_prompt);
           } catch (err) {
             return { textResultForLlm: `Error: ${err.message}`, resultType: "failure" };
           }
@@ -223,8 +123,7 @@ if (!ENABLED) {
         },
         handler: async (args) => {
           try {
-            const result = await sendMessageTo(args.to, args.body, args.severity);
-            return result;
+            return await core.sendMessage(fetch, args.to, args.body, args.severity);
           } catch (err) {
             return { textResultForLlm: `Error: ${err.message}`, resultType: "failure" };
           }
@@ -246,8 +145,7 @@ if (!ENABLED) {
         },
         handler: async (args) => {
           try {
-            const result = await focusColleague(args.colleague_id);
-            return result;
+            return await core.focusColleague(fetch, args.colleague_id);
           } catch (err) {
             return { textResultForLlm: `Error: ${err.message}`, resultType: "failure" };
           }
@@ -258,25 +156,28 @@ if (!ENABLED) {
     hooks: {
       onSessionStart: async () => {
         try {
-          await register();
+          await core.register(fetch);
           startHeartbeat();
-          session.log(`[swarm] Registered as ${COLLEAGUE_NAME} (${COLLEAGUE_ID})`, { level: "info", ephemeral: true });
+          session.log(`[swarm] Registered as ${core.getConfig().colleagueName} (${core.getConfig().colleagueId})`, { level: "info", ephemeral: true });
 
           // Fire initial prompt if set (from env var injected by parent spawn)
-          if (INITIAL_PROMPT) {
+          const prompt = core.getInitialPrompt();
+          if (prompt) {
             setTimeout(() => {
-              session.send({ prompt: INITIAL_PROMPT });
+              session.send({ prompt });
             }, 0);
           }
         } catch (err) {
-          session.log(`[swarm] Registration failed: ${err.message}`, { level: "warning", ephemeral: true });
+          // L2: Sanitize registration error — don't leak broker internals
+          const safeMsg = err.message.length > 200 ? err.message.slice(0, 200) + "…" : err.message;
+          session.log(`[swarm] Registration failed: ${safeMsg}`, { level: "warning", ephemeral: true });
         }
       },
 
       onSessionEnd: async () => {
         stopHeartbeat();
         try {
-          await deregister();
+          await core.deregister(fetch);
         } catch {
           // Best-effort deregister; swarm will sweep stale entries
         }
@@ -285,11 +186,22 @@ if (!ENABLED) {
       onUserPromptSubmitted: async () => {
         // Update heartbeat to "working" when user sends a prompt
         try {
-          await sendHeartbeat("working");
+          await core.sendHeartbeat(fetch, "working");
         } catch {
           // Non-critical
+        }
+
+        // H4: Inject roster context so the LLM knows about active peers
+        try {
+          const context = await core.getRosterContext(fetch);
+          if (context) {
+            return { additionalContext: context };
+          }
+        } catch {
+          // Non-critical — swarm awareness is best-effort
         }
       },
     },
   });
 }
+
