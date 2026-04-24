@@ -3,6 +3,46 @@
 Copilot CLI extension that connects agents running in putz terminal tabs
 to the swarm broker, enabling mutual awareness and collaboration.
 
+## Installation
+
+The extension lives **in the repo** (`extensions/colleagues/`) so it stays
+version-controlled alongside the rest of putz. Copilot CLI discovers
+extensions at `~/.copilot/extensions/<name>/`, so we create a symlink.
+
+### Quick setup (recommended)
+
+```bash
+node extensions/colleagues/setup.mjs
+```
+
+The script is idempotent — re-running it when the link already exists is a
+no-op. On Windows it creates a **junction** (no admin rights needed). On
+macOS/Linux it creates a regular symlink.
+
+### Manual setup
+
+**PowerShell (Windows):**
+
+```powershell
+New-Item -ItemType Junction `
+  -Path "$HOME\.copilot\extensions\colleagues" `
+  -Target (Resolve-Path "extensions\colleagues")
+```
+
+**Bash / Zsh (macOS / Linux):**
+
+```bash
+mkdir -p ~/.copilot/extensions
+ln -s "$(pwd)/extensions/colleagues" ~/.copilot/extensions/colleagues
+```
+
+### Verify
+
+```bash
+copilot extensions list          # should show "colleagues"
+copilot extensions inspect colleagues
+```
+
 ## How it works
 
 When a putz terminal tab has `PUTZ_SWARM_URL` and `PUTZ_SWARM_TOKEN` set,
@@ -48,6 +88,6 @@ You do not need to set them manually.
 ## Testing
 
 ```bash
-cd ~/.copilot/extensions/colleagues
+cd extensions/colleagues
 node --test
 ```
