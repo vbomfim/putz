@@ -30,11 +30,6 @@ interface TabProps {
   onRename: (id: string, title: string) => void;
 }
 
-/** Color mapping for tab status indicators. */
-const STATUS_COLORS: Record<TabType["status"], string> = {
-  local: "#50fa7b",
-};
-
 /** Individual tab in the tab bar. */
 export function Tab({
   tab,
@@ -140,13 +135,6 @@ export function Tab({
       onMouseLeave={() => setIsHovered(false)}
       style={{ cursor: "grab", userSelect: "none" }}
     >
-      <span
-        className="tab__status"
-        data-testid="tab-status-indicator"
-        style={{ backgroundColor: STATUS_COLORS[tab.status] }}
-        aria-label={`Status: ${tab.status}`}
-      />
-
       {isBroadcastSource && (
         <span
           className="tab__broadcast-label"

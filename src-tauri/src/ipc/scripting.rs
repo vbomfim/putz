@@ -96,12 +96,6 @@ pub async fn script_run(
                         }
                     }
                 }
-                ScriptCommand::VaultGet {
-                    credential_name: _,
-                    result_tx,
-                } => {
-                    let _ = result_tx.send(Err("Vault feature has been removed".to_string()));
-                }
                 ScriptCommand::Log { entry } => {
                     let _ =
                         tauri::Emitter::emit(&app, &format!("script-log-{}", session_id), &entry);
@@ -171,12 +165,6 @@ pub async fn script_run_multi(
                                 let _ = result_tx.send(Err(format!("Failed to disconnect: {e}")));
                             }
                         }
-                    }
-                    ScriptCommand::VaultGet {
-                        credential_name: _,
-                        result_tx,
-                    } => {
-                        let _ = result_tx.send(Err("Vault feature has been removed".to_string()));
                     }
                     ScriptCommand::Log { entry } => {
                         let _ = tauri::Emitter::emit(

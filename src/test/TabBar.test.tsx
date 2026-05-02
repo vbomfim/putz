@@ -45,16 +45,11 @@ vi.mock("../stores/tabStore", () => ({
 let mockTabs: Tab[] = [];
 let mockActiveTabId = "";
 
-function createMockTab(
-  id: string,
-  title: string,
-  status: Tab["status"] = "local",
-): Tab {
+function createMockTab(id: string, title: string): Tab {
   return {
     id,
     title,
     layout: { type: "leaf", terminalSessionId: `session-${id}` },
-    status,
     createdAt: Date.now(),
   };
 }
@@ -106,21 +101,6 @@ describe("TabBar", () => {
       expect(tabs[1]).toHaveAttribute("aria-selected", "false");
     });
 
-    it("renders status indicator dot", () => {
-      mockTabs = [
-        createMockTab("tab-1", "Terminal 1", "local"),
-        createMockTab("tab-2", "Terminal 2", "disconnected"),
-        createMockTab("tab-3", "Terminal 3", "connecting"),
-      ];
-      render(<TabBar />);
-
-      const tabs = screen.getAllByRole("tab");
-      // Each tab should have a status indicator
-      for (const tab of tabs) {
-        const indicator = within(tab).getByTestId("tab-status-indicator");
-        expect(indicator).toBeInTheDocument();
-      }
-    });
   });
 
   describe("interactions [AC-1] [AC-2]", () => {

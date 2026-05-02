@@ -54,7 +54,6 @@ vi.mock("../stores/layoutStore", () => ({
               {
                 id: "tab-1",
                 type: "terminal",
-                status: "local",
                 sessionId: "s1",
               },
             ],

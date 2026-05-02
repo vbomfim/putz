@@ -46,11 +46,6 @@ pub enum ScriptCommand {
         session_id: String,
         result_tx: std::sync::mpsc::SyncSender<Result<(), String>>,
     },
-    /// Retrieve a vault credential by name.
-    VaultGet {
-        credential_name: String,
-        result_tx: std::sync::mpsc::SyncSender<Result<Option<String>, String>>,
-    },
     /// Log a message to the script output panel.
     Log { entry: ScriptLogEntry },
 }
@@ -502,53 +497,6 @@ fn register_putz_api(context: &mut Context, ctx: Arc<ScriptContext>) -> JsResult
             false,
             context,
         )?;
-    }
-
-    // ── putz.vault (sub-object) ────────────────────────────────
-    {
-        let vault_obj = boa_engine::object::ObjectInitializer::new(context).build();
-
-        let ctx_vault = ctx.clone();
-        let vault_get_fn = unsafe {
-            NativeFunction::from_closure(move |_this, args, context| {
-                if ctx_vault.cancelled.load(Ordering::SeqCst) {
-                    return Err(js_error("Script execution was stopped"));
-                }
-                let name = args
-                    .first()
-                    .cloned()
-                    .unwrap_or(JsValue::undefined())
-                    .to_string(context)?
-                    .to_std_string_escaped();
-
-                let (result_tx, result_rx) = std::sync::mpsc::sync_channel(1);
-                ctx_vault
-                    .command_tx
-                    .send(ScriptCommand::VaultGet {
-                        credential_name: name,
-                        result_tx,
-                    })
-                    .map_err(|e| js_error(format!("Failed to send vault command: {e}")))?;
-
-                match result_rx.recv() {
-                    Ok(Ok(Some(secret))) => {
-                        Ok(JsValue::from(boa_engine::js_string!(secret.as_str())))
-                    }
-                    Ok(Ok(None)) => Ok(JsValue::null()),
-                    Ok(Err(e)) => Err(js_error(e)),
-                    Err(e) => Err(js_error(format!("Channel error: {e}"))),
-                }
-            })
-        };
-
-        vault_obj.set(
-            boa_engine::js_string!("get"),
-            vault_get_fn.to_js_function(context.realm()),
-            false,
-            context,
-        )?;
-
-        putz_obj.set(boa_engine::js_string!("vault"), vault_obj, false, context)?;
     }
 
     // ── Register putz as read-only global ──────────────────────

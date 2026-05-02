@@ -107,7 +107,7 @@ export interface RunMultiInput {
 /** Default script template for new scripts. */
 export const DEFAULT_SCRIPT_CONTENT = `// Putz Automation Script
 // API: send(cmd), waitFor(pattern, timeoutMs?), sendAndCapture(cmd, pattern, timeoutMs?)
-//      sleep(ms), log(msg), disconnect(), vault.get(name)
+//      sleep(ms), log(msg), disconnect()
 
 send("show version");
 const output = waitFor("#", 5000);

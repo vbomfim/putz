@@ -250,7 +250,6 @@ export const useTabStore = create<TabState>((set, get) => ({
       id: generateId(),
       title: `Terminal ${nextCounter}`,
       layout: { type: "leaf", terminalSessionId: sessionId },
-      status: "local",
       createdAt: Date.now(),
     };
 
@@ -371,7 +370,6 @@ export const useTabStore = create<TabState>((set, get) => ({
       id: generateId(),
       title: `Terminal ${nextCounter}`,
       layout: { type: "leaf", terminalSessionId: sessionId },
-      status: "local",
       createdAt: Date.now(),
     };
 

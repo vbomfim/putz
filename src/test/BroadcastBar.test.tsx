@@ -41,16 +41,11 @@ vi.mock("../stores/tabStore", () => ({
   MAX_TITLE_LENGTH: 100,
 }));
 
-function createMockTab(
-  id: string,
-  title: string,
-  status: Tab["status"] = "local",
-): Tab {
+function createMockTab(id: string, title: string): Tab {
   return {
     id,
     title,
     layout: { type: "leaf", terminalSessionId: `session-${id}` },
-    status,
     createdAt: Date.now(),
   };
 }

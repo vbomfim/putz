@@ -33,7 +33,6 @@ function makeTab(id: string, sessionId: string, title = "Terminal 1"): Tab {
     id,
     title,
     layout: { type: "leaf", terminalSessionId: sessionId },
-    status: "local",
     createdAt: Date.now(),
   };
 }
@@ -229,7 +228,6 @@ describe("Logging Integration", () => {
           ],
           ratio: 0.5,
         },
-        status: "local",
         createdAt: Date.now(),
       };
       resetStore([tab], "tab-1");

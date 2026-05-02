@@ -315,7 +315,6 @@ export const useLayoutStore = create<LayoutState>((set, get) => ({
       title: `Terminal ${nextCounter}`,
       type: "terminal",
       sessionId,
-      status: "local",
     };
 
     set((state) => ({
@@ -407,7 +406,6 @@ export const useLayoutStore = create<LayoutState>((set, get) => ({
       sessionId,
       editorFilePath: filePath,
       editorScriptId: scriptId,
-      status: "local",
     };
 
     set((state) => ({
@@ -448,7 +446,6 @@ export const useLayoutStore = create<LayoutState>((set, get) => ({
       diffRightPath: rightPath,
       diffLeftContent: leftContent,
       diffRightContent: rightContent,
-      status: "local",
     };
 
     set((state) => ({
@@ -478,7 +475,6 @@ export const useLayoutStore = create<LayoutState>((set, get) => ({
       type: "search",
       sessionId,
       editorFilePath: directory,
-      status: "local",
     };
 
     set((state) => ({
@@ -516,7 +512,6 @@ export const useLayoutStore = create<LayoutState>((set, get) => ({
       title: "History",
       type: "history",
       sessionId: `${EDITOR_SESSION_PREFIX}hist-${generateId()}`,
-      status: "local",
     };
     set((state) => ({
       regions: {
@@ -553,7 +548,6 @@ export const useLayoutStore = create<LayoutState>((set, get) => ({
       title: "Templates",
       type: "templates",
       sessionId: `${EDITOR_SESSION_PREFIX}tmpl-${generateId()}`,
-      status: "local",
     };
     set((state) => ({
       regions: {
@@ -590,7 +584,6 @@ export const useLayoutStore = create<LayoutState>((set, get) => ({
       title: "Settings",
       type: "settings",
       sessionId: `${EDITOR_SESSION_PREFIX}settings-${generateId()}`,
-      status: "local",
     };
     set((state) => ({
       regions: {
@@ -627,7 +620,6 @@ export const useLayoutStore = create<LayoutState>((set, get) => ({
       title: "Bookmarks",
       type: "bookmarks",
       sessionId: `${EDITOR_SESSION_PREFIX}bookmarks-${generateId()}`,
-      status: "local",
     };
     set((state) => ({
       regions: {
@@ -669,7 +661,6 @@ export const useLayoutStore = create<LayoutState>((set, get) => ({
       type: "markdown",
       sessionId: `${EDITOR_SESSION_PREFIX}md-${generateId()}`,
       editorFilePath: filePath,
-      status: "local",
     };
     set((state) => ({
       regions: {
@@ -710,7 +701,6 @@ export const useLayoutStore = create<LayoutState>((set, get) => ({
       type: "csv",
       sessionId: `${EDITOR_SESSION_PREFIX}csv-${generateId()}`,
       editorFilePath: filePath,
-      status: "local",
     };
     set((state) => ({
       regions: {
@@ -755,7 +745,6 @@ export const useLayoutStore = create<LayoutState>((set, get) => ({
       type: "drawio",
       sessionId: `${EDITOR_SESSION_PREFIX}drawio-${generateId()}`,
       editorFilePath: filePath,
-      status: "local",
     };
     set((state) => ({
       regions: {
@@ -796,7 +785,6 @@ export const useLayoutStore = create<LayoutState>((set, get) => ({
       type: "git-graph",
       sessionId: `${EDITOR_SESSION_PREFIX}git-graph-${generateId()}`,
       editorFilePath: repoPath,
-      status: "local",
     };
     set((state) => ({
       regions: {
@@ -833,7 +821,6 @@ export const useLayoutStore = create<LayoutState>((set, get) => ({
       title: "📻 Radio",
       type: "radio",
       sessionId: `${EDITOR_SESSION_PREFIX}radio-${generateId()}`,
-      status: "local",
     };
     set((state) => ({
       regions: {
@@ -1138,7 +1125,6 @@ export const useLayoutStore = create<LayoutState>((set, get) => ({
       title: `Terminal ${nextCounter}`,
       type: "terminal",
       sessionId,
-      status: "local",
     };
 
     const newRegion: Region = {

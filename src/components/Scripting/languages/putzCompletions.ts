@@ -65,27 +65,17 @@ const putzApiMethods: PutzApiMethod[] = [
     insertText: "putz.disconnect();",
     kind: "method",
   },
-  {
-    label: "putz.vault.get",
-    detail: "Get credential from vault",
-    documentation:
-      "Retrieves a stored credential by name from the Putz vault. Use for passwords, keys, and secrets.",
-    insertText: 'const ${1:password} = putz.vault.get("${2:credential-name}");',
-    kind: "method",
-  },
 ];
 
 const putzSnippets: PutzApiMethod[] = [
   {
     label: "putz-login",
     detail: "SSH login script template",
-    documentation:
-      "Complete SSH login script with credential retrieval and prompt detection.",
+    documentation: "Complete SSH login script with prompt detection.",
     insertText: [
       "// Login to device via SSH",
       'putz.waitFor("${1:Password:}", ${2:10000});',
-      'const password = putz.vault.get("${3:device-password}");',
-      "putz.send(password);",
+      'putz.send("${3:password}");',
       'putz.waitFor("${4:#}", ${5:5000});',
       'putz.log("Login successful");',
     ].join("\n"),
@@ -207,28 +197,6 @@ export function registerPutzCompletions(monacoInstance: typeof monaco): void {
             sortText: "0" + method.label,
           });
         }
-        return { suggestions };
-      }
-
-      // After "putz.vault." — show vault methods
-      if (
-        textBeforeCursor.endsWith("putz.vault.") ||
-        textBeforeCursor.match(/putz\.vault\.[\w]*$/)
-      ) {
-        const vaultGet = putzApiMethods.find(
-          (m) => m.label === "putz.vault.get",
-        )!;
-        const stripped = vaultGet.insertText.replace(/^.*putz\.vault\./, "");
-        suggestions.push({
-          label: "get",
-          kind: CompletionItemKind.Method,
-          detail: vaultGet.detail,
-          documentation: vaultGet.documentation,
-          insertText: stripped,
-          insertTextRules: CompletionItemInsertTextRule.InsertAsSnippet,
-          range,
-          sortText: "0get",
-        });
         return { suggestions };
       }
 
