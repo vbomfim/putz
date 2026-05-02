@@ -15,7 +15,6 @@ A modern, cross-platform local terminal emulator with a few unique tricks: a bui
 - 🔍 **Highlight engine** — keyword highlighting with regex support and preset themes
 - 📜 **History & templates** — command history search and reusable command templates
 - ✏️ **Editor tabs** — Monaco-based file editor built in
-- 🎵 **Radio tab** — built-in audio player
 - 📝 **Scripting** — script editor and runner (writes directly to PTY)
 
 ## Tech Stack
