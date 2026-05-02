@@ -216,7 +216,7 @@ fn register_putz_api(context: &mut Context, ctx: Arc<ScriptContext>) -> JsResult
                     return Err(js_error("Script execution was stopped"));
                 }
                 let text = args
-                    .get(0)
+                    .first()
                     .cloned()
                     .unwrap_or(JsValue::undefined())
                     .to_string(context)?
@@ -258,7 +258,7 @@ fn register_putz_api(context: &mut Context, ctx: Arc<ScriptContext>) -> JsResult
                     return Err(js_error("Script execution was stopped"));
                 }
                 let pattern = args
-                    .get(0)
+                    .first()
                     .cloned()
                     .unwrap_or(JsValue::undefined())
                     .to_string(context)?
@@ -329,7 +329,7 @@ fn register_putz_api(context: &mut Context, ctx: Arc<ScriptContext>) -> JsResult
                     return Err(js_error("Script execution was stopped"));
                 }
                 let text = args
-                    .get(0)
+                    .first()
                     .cloned()
                     .unwrap_or(JsValue::undefined())
                     .to_string(context)?
@@ -423,7 +423,7 @@ fn register_putz_api(context: &mut Context, ctx: Arc<ScriptContext>) -> JsResult
                     return Err(js_error("Script execution was stopped"));
                 }
                 let ms = args
-                    .get(0)
+                    .first()
                     .cloned()
                     .unwrap_or(JsValue::undefined())
                     .to_number(context)? as u64;
@@ -456,7 +456,7 @@ fn register_putz_api(context: &mut Context, ctx: Arc<ScriptContext>) -> JsResult
         let log_fn = unsafe {
             NativeFunction::from_closure(move |_this, args, context| {
                 let msg = args
-                    .get(0)
+                    .first()
                     .cloned()
                     .unwrap_or(JsValue::undefined())
                     .to_string(context)?
@@ -515,7 +515,7 @@ fn register_putz_api(context: &mut Context, ctx: Arc<ScriptContext>) -> JsResult
                     return Err(js_error("Script execution was stopped"));
                 }
                 let name = args
-                    .get(0)
+                    .first()
                     .cloned()
                     .unwrap_or(JsValue::undefined())
                     .to_string(context)?
@@ -644,12 +644,9 @@ mod tests {
         let mut context = Context::default();
         remove_dangerous_globals(&mut context);
         let result = context.eval(Source::from_bytes(b"typeof Function"));
-        match result {
-            Ok(val) => {
-                let s = val.to_string(&mut context).unwrap().to_std_string_escaped();
-                assert_eq!(s, "undefined");
-            }
-            Err(_) => {}
+        if let Ok(val) = result {
+            let s = val.to_string(&mut context).unwrap().to_std_string_escaped();
+            assert_eq!(s, "undefined");
         }
     }
 
@@ -658,12 +655,9 @@ mod tests {
         let mut context = Context::default();
         remove_dangerous_globals(&mut context);
         let result = context.eval(Source::from_bytes(b"typeof eval"));
-        match result {
-            Ok(val) => {
-                let s = val.to_string(&mut context).unwrap().to_std_string_escaped();
-                assert_eq!(s, "undefined");
-            }
-            Err(_) => {}
+        if let Ok(val) = result {
+            let s = val.to_string(&mut context).unwrap().to_std_string_escaped();
+            assert_eq!(s, "undefined");
         }
     }
 

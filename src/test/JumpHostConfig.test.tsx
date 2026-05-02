@@ -106,9 +106,7 @@ describe("JumpHostConfig", () => {
         "jump-host-select",
       ) as HTMLSelectElement;
       expect(select.value).toBe("");
-      expect(
-        screen.getByText("None (direct connection)"),
-      ).toBeInTheDocument();
+      expect(screen.getByText("None (direct connection)")).toBeInTheDocument();
     });
   });
 
@@ -121,9 +119,7 @@ describe("JumpHostConfig", () => {
       expect(screen.getByTestId("jump-host-select")).toBeInTheDocument();
     });
 
-    const select = screen.getByTestId(
-      "jump-host-select",
-    ) as HTMLSelectElement;
+    const select = screen.getByTestId("jump-host-select") as HTMLSelectElement;
     const options = Array.from(select.options);
     const optionTexts = options.map((o) => o.textContent);
 
@@ -142,9 +138,7 @@ describe("JumpHostConfig", () => {
       expect(screen.getByTestId("jump-host-select")).toBeInTheDocument();
     });
 
-    const select = screen.getByTestId(
-      "jump-host-select",
-    ) as HTMLSelectElement;
+    const select = screen.getByTestId("jump-host-select") as HTMLSelectElement;
     const options = Array.from(select.options);
     const optionTexts = options.map((o) => o.textContent);
 
@@ -152,20 +146,13 @@ describe("JumpHostConfig", () => {
   });
 
   it("excludes the current session from dropdown", async () => {
-    render(
-      <JumpHostConfig
-        onChange={onChange}
-        currentSessionId="bastion-1"
-      />,
-    );
+    render(<JumpHostConfig onChange={onChange} currentSessionId="bastion-1" />);
 
     await waitFor(() => {
       expect(screen.getByTestId("jump-host-select")).toBeInTheDocument();
     });
 
-    const select = screen.getByTestId(
-      "jump-host-select",
-    ) as HTMLSelectElement;
+    const select = screen.getByTestId("jump-host-select") as HTMLSelectElement;
     const options = Array.from(select.options);
     const optionTexts = options.map((o) => o.textContent);
 
@@ -194,9 +181,7 @@ describe("JumpHostConfig", () => {
 
   it("calls onChange with undefined when 'None' is selected", async () => {
     const user = userEvent.setup();
-    render(
-      <JumpHostConfig jumpHostId="bastion-1" onChange={onChange} />,
-    );
+    render(<JumpHostConfig jumpHostId="bastion-1" onChange={onChange} />);
 
     await waitFor(() => {
       expect(screen.getByTestId("jump-host-select")).toBeInTheDocument();
@@ -209,9 +194,7 @@ describe("JumpHostConfig", () => {
   });
 
   it("pre-selects the provided jumpHostId", async () => {
-    render(
-      <JumpHostConfig jumpHostId="bastion-1" onChange={onChange} />,
-    );
+    render(<JumpHostConfig jumpHostId="bastion-1" onChange={onChange} />);
 
     await waitFor(() => {
       const select = screen.getByTestId(
@@ -224,9 +207,7 @@ describe("JumpHostConfig", () => {
   // ─── Chain visualization ─────────────────────────────────
 
   it("shows chain visualization when jump host is selected", async () => {
-    render(
-      <JumpHostConfig jumpHostId="bastion-1" onChange={onChange} />,
-    );
+    render(<JumpHostConfig jumpHostId="bastion-1" onChange={onChange} />);
 
     await waitFor(() => {
       expect(screen.getByTestId("jump-host-chain")).toBeInTheDocument();
@@ -267,9 +248,7 @@ describe("JumpHostConfig", () => {
       expect(screen.getByTestId("jump-host-select")).toBeInTheDocument();
     });
 
-    const select = screen.getByTestId(
-      "jump-host-select",
-    ) as HTMLSelectElement;
+    const select = screen.getByTestId("jump-host-select") as HTMLSelectElement;
     const options = Array.from(select.options);
 
     // Find the Bastion-1 option

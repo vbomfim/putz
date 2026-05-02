@@ -12,7 +12,7 @@
 export interface FlowNode {
   id: string;
   label: string;
-  shape: 'rect' | 'diamond' | 'ellipse' | 'parallelogram' | 'cylinder';
+  shape: "rect" | "diamond" | "ellipse" | "parallelogram" | "cylinder";
 }
 
 export interface FlowEdge {
@@ -22,11 +22,11 @@ export interface FlowEdge {
 }
 
 export interface FlowchartData {
-  kind: 'flowchart';
+  kind: "flowchart";
   title: string;
   nodes: FlowNode[];
   edges: FlowEdge[];
-  direction: 'TB' | 'LR' | 'BT' | 'RL';
+  direction: "TB" | "LR" | "BT" | "RL";
 }
 
 // ── Sequence Diagram ───────────────────────────────────────
@@ -40,11 +40,11 @@ export interface Message {
   from: string;
   to: string;
   label: string;
-  type: 'sync' | 'async' | 'reply';
+  type: "sync" | "async" | "reply";
 }
 
 export interface SequenceDiagramData {
-  kind: 'sequence-diagram';
+  kind: "sequence-diagram";
   title: string;
   participants: Participant[];
   messages: Message[];
@@ -54,7 +54,7 @@ export interface SequenceDiagramData {
 
 export interface WireframeComponent {
   id: string;
-  type: 'button' | 'input' | 'text' | 'image' | 'container' | 'nav' | 'list';
+  type: "button" | "input" | "text" | "image" | "container" | "nav" | "list";
   label: string;
   x: number;
   y: number;
@@ -63,7 +63,7 @@ export interface WireframeComponent {
 }
 
 export interface WireframeData {
-  kind: 'wireframe';
+  kind: "wireframe";
   title: string;
   screenSize: { width: number; height: number };
   components: WireframeComponent[];
@@ -77,7 +77,7 @@ export interface ReasoningStep {
 }
 
 export interface ReasoningChainData {
-  kind: 'reasoning-chain';
+  kind: "reasoning-chain";
   question: string;
   steps: ReasoningStep[];
   finalAnswer: string;
@@ -88,7 +88,7 @@ export interface ReasoningChainData {
 export interface RoadmapItem {
   id: string;
   title: string;
-  status: 'planned' | 'in-progress' | 'done';
+  status: "planned" | "in-progress" | "done";
 }
 
 export interface RoadmapPhase {
@@ -98,9 +98,9 @@ export interface RoadmapPhase {
 }
 
 export interface RoadmapData {
-  kind: 'roadmap';
+  kind: "roadmap";
   title: string;
-  orientation: 'horizontal' | 'vertical';
+  orientation: "horizontal" | "vertical";
   phases: RoadmapPhase[];
 }
 
@@ -113,7 +113,7 @@ export interface MindMapBranch {
 }
 
 export interface MindMapData {
-  kind: 'mind-map';
+  kind: "mind-map";
   centralTopic: string;
   branches: MindMapBranch[];
 }
@@ -133,7 +133,7 @@ export interface KanbanColumn {
 }
 
 export interface KanbanData {
-  kind: 'kanban';
+  kind: "kanban";
   title: string;
   columns: KanbanColumn[];
 }
@@ -147,7 +147,7 @@ export interface DecisionOption {
 }
 
 export interface DecisionTreeData {
-  kind: 'decision-tree';
+  kind: "decision-tree";
   question: string;
   options: DecisionOption[];
 }
@@ -164,11 +164,11 @@ export interface CollabLink {
   from: string;
   to: string;
   label: string;
-  direction: 'unidirectional' | 'bidirectional';
+  direction: "unidirectional" | "bidirectional";
 }
 
 export interface CollaborationDiagramData {
-  kind: 'collaboration-diagram';
+  kind: "collaboration-diagram";
   title: string;
   objects: CollabObject[];
   links: CollabLink[];
@@ -177,14 +177,14 @@ export interface CollaborationDiagramData {
 // ── Simple Composites ──────────────────────────────────────
 
 export interface SlideData {
-  kind: 'slide';
+  kind: "slide";
   title: string;
   bullets: string[];
-  layout: 'title' | 'bullets' | 'split';
+  layout: "title" | "bullets" | "split";
 }
 
 export interface CodeBlockData {
-  kind: 'code-block';
+  kind: "code-block";
   language: string;
   code: string;
 }
@@ -198,7 +198,7 @@ export interface TableCell {
 }
 
 export interface TableData {
-  kind: 'table';
+  kind: "table";
   /** Optional title row (single cell spanning all columns). */
   title?: string;
   headers: string[];

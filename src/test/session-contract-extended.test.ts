@@ -141,7 +141,9 @@ describe("sessionApi — IPC Command Contract", () => {
 
     await api.sessionDelete("sess-001");
 
-    expect(mockInvoke).toHaveBeenCalledWith("session_delete", { id: "sess-001" });
+    expect(mockInvoke).toHaveBeenCalledWith("session_delete", {
+      id: "sess-001",
+    });
   });
 
   // ── session_move ──────────────────────────────────────────────
@@ -167,7 +169,9 @@ describe("sessionApi — IPC Command Contract", () => {
 
     const result = await api.sessionDuplicate("sess-001");
 
-    expect(mockInvoke).toHaveBeenCalledWith("session_duplicate", { id: "sess-001" });
+    expect(mockInvoke).toHaveBeenCalledWith("session_duplicate", {
+      id: "sess-001",
+    });
     expect(result).toBe("dup-uuid");
   });
 
@@ -178,7 +182,9 @@ describe("sessionApi — IPC Command Contract", () => {
 
     const result = await api.sessionSearch("core-rtr");
 
-    expect(mockInvoke).toHaveBeenCalledWith("session_search", { query: "core-rtr" });
+    expect(mockInvoke).toHaveBeenCalledWith("session_search", {
+      query: "core-rtr",
+    });
     expect(result).toEqual([mockProfile]);
   });
 
@@ -385,9 +391,15 @@ describe("Data Shape Contract — Round-Trip Integrity", () => {
 
     // Verify recursive structure
     expect(result[0].type).toBe("folder");
-    const folder1 = result[0] as SessionNode & { type: "folder"; children: SessionNode[] };
+    const folder1 = result[0] as SessionNode & {
+      type: "folder";
+      children: SessionNode[];
+    };
     expect(folder1.children[0].type).toBe("folder");
-    const folder2 = folder1.children[0] as SessionNode & { type: "folder"; children: SessionNode[] };
+    const folder2 = folder1.children[0] as SessionNode & {
+      type: "folder";
+      children: SessionNode[];
+    };
     expect(folder2.children[0].type).toBe("session");
     expect(folder2.children[0].name).toBe("Deep Session");
   });

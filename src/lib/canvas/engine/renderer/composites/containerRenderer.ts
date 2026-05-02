@@ -12,15 +12,15 @@
  * @module
  */
 
-import type { VisualExpression, ContainerData } from '../../../protocol';
-import type { RoughCanvas } from 'roughjs/bin/canvas.js';
-import { mapStyleToRoughOptions, idToSeed } from '../styleMapper';
-import { registerCompositeRenderer } from '../compositeRegistry';
+import type { VisualExpression, ContainerData } from "../../../protocol";
+import type { RoughCanvas } from "roughjs/bin/canvas.js";
+import { mapStyleToRoughOptions, idToSeed } from "../styleMapper";
+import { registerCompositeRenderer } from "../compositeRegistry";
 
 // ── Constants ────────────────────────────────────────────────
 
 /** Default font family for the container title. */
-const FONT_FAMILY = 'sans-serif';
+const FONT_FAMILY = "sans-serif";
 
 /** Title font size in the header bar. */
 const TITLE_FONT_SIZE = 14;
@@ -74,9 +74,10 @@ export function renderContainer(
   rc.draw(rc.rectangle(x, y, width, effectiveHeight, roughOptions));
 
   // ── Header bar background ─────────────────────────────────
-  const headerFill = expr.style.backgroundColor !== 'transparent'
-    ? expr.style.backgroundColor
-    : strokeColor;
+  const headerFill =
+    expr.style.backgroundColor !== "transparent"
+      ? expr.style.backgroundColor
+      : strokeColor;
 
   ctx.fillStyle = headerFill;
   ctx.globalAlpha = (expr.style.opacity ?? 1) * 0.25;
@@ -85,20 +86,30 @@ export function renderContainer(
 
   // ── Header separator line ─────────────────────────────────
   if (!isCollapsed) {
-    rc.draw(rc.line(x, y + headerHeight, x + width, y + headerHeight, roughOptions));
+    rc.draw(
+      rc.line(x, y + headerHeight, x + width, y + headerHeight, roughOptions),
+    );
   }
 
   // ── Title text ────────────────────────────────────────────
   ctx.font = `bold ${TITLE_FONT_SIZE}px ${FONT_FAMILY}`;
-  ctx.textAlign = 'left';
-  ctx.textBaseline = 'middle';
+  ctx.textAlign = "left";
+  ctx.textBaseline = "middle";
   ctx.fillStyle = strokeColor;
-  const maxTitleWidth = width - TITLE_PADDING_LEFT - CHEVRON_SIZE - CHEVRON_PADDING_RIGHT * 2;
+  const maxTitleWidth =
+    width - TITLE_PADDING_LEFT - CHEVRON_SIZE - CHEVRON_PADDING_RIGHT * 2;
   const titleText = truncateText(ctx, data.title, maxTitleWidth);
   ctx.fillText(titleText, x + TITLE_PADDING_LEFT, y + headerHeight / 2);
 
   // ── Collapse/expand chevron ───────────────────────────────
-  drawChevron(ctx, x + width - CHEVRON_PADDING_RIGHT - CHEVRON_SIZE, y + headerHeight / 2, CHEVRON_SIZE, isCollapsed, strokeColor);
+  drawChevron(
+    ctx,
+    x + width - CHEVRON_PADDING_RIGHT - CHEVRON_SIZE,
+    y + headerHeight / 2,
+    CHEVRON_SIZE,
+    isCollapsed,
+    strokeColor,
+  );
 
   // ── Body area (expanded only) ─────────────────────────────
   if (!isCollapsed) {
@@ -170,7 +181,7 @@ function truncateText(
   text: string,
   maxWidth: number,
 ): string {
-  if (maxWidth <= 0) return '';
+  if (maxWidth <= 0) return "";
   const measured = ctx.measureText(text);
   if (measured.width <= maxWidth) return text;
 
@@ -179,7 +190,7 @@ function truncateText(
   let hi = text.length;
   while (lo < hi) {
     const mid = Math.ceil((lo + hi) / 2);
-    const truncated = text.slice(0, mid) + '…';
+    const truncated = text.slice(0, mid) + "…";
     if (ctx.measureText(truncated).width <= maxWidth) {
       lo = mid;
     } else {
@@ -187,9 +198,9 @@ function truncateText(
     }
   }
 
-  return lo === 0 ? '…' : text.slice(0, lo) + '…';
+  return lo === 0 ? "…" : text.slice(0, lo) + "…";
 }
 
 // ── Self-registration ────────────────────────────────────────
 
-registerCompositeRenderer('container', renderContainer);
+registerCompositeRenderer("container", renderContainer);

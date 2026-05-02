@@ -13,12 +13,12 @@
  * @module
  */
 
-import type { VisualExpression } from '../../protocol';
-import { visualExpressionSchema } from '../../protocol';
-import type { Camera } from '../types/index';
+import type { VisualExpression } from "../../protocol";
+import { visualExpressionSchema } from "../../protocol";
+import type { Camera } from "../types/index";
 
 /** The localStorage key used for persisted canvas state. [AC8] */
-export const STORAGE_KEY = 'infinicanvas:state';
+export const STORAGE_KEY = "infinicanvas:state";
 
 /** Shape of the persisted state — only the fields worth saving. [AC9] */
 export interface PersistedCanvasState {
@@ -44,10 +44,13 @@ export function saveCanvasState(state: PersistedCanvasState): void {
     });
     localStorage.setItem(STORAGE_KEY, json);
   } catch (error: unknown) {
-    if (isDOMException(error, 'QuotaExceededError')) {
-      console.error('[persistence] Storage quota exceeded — state not saved.', error);
+    if (isDOMException(error, "QuotaExceededError")) {
+      console.error(
+        "[persistence] Storage quota exceeded — state not saved.",
+        error,
+      );
     } else {
-      console.error('[persistence] Failed to save canvas state.', error);
+      console.error("[persistence] Failed to save canvas state.", error);
     }
   }
 }
@@ -66,7 +69,7 @@ export function saveCanvasState(state: PersistedCanvasState): void {
 export function loadCanvasState(): PersistedCanvasState | null {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    if (raw === null || raw === '') {
+    if (raw === null || raw === "") {
       return null;
     }
 
@@ -74,13 +77,16 @@ export function loadCanvasState(): PersistedCanvasState | null {
     try {
       parsed = JSON.parse(raw);
     } catch (parseError: unknown) {
-      console.warn('[persistence] Corrupt JSON in saved state — starting fresh.', parseError);
+      console.warn(
+        "[persistence] Corrupt JSON in saved state — starting fresh.",
+        parseError,
+      );
       return null;
     }
 
     if (!isValidPersistedState(parsed)) {
       console.warn(
-        '[persistence] Invalid saved state structure — starting fresh.',
+        "[persistence] Invalid saved state structure — starting fresh.",
         parsed,
       );
       return null;
@@ -105,14 +111,14 @@ export function loadCanvasState(): PersistedCanvasState | null {
  * - camera: { x: number, y: number, zoom: number }
  */
 function isValidPersistedState(data: unknown): data is PersistedCanvasState {
-  if (typeof data !== 'object' || data === null || Array.isArray(data)) {
+  if (typeof data !== "object" || data === null || Array.isArray(data)) {
     return false;
   }
 
   const record = data as Record<string, unknown>;
 
   if (
-    typeof record.expressions !== 'object' ||
+    typeof record.expressions !== "object" ||
     record.expressions === null ||
     Array.isArray(record.expressions)
   ) {
@@ -132,15 +138,15 @@ function isValidPersistedState(data: unknown): data is PersistedCanvasState {
 
 /** Validate camera shape: { x: number, y: number, zoom: number }. */
 function isValidCamera(camera: unknown): camera is Camera {
-  if (typeof camera !== 'object' || camera === null) {
+  if (typeof camera !== "object" || camera === null) {
     return false;
   }
 
   const cam = camera as Record<string, unknown>;
   return (
-    typeof cam.x === 'number' &&
-    typeof cam.y === 'number' &&
-    typeof cam.zoom === 'number' &&
+    typeof cam.x === "number" &&
+    typeof cam.y === "number" &&
+    typeof cam.zoom === "number" &&
     Number.isFinite(cam.x) &&
     Number.isFinite(cam.y) &&
     Number.isFinite(cam.zoom)
@@ -160,7 +166,9 @@ function isDOMException(error: unknown, name: string): boolean {
  *
  * @returns A new PersistedCanvasState with only valid expressions
  */
-function validateExpressions(state: PersistedCanvasState): PersistedCanvasState {
+function validateExpressions(
+  state: PersistedCanvasState,
+): PersistedCanvasState {
   const validExpressions: Record<string, VisualExpression> = {};
   const validIds = new Set<string>();
 

@@ -8,11 +8,15 @@
  * @module
  */
 
-import type { VisualExpression, DecisionTreeData, DecisionOption } from '../../../protocol';
-import type { RoughCanvas } from 'roughjs/bin/canvas.js';
-import type { Options } from 'roughjs/bin/core.js';
-import { mapStyleToRoughOptions } from '../styleMapper';
-import { registerCompositeRenderer } from '../compositeRegistry';
+import type {
+  VisualExpression,
+  DecisionTreeData,
+  DecisionOption,
+} from "../../../protocol";
+import type { RoughCanvas } from "roughjs/bin/canvas.js";
+import type { Options } from "roughjs/bin/core.js";
+import { mapStyleToRoughOptions } from "../styleMapper";
+import { registerCompositeRenderer } from "../compositeRegistry";
 
 // ── Constants ────────────────────────────────────────────────
 
@@ -38,7 +42,7 @@ const LEVEL_GAP = 50;
 const SIBLING_GAP = 16;
 
 /** Default font family. */
-const FONT_FAMILY = 'sans-serif';
+const FONT_FAMILY = "sans-serif";
 
 /** Question font size. */
 const QUESTION_FONT_SIZE = 14;
@@ -143,8 +147,8 @@ export function renderDecisionTree(
   const questionY = originY + PADDING;
 
   ctx.font = `bold ${QUESTION_FONT_SIZE}px ${FONT_FAMILY}`;
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
   ctx.fillStyle = expr.style.strokeColor;
   ctx.fillText(data.question, questionCenterX, questionY + QUESTION_HEIGHT / 2);
 
@@ -158,10 +162,9 @@ export function renderDecisionTree(
   const optionsTopY = questionY + QUESTION_HEIGHT + LEVEL_GAP;
 
   // Compute total width of all top-level options
-  const totalWidth = data.options.reduce(
-    (sum, opt) => sum + computeSubtreeWidth(opt, 1),
-    0,
-  ) + Math.max(0, data.options.length - 1) * SIBLING_GAP;
+  const totalWidth =
+    data.options.reduce((sum, opt) => sum + computeSubtreeWidth(opt, 1), 0) +
+    Math.max(0, data.options.length - 1) * SIBLING_GAP;
 
   let currentX = questionCenterX - totalWidth / 2;
   const layoutNodes: LayoutNode[] = [];
@@ -176,7 +179,15 @@ export function renderDecisionTree(
   // ── Render tree ────────────────────────────────────────────
   for (const node of layoutNodes) {
     // Draw connector from question to top-level option
-    drawConnector(ctx, rc, questionCenterX, questionY + QUESTION_HEIGHT, node.x, node.y, roughOptions);
+    drawConnector(
+      ctx,
+      rc,
+      questionCenterX,
+      questionY + QUESTION_HEIGHT,
+      node.x,
+      node.y,
+      roughOptions,
+    );
     renderNode(ctx, rc, node, roughOptions);
   }
 
@@ -194,28 +205,46 @@ function renderNode(
 ): void {
   // Draw option box
   const rx = node.x - OPTION_WIDTH / 2;
-  const drawable = rc.rectangle(rx, node.y, OPTION_WIDTH, OPTION_HEIGHT, roughOptions);
+  const drawable = rc.rectangle(
+    rx,
+    node.y,
+    OPTION_WIDTH,
+    OPTION_HEIGHT,
+    roughOptions,
+  );
   rc.draw(drawable);
 
   // Option label
   ctx.font = `${OPTION_FONT_SIZE}px ${FONT_FAMILY}`;
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  ctx.fillStyle = (roughOptions.stroke as string) ?? '#000000';
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillStyle = (roughOptions.stroke as string) ?? "#000000";
   ctx.fillText(node.label, node.x, node.y + OPTION_HEIGHT / 2);
 
   // Outcome text below leaf nodes
   if (node.outcome && node.children.length === 0) {
     ctx.font = `italic ${OUTCOME_FONT_SIZE}px ${FONT_FAMILY}`;
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'top';
-    ctx.fillStyle = '#666666';
-    ctx.fillText(node.outcome, node.x, node.y + OPTION_HEIGHT + OUTCOME_OFFSET / 2);
+    ctx.textAlign = "center";
+    ctx.textBaseline = "top";
+    ctx.fillStyle = "#666666";
+    ctx.fillText(
+      node.outcome,
+      node.x,
+      node.y + OPTION_HEIGHT + OUTCOME_OFFSET / 2,
+    );
   }
 
   // Render children
   for (const child of node.children) {
-    drawConnector(ctx, rc, node.x, node.y + OPTION_HEIGHT, child.x, child.y, roughOptions);
+    drawConnector(
+      ctx,
+      rc,
+      node.x,
+      node.y + OPTION_HEIGHT,
+      child.x,
+      child.y,
+      roughOptions,
+    );
     renderNode(ctx, rc, child, roughOptions);
   }
 }
@@ -238,4 +267,4 @@ function drawConnector(
 
 // ── Self-registration ────────────────────────────────────────
 
-registerCompositeRenderer('decision-tree', renderDecisionTree);
+registerCompositeRenderer("decision-tree", renderDecisionTree);

@@ -386,8 +386,8 @@ mod tests {
 
     #[test]
     fn max_hops_is_reasonable() {
-        assert!(MAX_HOPS >= 3, "Should support at least 3 hops");
-        assert!(MAX_HOPS <= 20, "Should not allow excessive hops");
+        const { assert!(MAX_HOPS >= 3, "Should support at least 3 hops") };
+        const { assert!(MAX_HOPS <= 20, "Should not allow excessive hops") };
     }
 
     // ====================================================================
@@ -485,7 +485,7 @@ mod tests {
 
     fn setup_managers() -> (SessionManager, VaultManager, std::path::PathBuf) {
         let dir = tempfile::tempdir().unwrap();
-        let path = dir.into_path();
+        let path = dir.keep();
         let sm = SessionManager::with_config_dir(path.clone());
         let vm = VaultManager::new();
         (sm, vm, path)

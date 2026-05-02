@@ -9,20 +9,20 @@
  * @module
  */
 
-import type { VisualExpression, ExpressionStyle } from '../../protocol';
-import type { RoughCanvas } from 'roughjs/bin/canvas.js';
-import type { Drawable } from 'roughjs/bin/core.js';
-import getStroke from 'perfect-freehand';
-import type { Camera } from '../types/index';
-import { mapStyleToRoughOptions, idToSeed } from './styleMapper';
-import { isVisible } from './viewportCulling';
-import { createDrawableCache } from './drawableCache';
-import type { DrawableCache } from './drawableCache';
-import { getCompositeRenderer } from './compositeRegistry';
-import { STENCIL_CATALOG, svgToDataUri } from './stencils/index';
-import { resolveTextConfig } from '../text/textConfig';
-import { renderArrowheadFromRegistry } from './arrowheads';
-import { renderArrow as renderArrowImpl } from './arrowRenderer';
+import type { VisualExpression, ExpressionStyle } from "../../protocol";
+import type { RoughCanvas } from "roughjs/bin/canvas.js";
+import type { Drawable } from "roughjs/bin/core.js";
+import getStroke from "perfect-freehand";
+import type { Camera } from "../types/index";
+import { mapStyleToRoughOptions, idToSeed } from "./styleMapper";
+import { isVisible } from "./viewportCulling";
+import { createDrawableCache } from "./drawableCache";
+import type { DrawableCache } from "./drawableCache";
+import { getCompositeRenderer } from "./compositeRegistry";
+import { STENCIL_CATALOG, svgToDataUri } from "./stencils/index";
+import { resolveTextConfig } from "../text/textConfig";
+import { renderArrowheadFromRegistry } from "./arrowheads";
+import { renderArrow as renderArrowImpl } from "./arrowRenderer";
 
 // ── Constants ────────────────────────────────────────────────
 
@@ -30,7 +30,7 @@ import { renderArrow as renderArrowImpl } from './arrowRenderer';
 const STICKY_NOTE_ROTATION = (2 * Math.PI) / 180;
 
 /** Default font family when not specified. */
-const DEFAULT_FONT_FAMILY = 'system-ui, -apple-system, sans-serif';
+const DEFAULT_FONT_FAMILY = "system-ui, -apple-system, sans-serif";
 
 /** Line height multiplier for text wrapping. */
 const LINE_HEIGHT_MULTIPLIER = 1.4;
@@ -139,34 +139,34 @@ function renderPrimitive(
   const isEditing = expr.id === editingId;
 
   switch (kind) {
-    case 'rectangle':
+    case "rectangle":
       renderRectangle(ctx, roughCanvas, expr, isEditing);
       break;
-    case 'ellipse':
+    case "ellipse":
       renderEllipse(ctx, roughCanvas, expr, isEditing);
       break;
-    case 'diamond':
+    case "diamond":
       renderDiamond(ctx, roughCanvas, expr, isEditing);
       break;
-    case 'line':
+    case "line":
       renderLine(ctx, roughCanvas, expr);
       break;
-    case 'arrow':
+    case "arrow":
       renderArrow(ctx, roughCanvas, expr, expressions, camera);
       break;
-    case 'freehand':
+    case "freehand":
       renderFreehand(ctx, expr);
       break;
-    case 'text':
+    case "text":
       if (!isEditing) renderText(ctx, expr);
       break;
-    case 'sticky-note':
+    case "sticky-note":
       renderStickyNote(ctx, expr, isEditing);
       break;
-    case 'image':
+    case "image":
       renderImage(ctx, expr);
       break;
-    case 'stencil':
+    case "stencil":
       renderStencil(ctx, expr, isEditing);
       break;
     default: {
@@ -184,19 +184,23 @@ function renderPrimitive(
 
 // ── Shape renderers (Rough.js) ───────────────────────────────
 
-
 /** Draw a shape with native canvas API (perfect geometry, no roughness). */
 function drawCleanShape(
   ctx: CanvasRenderingContext2D,
   expr: VisualExpression,
-  kind: 'rectangle' | 'ellipse' | 'diamond',
+  kind: "rectangle" | "ellipse" | "diamond",
 ): void {
   const { x, y } = expr.position;
   const { width, height } = expr.size;
   const style = expr.style;
-  const noFill = style.fillStyle === 'none' || style.backgroundColor === 'transparent';
-  const dash = style.strokeStyle === 'dashed' ? [style.strokeWidth * 4, style.strokeWidth * 3]
-    : style.strokeStyle === 'dotted' ? [style.strokeWidth, style.strokeWidth * 2] : [];
+  const noFill =
+    style.fillStyle === "none" || style.backgroundColor === "transparent";
+  const dash =
+    style.strokeStyle === "dashed"
+      ? [style.strokeWidth * 4, style.strokeWidth * 3]
+      : style.strokeStyle === "dotted"
+        ? [style.strokeWidth, style.strokeWidth * 2]
+        : [];
 
   ctx.save();
   ctx.strokeStyle = style.strokeColor;
@@ -205,10 +209,18 @@ function drawCleanShape(
   ctx.setLineDash(dash);
 
   ctx.beginPath();
-  if (kind === 'rectangle') {
+  if (kind === "rectangle") {
     ctx.rect(x, y, width, height);
-  } else if (kind === 'ellipse') {
-    ctx.ellipse(x + width / 2, y + height / 2, width / 2, height / 2, 0, 0, Math.PI * 2);
+  } else if (kind === "ellipse") {
+    ctx.ellipse(
+      x + width / 2,
+      y + height / 2,
+      width / 2,
+      height / 2,
+      0,
+      0,
+      Math.PI * 2,
+    );
   } else {
     ctx.moveTo(x + width / 2, y);
     ctx.lineTo(x + width, y + height / 2);
@@ -236,7 +248,7 @@ function renderRectangle(
   const { width, height } = expr.size;
 
   if ((expr.style.roughness ?? 0) < 0.1) {
-    drawCleanShape(ctx, expr, 'rectangle');
+    drawCleanShape(ctx, expr, "rectangle");
   } else {
     const options = mapStyleToRoughOptions(expr.style, idToSeed(expr.id));
     const drawable = getOrCreateDrawable(expr, () =>
@@ -249,7 +261,7 @@ function renderRectangle(
   }
 
   // Center label if present (skip when editing in-place)
-  if (!skipLabel && expr.data.kind === 'rectangle' && expr.data.label) {
+  if (!skipLabel && expr.data.kind === "rectangle" && expr.data.label) {
     renderLabel(ctx, expr.data.label, x, y, width, height, expr.style);
   }
 }
@@ -265,7 +277,7 @@ function renderEllipse(
   const { width, height } = expr.size;
 
   if ((expr.style.roughness ?? 0) < 0.1) {
-    drawCleanShape(ctx, expr, 'ellipse');
+    drawCleanShape(ctx, expr, "ellipse");
   } else {
     const options = mapStyleToRoughOptions(expr.style, idToSeed(expr.id));
     const drawable = getOrCreateDrawable(expr, () =>
@@ -277,7 +289,7 @@ function renderEllipse(
     ctx.restore();
   }
 
-  if (!skipLabel && expr.data.kind === 'ellipse' && expr.data.label) {
+  if (!skipLabel && expr.data.kind === "ellipse" && expr.data.label) {
     renderLabel(ctx, expr.data.label, x, y, width, height, expr.style);
   }
 }
@@ -293,7 +305,7 @@ function renderDiamond(
   const { width, height } = expr.size;
 
   if ((expr.style.roughness ?? 0) < 0.1) {
-    drawCleanShape(ctx, expr, 'diamond');
+    drawCleanShape(ctx, expr, "diamond");
   } else {
     const options = mapStyleToRoughOptions(expr.style, idToSeed(expr.id));
     const points: [number, number][] = [
@@ -311,7 +323,7 @@ function renderDiamond(
     ctx.restore();
   }
 
-  if (!skipLabel && expr.data.kind === 'diamond' && expr.data.label) {
+  if (!skipLabel && expr.data.kind === "diamond" && expr.data.label) {
     renderLabel(ctx, expr.data.label, x, y, width, height, expr.style);
   }
 }
@@ -322,7 +334,7 @@ function renderLine(
   rc: RoughCanvas,
   expr: VisualExpression,
 ): void {
-  if (expr.data.kind !== 'line') return;
+  if (expr.data.kind !== "line") return;
   const { points } = expr.data;
   const options = mapStyleToRoughOptions(expr.style, idToSeed(expr.id));
   const offset = computePositionOffset(expr);
@@ -354,9 +366,18 @@ function renderArrow(
   expressions: Record<string, VisualExpression>,
   camera?: Camera,
 ): void {
-  renderArrowImpl(ctx, rc, expr, expressions, camera,
+  renderArrowImpl(
+    ctx,
+    rc,
+    expr,
+    expressions,
+    camera,
     computePositionOffset,
-    getOrCreateDrawable as (expr: VisualExpression, factory: () => unknown) => unknown);
+    getOrCreateDrawable as (
+      expr: VisualExpression,
+      factory: () => unknown,
+    ) => unknown,
+  );
 }
 
 // ── Non-Rough.js renderers ───────────────────────────────────
@@ -366,7 +387,7 @@ function renderFreehand(
   ctx: CanvasRenderingContext2D,
   expr: VisualExpression,
 ): void {
-  if (expr.data.kind !== 'freehand') return;
+  if (expr.data.kind !== "freehand") return;
   const { points } = expr.data;
 
   const outlinePoints = getStroke(points, {
@@ -406,13 +427,14 @@ function renderText(
   ctx: CanvasRenderingContext2D,
   expr: VisualExpression,
 ): void {
-  if (expr.data.kind !== 'text') return;
+  if (expr.data.kind !== "text") return;
   const config = resolveTextConfig(expr);
   if (!config) return;
 
   ctx.font = `${config.fontSize}px ${config.fontFamily}`;
-  ctx.textAlign = (expr.data as { textAlign: string }).textAlign as CanvasTextAlign;
-  ctx.textBaseline = 'top';
+  ctx.textAlign = (expr.data as { textAlign: string })
+    .textAlign as CanvasTextAlign;
+  ctx.textBaseline = "top";
   ctx.fillStyle = config.color;
 
   const lineHeight = config.fontSize * LINE_HEIGHT_MULTIPLIER;
@@ -420,8 +442,8 @@ function renderText(
 
   let textX = config.worldX;
   const textAlign = (expr.data as { textAlign: string }).textAlign;
-  if (textAlign === 'center') textX = config.worldX + config.worldWidth / 2;
-  else if (textAlign === 'right') textX = config.worldX + config.worldWidth;
+  if (textAlign === "center") textX = config.worldX + config.worldWidth / 2;
+  else if (textAlign === "right") textX = config.worldX + config.worldWidth;
 
   for (let i = 0; i < lines.length; i++) {
     ctx.fillText(lines[i]!, textX, config.worldY + i * lineHeight);
@@ -434,7 +456,7 @@ function renderStickyNote(
   expr: VisualExpression,
   skipText = false,
 ): void {
-  if (expr.data.kind !== 'sticky-note') return;
+  if (expr.data.kind !== "sticky-note") return;
   const { color } = expr.data;
   const { x, y } = expr.position;
   const { width, height } = expr.size;
@@ -458,18 +480,14 @@ function renderStickyNote(
     if (config) {
       ctx.font = `${config.fontSize}px ${config.fontFamily}`;
       ctx.textAlign = config.textAlign;
-      ctx.textBaseline = 'top';
+      ctx.textBaseline = "top";
       ctx.fillStyle = config.color;
 
       const lineHeight = config.fontSize * LINE_HEIGHT_MULTIPLIER;
       const lines = wrapText(ctx, config.text, config.worldWidth);
 
       for (let i = 0; i < lines.length; i++) {
-        ctx.fillText(
-          lines[i]!,
-          config.worldX,
-          config.worldY + i * lineHeight,
-        );
+        ctx.fillText(lines[i]!, config.worldX, config.worldY + i * lineHeight);
       }
     }
   }
@@ -482,7 +500,7 @@ function renderImage(
   ctx: CanvasRenderingContext2D,
   expr: VisualExpression,
 ): void {
-  if (expr.data.kind !== 'image') return;
+  if (expr.data.kind !== "image") return;
   const { src } = expr.data;
   const { x, y } = expr.position;
   const { width, height } = expr.size;
@@ -494,14 +512,14 @@ function renderImage(
     ctx.drawImage(img, x, y, width, height);
   } else {
     // Image loading or failed — draw placeholder
-    ctx.fillStyle = '#e0e0e0';
+    ctx.fillStyle = "#e0e0e0";
     ctx.fillRect(x, y, width, height);
 
-    ctx.fillStyle = '#666666';
+    ctx.fillStyle = "#666666";
     ctx.font = `${Math.min(width, height) * 0.3}px sans-serif`;
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText('⚠', x + width / 2, y + height / 2);
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText("⚠", x + width / 2, y + height / 2);
   }
 }
 
@@ -511,7 +529,7 @@ function renderStencil(
   expr: VisualExpression,
   skipLabel = false,
 ): void {
-  if (expr.data.kind !== 'stencil') return;
+  if (expr.data.kind !== "stencil") return;
   const { stencilId, label } = expr.data;
   const { x, y } = expr.position;
   const { width, height } = expr.size;
@@ -525,17 +543,18 @@ function renderStencil(
   }
 
   // Apply expression style colors to the SVG
-  const strokeColor = expr.style.strokeColor ?? '#1e1e1e';
-  const bgColor = expr.style.backgroundColor ?? 'transparent';
-  const fillStyle = expr.style.fillStyle ?? 'hachure';
+  const strokeColor = expr.style.strokeColor ?? "#1e1e1e";
+  const bgColor = expr.style.backgroundColor ?? "transparent";
+  const fillStyle = expr.style.fillStyle ?? "hachure";
   const opacity = expr.style.opacity ?? 1;
-  
+
   // Replace currentColor with the expression's stroke color
   const styledSvg = entry.svgContent.replace(/currentColor/g, strokeColor);
 
   // Draw background fill behind the icon (clipped to bounding box)
-  const isTransparent = bgColor === 'transparent' || bgColor === 'none' || bgColor === '#00000000';
-  if (fillStyle !== 'none' && !isTransparent) {
+  const isTransparent =
+    bgColor === "transparent" || bgColor === "none" || bgColor === "#00000000";
+  if (fillStyle !== "none" && !isTransparent) {
     ctx.save();
     ctx.globalAlpha = opacity;
 
@@ -544,7 +563,7 @@ function renderStencil(
     ctx.roundRect(x, y, width, height, 4);
     ctx.clip();
 
-    if (fillStyle === 'solid') {
+    if (fillStyle === "solid") {
       ctx.fillStyle = bgColor;
       ctx.fill();
     } else {
@@ -557,14 +576,15 @@ function renderStencil(
 
       // Seeded pseudo-random for stable wobble across frames
       let seed = 0;
-      for (let c = 0; c < expr.id.length; c++) seed = ((seed << 5) - seed + expr.id.charCodeAt(c)) | 0;
+      for (let c = 0; c < expr.id.length; c++)
+        seed = ((seed << 5) - seed + expr.id.charCodeAt(c)) | 0;
       const seededRandom = () => {
         seed = (seed * 16807 + 0) % 2147483647;
         return (seed & 0x7fffffff) / 2147483647;
       };
 
       // Hachure at -41° (matching Rough.js default) with roughness wobble
-      const angle = -41 * Math.PI / 180;
+      const angle = (-41 * Math.PI) / 180;
       const cos = Math.cos(angle);
       const sin = Math.sin(angle);
       const step = Math.max(4, 8 - roughness * 2);
@@ -579,7 +599,10 @@ function renderStencil(
         }
         const len = Math.hypot(x2 - x1, y2 - y1);
         const segments = Math.max(2, Math.ceil(len / 15));
-        ctx.moveTo(x1 + (seededRandom() - 0.5) * roughness, y1 + (seededRandom() - 0.5) * roughness);
+        ctx.moveTo(
+          x1 + (seededRandom() - 0.5) * roughness,
+          y1 + (seededRandom() - 0.5) * roughness,
+        );
         for (let s = 1; s <= segments; s++) {
           const t = s / segments;
           const jx = (seededRandom() - 0.5) * roughness * 1.5;
@@ -604,8 +627,8 @@ function renderStencil(
       }
       ctx.stroke();
 
-      if (fillStyle === 'cross-hatch') {
-        const angle2 = 41 * Math.PI / 180;
+      if (fillStyle === "cross-hatch") {
+        const angle2 = (41 * Math.PI) / 180;
         const cos2 = Math.cos(angle2);
         const sin2 = Math.sin(angle2);
         ctx.beginPath();
@@ -635,14 +658,14 @@ function renderStencil(
     ctx.restore();
   } else {
     // Loading placeholder
-    ctx.fillStyle = '#e0e0e0';
+    ctx.fillStyle = "#e0e0e0";
     ctx.fillRect(x, y, width, height);
 
-    ctx.fillStyle = '#666666';
+    ctx.fillStyle = "#666666";
     ctx.font = `${Math.min(width, height) * 0.3}px sans-serif`;
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText('⏳', x + width / 2, y + height / 2);
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText("⏳", x + width / 2, y + height / 2);
   }
 
   // Draw label below the icon if present (skip when editing in-place)
@@ -651,7 +674,7 @@ function renderStencil(
     if (config) {
       ctx.font = `${config.fontSize}px ${config.fontFamily}`;
       ctx.textAlign = config.textAlign;
-      ctx.textBaseline = 'top';
+      ctx.textBaseline = "top";
       ctx.fillStyle = config.color;
       ctx.fillText(label, expr.position.x + expr.size.width / 2, config.worldY);
     }
@@ -664,13 +687,13 @@ function renderStencil(
 const PLACEHOLDER_CORNER_RADIUS = 8;
 
 /** Placeholder background color. */
-const PLACEHOLDER_BG_COLOR = '#e8e8e8';
+const PLACEHOLDER_BG_COLOR = "#e8e8e8";
 
 /** Placeholder border color. */
-const PLACEHOLDER_BORDER_COLOR = '#999999';
+const PLACEHOLDER_BORDER_COLOR = "#999999";
 
 /** Placeholder text color. */
-const PLACEHOLDER_TEXT_COLOR = '#666666';
+const PLACEHOLDER_TEXT_COLOR = "#666666";
 
 /**
  * Render a placeholder for unknown/unimplemented expression kinds. [AC3]
@@ -709,8 +732,8 @@ function renderPlaceholder(
   // Draw kind name centered
   ctx.fillStyle = PLACEHOLDER_TEXT_COLOR;
   ctx.font = `14px ${DEFAULT_FONT_FAMILY}`;
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
   ctx.fillText(expr.kind, x + width / 2, y + height / 2);
 
   ctx.restore();
@@ -747,18 +770,21 @@ export function renderLabel(
   }
 
   ctx.font = `${fontSize}px ${fontFamily}`;
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
   ctx.fillStyle = style.strokeColor;
 
   // Word-wrap and newline support
   const maxWidth = width * 0.85;
   const allLines: string[] = [];
-  const paragraphs = label.split('\n');
+  const paragraphs = label.split("\n");
   for (const para of paragraphs) {
-    if (!para) { allLines.push(''); continue; }
-    const words = para.split(' ');
-    let currentLine = '';
+    if (!para) {
+      allLines.push("");
+      continue;
+    }
+    const words = para.split(" ");
+    let currentLine = "";
     for (const word of words) {
       const test = currentLine ? `${currentLine} ${word}` : word;
       if (ctx.measureText(test).width > maxWidth && currentLine) {
@@ -772,7 +798,7 @@ export function renderLabel(
   }
 
   if (allLines.length <= 1) {
-    ctx.fillText(allLines[0] ?? '', x + width / 2, y + height / 2);
+    ctx.fillText(allLines[0] ?? "", x + width / 2, y + height / 2);
   } else {
     const lineHeight = fontSize * LINE_HEIGHT_MULTIPLIER;
     const totalHeight = allLines.length * lineHeight;
@@ -797,12 +823,22 @@ export function renderArrowhead(
   tipY: number,
   angle: number,
   size: number,
-  type: string = 'triangle',
+  type: string = "triangle",
 ): void {
   // Delegate to the registry-based renderer.
   // fillStyle is assumed to be set by the caller (backward compat behavior).
   const strokeColor = ctx.fillStyle as string;
-  renderArrowheadFromRegistry(ctx, tipX, tipY, angle, size, type, true, strokeColor, '#ffffff');
+  renderArrowheadFromRegistry(
+    ctx,
+    tipX,
+    tipY,
+    angle,
+    size,
+    type,
+    true,
+    strokeColor,
+    "#ffffff",
+  );
 }
 
 /**
@@ -821,16 +857,16 @@ export function wrapText(
   const result: string[] = [];
 
   // Split on explicit newlines first
-  const paragraphs = text.split('\n');
+  const paragraphs = text.split("\n");
 
   for (const paragraph of paragraphs) {
     if (!paragraph) {
-      result.push('');
+      result.push("");
       continue;
     }
 
-    const words = paragraph.split(' ');
-    let currentLine = '';
+    const words = paragraph.split(" ");
+    let currentLine = "";
 
     for (const word of words) {
       const testLine = currentLine ? `${currentLine} ${word}` : word;
@@ -855,7 +891,7 @@ export function wrapText(
 // ── Position offset for point-based shapes ───────────────────
 
 /** Point-based expression kinds whose rendering uses data.points. */
-const POINT_BASED_KINDS = new Set(['line', 'arrow', 'freehand']);
+const POINT_BASED_KINDS = new Set(["line", "arrow", "freehand"]);
 
 /**
  * Compute the rendering offset for point-based expressions.
@@ -871,9 +907,10 @@ const POINT_BASED_KINDS = new Set(['line', 'arrow', 'freehand']);
  * returns `{ x: 0, y: 0 }` because they render directly from
  * `expr.position`. [CLEAN-CODE]
  */
-export function computePositionOffset(
-  expr: VisualExpression,
-): { x: number; y: number } {
+export function computePositionOffset(expr: VisualExpression): {
+  x: number;
+  y: number;
+} {
   if (!POINT_BASED_KINDS.has(expr.kind)) {
     return { x: 0, y: 0 };
   }
@@ -919,10 +956,18 @@ function getOrCreateDrawable(
   // Shapes: cache ignores position and data. Size is included so resize
   // gets the correct geometry. Deterministic seed ensures identical
   // roughness pattern on regeneration — no visual flicker.
-  const isShape = expr.kind === 'rectangle' || expr.kind === 'ellipse' || expr.kind === 'diamond';
+  const isShape =
+    expr.kind === "rectangle" ||
+    expr.kind === "ellipse" ||
+    expr.kind === "diamond";
   const cacheData = isShape ? undefined : expr.data;
   const cachePosition = isShape ? { x: 0, y: 0 } : expr.position;
-  const ctx = { style: expr.style, position: cachePosition, size: expr.size, data: cacheData };
+  const ctx = {
+    style: expr.style,
+    position: cachePosition,
+    size: expr.size,
+    data: cacheData,
+  };
   const cached = drawableCache.get(expr.id, ctx);
   if (cached) return cached;
 

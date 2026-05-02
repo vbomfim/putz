@@ -162,7 +162,12 @@ describe("SSH Contract Tests", () => {
     });
 
     it("supports common SSH key types", () => {
-      const keyTypes = ["ssh-ed25519", "ssh-rsa", "ecdsa-sha2-nistp256", "ecdsa-sha2-nistp384"];
+      const keyTypes = [
+        "ssh-ed25519",
+        "ssh-rsa",
+        "ecdsa-sha2-nistp256",
+        "ecdsa-sha2-nistp384",
+      ];
       for (const keyType of keyTypes) {
         const payload: HostKeyPayload = {
           host: "test",
@@ -313,7 +318,12 @@ describe("SSH Contract Tests", () => {
     });
 
     it("all protocol types are accounted for", () => {
-      const protocols: ConnectionProtocol[] = ["ssh", "telnet", "serial", "local"];
+      const protocols: ConnectionProtocol[] = [
+        "ssh",
+        "telnet",
+        "serial",
+        "local",
+      ];
       expect(protocols).toHaveLength(4);
     });
   });
@@ -373,7 +383,8 @@ describe("SSH Contract Tests", () => {
     });
 
     it("host key mismatch error describes MITM risk", () => {
-      const errorMsg = "Host key mismatch: switch.lab.local:22 — possible MITM attack";
+      const errorMsg =
+        "Host key mismatch: switch.lab.local:22 — possible MITM attack";
       expect(errorMsg).toMatch(/Host key mismatch: .+/);
     });
 

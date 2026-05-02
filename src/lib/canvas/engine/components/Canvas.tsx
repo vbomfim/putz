@@ -10,27 +10,30 @@
  * @module
  */
 
-import { useEffect, useRef, useCallback } from 'react';
-import rough from 'roughjs';
-import { ErrorBoundary } from './ErrorBoundary';
-import { ShortcutsHelpPanel } from './ShortcutsHelpPanel';
-import { useCanvasInteraction } from '../hooks/useCanvasInteraction';
-import { useSelectionInteraction } from '../hooks/useSelectionInteraction';
-import { useManipulationInteraction } from '../hooks/useManipulationInteraction';
-import { useDrawingInteraction } from '../hooks/useDrawingInteraction';
-import { useInlineEditor } from '../hooks/useInlineEditor';
-import { useKeyboardShortcuts } from '../hooks/useKeyboardShortcuts';
-import { useTouchGestures } from '../hooks/useTouchGestures';
-import { useMetadataTooltip, formatRelativeTime } from '../hooks/useMetadataTooltip';
-import { useCanvasStore, useCanvasStoreApi } from '../store/canvasStore';
-import { worldToScreen, screenToWorld } from '../camera';
-import { resolveTextConfig } from '../text/textConfig';
-import { createRenderLoop } from '../renderer/renderLoop';
-import type { RenderLoop } from '../renderer/renderLoop';
-import type { VisualExpression } from '../../protocol';
-import { STENCIL_CATALOG } from '../renderer/stencils/index';
-import { DEFAULT_EXPRESSION_STYLE } from '../../protocol';
-import { nanoid } from 'nanoid';
+import { useEffect, useRef, useCallback } from "react";
+import rough from "roughjs";
+import { ErrorBoundary } from "./ErrorBoundary";
+import { ShortcutsHelpPanel } from "./ShortcutsHelpPanel";
+import { useCanvasInteraction } from "../hooks/useCanvasInteraction";
+import { useSelectionInteraction } from "../hooks/useSelectionInteraction";
+import { useManipulationInteraction } from "../hooks/useManipulationInteraction";
+import { useDrawingInteraction } from "../hooks/useDrawingInteraction";
+import { useInlineEditor } from "../hooks/useInlineEditor";
+import { useKeyboardShortcuts } from "../hooks/useKeyboardShortcuts";
+import { useTouchGestures } from "../hooks/useTouchGestures";
+import {
+  useMetadataTooltip,
+  formatRelativeTime,
+} from "../hooks/useMetadataTooltip";
+import { useCanvasStore, useCanvasStoreApi } from "../store/canvasStore";
+import { worldToScreen, screenToWorld } from "../camera";
+import { resolveTextConfig } from "../text/textConfig";
+import { createRenderLoop } from "../renderer/renderLoop";
+import type { RenderLoop } from "../renderer/renderLoop";
+import type { VisualExpression } from "../../protocol";
+import { STENCIL_CATALOG } from "../renderer/stencils/index";
+import { DEFAULT_EXPRESSION_STYLE } from "../../protocol";
+import { nanoid } from "nanoid";
 
 /** Minimum canvas dimensions to prevent zero-size or negative canvas. */
 const MIN_WIDTH = 1;
@@ -46,7 +49,8 @@ function CanvasInner() {
   const { canvasRef, cursor: canvasCursor } = useCanvasInteraction();
   const { getMarquee } = useSelectionInteraction(canvasRef);
   const { cursor: manipulationCursor } = useManipulationInteraction(canvasRef);
-  const { getDrawPreview, textTool, cancelDraw } = useDrawingInteraction(canvasRef);
+  const { getDrawPreview, textTool, cancelDraw } =
+    useDrawingInteraction(canvasRef);
   const inlineEditor = useInlineEditor(canvasRef);
   useTouchGestures(canvasRef);
   const tooltip = useMetadataTooltip(canvasRef);
@@ -56,7 +60,7 @@ function CanvasInner() {
   editingIdRef.current = inlineEditor.editingId;
 
   // Shared ref so container-level handlers can read the textarea's current value
-  const editorTextRef = useRef<string>('');
+  const editorTextRef = useRef<string>("");
 
   // Wire TextTool → inline editor so text tool creates expression + starts editing
   textTool.setStartEditing(inlineEditor.startEditing);
@@ -67,22 +71,27 @@ function CanvasInner() {
 
   // Inline editor: look up the expression being edited
   const editingExpr = useCanvasStore((s) =>
-    inlineEditor.editingId ? s.expressions[inlineEditor.editingId] ?? null : null,
+    inlineEditor.editingId
+      ? (s.expressions[inlineEditor.editingId] ?? null)
+      : null,
   );
 
   // Manipulation cursor takes priority, then drawing crosshair/text, then canvas default
   let cursor = canvasCursor;
-  if (manipulationCursor !== 'default') {
+  if (manipulationCursor !== "default") {
     cursor = manipulationCursor;
-  } else if (activeTool === 'text') {
-    cursor = 'text';
-  } else if (activeTool !== 'select') {
-    cursor = 'crosshair';
+  } else if (activeTool === "text") {
+    cursor = "text";
+  } else if (activeTool !== "select") {
+    cursor = "crosshair";
   }
 
   // Register centralized keyboard shortcuts (tool switching, undo/redo,
   // delete, duplicate, select all, escape, help panel) [Issue #10]
-  const { showShortcutsHelp, setShowShortcutsHelp } = useKeyboardShortcuts({ cancelDraw, startEditing: inlineEditor.startEditing });
+  const { showShortcutsHelp, setShowShortcutsHelp } = useKeyboardShortcuts({
+    cancelDraw,
+    startEditing: inlineEditor.startEditing,
+  });
 
   const updateCanvasSize = useCallback(() => {
     const canvas = canvasRef.current;
@@ -102,7 +111,7 @@ function CanvasInner() {
     canvas.style.height = `${height}px`;
 
     // Scale context so drawing uses logical coordinates
-    const ctx = canvas.getContext('2d');
+    const ctx = canvas.getContext("2d");
     if (ctx) {
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     }
@@ -119,7 +128,7 @@ function CanvasInner() {
     const canvas = canvasRef.current;
     if (!canvas) return;
 
-    const ctx = canvas.getContext('2d');
+    const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
     const container = containerRef.current;
@@ -154,7 +163,21 @@ function CanvasInner() {
       getPageSize: () => storeApi.getState().pageSize,
     };
     const dpr = window.devicePixelRatio || 1;
-    const loop = createRenderLoop(ctx, getCamera, width, height, roughCanvas, expressionProvider, selectionProvider, drawPreviewProvider, dpr, marqueeProvider, editingProvider, gridProvider, pageProvider);
+    const loop = createRenderLoop(
+      ctx,
+      getCamera,
+      width,
+      height,
+      roughCanvas,
+      expressionProvider,
+      selectionProvider,
+      drawPreviewProvider,
+      dpr,
+      marqueeProvider,
+      editingProvider,
+      gridProvider,
+      pageProvider,
+    );
 
     renderLoopRef.current = loop;
     loop.start();
@@ -179,15 +202,15 @@ function CanvasInner() {
       // Capture AFTER the next render paint
       loop.captureAfterPaint(() => {
         try {
-          const imageBase64 = canvas.toDataURL('image/png');
+          const imageBase64 = canvas.toDataURL("image/png");
           detail.respond(imageBase64, canvas.width, canvas.height);
         } catch {
-          detail.respond('', 0, 0);
+          detail.respond("", 0, 0);
         }
       });
     };
-    window.addEventListener('infinicanvas-screenshot', handler);
-    return () => window.removeEventListener('infinicanvas-screenshot', handler);
+    window.addEventListener("infinicanvas-screenshot", handler);
+    return () => window.removeEventListener("infinicanvas-screenshot", handler);
   }, [canvasRef]);
 
   // ── Resize observer ────────────────────────────────────────
@@ -220,44 +243,54 @@ function CanvasInner() {
   }, [updateCanvasSize]);
 
   /** Handle stencil drops from the StencilPalette. */
-  const handleDrop = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    const stencilId = e.dataTransfer.getData('application/x-infinicanvas-stencil');
-    if (!stencilId) return;
+  const handleDrop = useCallback(
+    (e: React.DragEvent) => {
+      e.preventDefault();
+      const stencilId = e.dataTransfer.getData(
+        "application/x-infinicanvas-stencil",
+      );
+      if (!stencilId) return;
 
-    const entry = STENCIL_CATALOG.get(stencilId);
-    if (!entry) return;
+      const entry = STENCIL_CATALOG.get(stencilId);
+      if (!entry) return;
 
-    const { camera } = storeApi.getState();
-    const world = screenToWorld(e.clientX, e.clientY, camera);
+      const { camera } = storeApi.getState();
+      const world = screenToWorld(e.clientX, e.clientY, camera);
 
-    // Scale size inversely by zoom so stencils appear the same screen size
-    const w = entry.defaultSize.width / camera.zoom;
-    const h = entry.defaultSize.height / camera.zoom;
+      // Scale size inversely by zoom so stencils appear the same screen size
+      const w = entry.defaultSize.width / camera.zoom;
+      const h = entry.defaultSize.height / camera.zoom;
 
-    const expression: VisualExpression = {
-      id: nanoid(),
-      kind: 'stencil',
-      position: { x: world.x - w / 2, y: world.y - h / 2 },
-      size: { width: w, height: h },
-      angle: 0,
-      style: { ...DEFAULT_EXPRESSION_STYLE, fontSize: 10 },
-      meta: {
-        author: { type: 'human', id: 'local-user', name: 'User' },
-        createdAt: Date.now(),
-        updatedAt: Date.now(),
-        tags: [],
-        locked: false,
-      },
-      data: { kind: 'stencil' as const, stencilId: entry.id, category: entry.category, label: entry.label },
-    };
+      const expression: VisualExpression = {
+        id: nanoid(),
+        kind: "stencil",
+        position: { x: world.x - w / 2, y: world.y - h / 2 },
+        size: { width: w, height: h },
+        angle: 0,
+        style: { ...DEFAULT_EXPRESSION_STYLE, fontSize: 10 },
+        meta: {
+          author: { type: "human", id: "local-user", name: "User" },
+          createdAt: Date.now(),
+          updatedAt: Date.now(),
+          tags: [],
+          locked: false,
+        },
+        data: {
+          kind: "stencil" as const,
+          stencilId: entry.id,
+          category: entry.category,
+          label: entry.label,
+        },
+      };
 
-    storeApi.getState().addExpression(expression);
-    storeApi.getState().setSelectedIds(new Set([expression.id]));
-  }, [storeApi]);
+      storeApi.getState().addExpression(expression);
+      storeApi.getState().setSelectedIds(new Set([expression.id]));
+    },
+    [storeApi],
+  );
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
-    if (e.dataTransfer.types.includes('application/x-infinicanvas-stencil')) {
+    if (e.dataTransfer.types.includes("application/x-infinicanvas-stencil")) {
       e.preventDefault();
     }
   }, []);
@@ -275,21 +308,21 @@ function CanvasInner() {
         }
       }}
       style={{
-        width: '100%',
-        height: '100%',
-        overflow: 'hidden',
+        width: "100%",
+        height: "100%",
+        overflow: "hidden",
         margin: 0,
         padding: 0,
-        position: 'relative',
-        userSelect: 'none',
-        WebkitUserSelect: 'none',
+        position: "relative",
+        userSelect: "none",
+        WebkitUserSelect: "none",
       }}
     >
       <canvas
         ref={canvasRef}
         style={{
-          display: 'block',
-          backgroundColor: 'var(--bg-canvas, #ffffff)',
+          display: "block",
+          backgroundColor: "var(--bg-canvas, #ffffff)",
           cursor,
         }}
       />
@@ -305,10 +338,9 @@ function CanvasInner() {
             // Only save font size if it was actually shrunk
             if (shrunkFontSize !== undefined && editingExpr) {
               const worldFontSize = shrunkFontSize / camera.zoom;
-              storeApi.getState().styleExpressions(
-                [editingExpr.id],
-                { fontSize: worldFontSize },
-              );
+              storeApi.getState().styleExpressions([editingExpr.id], {
+                fontSize: worldFontSize,
+              });
             }
           }}
           onCancel={() => {
@@ -325,27 +357,28 @@ function CanvasInner() {
         <div
           data-testid="metadata-tooltip"
           style={{
-            position: 'fixed',
+            position: "fixed",
             left: tooltip.x + 12,
             top: tooltip.y - 8,
-            padding: '6px 10px',
-            backgroundColor: 'var(--bg-toolbar, #ffffff)',
-            border: '1px solid var(--border, #e0e0e0)',
+            padding: "6px 10px",
+            backgroundColor: "var(--bg-toolbar, #ffffff)",
+            border: "1px solid var(--border, #e0e0e0)",
             borderRadius: 6,
-            boxShadow: '0 2px 8px var(--shadow, rgba(0,0,0,0.12))',
+            boxShadow: "0 2px 8px var(--shadow, rgba(0,0,0,0.12))",
             fontSize: 12,
-            fontFamily: 'system-ui, -apple-system, sans-serif',
-            color: 'var(--text-primary, #333333)',
-            pointerEvents: 'none',
+            fontFamily: "system-ui, -apple-system, sans-serif",
+            color: "var(--text-primary, #333333)",
+            pointerEvents: "none",
             zIndex: 50,
-            whiteSpace: 'nowrap',
+            whiteSpace: "nowrap",
           }}
         >
           <div style={{ fontWeight: 600, marginBottom: 2 }}>
             {tooltip.data.kind}
           </div>
-          <div style={{ color: 'var(--text-secondary, #666666)' }}>
-            {tooltip.data.authorName} · {formatRelativeTime(tooltip.data.createdAt)}
+          <div style={{ color: "var(--text-secondary, #666666)" }}>
+            {tooltip.data.authorName} ·{" "}
+            {formatRelativeTime(tooltip.data.createdAt)}
           </div>
         </div>
       )}
@@ -385,7 +418,14 @@ interface TextEditorProps {
  * [DRY] One component, one code path for all text editing.
  * [CLEAN-CODE] Single Responsibility — renders textarea matching rendered text.
  */
-function TextEditor({ expression, initialText, camera, editorTextRef, onCommit, onCancel }: TextEditorProps) {
+function TextEditor({
+  expression,
+  initialText,
+  camera,
+  editorTextRef,
+  onCommit,
+  onCancel,
+}: TextEditorProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const committedRef = useRef(false);
   const currentFontSizeRef = useRef<number | null>(null);
@@ -413,27 +453,27 @@ function TextEditor({ expression, initialText, camera, editorTextRef, onCommit, 
     ? config.fontSize * camera.zoom
     : 16 * camera.zoom;
 
-  const fontFamily = config?.fontFamily ?? 'Architects Daughter, cursive';
-  const textAlign = config?.textAlign ?? 'center';
-  const color = config?.color ?? '#000000';
-  const background = config?.background ?? 'transparent';
-  const verticalAlign = config?.verticalAlign ?? 'middle';
+  const fontFamily = config?.fontFamily ?? "Architects Daughter, cursive";
+  const textAlign = config?.textAlign ?? "center";
+  const color = config?.color ?? "#000000";
+  const background = config?.background ?? "transparent";
+  const verticalAlign = config?.verticalAlign ?? "middle";
 
   /** Resize textarea: shrink font to fit, then grow height to content. */
   const fitTextarea = (el: HTMLTextAreaElement) => {
-    if (verticalAlign === 'middle') {
+    if (verticalAlign === "middle") {
       let fs = scaledFontSize;
       el.style.fontSize = `${fs}px`;
-      el.style.height = 'auto';
+      el.style.height = "auto";
       while (el.scrollHeight > effectiveHeight * 0.9 && fs > 6) {
         fs -= 1;
         el.style.fontSize = `${fs}px`;
-        el.style.height = 'auto';
+        el.style.height = "auto";
       }
       currentFontSizeRef.current = fs;
       el.style.height = `${el.scrollHeight}px`;
     } else {
-      el.style.height = 'auto';
+      el.style.height = "auto";
       el.style.height = `${el.scrollHeight}px`;
     }
   };
@@ -452,16 +492,19 @@ function TextEditor({ expression, initialText, camera, editorTextRef, onCommit, 
     if (committedRef.current) return;
     committedRef.current = true;
     // Only report fontSize if it was shrunk below the original
-    const shrunk = (currentFontSizeRef.current !== null && currentFontSizeRef.current < scaledFontSize)
-      ? currentFontSizeRef.current : undefined;
-    onCommit(textareaRef.current?.value ?? '', shrunk);
+    const shrunk =
+      currentFontSizeRef.current !== null &&
+      currentFontSizeRef.current < scaledFontSize
+        ? currentFontSizeRef.current
+        : undefined;
+    onCommit(textareaRef.current?.value ?? "", shrunk);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
+    if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       doCommit();
-    } else if (e.key === 'Escape') {
+    } else if (e.key === "Escape") {
       e.preventDefault();
       committedRef.current = true; // Prevent blur from also committing
       onCancel();
@@ -476,22 +519,22 @@ function TextEditor({ expression, initialText, camera, editorTextRef, onCommit, 
   const effectiveHeight = Math.max(screenHeight, 24);
 
   // Use a wrapper div with flexbox for true vertical+horizontal centering
-  if (verticalAlign === 'middle') {
+  if (verticalAlign === "middle") {
     return (
       <div
         style={{
-          position: 'absolute',
+          position: "absolute",
           left: `${screenPos.x}px`,
           top: `${screenPos.y}px`,
           width: `${effectiveWidth}px`,
           height: `${effectiveHeight}px`,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          border: 'none',
-          borderRadius: '2px',
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          border: "none",
+          borderRadius: "2px",
           zIndex: 10,
-          boxSizing: 'border-box',
+          boxSizing: "border-box",
           background: background,
         }}
         onClick={(e) => {
@@ -507,28 +550,31 @@ function TextEditor({ expression, initialText, camera, editorTextRef, onCommit, 
           defaultValue={initialText}
           onKeyDown={handleKeyDown}
           onBlur={handleBlur}
-          onContextMenu={(e) => { e.preventDefault(); doCommit(); }}
+          onContextMenu={(e) => {
+            e.preventDefault();
+            doCommit();
+          }}
           onInput={(e) => {
             editorTextRef.current = e.currentTarget.value;
             fitTextarea(e.currentTarget);
           }}
           style={{
-            width: '85%',
+            width: "85%",
             maxHeight: `${effectiveHeight * 0.9}px`,
             padding: 0,
             margin: 0,
-            border: 'none',
-            outline: 'none',
+            border: "none",
+            outline: "none",
             fontSize: `${scaledFontSize}px`,
             fontFamily: fontFamily,
             color: color,
-            textAlign: textAlign as React.CSSProperties['textAlign'],
-            verticalAlign: 'top',
-            background: 'transparent',
-            resize: 'none',
-            overflow: 'hidden',
+            textAlign: textAlign as React.CSSProperties["textAlign"],
+            verticalAlign: "top",
+            background: "transparent",
+            resize: "none",
+            overflow: "hidden",
             lineHeight: 1.4,
-            display: 'block',
+            display: "block",
           }}
         />
       </div>
@@ -542,30 +588,33 @@ function TextEditor({ expression, initialText, camera, editorTextRef, onCommit, 
       defaultValue={initialText}
       onKeyDown={handleKeyDown}
       onBlur={handleBlur}
-      onContextMenu={(e) => { e.preventDefault(); doCommit(); }}
+      onContextMenu={(e) => {
+        e.preventDefault();
+        doCommit();
+      }}
       style={{
-        position: 'absolute',
+        position: "absolute",
         left: `${screenPos.x}px`,
         top: `${screenPos.y}px`,
         width: `${effectiveWidth}px`,
         height: `${effectiveHeight}px`,
         padding: 0,
         margin: 0,
-        border: 'none',
-        borderRadius: '2px',
-        outline: 'none',
+        border: "none",
+        borderRadius: "2px",
+        outline: "none",
         fontSize: `${scaledFontSize}px`,
         fontFamily: fontFamily,
         color: color,
-        textAlign: textAlign as React.CSSProperties['textAlign'],
-        verticalAlign: 'top',
+        textAlign: textAlign as React.CSSProperties["textAlign"],
+        verticalAlign: "top",
         background: background,
-        resize: 'none',
+        resize: "none",
         zIndex: 10,
-        boxSizing: 'border-box',
-        overflow: 'hidden',
+        boxSizing: "border-box",
+        overflow: "hidden",
         lineHeight: 1.4,
-        display: 'block',
+        display: "block",
       }}
     />
   );

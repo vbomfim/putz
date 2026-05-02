@@ -537,17 +537,21 @@ mod tests {
         tokio::time::sleep(Duration::from_millis(300)).await;
 
         // Check that output was emitted
-        let outputs = emitter.outputs.lock().unwrap();
-        assert!(
-            !outputs.is_empty(),
-            "Expected output events from server greeting"
-        );
+        {
+            let outputs = emitter.outputs.lock().unwrap();
+            assert!(
+                !outputs.is_empty(),
+                "Expected output events from server greeting"
+            );
+        }
 
         // Check statuses
-        let statuses = emitter.statuses.lock().unwrap();
-        assert!(statuses.len() >= 2); // Connecting + Connected
-        assert_eq!(statuses[0].1.status, ConnectionStatus::Connecting);
-        assert_eq!(statuses[1].1.status, ConnectionStatus::Connected);
+        {
+            let statuses = emitter.statuses.lock().unwrap();
+            assert!(statuses.len() >= 2); // Connecting + Connected
+            assert_eq!(statuses[0].1.status, ConnectionStatus::Connecting);
+            assert_eq!(statuses[1].1.status, ConnectionStatus::Connected);
+        }
 
         // Clean up
         conn.close().await.unwrap();

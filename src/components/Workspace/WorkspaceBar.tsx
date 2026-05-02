@@ -8,7 +8,10 @@
  * @module WorkspaceBar
  */
 import { useState, useCallback, useRef, useEffect } from "react";
-import { useWorkspaceStore, WORKSPACE_COLORS } from "../../stores/workspaceStore";
+import {
+  useWorkspaceStore,
+  WORKSPACE_COLORS,
+} from "../../stores/workspaceStore";
 import "./WorkspaceBar.css";
 
 /** Extracts the first character of a name for the workspace icon. */

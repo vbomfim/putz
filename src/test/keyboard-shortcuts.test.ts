@@ -27,7 +27,15 @@ const mockLayoutState = {
   regions: {
     "region-1": {
       id: "region-1",
-      tabs: [{ id: "tab-1", type: "terminal" as const, title: "Terminal", sessionId: "s-1", isSearchOpen: false }],
+      tabs: [
+        {
+          id: "tab-1",
+          type: "terminal" as const,
+          title: "Terminal",
+          sessionId: "s-1",
+          isSearchOpen: false,
+        },
+      ],
       activeTabId: "tab-1",
     },
   },
@@ -64,7 +72,10 @@ vi.mock("../stores/settingsStore", () => ({
 describe("useKeyboardShortcuts", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    setKeyboardShortcutCallbacks({ onAddBookmark: mockAddBookmark, onToggleBookmarksPanel: mockToggleBookmarksPanel });
+    setKeyboardShortcutCallbacks({
+      onAddBookmark: mockAddBookmark,
+      onToggleBookmarksPanel: mockToggleBookmarksPanel,
+    });
   });
 
   afterEach(() => {
@@ -278,4 +289,3 @@ describe("useKeyboardShortcuts", () => {
     }
   });
 });
-

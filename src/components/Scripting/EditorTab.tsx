@@ -34,7 +34,12 @@ interface EditorTabProps {
  * A full editor tab with Monaco, file I/O, and status bar.
  * Opens as a tab in a region — not a modal.
  */
-export function EditorTab({ filePath: initialFilePath, scriptId, regionId, tabId }: EditorTabProps) {
+export function EditorTab({
+  filePath: initialFilePath,
+  scriptId,
+  regionId,
+  tabId,
+}: EditorTabProps) {
   const [content, setContent] = useState("");
   const [language, setLanguage] = useState<EditorLanguage>("text");
   const [isLoading, setIsLoading] = useState(true);
@@ -47,7 +52,9 @@ export function EditorTab({ filePath: initialFilePath, scriptId, regionId, tabId
   const [saveAsPath, setSaveAsPath] = useState("");
   const savedContentRef = useRef("");
   const lastMtimeRef = useRef<number>(0);
-  const editorInstanceRef = useRef<monaco.editor.IStandaloneCodeEditor | null>(null);
+  const editorInstanceRef = useRef<monaco.editor.IStandaloneCodeEditor | null>(
+    null,
+  );
   const renameTab = useLayoutStore((s) => s.renameTab);
   const closeTab = useLayoutStore((s) => s.closeTab);
   const addCsvTab = useLayoutStore((s) => s.addCsvTab);
@@ -63,19 +70,31 @@ export function EditorTab({ filePath: initialFilePath, scriptId, regionId, tabId
     const path = currentPath || initialFilePath;
     if (!path) return;
     if (isDirty) {
-      const ok = window.confirm("You have unsaved changes. Switch to Grid Mode anyway? Unsaved edits will be lost.");
+      const ok = window.confirm(
+        "You have unsaved changes. Switch to Grid Mode anyway? Unsaved edits will be lost.",
+      );
       if (!ok) return;
     }
     closeTab(regionId, tabId);
     addCsvTab(regionId, path);
-  }, [currentPath, initialFilePath, isDirty, closeTab, regionId, tabId, addCsvTab]);
+  }, [
+    currentPath,
+    initialFilePath,
+    isDirty,
+    closeTab,
+    regionId,
+    tabId,
+    addCsvTab,
+  ]);
 
   const handleFind = useCallback(() => {
     editorInstanceRef.current?.getAction("actions.find")?.run();
   }, []);
 
   const handleFindReplace = useCallback(() => {
-    editorInstanceRef.current?.getAction("editor.action.startFindReplaceAction")?.run();
+    editorInstanceRef.current
+      ?.getAction("editor.action.startFindReplaceAction")
+      ?.run();
   }, []);
 
   const [showCompareInput, setShowCompareInput] = useState(false);
@@ -92,7 +111,10 @@ export function EditorTab({ filePath: initialFilePath, scriptId, regionId, tabId
 
     // If relative, resolve against current file's directory
     if (!resolvedPath.startsWith("/") && currentPath) {
-      const sepIdx = Math.max(currentPath.lastIndexOf("/"), currentPath.lastIndexOf("\\"));
+      const sepIdx = Math.max(
+        currentPath.lastIndexOf("/"),
+        currentPath.lastIndexOf("\\"),
+      );
       const dir = currentPath.substring(0, sepIdx);
       const sep = currentPath.includes("\\") ? "\\" : "/";
       resolvedPath = `${dir}${sep}${resolvedPath}`;
@@ -120,7 +142,9 @@ export function EditorTab({ filePath: initialFilePath, scriptId, regionId, tabId
           setLanguage(detectLanguage(initialFilePath, text));
           try {
             lastMtimeRef.current = await fileMtime(initialFilePath);
-          } catch { /* ignore */ }
+          } catch {
+            /* ignore */
+          }
           setStatusMessage(`Opened ${initialFilePath}`);
         } else if (scriptId) {
           const script = await scriptGet(scriptId);
@@ -148,7 +172,9 @@ export function EditorTab({ filePath: initialFilePath, scriptId, regionId, tabId
     };
 
     load();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [initialFilePath, scriptId, regionId, tabId, renameTab]);
 
   // Poll file mtime every 2s — reload if changed externally
@@ -207,7 +233,11 @@ export function EditorTab({ filePath: initialFilePath, scriptId, regionId, tabId
         await fileWrite(currentPath, toWrite);
         savedContentRef.current = toWrite;
         setIsDirty(false);
-        try { lastMtimeRef.current = await fileMtime(currentPath); } catch { /* ignore */ }
+        try {
+          lastMtimeRef.current = await fileMtime(currentPath);
+        } catch {
+          /* ignore */
+        }
         setStatusMessage(`Saved ${currentPath}`);
       } else if (scriptId) {
         const script = await scriptGet(scriptId);
@@ -244,10 +274,15 @@ export function EditorTab({ filePath: initialFilePath, scriptId, regionId, tabId
       const visible = editor.getLayoutInfo().height;
       const max = Math.max(1, scrollHeight - visible);
       const ratio = Math.min(1, Math.max(0, scrollTop / max));
-      const previewMax = Math.max(0, preview.scrollHeight - preview.clientHeight);
+      const previewMax = Math.max(
+        0,
+        preview.scrollHeight - preview.clientHeight,
+      );
       isSyncingRef.current = true;
       preview.scrollTop = ratio * previewMax;
-      requestAnimationFrame(() => { isSyncingRef.current = false; });
+      requestAnimationFrame(() => {
+        isSyncingRef.current = false;
+      });
     });
     return () => dispose.dispose();
   }, [showPreview, language, content]);
@@ -267,7 +302,11 @@ export function EditorTab({ filePath: initialFilePath, scriptId, regionId, tabId
       setSaveAsPath("");
       setLanguage(detectLanguage(path, content));
       renameTab(regionId, tabId, path.split("/").pop() || path);
-      try { lastMtimeRef.current = await fileMtime(path); } catch { /* ignore */ }
+      try {
+        lastMtimeRef.current = await fileMtime(path);
+      } catch {
+        /* ignore */
+      }
       setStatusMessage(`Saved as ${path}`);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
@@ -299,8 +338,15 @@ export function EditorTab({ filePath: initialFilePath, scriptId, regionId, tabId
       {/* Toolbar */}
       <div className="editor-tab__toolbar">
         <div className="editor-tab__toolbar-left">
-          <span className="editor-tab__filepath" title={currentPath || "Untitled"}>
-            {currentPath ? currentPath.split("/").pop() : scriptId ? "Script" : "Untitled"}
+          <span
+            className="editor-tab__filepath"
+            title={currentPath || "Untitled"}
+          >
+            {currentPath
+              ? currentPath.split("/").pop()
+              : scriptId
+                ? "Script"
+                : "Untitled"}
             {isDirty && " •"}
           </span>
         </div>
@@ -335,7 +381,9 @@ export function EditorTab({ filePath: initialFilePath, scriptId, regionId, tabId
             <button
               type="button"
               className="editor-tab__tool-btn"
-              onClick={() => useLayoutStore.getState().addMarkdownTab(undefined, currentPath)}
+              onClick={() =>
+                useLayoutStore.getState().addMarkdownTab(undefined, currentPath)
+              }
               title="Open Markdown preview in a new tab"
             >
               👁
@@ -346,7 +394,11 @@ export function EditorTab({ filePath: initialFilePath, scriptId, regionId, tabId
               type="button"
               className={`editor-tab__tool-btn ${showPreview ? "editor-tab__tool-btn--active" : ""}`}
               onClick={() => setShowPreview((v) => !v)}
-              title={showPreview ? "Hide live preview" : "Show live preview side-by-side"}
+              title={
+                showPreview
+                  ? "Hide live preview"
+                  : "Show live preview side-by-side"
+              }
             >
               ⇆
             </button>
@@ -355,7 +407,11 @@ export function EditorTab({ filePath: initialFilePath, scriptId, regionId, tabId
             type="button"
             className={`editor-tab__tool-btn ${showWhitespace ? "editor-tab__tool-btn--active" : ""}`}
             onClick={() => setShowWhitespace((v) => !v)}
-            title={showWhitespace ? "Hide whitespace / line endings" : "Show whitespace, control chars, line endings (LF / CRLF)"}
+            title={
+              showWhitespace
+                ? "Hide whitespace / line endings"
+                : "Show whitespace, control chars, line endings (LF / CRLF)"
+            }
           >
             ¶
           </button>
@@ -370,17 +426,19 @@ export function EditorTab({ filePath: initialFilePath, scriptId, regionId, tabId
             </button>
           )}
           <div className="script-editor__language-toggle">
-            {([
-              ["text", "TXT", "Plain Text"],
-              ["markdown", "MD", "Markdown"],
-              ["javascript", "JS", "JavaScript"],
-              ["python", "PY", "Python"],
-              ["terraform", "TF", "Terraform / HCL"],
-              ["jinja2", "J2", "Jinja2 Templates"],
-              ["json", "JSON", "JSON (ARM, CloudFormation)"],
-              ["yaml", "YAML", "YAML (Ansible, GCP DM)"],
-              ["cisco-ios", "IOS", "Cisco IOS Config"],
-            ] as const).map(([lang, label, title]) => (
+            {(
+              [
+                ["text", "TXT", "Plain Text"],
+                ["markdown", "MD", "Markdown"],
+                ["javascript", "JS", "JavaScript"],
+                ["python", "PY", "Python"],
+                ["terraform", "TF", "Terraform / HCL"],
+                ["jinja2", "J2", "Jinja2 Templates"],
+                ["json", "JSON", "JSON (ARM, CloudFormation)"],
+                ["yaml", "YAML", "YAML (Ansible, GCP DM)"],
+                ["cisco-ios", "IOS", "Cisco IOS Config"],
+              ] as const
+            ).map(([lang, label, title]) => (
               <button
                 key={lang}
                 type="button"
@@ -394,12 +452,20 @@ export function EditorTab({ filePath: initialFilePath, scriptId, regionId, tabId
           </div>
           <button
             type="button"
-            className={`editor-tab__save-btn ${(isDirty || !currentPath) ? "editor-tab__save-btn--dirty" : ""}`}
+            className={`editor-tab__save-btn ${isDirty || !currentPath ? "editor-tab__save-btn--dirty" : ""}`}
             onClick={handleSave}
             disabled={isSaving || (!isDirty && !!currentPath)}
-            title={currentPath ? "Save (⌘S) — auto-saves after 2s" : "Save As (⌘S)"}
+            title={
+              currentPath ? "Save (⌘S) — auto-saves after 2s" : "Save As (⌘S)"
+            }
           >
-            {isSaving ? "Saving…" : !currentPath ? "Save As…" : isDirty ? "● Save" : "✓ Saved"}
+            {isSaving
+              ? "Saving…"
+              : !currentPath
+                ? "Save As…"
+                : isDirty
+                  ? "● Save"
+                  : "✓ Saved"}
           </button>
         </div>
       </div>
@@ -415,7 +481,10 @@ export function EditorTab({ filePath: initialFilePath, scriptId, regionId, tabId
             onChange={(e) => setComparePath(e.target.value)}
             onKeyDown={(e) => {
               if (e.key === "Enter") handleCompare();
-              if (e.key === "Escape") { setShowCompareInput(false); setComparePath(""); }
+              if (e.key === "Escape") {
+                setShowCompareInput(false);
+                setComparePath("");
+              }
             }}
             placeholder="path/to/other-file.cfg"
             autoFocus
@@ -442,7 +511,10 @@ export function EditorTab({ filePath: initialFilePath, scriptId, regionId, tabId
             onChange={(e) => setSaveAsPath(e.target.value)}
             onKeyDown={(e) => {
               if (e.key === "Enter") handleSaveAs();
-              if (e.key === "Escape") { setShowSaveAs(false); setSaveAsPath(""); }
+              if (e.key === "Escape") {
+                setShowSaveAs(false);
+                setSaveAsPath("");
+              }
             }}
             placeholder="/full/path/to/filename.cfg"
             autoFocus
@@ -459,9 +531,7 @@ export function EditorTab({ filePath: initialFilePath, scriptId, regionId, tabId
       )}
 
       {/* Error bar */}
-      {error && (
-        <div className="editor-tab__error">{error}</div>
-      )}
+      {error && <div className="editor-tab__error">{error}</div>}
 
       {/* Markdown formatting toolbar */}
       {language === "markdown" && (
@@ -469,7 +539,9 @@ export function EditorTab({ filePath: initialFilePath, scriptId, regionId, tabId
       )}
 
       {/* Monaco Editor (with optional live preview pane) */}
-      <div className={`editor-tab__editor ${language === "markdown" && showPreview ? "editor-tab__editor--split" : ""}`}>
+      <div
+        className={`editor-tab__editor ${language === "markdown" && showPreview ? "editor-tab__editor--split" : ""}`}
+      >
         <div className="editor-tab__editor-pane">
           <MonacoEditor
             value={content}
@@ -493,7 +565,21 @@ export function EditorTab({ filePath: initialFilePath, scriptId, regionId, tabId
       {/* Status bar */}
       <div className="editor-tab__status">
         <span>{statusMessage}</span>
-        <span>{{ text: "Plain Text", markdown: "Markdown", "cisco-ios": "Cisco IOS", python: "Python", terraform: "Terraform", jinja2: "Jinja2", json: "JSON", yaml: "YAML", javascript: "JavaScript" }[language]}</span>
+        <span>
+          {
+            {
+              text: "Plain Text",
+              markdown: "Markdown",
+              "cisco-ios": "Cisco IOS",
+              python: "Python",
+              terraform: "Terraform",
+              jinja2: "Jinja2",
+              json: "JSON",
+              yaml: "YAML",
+              javascript: "JavaScript",
+            }[language]
+          }
+        </span>
       </div>
     </div>
   );

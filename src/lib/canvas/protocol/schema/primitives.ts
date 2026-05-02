@@ -8,32 +8,41 @@
 
 /** Data for a rectangle expression. */
 export interface RectangleData {
-  kind: 'rectangle';
+  kind: "rectangle";
   label?: string;
 }
 
 /** Data for an ellipse expression. */
 export interface EllipseData {
-  kind: 'ellipse';
+  kind: "ellipse";
   label?: string;
 }
 
 /** Data for a diamond expression. */
 export interface DiamondData {
-  kind: 'diamond';
+  kind: "diamond";
   label?: string;
 }
 
 /** Data for a line expression defined by a series of points. */
 export interface LineData {
-  kind: 'line';
+  kind: "line";
   /** Array of [x, y] coordinate pairs forming the line. */
   points: [number, number][];
 }
 
 /** Anchor position on a shape's edge for arrow binding. */
-export type ArrowAnchor = 'center' | 'top' | 'right' | 'bottom' | 'left'
-  | 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right' | 'auto';
+export type ArrowAnchor =
+  | "center"
+  | "top"
+  | "right"
+  | "bottom"
+  | "left"
+  | "top-left"
+  | "top-right"
+  | "bottom-left"
+  | "bottom-right"
+  | "auto";
 
 /** Binding that connects an arrow endpoint to a shape. */
 export interface ArrowBinding {
@@ -57,39 +66,39 @@ export interface ArrowBinding {
  */
 export type ArrowheadType =
   // Legacy (backward compat)
-  | 'triangle'      // alias for 'classic'
-  | 'chevron'       // legacy InfiniCanvas
+  | "triangle" // alias for 'classic'
+  | "chevron" // legacy InfiniCanvas
   // Standard
-  | 'none'          // no arrowhead
-  | 'classic'       // filled triangle (draw.io default)
-  | 'classicThin'   // thinner filled triangle
-  | 'open'          // outline triangle
-  | 'openThin'      // thinner outline triangle
-  | 'block'         // filled rectangle/block
-  | 'blockThin'     // thinner block
-  | 'oval'          // filled circle
-  | 'diamond'       // filled diamond
-  | 'diamondThin'   // thinner diamond
-  | 'circle'        // alias kept for backward compat
+  | "none" // no arrowhead
+  | "classic" // filled triangle (draw.io default)
+  | "classicThin" // thinner filled triangle
+  | "open" // outline triangle
+  | "openThin" // thinner outline triangle
+  | "block" // filled rectangle/block
+  | "blockThin" // thinner block
+  | "oval" // filled circle
+  | "diamond" // filled diamond
+  | "diamondThin" // thinner diamond
+  | "circle" // alias kept for backward compat
   // ER Diagram
-  | 'ERone'         // single bar (|)
-  | 'ERmany'        // crow's foot (>)
-  | 'ERmandOne'     // mandatory one (||)
-  | 'ERoneToMany'   // one to many (|>)
-  | 'ERzeroToOne'   // zero to one (o|)
-  | 'ERzeroToMany'  // zero to many (o>)
+  | "ERone" // single bar (|)
+  | "ERmany" // crow's foot (>)
+  | "ERmandOne" // mandatory one (||)
+  | "ERoneToMany" // one to many (|>)
+  | "ERzeroToOne" // zero to one (o|)
+  | "ERzeroToMany" // zero to many (o>)
   // UML
-  | 'openAsync'     // open arrowhead (async message)
-  | 'dash'          // dashed end
-  | 'cross'         // X mark
+  | "openAsync" // open arrowhead (async message)
+  | "dash" // dashed end
+  | "cross" // X mark
   // Other
-  | 'box'           // small filled box
-  | 'halfCircle'    // half circle
-  | 'doubleBlock';  // double block arrows
+  | "box" // small filled box
+  | "halfCircle" // half circle
+  | "doubleBlock"; // double block arrows
 
 /** Data for an arrow expression with optional arrowheads. */
 export interface ArrowData {
-  kind: 'arrow';
+  kind: "arrow";
   /** Array of [x, y] coordinate pairs forming the arrow path. */
   points: [number, number][];
   /** Arrowhead style at the start ('none' = no arrowhead). */
@@ -113,7 +122,7 @@ export interface ArrowData {
   /** Round corners on orthogonal route segments. */
   rounded?: boolean;
   /** Exit stub length from shape; 'auto' = calculated. */
-  jettySize?: number | 'auto';
+  jettySize?: number | "auto";
   /** Z-shape midpoint offset as 0–1 ratio (0.5 = centered, default). */
   midpointOffset?: number;
   /**
@@ -130,23 +139,23 @@ export interface ArrowData {
 
 /** Data for a freehand drawing expression. */
 export interface FreehandData {
-  kind: 'freehand';
+  kind: "freehand";
   /** Array of [x, y, pressure] tuples capturing the stroke. */
   points: [number, number, number][];
 }
 
 /** Data for a text expression. */
 export interface TextData {
-  kind: 'text';
+  kind: "text";
   text: string;
   fontSize: number;
   fontFamily: string;
-  textAlign: 'left' | 'center' | 'right';
+  textAlign: "left" | "center" | "right";
 }
 
 /** Data for a sticky note expression. */
 export interface StickyNoteData {
-  kind: 'sticky-note';
+  kind: "sticky-note";
   text: string;
   /** Background color of the sticky note. */
   color: string;
@@ -154,7 +163,7 @@ export interface StickyNoteData {
 
 /** Data for an image expression. */
 export interface ImageData {
-  kind: 'image';
+  kind: "image";
   /** Image source URL or data URI. */
   src: string;
   /** Alternative text description. */
@@ -163,7 +172,7 @@ export interface ImageData {
 
 /** Data for a stencil expression (icon from the stencil catalog). */
 export interface StencilData {
-  kind: 'stencil';
+  kind: "stencil";
   /** ID of the stencil entry in the catalog. */
   stencilId: string;
   /** Category grouping for the stencil (e.g. 'network', 'kubernetes'). */
@@ -171,7 +180,7 @@ export interface StencilData {
   /** Optional display label rendered below the icon. */
   label?: string;
   /** Where to render the label relative to the stencil icon. */
-  labelPosition?: 'below' | 'top-left' | 'top-center' | 'center';
+  labelPosition?: "below" | "top-left" | "top-center" | "center";
   /** Explicit font size for the label (world units, no auto-scaling). */
   labelFontSize?: number;
 }
@@ -185,7 +194,7 @@ export interface StencilData {
  * organizational layouts.
  */
 export interface ContainerData {
-  kind: 'container';
+  kind: "container";
   /** Display title shown in the header bar. */
   title: string;
   /** Height of the header bar in world pixels. */
@@ -208,13 +217,13 @@ export interface ContainerData {
  * - `'orthogonalCurved'` — orthogonal routing with bezier-smoothed corners
  */
 export type RoutingMode =
-  | 'straight'
-  | 'orthogonal'
-  | 'curved'
-  | 'elbow'
-  | 'entityRelation'
-  | 'isometric'
-  | 'orthogonalCurved';
+  | "straight"
+  | "orthogonal"
+  | "curved"
+  | "elbow"
+  | "entityRelation"
+  | "isometric"
+  | "orthogonalCurved";
 
 /** Union of all primitive expression data types. */
 export type PrimitiveData =

@@ -4,7 +4,11 @@
  * @module
  */
 
-export type { StencilEntry, StencilMeta, CategoryLoader } from './stencilCatalog';
+export type {
+  StencilEntry,
+  StencilMeta,
+  CategoryLoader,
+} from "./stencilCatalog";
 export {
   STENCIL_CATALOG,
   getStencil,
@@ -18,4 +22,4 @@ export {
   svgToDataUri,
   _resetLazyState,
   _syncMetaFromCatalog,
-} from './stencilCatalog';
+} from "./stencilCatalog";

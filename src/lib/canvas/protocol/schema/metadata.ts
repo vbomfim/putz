@@ -8,8 +8,8 @@
 
 /** Identifies who authored an expression — either a human or an AI agent. */
 export type AuthorInfo =
-  | { type: 'human'; id: string; name: string }
-  | { type: 'agent'; id: string; name: string; provider: string };
+  | { type: "human"; id: string; name: string }
+  | { type: "agent"; id: string; name: string; provider: string };
 
 /** Visual styling applied to an expression on the canvas. */
 export interface ExpressionStyle {
@@ -18,9 +18,9 @@ export interface ExpressionStyle {
   /** Background color in hex format, or 'transparent' */
   backgroundColor: string;
   /** Fill rendering style */
-  fillStyle: 'solid' | 'hachure' | 'cross-hatch' | 'none';
+  fillStyle: "solid" | "hachure" | "cross-hatch" | "none";
   /** Stroke line style */
-  strokeStyle: 'solid' | 'dashed' | 'dotted';
+  strokeStyle: "solid" | "dashed" | "dotted";
   /** Stroke width in pixels (1–10) */
   strokeWidth: number;
   /** Roughness factor: 0 = smooth, 1+ = sketchy hand-drawn look */
@@ -40,12 +40,12 @@ export interface ExpressionStyle {
  * instead of defining its own hardcoded values.
  */
 export const DEFAULT_EXPRESSION_STYLE: ExpressionStyle = {
-  strokeColor: '#1e1e1e',
-  backgroundColor: 'transparent',
-  fillStyle: 'hachure',
-  strokeStyle: 'solid',
+  strokeColor: "#1e1e1e",
+  backgroundColor: "transparent",
+  fillStyle: "hachure",
+  strokeStyle: "solid",
   strokeWidth: 2,
   roughness: 0,
   opacity: 1,
-  fontFamily: 'system-ui, -apple-system, sans-serif',
+  fontFamily: "system-ui, -apple-system, sans-serif",
 };

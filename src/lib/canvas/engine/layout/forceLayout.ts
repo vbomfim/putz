@@ -12,10 +12,10 @@
  * @module
  */
 
-import type { VisualExpression } from '../../protocol';
-import type { ForceLayoutOptions } from './types';
-import { DEFAULT_FORCE_ITERATIONS } from './types';
-import { extractEdges } from './edges';
+import type { VisualExpression } from "../../protocol";
+import type { ForceLayoutOptions } from "./types";
+import { DEFAULT_FORCE_ITERATIONS } from "./types";
+import { extractEdges } from "./edges";
 
 /** Spring constant — attraction force for connected nodes. */
 const SPRING_K = 0.005;

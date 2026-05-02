@@ -108,15 +108,14 @@ export function recordSessionCwd(
   history.push({ marker, recordedLine, cwd });
 
   // Notify listeners that CWD changed for this session
-  window.dispatchEvent(new CustomEvent("putz-cwd-change", { detail: { sessionId, cwd } }));
+  window.dispatchEvent(
+    new CustomEvent("putz-cwd-change", { detail: { sessionId, cwd } }),
+  );
 
   // Prune dead markers and cap size
   if (history.length > MAX_HISTORY_PER_SESSION) {
     const live = history.filter((e) => !e.marker || e.marker.line >= 0);
-    historyBySession.set(
-      sessionId,
-      live.slice(-MAX_HISTORY_PER_SESSION),
-    );
+    historyBySession.set(sessionId, live.slice(-MAX_HISTORY_PER_SESSION));
   }
 }
 
@@ -160,9 +159,10 @@ export function getSessionCwdAtLine(
   // for dead markers, fall back to the line we recorded originally.
   for (let i = history.length - 1; i >= 0; i--) {
     const entry = history[i];
-    const entryLine = entry.marker && entry.marker.line >= 0
-      ? entry.marker.line
-      : entry.recordedLine;
+    const entryLine =
+      entry.marker && entry.marker.line >= 0
+        ? entry.marker.line
+        : entry.recordedLine;
     if (entryLine <= bufferLine) return entry.cwd;
   }
   // Nothing matched — clicked line is older than any tracked cwd entry.

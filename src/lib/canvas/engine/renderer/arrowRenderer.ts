@@ -14,15 +14,15 @@
  * @module
  */
 
-import type { VisualExpression, ArrowData } from '../../protocol';
-import type { RoughCanvas } from 'roughjs/bin/canvas.js';
-import type { Camera } from '../types/index';
-import type { PathSegment } from '../connectors/routerTypes';
-import { mapStyleToRoughOptions, idToSeed } from './styleMapper';
-import { resolveBindings } from '../interaction/connectorHelpers';
-import { getRouter } from '../connectors/routerRegistry';
-import { renderArrowheadFromRegistry } from './arrowheads';
-import { computeSelfLoopPath } from '../connectors/orthogonalRouter';
+import type { VisualExpression, ArrowData } from "../../protocol";
+import type { RoughCanvas } from "roughjs/bin/canvas.js";
+import type { Camera } from "../types/index";
+import type { PathSegment } from "../connectors/routerTypes";
+import { mapStyleToRoughOptions, idToSeed } from "./styleMapper";
+import { resolveBindings } from "../interaction/connectorHelpers";
+import { getRouter } from "../connectors/routerRegistry";
+import { renderArrowheadFromRegistry } from "./arrowheads";
+import { computeSelfLoopPath } from "../connectors/orthogonalRouter";
 
 // ── Constants ────────────────────────────────────────────────
 
@@ -52,13 +52,19 @@ export function renderArrow(
   expressions: Record<string, VisualExpression>,
   camera?: Camera,
   computePositionOffset?: (expr: VisualExpression) => { x: number; y: number },
-  getOrCreateDrawable?: (expr: VisualExpression, factory: () => unknown) => unknown,
+  getOrCreateDrawable?: (
+    expr: VisualExpression,
+    factory: () => unknown,
+  ) => unknown,
 ): void {
-  if (expr.data.kind !== 'arrow') return;
+  if (expr.data.kind !== "arrow") return;
   const data = expr.data as ArrowData;
   const startType = resolveArrowheadType(data.startArrowhead);
   const endType = resolveArrowheadType(data.endArrowhead);
-  const options = mapStyleToRoughOptions(expr.style, idToSeed(expr.id)) as unknown as Record<string, unknown>;
+  const options = mapStyleToRoughOptions(
+    expr.style,
+    idToSeed(expr.id),
+  ) as unknown as Record<string, unknown>;
 
   // Arrowhead sizing — must always be larger than the stroke width
   const zoom = camera?.zoom ?? 1;
@@ -80,9 +86,10 @@ export function renderArrow(
   // All routed arrows go through the registry to produce PathSegment[].
   // orthogonal + curved → 'orthogonalCurved' mode in the registry.
   let pathSegments: PathSegment[] | null = null;
-  const routingMode = data.routing === 'orthogonal' && data.curved
-    ? 'orthogonalCurved' as const
-    : data.routing;
+  const routingMode =
+    data.routing === "orthogonal" && data.curved
+      ? ("orthogonalCurved" as const)
+      : data.routing;
   const router = getRouter(routingMode);
 
   if (router && points.length === 2) {
@@ -101,23 +108,29 @@ export function renderArrow(
       {
         curved: data.curved,
         rounded: data.rounded,
-        jettySize: typeof data.jettySize === 'number' ? data.jettySize : undefined,
-        midpointOffset: typeof data.midpointOffset === 'number'
-          ? data.midpointOffset
-          : undefined,
+        jettySize:
+          typeof data.jettySize === "number" ? data.jettySize : undefined,
+        midpointOffset:
+          typeof data.midpointOffset === "number"
+            ? data.midpointOffset
+            : undefined,
         waypoints: data.waypoints,
-        startBounds: startBounds ? {
-          x: startBounds.position.x,
-          y: startBounds.position.y,
-          width: startBounds.size.width,
-          height: startBounds.size.height,
-        } : undefined,
-        endBounds: endBounds ? {
-          x: endBounds.position.x,
-          y: endBounds.position.y,
-          width: endBounds.size.width,
-          height: endBounds.size.height,
-        } : undefined,
+        startBounds: startBounds
+          ? {
+              x: startBounds.position.x,
+              y: startBounds.position.y,
+              width: startBounds.size.width,
+              height: startBounds.size.height,
+            }
+          : undefined,
+        endBounds: endBounds
+          ? {
+              x: endBounds.position.x,
+              y: endBounds.position.y,
+              width: endBounds.size.width,
+              height: endBounds.size.height,
+            }
+          : undefined,
       },
     );
   }
@@ -127,7 +140,9 @@ export function renderArrow(
   const hasBound = data.startBinding || data.endBinding;
   const offset = hasBound
     ? { x: 0, y: 0 }
-    : (computePositionOffset ? computePositionOffset(expr) : { x: 0, y: 0 });
+    : computePositionOffset
+      ? computePositionOffset(expr)
+      : { x: 0, y: 0 };
 
   if (offset.x !== 0 || offset.y !== 0) {
     ctx.save();
@@ -135,22 +150,60 @@ export function renderArrow(
   }
 
   // ── Self-loop detection: both ends bound to the same shape ──
-  const isSelfLoop = data.startBinding && data.endBinding &&
+  const isSelfLoop =
+    data.startBinding &&
+    data.endBinding &&
     data.startBinding.expressionId === data.endBinding.expressionId;
 
   if (isSelfLoop) {
-    renderSelfLoop(ctx, points, data, expr, expressions, arrowSize,
-      startType, endType, startFilled, endFilled, strokeColor, fillColor);
+    renderSelfLoop(
+      ctx,
+      points,
+      data,
+      expr,
+      expressions,
+      arrowSize,
+      startType,
+      endType,
+      startFilled,
+      endFilled,
+      strokeColor,
+      fillColor,
+    );
   } else if (pathSegments && pathSegments.length > 0) {
     // ── Routed arrows: Canvas2D rendering for ALL routed types ──
     // [AC5] No drawable cache — always render the actual computed path.
-    renderPathSegments(ctx, points[0]!, points, pathSegments, arrowSize,
-      startType, endType, startFilled, endFilled, strokeColor, fillColor, expr);
+    renderPathSegments(
+      ctx,
+      points[0]!,
+      points,
+      pathSegments,
+      arrowSize,
+      startType,
+      endType,
+      startFilled,
+      endFilled,
+      strokeColor,
+      fillColor,
+      expr,
+    );
   } else {
     // ── Straight arrows: Rough.js linearPath ──
-    renderStraightArrow(ctx, rc, expr, points, arrowSize,
-      startType, endType, startFilled, endFilled, strokeColor, fillColor,
-      options, getOrCreateDrawable);
+    renderStraightArrow(
+      ctx,
+      rc,
+      expr,
+      points,
+      arrowSize,
+      startType,
+      endType,
+      startFilled,
+      endFilled,
+      strokeColor,
+      fillColor,
+      options,
+      getOrCreateDrawable,
+    );
   }
 
   if (offset.x !== 0 || offset.y !== 0) {
@@ -192,7 +245,7 @@ function renderSelfLoop(
   const start = points[0]!;
   const end = points[points.length - 1]!;
   const target = expressions[data.startBinding!.expressionId];
-  const jetty = typeof data.jettySize === 'number' ? data.jettySize : 30;
+  const jetty = typeof data.jettySize === "number" ? data.jettySize : 30;
 
   const path = computeSelfLoopPath(start, end, data.routing, target, jetty);
 
@@ -200,9 +253,11 @@ function renderSelfLoop(
   ctx.strokeStyle = expr.style.strokeColor;
   ctx.lineWidth = expr.style.strokeWidth;
   ctx.globalAlpha = expr.style.opacity;
-  const ss = expr.style.strokeStyle ?? 'solid';
-  if (ss === 'dashed') ctx.setLineDash([expr.style.strokeWidth * 4, expr.style.strokeWidth * 3]);
-  else if (ss === 'dotted') ctx.setLineDash([expr.style.strokeWidth, expr.style.strokeWidth * 2]);
+  const ss = expr.style.strokeStyle ?? "solid";
+  if (ss === "dashed")
+    ctx.setLineDash([expr.style.strokeWidth * 4, expr.style.strokeWidth * 3]);
+  else if (ss === "dotted")
+    ctx.setLineDash([expr.style.strokeWidth, expr.style.strokeWidth * 2]);
 
   if (path.isCurved) {
     // ── Bezier self-loop (curved/straight/undefined) ──
@@ -233,15 +288,33 @@ function renderSelfLoop(
     ctx.restore();
 
     // Arrowheads for bezier self-loop
-    if (endType !== 'none') {
+    if (endType !== "none") {
       const angle = Math.atan2(end[1] - cp2y, end[0] - cp2x);
-      renderArrowheadFromRegistry(ctx, end[0], end[1], angle, arrowSize,
-        endType, endFilled, strokeColor, fillColor);
+      renderArrowheadFromRegistry(
+        ctx,
+        end[0],
+        end[1],
+        angle,
+        arrowSize,
+        endType,
+        endFilled,
+        strokeColor,
+        fillColor,
+      );
     }
-    if (startType !== 'none') {
+    if (startType !== "none") {
       const angle = Math.atan2(start[1] - cp1y, start[0] - cp1x);
-      renderArrowheadFromRegistry(ctx, start[0], start[1], angle, arrowSize,
-        startType, startFilled, strokeColor, fillColor);
+      renderArrowheadFromRegistry(
+        ctx,
+        start[0],
+        start[1],
+        angle,
+        arrowSize,
+        startType,
+        startFilled,
+        strokeColor,
+        fillColor,
+      );
     }
   } else {
     // ── Orthogonal self-loop (right-angle segments) ──
@@ -254,19 +327,37 @@ function renderSelfLoop(
     ctx.restore();
 
     // Arrowheads for orthogonal self-loop
-    if (endType !== 'none' && path.points.length >= 2) {
+    if (endType !== "none" && path.points.length >= 2) {
       const last = path.points[path.points.length - 1]!;
       const prev = path.points[path.points.length - 2]!;
       const angle = Math.atan2(last[1] - prev[1], last[0] - prev[0]);
-      renderArrowheadFromRegistry(ctx, last[0], last[1], angle, arrowSize,
-        endType, endFilled, strokeColor, fillColor);
+      renderArrowheadFromRegistry(
+        ctx,
+        last[0],
+        last[1],
+        angle,
+        arrowSize,
+        endType,
+        endFilled,
+        strokeColor,
+        fillColor,
+      );
     }
-    if (startType !== 'none' && path.points.length >= 2) {
+    if (startType !== "none" && path.points.length >= 2) {
       const first = path.points[0]!;
       const second = path.points[1]!;
       const angle = Math.atan2(first[1] - second[1], first[0] - second[0]);
-      renderArrowheadFromRegistry(ctx, first[0], first[1], angle, arrowSize,
-        startType, startFilled, strokeColor, fillColor);
+      renderArrowheadFromRegistry(
+        ctx,
+        first[0],
+        first[1],
+        angle,
+        arrowSize,
+        startType,
+        startFilled,
+        strokeColor,
+        fillColor,
+      );
     }
   }
 }
@@ -303,25 +394,27 @@ function renderPathSegments(
   ctx.lineWidth = expr.style.strokeWidth;
   ctx.globalAlpha = expr.style.opacity;
   const style = expr.style as unknown as Record<string, unknown>;
-  const ss = (style.strokeStyle as string | undefined) ?? 'solid';
-  if (ss === 'dashed') ctx.setLineDash([expr.style.strokeWidth * 4, expr.style.strokeWidth * 3]);
-  else if (ss === 'dotted') ctx.setLineDash([expr.style.strokeWidth, expr.style.strokeWidth * 2]);
+  const ss = (style.strokeStyle as string | undefined) ?? "solid";
+  if (ss === "dashed")
+    ctx.setLineDash([expr.style.strokeWidth * 4, expr.style.strokeWidth * 3]);
+  else if (ss === "dotted")
+    ctx.setLineDash([expr.style.strokeWidth, expr.style.strokeWidth * 2]);
 
   ctx.beginPath();
   ctx.moveTo(startPoint[0], startPoint[1]);
 
   for (const seg of segments) {
     switch (seg.type) {
-      case 'line':
+      case "line":
         ctx.lineTo(seg.x, seg.y);
         break;
-      case 'bezier':
+      case "bezier":
         ctx.bezierCurveTo(seg.cp1x, seg.cp1y, seg.cp2x, seg.cp2y, seg.x, seg.y);
         break;
-      case 'quadratic':
+      case "quadratic":
         ctx.quadraticCurveTo(seg.cpx, seg.cpy, seg.x, seg.y);
         break;
-      case 'arc': {
+      case "arc": {
         ctx.arcTo(seg.x, seg.y, seg.x, seg.y, seg.rx);
         ctx.lineTo(seg.x, seg.y);
         break;
@@ -337,19 +430,37 @@ function renderPathSegments(
   const endX = lastSeg.x;
   const endY = lastSeg.y;
 
-  if (endType !== 'none') {
+  if (endType !== "none") {
     const { prevX, prevY } = computeEndPrevPoint(lastSeg, segments, startPoint);
     const angle = Math.atan2(endY - prevY, endX - prevX);
-    renderArrowheadFromRegistry(ctx, endX, endY, angle, arrowSize,
-      endType, endFilled, strokeColor, fillColor);
+    renderArrowheadFromRegistry(
+      ctx,
+      endX,
+      endY,
+      angle,
+      arrowSize,
+      endType,
+      endFilled,
+      strokeColor,
+      fillColor,
+    );
   }
 
-  if (startType !== 'none') {
+  if (startType !== "none") {
     const firstSeg = segments[0]!;
     const { nextX, nextY } = computeStartNextPoint(firstSeg);
     const angle = Math.atan2(startPoint[1] - nextY, startPoint[0] - nextX);
-    renderArrowheadFromRegistry(ctx, startPoint[0], startPoint[1], angle, arrowSize,
-      startType, startFilled, strokeColor, fillColor);
+    renderArrowheadFromRegistry(
+      ctx,
+      startPoint[0],
+      startPoint[1],
+      angle,
+      arrowSize,
+      startType,
+      startFilled,
+      strokeColor,
+      fillColor,
+    );
   }
 }
 
@@ -362,10 +473,10 @@ function computeEndPrevPoint(
   segments: PathSegment[],
   startPoint: [number, number],
 ): { prevX: number; prevY: number } {
-  if (lastSeg.type === 'bezier') {
+  if (lastSeg.type === "bezier") {
     return { prevX: lastSeg.cp2x, prevY: lastSeg.cp2y };
   }
-  if (lastSeg.type === 'quadratic') {
+  if (lastSeg.type === "quadratic") {
     return { prevX: lastSeg.cpx, prevY: lastSeg.cpy };
   }
   if (segments.length >= 2) {
@@ -379,13 +490,14 @@ function computeEndPrevPoint(
  * Compute the "next point" for start arrowhead angle.
  * Uses bezier/quadratic control point or the first segment endpoint.
  */
-function computeStartNextPoint(
-  firstSeg: PathSegment,
-): { nextX: number; nextY: number } {
-  if (firstSeg.type === 'bezier') {
+function computeStartNextPoint(firstSeg: PathSegment): {
+  nextX: number;
+  nextY: number;
+} {
+  if (firstSeg.type === "bezier") {
     return { nextX: firstSeg.cp1x, nextY: firstSeg.cp1y };
   }
-  if (firstSeg.type === 'quadratic') {
+  if (firstSeg.type === "quadratic") {
     return { nextX: firstSeg.cpx, nextY: firstSeg.cpy };
   }
   return { nextX: firstSeg.x, nextY: firstSeg.y };
@@ -412,11 +524,14 @@ function renderStraightArrow(
   strokeColor: string,
   fillColor: string,
   options: Record<string, unknown>,
-  getOrCreateDrawable?: (expr: VisualExpression, factory: () => unknown) => unknown,
+  getOrCreateDrawable?: (
+    expr: VisualExpression,
+    factory: () => unknown,
+  ) => unknown,
 ): void {
   // Shorten line at ends where arrowheads exist
-  const drawPoints: [number, number][] = points.map(p => [p[0], p[1]]);
-  if (endType !== 'none' && drawPoints.length >= 2) {
+  const drawPoints: [number, number][] = points.map((p) => [p[0], p[1]]);
+  if (endType !== "none" && drawPoints.length >= 2) {
     const last = drawPoints[drawPoints.length - 1]!;
     const prev = drawPoints[drawPoints.length - 2]!;
     const angle = Math.atan2(last[1] - prev[1], last[0] - prev[0]);
@@ -426,7 +541,7 @@ function renderStraightArrow(
       last[1] - shorten * Math.sin(angle),
     ];
   }
-  if (startType !== 'none' && drawPoints.length >= 2) {
+  if (startType !== "none" && drawPoints.length >= 2) {
     const first = drawPoints[0]!;
     const second = drawPoints[1]!;
     const angle = Math.atan2(first[1] - second[1], first[0] - second[0]);
@@ -439,25 +554,45 @@ function renderStraightArrow(
 
   // Straight arrows use drawable cache for Rough.js rendering
   const drawable = getOrCreateDrawable
-    ? getOrCreateDrawable(expr, () => rc.generator.linearPath(drawPoints, options))
+    ? getOrCreateDrawable(expr, () =>
+        rc.generator.linearPath(drawPoints, options),
+      )
     : rc.generator.linearPath(drawPoints, options);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   rc.draw(drawable as any);
 
   // Arrowheads
-  if (endType !== 'none' && points.length >= 2) {
+  if (endType !== "none" && points.length >= 2) {
     const last = points[points.length - 1]!;
     const prev = points[points.length - 2]!;
     const angle = Math.atan2(last[1] - prev[1], last[0] - prev[0]);
-    renderArrowheadFromRegistry(ctx, last[0], last[1], angle, arrowSize,
-      endType, endFilled, strokeColor, fillColor);
+    renderArrowheadFromRegistry(
+      ctx,
+      last[0],
+      last[1],
+      angle,
+      arrowSize,
+      endType,
+      endFilled,
+      strokeColor,
+      fillColor,
+    );
   }
-  if (startType !== 'none' && points.length >= 2) {
+  if (startType !== "none" && points.length >= 2) {
     const first = points[0]!;
     const second = points[1]!;
     const angle = Math.atan2(first[1] - second[1], first[0] - second[0]);
-    renderArrowheadFromRegistry(ctx, first[0], first[1], angle, arrowSize,
-      startType, startFilled, strokeColor, fillColor);
+    renderArrowheadFromRegistry(
+      ctx,
+      first[0],
+      first[1],
+      angle,
+      arrowSize,
+      startType,
+      startFilled,
+      strokeColor,
+      fillColor,
+    );
   }
 }
 
@@ -480,17 +615,17 @@ function renderArrowLabel(
 
   ctx.save();
   const fontSize = expr.style.fontSize ?? 12;
-  ctx.font = `${fontSize}px ${expr.style.fontFamily ?? 'sans-serif'}`;
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'bottom';
+  ctx.font = `${fontSize}px ${expr.style.fontFamily ?? "sans-serif"}`;
+  ctx.textAlign = "center";
+  ctx.textBaseline = "bottom";
 
-  const lines = label.split('\n');
+  const lines = label.split("\n");
   const lineHeight = fontSize * 1.2;
   const maxLineWidth = Math.max(...lines.map((l) => ctx.measureText(l).width));
   const totalHeight = lines.length * lineHeight;
   const pad = 4;
 
-  ctx.fillStyle = '#ffffff';
+  ctx.fillStyle = "#ffffff";
   ctx.fillRect(
     midX - maxLineWidth / 2 - pad,
     midY - totalHeight - pad,
@@ -500,7 +635,11 @@ function renderArrowLabel(
 
   ctx.fillStyle = expr.style.strokeColor;
   for (let i = 0; i < lines.length; i++) {
-    ctx.fillText(lines[i]!, midX, midY - totalHeight + (i + 1) * lineHeight - 4);
+    ctx.fillText(
+      lines[i]!,
+      midX,
+      midY - totalHeight + (i + 1) * lineHeight - 4,
+    );
   }
   ctx.restore();
 }
@@ -513,7 +652,7 @@ function renderArrowLabel(
  * Backward compat: true → 'triangle', false/undefined → 'none'.
  */
 function resolveArrowheadType(value: string | boolean | undefined): string {
-  if (value === true) return 'triangle';
-  if (value === false || value === undefined) return 'none';
+  if (value === true) return "triangle";
+  if (value === false || value === undefined) return "none";
   return value;
 }

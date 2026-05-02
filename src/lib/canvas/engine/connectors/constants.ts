@@ -9,10 +9,10 @@
 
 /** Expression kinds that support connection points and snap/binding. */
 export const BINDABLE_KINDS = new Set([
-  'rectangle',
-  'ellipse',
-  'diamond',
-  'sticky-note',
-  'stencil',
-  'container',
+  "rectangle",
+  "ellipse",
+  "diamond",
+  "sticky-note",
+  "stencil",
+  "container",
 ]);

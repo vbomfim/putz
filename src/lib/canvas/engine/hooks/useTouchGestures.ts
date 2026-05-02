@@ -10,9 +10,9 @@
  * @module
  */
 
-import { useEffect, useRef, useCallback } from 'react';
-import { useCanvasStoreApi } from '../store/canvasStore';
-import { zoomAtPoint, clampZoom } from '../camera';
+import { useEffect, useRef, useCallback } from "react";
+import { useCanvasStoreApi } from "../store/canvasStore";
+import { zoomAtPoint, clampZoom } from "../camera";
 
 // ── Pure math functions (exported for testing) ───────────────
 
@@ -94,54 +94,62 @@ export function useTouchGestures(
     });
   }, []);
 
-  const handlePointerMove = useCallback((e: PointerEvent) => {
-    const pointers = pointersRef.current;
-    if (!pointers.has(e.pointerId)) return;
+  const handlePointerMove = useCallback(
+    (e: PointerEvent) => {
+      const pointers = pointersRef.current;
+      if (!pointers.has(e.pointerId)) return;
 
-    // Update this pointer's position
-    pointers.set(e.pointerId, {
-      id: e.pointerId,
-      x: e.clientX,
-      y: e.clientY,
-    });
+      // Update this pointer's position
+      pointers.set(e.pointerId, {
+        id: e.pointerId,
+        x: e.clientX,
+        y: e.clientY,
+      });
 
-    // Two-finger gesture
-    if (pointers.size === 2) {
-      const pts = Array.from(pointers.values());
-      const p1 = pts[0]!;
-      const p2 = pts[1]!;
+      // Two-finger gesture
+      if (pointers.size === 2) {
+        const pts = Array.from(pointers.values());
+        const p1 = pts[0]!;
+        const p2 = pts[1]!;
 
-      const distance = computePinchDistance(p1.x, p1.y, p2.x, p2.y);
-      const midpoint = computeMidpoint(p1.x, p1.y, p2.x, p2.y);
+        const distance = computePinchDistance(p1.x, p1.y, p2.x, p2.y);
+        const midpoint = computeMidpoint(p1.x, p1.y, p2.x, p2.y);
 
-      // Pinch zoom
-      if (lastDistanceRef.current !== null) {
-        const scale = distance / lastDistanceRef.current;
-        if (Math.abs(scale - 1) > 0.01) {
-          const { camera, setCamera } = storeApi.getState();
-          const newZoom = clampZoom(camera.zoom * scale);
-          const newCamera = zoomAtPoint(camera, midpoint.x, midpoint.y, newZoom);
-          setCamera(newCamera);
+        // Pinch zoom
+        if (lastDistanceRef.current !== null) {
+          const scale = distance / lastDistanceRef.current;
+          if (Math.abs(scale - 1) > 0.01) {
+            const { camera, setCamera } = storeApi.getState();
+            const newZoom = clampZoom(camera.zoom * scale);
+            const newCamera = zoomAtPoint(
+              camera,
+              midpoint.x,
+              midpoint.y,
+              newZoom,
+            );
+            setCamera(newCamera);
+          }
         }
-      }
 
-      // Two-finger pan
-      if (lastMidpointRef.current !== null) {
-        const delta = computePanDelta(midpoint, lastMidpointRef.current);
-        if (Math.abs(delta.dx) > 0.5 || Math.abs(delta.dy) > 0.5) {
-          const { camera, setCamera } = storeApi.getState();
-          setCamera({
-            x: camera.x - delta.dx / camera.zoom,
-            y: camera.y - delta.dy / camera.zoom,
-            zoom: camera.zoom,
-          });
+        // Two-finger pan
+        if (lastMidpointRef.current !== null) {
+          const delta = computePanDelta(midpoint, lastMidpointRef.current);
+          if (Math.abs(delta.dx) > 0.5 || Math.abs(delta.dy) > 0.5) {
+            const { camera, setCamera } = storeApi.getState();
+            setCamera({
+              x: camera.x - delta.dx / camera.zoom,
+              y: camera.y - delta.dy / camera.zoom,
+              zoom: camera.zoom,
+            });
+          }
         }
-      }
 
-      lastDistanceRef.current = distance;
-      lastMidpointRef.current = midpoint;
-    }
-  }, [storeApi]);
+        lastDistanceRef.current = distance;
+        lastMidpointRef.current = midpoint;
+      }
+    },
+    [storeApi],
+  );
 
   const handlePointerUp = useCallback((e: PointerEvent) => {
     pointersRef.current.delete(e.pointerId);
@@ -175,18 +183,25 @@ export function useTouchGestures(
     const canvas = canvasRef.current;
     if (!canvas) return;
 
-    canvas.addEventListener('pointerdown', handlePointerDown);
-    canvas.addEventListener('pointermove', handlePointerMove);
-    canvas.addEventListener('pointerup', handlePointerUp);
-    canvas.addEventListener('pointercancel', handlePointerCancel);
-    canvas.addEventListener('wheel', handleWheel, { passive: false });
+    canvas.addEventListener("pointerdown", handlePointerDown);
+    canvas.addEventListener("pointermove", handlePointerMove);
+    canvas.addEventListener("pointerup", handlePointerUp);
+    canvas.addEventListener("pointercancel", handlePointerCancel);
+    canvas.addEventListener("wheel", handleWheel, { passive: false });
 
     return () => {
-      canvas.removeEventListener('pointerdown', handlePointerDown);
-      canvas.removeEventListener('pointermove', handlePointerMove);
-      canvas.removeEventListener('pointerup', handlePointerUp);
-      canvas.removeEventListener('pointercancel', handlePointerCancel);
-      canvas.removeEventListener('wheel', handleWheel);
+      canvas.removeEventListener("pointerdown", handlePointerDown);
+      canvas.removeEventListener("pointermove", handlePointerMove);
+      canvas.removeEventListener("pointerup", handlePointerUp);
+      canvas.removeEventListener("pointercancel", handlePointerCancel);
+      canvas.removeEventListener("wheel", handleWheel);
     };
-  }, [canvasRef, handlePointerDown, handlePointerMove, handlePointerUp, handlePointerCancel, handleWheel]);
+  }, [
+    canvasRef,
+    handlePointerDown,
+    handlePointerMove,
+    handlePointerUp,
+    handlePointerCancel,
+    handleWheel,
+  ]);
 }

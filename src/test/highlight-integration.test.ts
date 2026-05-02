@@ -62,21 +62,25 @@ function createMockTerminal(lineContents: string[] = []) {
       },
     },
     registerMarker: vi.fn().mockReturnValue({ dispose: vi.fn() }),
-    registerDecoration: vi.fn().mockImplementation((opts: { marker: unknown; x: number; width: number }) => {
-      const decoration = {
-        dispose: vi.fn(),
-        onRender: vi.fn((handler: (el: HTMLElement) => void) => {
-          onRenderHandlers.push(handler);
-          registeredDecorations.push({
-            marker: opts.marker,
-            x: opts.x,
-            width: opts.width,
-            handler,
-          });
-        }),
-      };
-      return decoration;
-    }),
+    registerDecoration: vi
+      .fn()
+      .mockImplementation(
+        (opts: { marker: unknown; x: number; width: number }) => {
+          const decoration = {
+            dispose: vi.fn(),
+            onRender: vi.fn((handler: (el: HTMLElement) => void) => {
+              onRenderHandlers.push(handler);
+              registeredDecorations.push({
+                marker: opts.marker,
+                x: opts.x,
+                width: opts.width,
+                handler,
+              });
+            }),
+          };
+          return decoration;
+        },
+      ),
     onWriteParsed: vi.fn((handler: () => void) => {
       onWriteParsedHandlers.push(handler);
       return { dispose: vi.fn() };
@@ -122,9 +126,7 @@ describe("[AC-1] Exact keyword highlighting", () => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const engine = new HighlightEngine(term as any);
 
-    engine.setRules([
-      createRule({ pattern: "ERROR", matchType: "exact" }),
-    ]);
+    engine.setRules([createRule({ pattern: "ERROR", matchType: "exact" })]);
 
     term.registerDecoration.mockClear();
     term.registerMarker.mockClear();
@@ -140,9 +142,7 @@ describe("[AC-1] Exact keyword highlighting", () => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const engine = new HighlightEngine(term as any);
 
-    engine.setRules([
-      createRule({ pattern: "ERROR", matchType: "exact" }),
-    ]);
+    engine.setRules([createRule({ pattern: "ERROR", matchType: "exact" })]);
 
     term.registerDecoration.mockClear();
     term.registerMarker.mockClear();
@@ -438,7 +438,7 @@ describe("[AC-4] Built-in keyword sets", () => {
   it("IP address regex matches valid IPs", () => {
     const regex = patternToRegex(
       "\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}",
-      "regex"
+      "regex",
     );
     expect(regex).not.toBeNull();
     regex!.lastIndex = 0;
@@ -450,10 +450,7 @@ describe("[AC-4] Built-in keyword sets", () => {
   });
 
   it("MAC address regex matches colon-separated MACs", () => {
-    const regex = patternToRegex(
-      "[0-9a-fA-F]{2}(:[0-9a-fA-F]{2}){5}",
-      "regex"
-    );
+    const regex = patternToRegex("[0-9a-fA-F]{2}(:[0-9a-fA-F]{2}){5}", "regex");
     expect(regex).not.toBeNull();
     regex!.lastIndex = 0;
     expect(regex!.test("aa:bb:cc:dd:ee:ff")).toBe(true);
@@ -462,13 +459,7 @@ describe("[AC-4] Built-in keyword sets", () => {
   });
 
   it("Syslog severity keywords compile correctly", () => {
-    for (const keyword of [
-      "CRITICAL",
-      "ERROR",
-      "WARNING",
-      "INFO",
-      "DEBUG",
-    ]) {
+    for (const keyword of ["CRITICAL", "ERROR", "WARNING", "INFO", "DEBUG"]) {
       const regex = patternToRegex(keyword, "exactinsensitive");
       expect(regex).not.toBeNull();
       regex!.lastIndex = 0;
@@ -593,9 +584,7 @@ describe("[AC-6] Real-time application", () => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const engine = new HighlightEngine(term as any);
 
-    engine.setRules([
-      createRule({ pattern: "ERROR", matchType: "exact" }),
-    ]);
+    engine.setRules([createRule({ pattern: "ERROR", matchType: "exact" })]);
 
     term.registerDecoration.mockClear();
     term.registerMarker.mockClear();
@@ -616,7 +605,7 @@ describe("[AC-6] Real-time application", () => {
 
     // Should have processed (initial + one debounced batch, not 3 separate)
     expect(term.registerDecoration.mock.calls.length).toBeGreaterThanOrEqual(
-      initialDecCount
+      initialDecCount,
     );
     engine.dispose();
   });
@@ -626,9 +615,7 @@ describe("[AC-6] Real-time application", () => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const engine = new HighlightEngine(term as any);
 
-    engine.setRules([
-      createRule({ pattern: "ERROR", matchType: "exact" }),
-    ]);
+    engine.setRules([createRule({ pattern: "ERROR", matchType: "exact" })]);
 
     term.registerDecoration.mockClear();
     engine.enable();
@@ -756,11 +743,7 @@ describe("[AC-1][AC-2][AC-3] Multi-line multi-rule integration", () => {
   });
 
   it("handles wildcard pattern matching across lines", () => {
-    const term = createMockTerminal([
-      "access.log",
-      "error.log",
-      "system.txt",
-    ]);
+    const term = createMockTerminal(["access.log", "error.log", "system.txt"]);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const engine = new HighlightEngine(term as any);
 

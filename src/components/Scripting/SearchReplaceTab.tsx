@@ -31,7 +31,11 @@ interface SearchReplaceTabProps {
   tabId: string;
 }
 
-export function SearchReplaceTab({ initialDirectory, regionId: _regionId, tabId: _tabId }: SearchReplaceTabProps) {
+export function SearchReplaceTab({
+  initialDirectory,
+  regionId: _regionId,
+  tabId: _tabId,
+}: SearchReplaceTabProps) {
   const [searchText, setSearchText] = useState("");
   const [replaceText, setReplaceText] = useState("");
   const [directory, setDirectory] = useState(initialDirectory || "");
@@ -61,36 +65,47 @@ export function SearchReplaceTab({ initialDirectory, regionId: _regionId, tabId:
       });
       setResults(res);
       const total = res.reduce((sum, r) => sum + r.matches.length, 0);
-      setStatusMessage(`${total} result${total !== 1 ? "s" : ""} in ${res.length} file${res.length !== 1 ? "s" : ""}`);
+      setStatusMessage(
+        `${total} result${total !== 1 ? "s" : ""} in ${res.length} file${res.length !== 1 ? "s" : ""}`,
+      );
       setCollapsedFiles(new Set());
     } catch (err: unknown) {
-      setStatusMessage(`Error: ${err instanceof Error ? err.message : String(err)}`);
+      setStatusMessage(
+        `Error: ${err instanceof Error ? err.message : String(err)}`,
+      );
       setResults([]);
     } finally {
       setIsSearching(false);
     }
   }, [searchText, directory, fileGlob, caseSensitive, useRegex]);
 
-  const handleReplaceInFile = useCallback(async (filePath: string) => {
-    if (!replaceText && replaceText !== "") return;
-    setIsReplacing(true);
-    try {
-      const count = await invoke<number>("file_replace", {
-        path: filePath,
-        pattern: searchText,
-        replacement: replaceText,
-        caseSensitive,
-        useRegex,
-      });
-      setStatusMessage(`Replaced ${count} match${count !== 1 ? "es" : ""} in ${filePath.split("/").pop()}`);
-      // Remove this file from results
-      setResults((prev) => prev.filter((r) => r.path !== filePath));
-    } catch (err: unknown) {
-      setStatusMessage(`Error: ${err instanceof Error ? err.message : String(err)}`);
-    } finally {
-      setIsReplacing(false);
-    }
-  }, [searchText, replaceText, caseSensitive, useRegex]);
+  const handleReplaceInFile = useCallback(
+    async (filePath: string) => {
+      if (!replaceText && replaceText !== "") return;
+      setIsReplacing(true);
+      try {
+        const count = await invoke<number>("file_replace", {
+          path: filePath,
+          pattern: searchText,
+          replacement: replaceText,
+          caseSensitive,
+          useRegex,
+        });
+        setStatusMessage(
+          `Replaced ${count} match${count !== 1 ? "es" : ""} in ${filePath.split("/").pop()}`,
+        );
+        // Remove this file from results
+        setResults((prev) => prev.filter((r) => r.path !== filePath));
+      } catch (err: unknown) {
+        setStatusMessage(
+          `Error: ${err instanceof Error ? err.message : String(err)}`,
+        );
+      } finally {
+        setIsReplacing(false);
+      }
+    },
+    [searchText, replaceText, caseSensitive, useRegex],
+  );
 
   const handleReplaceAll = useCallback(async () => {
     if (!searchText.trim() || !directory.trim()) return;
@@ -104,10 +119,14 @@ export function SearchReplaceTab({ initialDirectory, regionId: _regionId, tabId:
         caseSensitive,
         useRegex,
       });
-      setStatusMessage(`Replaced ${count} match${count !== 1 ? "es" : ""} across all files`);
+      setStatusMessage(
+        `Replaced ${count} match${count !== 1 ? "es" : ""} across all files`,
+      );
       setResults([]);
     } catch (err: unknown) {
-      setStatusMessage(`Error: ${err instanceof Error ? err.message : String(err)}`);
+      setStatusMessage(
+        `Error: ${err instanceof Error ? err.message : String(err)}`,
+      );
     } finally {
       setIsReplacing(false);
     }
@@ -122,13 +141,19 @@ export function SearchReplaceTab({ initialDirectory, regionId: _regionId, tabId:
     });
   }, []);
 
-  const openFileInEditor = useCallback((filePath: string) => {
-    addEditorTab(undefined, filePath);
-  }, [addEditorTab]);
+  const openFileInEditor = useCallback(
+    (filePath: string) => {
+      addEditorTab(undefined, filePath);
+    },
+    [addEditorTab],
+  );
 
-  const handleSearchKeyDown = useCallback((e: React.KeyboardEvent) => {
-    if (e.key === "Enter") handleSearch();
-  }, [handleSearch]);
+  const handleSearchKeyDown = useCallback(
+    (e: React.KeyboardEvent) => {
+      if (e.key === "Enter") handleSearch();
+    },
+    [handleSearch],
+  );
 
   /** Highlight matched text in a line */
   const renderMatchLine = (match: FileMatch) => {
@@ -202,11 +227,19 @@ export function SearchReplaceTab({ initialDirectory, regionId: _regionId, tabId:
             title="File pattern (e.g. *.cfg, *.txt)"
           />
           <label className="search-replace-tab__option" title="Case sensitive">
-            <input type="checkbox" checked={caseSensitive} onChange={(e) => setCaseSensitive(e.target.checked)} />
+            <input
+              type="checkbox"
+              checked={caseSensitive}
+              onChange={(e) => setCaseSensitive(e.target.checked)}
+            />
             Aa
           </label>
           <label className="search-replace-tab__option" title="Use regex">
-            <input type="checkbox" checked={useRegex} onChange={(e) => setUseRegex(e.target.checked)} />
+            <input
+              type="checkbox"
+              checked={useRegex}
+              onChange={(e) => setUseRegex(e.target.checked)}
+            />
             .*
           </label>
         </div>
@@ -222,7 +255,10 @@ export function SearchReplaceTab({ initialDirectory, regionId: _regionId, tabId:
         {results.map((fileResult) => {
           const isCollapsed = collapsedFiles.has(fileResult.path);
           const fileName = fileResult.path.split("/").pop() || fileResult.path;
-          const dirPath = fileResult.path.substring(0, fileResult.path.lastIndexOf("/"));
+          const dirPath = fileResult.path.substring(
+            0,
+            fileResult.path.lastIndexOf("/"),
+          );
 
           return (
             <div key={fileResult.path} className="search-result__file">
@@ -230,19 +266,29 @@ export function SearchReplaceTab({ initialDirectory, regionId: _regionId, tabId:
                 className="search-result__file-header"
                 onClick={() => toggleFileCollapse(fileResult.path)}
               >
-                <span className="search-result__chevron">{isCollapsed ? "▸" : "▾"}</span>
+                <span className="search-result__chevron">
+                  {isCollapsed ? "▸" : "▾"}
+                </span>
                 <span
                   className="search-result__filename"
-                  onClick={(e) => { e.stopPropagation(); openFileInEditor(fileResult.path); }}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    openFileInEditor(fileResult.path);
+                  }}
                   title={fileResult.path}
                 >
                   {fileName}
                 </span>
                 <span className="search-result__dir">{dirPath}</span>
-                <span className="search-result__count">{fileResult.matches.length}</span>
+                <span className="search-result__count">
+                  {fileResult.matches.length}
+                </span>
                 <button
                   className="search-result__replace-file"
-                  onClick={(e) => { e.stopPropagation(); handleReplaceInFile(fileResult.path); }}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleReplaceInFile(fileResult.path);
+                  }}
                   disabled={isReplacing}
                   title="Replace all in this file"
                 >
@@ -257,7 +303,9 @@ export function SearchReplaceTab({ initialDirectory, regionId: _regionId, tabId:
                       className="search-result__match"
                       onClick={() => openFileInEditor(fileResult.path)}
                     >
-                      <span className="search-result__line-num">{match.lineNumber}</span>
+                      <span className="search-result__line-num">
+                        {match.lineNumber}
+                      </span>
                       {renderMatchLine(match)}
                     </div>
                   ))}

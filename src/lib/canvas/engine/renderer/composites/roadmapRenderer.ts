@@ -10,11 +10,15 @@
  * @module
  */
 
-import type { VisualExpression, RoadmapData, RoadmapItem } from '../../../protocol';
-import type { RoughCanvas } from 'roughjs/bin/canvas.js';
-import type { Options } from 'roughjs/bin/core.js';
-import { mapStyleToRoughOptions } from '../styleMapper';
-import { registerCompositeRenderer } from '../compositeRegistry';
+import type {
+  VisualExpression,
+  RoadmapData,
+  RoadmapItem,
+} from "../../../protocol";
+import type { RoughCanvas } from "roughjs/bin/canvas.js";
+import type { Options } from "roughjs/bin/core.js";
+import { mapStyleToRoughOptions } from "../styleMapper";
+import { registerCompositeRenderer } from "../compositeRegistry";
 
 // ── Constants ────────────────────────────────────────────────
 
@@ -40,7 +44,7 @@ const CHIP_PADDING = 8;
 const PHASE_GAP = 12;
 
 /** Default font family. */
-const FONT_FAMILY = 'sans-serif';
+const FONT_FAMILY = "sans-serif";
 
 /** Title font size. */
 const TITLE_FONT_SIZE = 16;
@@ -54,10 +58,10 @@ const CHIP_FONT_SIZE = 11;
 // ── Status colors ────────────────────────────────────────────
 
 /** Map status to fill color for chips. */
-const STATUS_COLORS: Record<RoadmapItem['status'], string> = {
-  'planned': '#cccccc',
-  'in-progress': '#4a90d9',
-  'done': '#4caf50',
+const STATUS_COLORS: Record<RoadmapItem["status"], string> = {
+  planned: "#cccccc",
+  "in-progress": "#4a90d9",
+  done: "#4caf50",
 };
 
 // ── Main renderer ────────────────────────────────────────────
@@ -83,10 +87,14 @@ export function renderRoadmap(
 
   // ── Title ──────────────────────────────────────────────────
   ctx.font = `bold ${TITLE_FONT_SIZE}px ${FONT_FAMILY}`;
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
   ctx.fillStyle = expr.style.strokeColor;
-  ctx.fillText(data.title, originX + width / 2, originY + PADDING + TITLE_HEIGHT / 2);
+  ctx.fillText(
+    data.title,
+    originX + width / 2,
+    originY + PADDING + TITLE_HEIGHT / 2,
+  );
 
   // ── Empty roadmap ──────────────────────────────────────────
   if (data.phases.length === 0) {
@@ -94,7 +102,7 @@ export function renderRoadmap(
     return;
   }
 
-  const isHorizontal = data.orientation === 'horizontal';
+  const isHorizontal = data.orientation === "horizontal";
 
   if (isHorizontal) {
     renderHorizontal(ctx, rc, data, originX, originY, width, roughOptions);
@@ -128,10 +136,14 @@ function renderHorizontal(
 
     // Phase header
     ctx.font = `bold ${PHASE_FONT_SIZE}px ${FONT_FAMILY}`;
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillStyle = roughOptions.stroke as string ?? '#000000';
-    ctx.fillText(phase.name, phaseX + phaseWidth / 2, contentTop + PHASE_HEADER_HEIGHT / 2);
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillStyle = (roughOptions.stroke as string) ?? "#000000";
+    ctx.fillText(
+      phase.name,
+      phaseX + phaseWidth / 2,
+      contentTop + PHASE_HEADER_HEIGHT / 2,
+    );
 
     // Items as chips
     let chipY = contentTop + PHASE_HEADER_HEIGHT + CHIP_GAP;
@@ -160,16 +172,28 @@ function renderVertical(
   for (const phase of data.phases) {
     // Phase header
     ctx.font = `bold ${PHASE_FONT_SIZE}px ${FONT_FAMILY}`;
-    ctx.textAlign = 'left';
-    ctx.textBaseline = 'middle';
-    ctx.fillStyle = roughOptions.stroke as string ?? '#000000';
-    ctx.fillText(phase.name, originX + PADDING, currentY + PHASE_HEADER_HEIGHT / 2);
+    ctx.textAlign = "left";
+    ctx.textBaseline = "middle";
+    ctx.fillStyle = (roughOptions.stroke as string) ?? "#000000";
+    ctx.fillText(
+      phase.name,
+      originX + PADDING,
+      currentY + PHASE_HEADER_HEIGHT / 2,
+    );
 
     currentY += PHASE_HEADER_HEIGHT + CHIP_GAP;
 
     // Items as chips
     for (const item of phase.items) {
-      renderChip(ctx, rc, item, originX + PADDING, currentY, contentWidth, roughOptions);
+      renderChip(
+        ctx,
+        rc,
+        item,
+        originX + PADDING,
+        currentY,
+        contentWidth,
+        roughOptions,
+      );
       currentY += CHIP_HEIGHT + CHIP_GAP;
     }
 
@@ -193,19 +217,19 @@ function renderChip(
   const chipOptions: Options = {
     ...roughOptions,
     fill: chipColor,
-    fillStyle: 'solid',
+    fillStyle: "solid",
   };
 
   const drawable = rc.rectangle(x, y, maxWidth, CHIP_HEIGHT, chipOptions);
   rc.draw(drawable);
 
   ctx.font = `${CHIP_FONT_SIZE}px ${FONT_FAMILY}`;
-  ctx.textAlign = 'left';
-  ctx.textBaseline = 'middle';
-  ctx.fillStyle = item.status === 'planned' ? '#333333' : '#ffffff';
+  ctx.textAlign = "left";
+  ctx.textBaseline = "middle";
+  ctx.fillStyle = item.status === "planned" ? "#333333" : "#ffffff";
   ctx.fillText(item.title, x + CHIP_PADDING, y + CHIP_HEIGHT / 2);
 }
 
 // ── Self-registration ────────────────────────────────────────
 
-registerCompositeRenderer('roadmap', renderRoadmap);
+registerCompositeRenderer("roadmap", renderRoadmap);

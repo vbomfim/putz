@@ -161,7 +161,9 @@ describe("Scripting API contract", () => {
     mockInvoke.mockResolvedValue(mockResult);
 
     const result = await scriptStatus("run-123");
-    expect(mockInvoke).toHaveBeenCalledWith("script_status", { runId: "run-123" });
+    expect(mockInvoke).toHaveBeenCalledWith("script_status", {
+      runId: "run-123",
+    });
     expect(result).toEqual(mockResult);
   });
 
@@ -171,7 +173,9 @@ describe("Scripting API contract", () => {
     mockInvoke.mockResolvedValue(undefined);
 
     await scriptStop("run-123");
-    expect(mockInvoke).toHaveBeenCalledWith("script_stop", { runId: "run-123" });
+    expect(mockInvoke).toHaveBeenCalledWith("script_stop", {
+      runId: "run-123",
+    });
   });
 
   // ─── script_record_start ────────────────────────────────────

@@ -82,32 +82,29 @@ export function SessionSidebar({
   }, [onToggle]);
 
   /** Handles search query changes. */
-  const handleSearch = useCallback(
-    async (query: string) => {
-      setSearchQuery(query);
-      if (!query.trim()) {
-        setSearchResults(null);
-        return;
-      }
-      try {
-        const results = await api.sessionSearch(query);
-        // Convert search results (SessionProfile[]) to tree nodes
-        const nodes: SessionNode[] = results.map((s) => ({
-          type: "session" as const,
-          id: s.id,
-          name: s.name,
-          protocol: s.protocol,
-          host: s.host,
-          port: s.port,
-          username: s.username,
-        }));
-        setSearchResults(nodes);
-      } catch {
-        setSearchResults([]);
-      }
-    },
-    [],
-  );
+  const handleSearch = useCallback(async (query: string) => {
+    setSearchQuery(query);
+    if (!query.trim()) {
+      setSearchResults(null);
+      return;
+    }
+    try {
+      const results = await api.sessionSearch(query);
+      // Convert search results (SessionProfile[]) to tree nodes
+      const nodes: SessionNode[] = results.map((s) => ({
+        type: "session" as const,
+        id: s.id,
+        name: s.name,
+        protocol: s.protocol,
+        host: s.host,
+        port: s.port,
+        username: s.username,
+      }));
+      setSearchResults(nodes);
+    } catch {
+      setSearchResults([]);
+    }
+  }, []);
 
   /** Opens a session by ID. */
   const handleSessionOpen = useCallback(
@@ -202,7 +199,10 @@ export function SessionSidebar({
       setIsSaving(true);
       try {
         if (editor?.mode === "edit" && editor.session) {
-          await api.sessionUpdate(editor.session.id, input as UpdateSessionInput);
+          await api.sessionUpdate(
+            editor.session.id,
+            input as UpdateSessionInput,
+          );
         } else {
           await api.sessionCreate(input as CreateSessionInput);
         }
@@ -243,7 +243,10 @@ export function SessionSidebar({
       <SessionSearch onSearch={handleSearch} />
 
       {error && (
-        <div className="session-sidebar-error" data-testid="session-sidebar-error">
+        <div
+          className="session-sidebar-error"
+          data-testid="session-sidebar-error"
+        >
           {error}
           <button onClick={() => setError(null)} type="button">
             Dismiss

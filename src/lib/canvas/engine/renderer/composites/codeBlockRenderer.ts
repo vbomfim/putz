@@ -8,20 +8,20 @@
  * @module
  */
 
-import type { VisualExpression, CodeBlockData } from '../../../protocol';
-import type { RoughCanvas } from 'roughjs/bin/canvas.js';
-import { registerCompositeRenderer } from '../compositeRegistry';
+import type { VisualExpression, CodeBlockData } from "../../../protocol";
+import type { RoughCanvas } from "roughjs/bin/canvas.js";
+import { registerCompositeRenderer } from "../compositeRegistry";
 
 // ── Constants ────────────────────────────────────────────────
 
 /** Dark background color. */
-const BG_COLOR = '#1e1e1e';
+const BG_COLOR = "#1e1e1e";
 
 /** Code text color. */
-const TEXT_COLOR = '#d4d4d4';
+const TEXT_COLOR = "#d4d4d4";
 
 /** Language label color. */
-const LABEL_COLOR = '#888888';
+const LABEL_COLOR = "#888888";
 
 /** Padding inside the code block. */
 const PADDING = 16;
@@ -36,7 +36,7 @@ const CODE_FONT_SIZE = 13;
 const LABEL_FONT_SIZE = 11;
 
 /** Font family for monospace code. */
-const CODE_FONT_FAMILY = 'monospace';
+const CODE_FONT_FAMILY = "monospace";
 
 /** Corner radius for the background. */
 const CORNER_RADIUS = 6;
@@ -77,10 +77,14 @@ export function renderCodeBlock(
   // ── Language label (top-right) ─────────────────────────────
   if (data.language) {
     ctx.font = `${LABEL_FONT_SIZE}px ${CODE_FONT_FAMILY}`;
-    ctx.textAlign = 'right';
-    ctx.textBaseline = 'top';
+    ctx.textAlign = "right";
+    ctx.textBaseline = "top";
     ctx.fillStyle = LABEL_COLOR;
-    ctx.fillText(data.language, originX + width - PADDING, originY + PADDING / 2);
+    ctx.fillText(
+      data.language,
+      originX + width - PADDING,
+      originY + PADDING / 2,
+    );
   }
 
   // ── Code text ──────────────────────────────────────────────
@@ -89,10 +93,10 @@ export function renderCodeBlock(
     return;
   }
 
-  const lines = data.code.split('\n');
+  const lines = data.code.split("\n");
   ctx.font = `${CODE_FONT_SIZE}px ${CODE_FONT_FAMILY}`;
-  ctx.textAlign = 'left';
-  ctx.textBaseline = 'top';
+  ctx.textAlign = "left";
+  ctx.textBaseline = "top";
   ctx.fillStyle = TEXT_COLOR;
 
   const codeTop = originY + PADDING + (data.language ? LINE_HEIGHT : 0);
@@ -107,4 +111,4 @@ export function renderCodeBlock(
 
 // ── Self-registration ────────────────────────────────────────
 
-registerCompositeRenderer('code-block', renderCodeBlock);
+registerCompositeRenderer("code-block", renderCodeBlock);

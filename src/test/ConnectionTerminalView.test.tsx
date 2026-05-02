@@ -112,18 +112,14 @@ describe("ConnectionTerminalView", () => {
     });
 
     // Should have listened for connection-output, connection-status, and SSH events
-    const listenCalls = mockListen.mock.calls.map(
-      (call: unknown[]) => call[0],
-    );
+    const listenCalls = mockListen.mock.calls.map((call: unknown[]) => call[0]);
     expect(listenCalls).toContain("connection-output-mock-connection-id");
     expect(listenCalls).toContain("connection-status-mock-connection-id");
     expect(listenCalls).toContain("connection-hostkey-mock-connection-id");
     expect(listenCalls).toContain(
       "connection-hostkey-warning-mock-connection-id",
     );
-    expect(listenCalls).toContain(
-      "connection-auth-prompt-mock-connection-id",
-    );
+    expect(listenCalls).toContain("connection-auth-prompt-mock-connection-id");
   });
 
   it("calls connection_close on unmount", async () => {

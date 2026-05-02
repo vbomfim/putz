@@ -8,8 +8,8 @@
  * @module
  */
 
-import type { ExpressionStyle } from '../../protocol';
-import type { Options } from 'roughjs/bin/core.js';
+import type { ExpressionStyle } from "../../protocol";
+import type { Options } from "roughjs/bin/core.js";
 
 /**
  * Map an ExpressionStyle to Rough.js drawing options. [AC11]
@@ -22,17 +22,30 @@ import type { Options } from 'roughjs/bin/core.js';
  * - `opacity` is NOT mapped (handled via `ctx.globalAlpha`)
  */
 /** Convert strokeStyle to a canvas/Rough.js dash pattern. */
-function strokeStyleToDash(strokeStyle: string, strokeWidth: number): number[] | undefined {
+function strokeStyleToDash(
+  strokeStyle: string,
+  strokeWidth: number,
+): number[] | undefined {
   switch (strokeStyle) {
-    case 'dashed': return [strokeWidth * 4, strokeWidth * 3];
-    case 'dotted': return [strokeWidth, strokeWidth * 2];
-    default: return undefined;
+    case "dashed":
+      return [strokeWidth * 4, strokeWidth * 3];
+    case "dotted":
+      return [strokeWidth, strokeWidth * 2];
+    default:
+      return undefined;
   }
 }
 
-export function mapStyleToRoughOptions(style: ExpressionStyle, seed?: number): Options {
-  const noFill = style.fillStyle === 'none' || style.backgroundColor === 'transparent';
-  const dash = strokeStyleToDash(style.strokeStyle ?? 'solid', style.strokeWidth);
+export function mapStyleToRoughOptions(
+  style: ExpressionStyle,
+  seed?: number,
+): Options {
+  const noFill =
+    style.fillStyle === "none" || style.backgroundColor === "transparent";
+  const dash = strokeStyleToDash(
+    style.strokeStyle ?? "solid",
+    style.strokeWidth,
+  );
   return {
     stroke: style.strokeColor,
     fill: noFill ? undefined : style.backgroundColor,
@@ -68,13 +81,13 @@ export function computeStyleHash(style: ExpressionStyle): string {
     style.strokeColor,
     style.backgroundColor,
     style.fillStyle,
-    style.strokeStyle ?? 'solid',
+    style.strokeStyle ?? "solid",
     style.strokeWidth,
     style.roughness,
     style.opacity,
-    style.fontSize ?? '',
-    style.fontFamily ?? '',
-  ].join('|');
+    style.fontSize ?? "",
+    style.fontFamily ?? "",
+  ].join("|");
 }
 
 /**
@@ -94,16 +107,16 @@ export function computeRenderHash(
     style.strokeColor,
     style.backgroundColor,
     style.fillStyle,
-    style.strokeStyle ?? 'solid',
+    style.strokeStyle ?? "solid",
     style.strokeWidth,
     style.roughness,
     style.opacity,
-    style.fontSize ?? '',
-    style.fontFamily ?? '',
+    style.fontSize ?? "",
+    style.fontFamily ?? "",
     position.x,
     position.y,
     size.width,
     size.height,
     JSON.stringify(data),
-  ].join('|');
+  ].join("|");
 }

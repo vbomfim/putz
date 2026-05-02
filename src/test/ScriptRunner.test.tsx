@@ -25,10 +25,26 @@ const mockOnClear = vi.fn();
 
 function createLogEntries(): ScriptLogEntry[] {
   return [
-    { timestamp: "2024-01-01T00:00:00Z", level: "info", message: "Starting script" },
-    { timestamp: "2024-01-01T00:00:01Z", level: "output", message: "Router> show version" },
-    { timestamp: "2024-01-01T00:00:02Z", level: "warn", message: "Slow response" },
-    { timestamp: "2024-01-01T00:00:03Z", level: "error", message: "Timeout reached" },
+    {
+      timestamp: "2024-01-01T00:00:00Z",
+      level: "info",
+      message: "Starting script",
+    },
+    {
+      timestamp: "2024-01-01T00:00:01Z",
+      level: "output",
+      message: "Router> show version",
+    },
+    {
+      timestamp: "2024-01-01T00:00:02Z",
+      level: "warn",
+      message: "Slow response",
+    },
+    {
+      timestamp: "2024-01-01T00:00:03Z",
+      level: "error",
+      message: "Timeout reached",
+    },
   ];
 }
 
@@ -51,27 +67,37 @@ describe("ScriptRunner", () => {
 
   it("shows running status", () => {
     render(<ScriptRunner status="running" logEntries={[]} />);
-    expect(screen.getByTestId("script-runner-status")).toHaveTextContent("Running…");
+    expect(screen.getByTestId("script-runner-status")).toHaveTextContent(
+      "Running…",
+    );
   });
 
   it("shows completed status", () => {
     render(<ScriptRunner status="completed" logEntries={[]} />);
-    expect(screen.getByTestId("script-runner-status")).toHaveTextContent("Completed");
+    expect(screen.getByTestId("script-runner-status")).toHaveTextContent(
+      "Completed",
+    );
   });
 
   it("shows failed status", () => {
     render(<ScriptRunner status="failed" logEntries={[]} />);
-    expect(screen.getByTestId("script-runner-status")).toHaveTextContent("Failed");
+    expect(screen.getByTestId("script-runner-status")).toHaveTextContent(
+      "Failed",
+    );
   });
 
   it("shows stopped status", () => {
     render(<ScriptRunner status="stopped" logEntries={[]} />);
-    expect(screen.getByTestId("script-runner-status")).toHaveTextContent("Stopped");
+    expect(screen.getByTestId("script-runner-status")).toHaveTextContent(
+      "Stopped",
+    );
   });
 
   it("shows pending status", () => {
     render(<ScriptRunner status="pending" logEntries={[]} />);
-    expect(screen.getByTestId("script-runner-status")).toHaveTextContent("Pending…");
+    expect(screen.getByTestId("script-runner-status")).toHaveTextContent(
+      "Pending…",
+    );
   });
 
   // ─── Log entries ────────────────────────────────────────────
@@ -99,7 +125,9 @@ describe("ScriptRunner", () => {
       />,
     );
     expect(screen.getByTestId("script-runner-error")).toBeInTheDocument();
-    expect(screen.getByText("Error: Script execution timed out")).toBeInTheDocument();
+    expect(
+      screen.getByText("Error: Script execution timed out"),
+    ).toBeInTheDocument();
   });
 
   it("shows start time when provided", () => {
@@ -119,11 +147,7 @@ describe("ScriptRunner", () => {
 
   it("shows stop button when running", () => {
     render(
-      <ScriptRunner
-        status="running"
-        logEntries={[]}
-        onStop={mockOnStop}
-      />,
+      <ScriptRunner status="running" logEntries={[]} onStop={mockOnStop} />,
     );
     expect(screen.getByTestId("script-runner-stop")).toBeInTheDocument();
   });
@@ -131,11 +155,7 @@ describe("ScriptRunner", () => {
   it("calls onStop when stop is clicked", () => {
     mockOnStop.mockReset();
     render(
-      <ScriptRunner
-        status="running"
-        logEntries={[]}
-        onStop={mockOnStop}
-      />,
+      <ScriptRunner status="running" logEntries={[]} onStop={mockOnStop} />,
     );
     fireEvent.click(screen.getByTestId("script-runner-stop"));
     expect(mockOnStop).toHaveBeenCalledTimes(1);
@@ -143,11 +163,7 @@ describe("ScriptRunner", () => {
 
   it("shows clear button when not running", () => {
     render(
-      <ScriptRunner
-        status="completed"
-        logEntries={[]}
-        onClear={mockOnClear}
-      />,
+      <ScriptRunner status="completed" logEntries={[]} onClear={mockOnClear} />,
     );
     expect(screen.getByTestId("script-runner-clear")).toBeInTheDocument();
   });
@@ -155,11 +171,7 @@ describe("ScriptRunner", () => {
   it("calls onClear when clear is clicked", () => {
     mockOnClear.mockReset();
     render(
-      <ScriptRunner
-        status="completed"
-        logEntries={[]}
-        onClear={mockOnClear}
-      />,
+      <ScriptRunner status="completed" logEntries={[]} onClear={mockOnClear} />,
     );
     fireEvent.click(screen.getByTestId("script-runner-clear"));
     expect(mockOnClear).toHaveBeenCalledTimes(1);
@@ -167,33 +179,21 @@ describe("ScriptRunner", () => {
 
   it("hides stop button when not running", () => {
     render(
-      <ScriptRunner
-        status="completed"
-        logEntries={[]}
-        onStop={mockOnStop}
-      />,
+      <ScriptRunner status="completed" logEntries={[]} onStop={mockOnStop} />,
     );
     expect(screen.queryByTestId("script-runner-stop")).not.toBeInTheDocument();
   });
 
   it("hides clear button when running", () => {
     render(
-      <ScriptRunner
-        status="running"
-        logEntries={[]}
-        onClear={mockOnClear}
-      />,
+      <ScriptRunner status="running" logEntries={[]} onClear={mockOnClear} />,
     );
     expect(screen.queryByTestId("script-runner-clear")).not.toBeInTheDocument();
   });
 
   it("shows stop button when pending", () => {
     render(
-      <ScriptRunner
-        status="pending"
-        logEntries={[]}
-        onStop={mockOnStop}
-      />,
+      <ScriptRunner status="pending" logEntries={[]} onStop={mockOnStop} />,
     );
     expect(screen.getByTestId("script-runner-stop")).toBeInTheDocument();
   });

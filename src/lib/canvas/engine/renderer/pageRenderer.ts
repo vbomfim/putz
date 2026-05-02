@@ -10,32 +10,35 @@
  * @module
  */
 
-import type { VisualExpression } from '../../protocol';
-import type { Camera } from '../types/index';
-import { getWorldViewport } from './viewportCulling';
+import type { VisualExpression } from "../../protocol";
+import type { Camera } from "../types/index";
+import { getWorldViewport } from "./viewportCulling";
 
 // ── Standard page sizes (at 96 DPI) ─────────────────────────
 
 /** Standard page size presets in pixels at 96 DPI. */
-export const PAGE_SIZES: Record<string, { width: number; height: number } | null> = {
-  'A4': { width: 1122, height: 794 },
-  'A4-portrait': { width: 794, height: 1122 },
-  'Letter': { width: 1100, height: 850 },
-  'Letter-portrait': { width: 850, height: 1100 },
-  'A3': { width: 1587, height: 1122 },
-  'Custom': null,
+export const PAGE_SIZES: Record<
+  string,
+  { width: number; height: number } | null
+> = {
+  A4: { width: 1122, height: 794 },
+  "A4-portrait": { width: 794, height: 1122 },
+  Letter: { width: 1100, height: 850 },
+  "Letter-portrait": { width: 850, height: 1100 },
+  A3: { width: 1587, height: 1122 },
+  Custom: null,
 };
 
 // ── Visual constants ─────────────────────────────────────────
 
 /** Desk background color — slightly darker than page. */
-const DESK_COLOR = '#E8E8E8';
+const DESK_COLOR = "#E8E8E8";
 
 /** Page fill color — white paper. */
-const PAGE_COLOR = '#FFFFFF';
+const PAGE_COLOR = "#FFFFFF";
 
 /** Page border color — subtle gray. */
-const PAGE_BORDER_COLOR = '#D0D0D0';
+const PAGE_BORDER_COLOR = "#D0D0D0";
 
 /** Page border width in world units. */
 const PAGE_BORDER_WIDTH = 1;
@@ -47,7 +50,7 @@ const SHADOW_BLUR = 4;
 const SHADOW_OFFSET = 2;
 
 /** Shadow color. */
-const SHADOW_COLOR = 'rgba(0, 0, 0, 0.15)';
+const SHADOW_COLOR = "rgba(0, 0, 0, 0.15)";
 
 /** Maximum pages to render per frame to prevent performance collapse. */
 const MAX_VISIBLE_PAGES = 200;
@@ -148,7 +151,12 @@ export function renderPages(
   // 1. Fill visible area with desk background
   ctx.save();
   ctx.fillStyle = DESK_COLOR;
-  ctx.fillRect(viewport.left, viewport.top, viewport.right - viewport.left, viewport.bottom - viewport.top);
+  ctx.fillRect(
+    viewport.left,
+    viewport.top,
+    viewport.right - viewport.left,
+    viewport.bottom - viewport.top,
+  );
 
   // 2. Render visible pages
   let visibleCount = 0;

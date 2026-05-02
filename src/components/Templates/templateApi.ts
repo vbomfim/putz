@@ -23,7 +23,9 @@ export async function templateGet(id: string): Promise<TemplateWithContent> {
 }
 
 /** Creates or updates a template. Returns the template ID. */
-export async function templateCreate(input: SaveTemplateInput): Promise<string> {
+export async function templateCreate(
+  input: SaveTemplateInput,
+): Promise<string> {
   return invoke<string>("template_create", { input });
 }
 

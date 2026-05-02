@@ -37,12 +37,12 @@
  * @module
  */
 
-import { useEffect, useCallback, useState } from 'react';
-import { nanoid } from 'nanoid';
-import type { VisualExpression } from '../../protocol';
-import { useCanvasStoreApi } from '../store/canvasStore';
-import type { CanvasStoreApi } from '../store/canvasStore';
-import type { ToolType } from '../types/index';
+import { useEffect, useCallback, useState } from "react";
+import { nanoid } from "nanoid";
+import type { VisualExpression } from "../../protocol";
+import { useCanvasStoreApi } from "../store/canvasStore";
+import type { CanvasStoreApi } from "../store/canvasStore";
+import type { ToolType } from "../types/index";
 
 // ── Constants ──────────────────────────────────────────────
 
@@ -59,22 +59,22 @@ let pasteCount = 0;
 
 /** Map of single keys (lowercase) to tool types. */
 const KEY_TO_TOOL: Readonly<Record<string, ToolType>> = {
-  v: 'select',
-  '1': 'select',
-  r: 'rectangle',
-  '2': 'rectangle',
-  o: 'ellipse',
-  '3': 'ellipse',
-  d: 'diamond',
-  '4': 'diamond',
-  l: 'arrow',
-  '5': 'arrow',
-  a: 'arrow',
-  '6': 'arrow',
-  p: 'freehand',
-  '7': 'freehand',
-  t: 'text',
-  '8': 'text',
+  v: "select",
+  "1": "select",
+  r: "rectangle",
+  "2": "rectangle",
+  o: "ellipse",
+  "3": "ellipse",
+  d: "diamond",
+  "4": "diamond",
+  l: "arrow",
+  "5": "arrow",
+  a: "arrow",
+  "6": "arrow",
+  p: "freehand",
+  "7": "freehand",
+  t: "text",
+  "8": "text",
 };
 
 // ── Types ──────────────────────────────────────────────────
@@ -112,7 +112,11 @@ export interface KeyboardShortcutsState {
 function isTextInput(target: EventTarget | null): boolean {
   if (!target || !(target instanceof HTMLElement)) return false;
   const tagName = target.tagName.toLowerCase();
-  return tagName === 'input' || tagName === 'textarea' || target.contentEditable === 'true';
+  return (
+    tagName === "input" ||
+    tagName === "textarea" ||
+    target.contentEditable === "true"
+  );
 }
 
 // ── Hook ───────────────────────────────────────────────────
@@ -139,13 +143,13 @@ export function useKeyboardShortcuts(
       const isModifier = event.ctrlKey || event.metaKey;
 
       // ── Help panel toggle: ? ──
-      if (key === '?') {
+      if (key === "?") {
         setShowShortcutsHelp((prev) => !prev);
         return;
       }
 
       // ── Escape: cancel / deselect / close help / close waypoint panel ──
-      if (key === 'Escape') {
+      if (key === "Escape") {
         // Close help panel if open
         setShowShortcutsHelp(false);
 
@@ -167,7 +171,7 @@ export function useKeyboardShortcuts(
         storeApi.getState().setSelectedIds(new Set());
 
         // Switch to select tool
-        storeApi.getState().setActiveTool('select');
+        storeApi.getState().setActiveTool("select");
         return;
       }
 
@@ -175,12 +179,12 @@ export function useKeyboardShortcuts(
       if (!isModifier && !event.shiftKey && !event.altKey) {
         const { waypointPanelOpen: panelOpen, waypoints } = storeApi.getState();
         if (panelOpen && waypoints.length > 0) {
-          if (key === 'ArrowRight' || key === 'ArrowDown') {
+          if (key === "ArrowRight" || key === "ArrowDown") {
             event.preventDefault();
             storeApi.getState().nextWaypoint();
             return;
           }
-          if (key === 'ArrowLeft' || key === 'ArrowUp') {
+          if (key === "ArrowLeft" || key === "ArrowUp") {
             event.preventDefault();
             storeApi.getState().prevWaypoint();
             return;
@@ -191,28 +195,28 @@ export function useKeyboardShortcuts(
       // ── Modifier-based shortcuts ──
       if (isModifier) {
         // Ctrl+Shift+Z / Cmd+Shift+Z → redo (check shift FIRST)
-        if (keyLower === 'z' && event.shiftKey) {
+        if (keyLower === "z" && event.shiftKey) {
           event.preventDefault();
           storeApi.getState().redo();
           return;
         }
 
         // Ctrl+Z / Cmd+Z → undo
-        if (keyLower === 'z' && !event.shiftKey) {
+        if (keyLower === "z" && !event.shiftKey) {
           event.preventDefault();
           storeApi.getState().undo();
           return;
         }
 
         // Ctrl+Y / Cmd+Y → redo
-        if (keyLower === 'y') {
+        if (keyLower === "y") {
           event.preventDefault();
           storeApi.getState().redo();
           return;
         }
 
         // Ctrl+A / Cmd+A → select all
-        if (keyLower === 'a') {
+        if (keyLower === "a") {
           event.preventDefault();
           const { expressionOrder } = storeApi.getState();
           storeApi.getState().setSelectedIds(new Set(expressionOrder));
@@ -220,42 +224,42 @@ export function useKeyboardShortcuts(
         }
 
         // Ctrl+D / Cmd+D → duplicate selected
-        if (keyLower === 'd') {
+        if (keyLower === "d") {
           event.preventDefault();
           duplicateSelected(storeApi);
           return;
         }
 
         // Ctrl+C / Cmd+C → copy selected to internal clipboard
-        if (keyLower === 'c') {
+        if (keyLower === "c") {
           event.preventDefault();
           copySelected(storeApi);
           return;
         }
 
         // Ctrl+V / Cmd+V → paste from internal clipboard
-        if (keyLower === 'v') {
+        if (keyLower === "v") {
           event.preventDefault();
           pasteFromClipboard(storeApi);
           return;
         }
 
         // Ctrl+X / Cmd+X → cut selected (copy + delete)
-        if (keyLower === 'x') {
+        if (keyLower === "x") {
           event.preventDefault();
           cutSelected(storeApi);
           return;
         }
 
         // Ctrl+Shift+G / Cmd+Shift+G → ungroup selected (check shift FIRST)
-        if (keyLower === 'g' && event.shiftKey) {
+        if (keyLower === "g" && event.shiftKey) {
           event.preventDefault();
           ungroupSelected(storeApi);
           return;
         }
 
         // Ctrl+G / Cmd+G → group selected
-        if (keyLower === 'g' && !event.shiftKey) {
+        if (keyLower === "g" && !event.shiftKey) {
           event.preventDefault();
           groupSelected(storeApi);
           return;
@@ -269,7 +273,7 @@ export function useKeyboardShortcuts(
         }
 
         // Ctrl+] → bring to front
-        if (key === ']') {
+        if (key === "]") {
           event.preventDefault();
           const ids = Array.from(storeApi.getState().selectedIds);
           if (ids.length > 0) storeApi.getState().bringToFront(ids);
@@ -277,7 +281,7 @@ export function useKeyboardShortcuts(
         }
 
         // Ctrl+[ → send to back
-        if (key === '[') {
+        if (key === "[") {
           event.preventDefault();
           const ids = Array.from(storeApi.getState().selectedIds);
           if (ids.length > 0) storeApi.getState().sendToBack(ids);
@@ -285,7 +289,7 @@ export function useKeyboardShortcuts(
         }
 
         // Ctrl+ArrowUp → bring forward
-        if (key === 'ArrowUp') {
+        if (key === "ArrowUp") {
           event.preventDefault();
           const ids = Array.from(storeApi.getState().selectedIds);
           if (ids.length > 0) storeApi.getState().bringForward(ids);
@@ -293,7 +297,7 @@ export function useKeyboardShortcuts(
         }
 
         // Ctrl+ArrowDown → send backward
-        if (key === 'ArrowDown') {
+        if (key === "ArrowDown") {
           event.preventDefault();
           const ids = Array.from(storeApi.getState().selectedIds);
           if (ids.length > 0) storeApi.getState().sendBackward(ids);
@@ -312,9 +316,9 @@ export function useKeyboardShortcuts(
       }
 
       // ── Delete / Backspace → delete selected (group-aware) ──
-      if (key === 'Delete' || key === 'Backspace') {
+      if (key === "Delete" || key === "Backspace") {
         const state = storeApi.getState();
-        if (state.activeTool !== 'select') return;
+        if (state.activeTool !== "select") return;
 
         const { selectedIds, expressions } = state;
         if (selectedIds.size === 0) return;
@@ -338,9 +342,14 @@ export function useKeyboardShortcuts(
           const id = selectedIds.values().next().value;
           if (id) {
             const expr = storeApi.getState().expressions[id];
-            if (expr && (expr.kind === 'text' || expr.kind === 'rectangle' || 
-                expr.kind === 'ellipse' || expr.kind === 'diamond' || 
-                expr.kind === 'sticky-note')) {
+            if (
+              expr &&
+              (expr.kind === "text" ||
+                expr.kind === "rectangle" ||
+                expr.kind === "ellipse" ||
+                expr.kind === "diamond" ||
+                expr.kind === "sticky-note")
+            ) {
               event.preventDefault();
               options.startEditing(id, key);
               return;
@@ -362,8 +371,8 @@ export function useKeyboardShortcuts(
   );
 
   useEffect(() => {
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
   }, [handleKeyDown, storeApi]);
 
   return { showShortcutsHelp, setShowShortcutsHelp };

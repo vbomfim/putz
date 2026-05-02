@@ -87,7 +87,9 @@
   color: var(--text-primary);
 }
 
-.markdown-tab__content h4, .markdown-tab__content h5, .markdown-tab__content h6 {
+.markdown-tab__content h4,
+.markdown-tab__content h5,
+.markdown-tab__content h6 {
   font-size: 1em;
   margin: 0.5em 0 0.2em;
   color: var(--text-secondary);
@@ -139,7 +141,8 @@
   border-radius: 0 4px 4px 0;
 }
 
-.markdown-tab__content ul, .markdown-tab__content ol {
+.markdown-tab__content ul,
+.markdown-tab__content ol {
   padding-left: 24px;
   margin: 0.4em 0;
 }
@@ -154,7 +157,8 @@
   margin: 0.5em 0;
 }
 
-.markdown-tab__content th, .markdown-tab__content td {
+.markdown-tab__content th,
+.markdown-tab__content td {
   border: 1px solid var(--hover-bg);
   padding: 6px 12px;
   text-align: left;

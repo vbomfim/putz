@@ -51,10 +51,7 @@ pub(crate) async fn start_server(
     let listener = TcpListener::bind("127.0.0.1:0")
         .await
         .map_err(|e| e.to_string())?;
-    let port = listener
-        .local_addr()
-        .map_err(|e| e.to_string())?
-        .port();
+    let port = listener.local_addr().map_err(|e| e.to_string())?.port();
 
     let state = AppState {
         coordinator,
@@ -108,10 +105,7 @@ async fn host_check_middleware(
     next: middleware::Next,
 ) -> impl IntoResponse {
     let port = state.port;
-    let allowed = [
-        format!("127.0.0.1:{port}"),
-        format!("localhost:{port}"),
-    ];
+    let allowed = [format!("127.0.0.1:{port}"), format!("localhost:{port}")];
 
     // Check Host header (required)
     let host = headers
@@ -125,9 +119,7 @@ async fn host_check_middleware(
 
     // Check Origin header (optional — absent is OK for same-origin requests)
     if let Some(origin) = headers.get("origin").and_then(|v| v.to_str().ok()) {
-        let origin_allowed = allowed
-            .iter()
-            .any(|a| origin == format!("http://{a}"));
+        let origin_allowed = allowed.iter().any(|a| origin == format!("http://{a}"));
         if !origin_allowed {
             return (StatusCode::FORBIDDEN, Json(json!({"error": "forbidden"}))).into_response();
         }
@@ -155,11 +147,14 @@ async fn auth_middleware(
     // H4: Constant-time comparison to prevent timing side-channels
     let auth_bytes = auth.as_bytes();
     let expected_bytes = expected.as_bytes();
-    let ok = auth_bytes.len() == expected_bytes.len()
-        && auth_bytes.ct_eq(expected_bytes).into();
+    let ok = auth_bytes.len() == expected_bytes.len() && auth_bytes.ct_eq(expected_bytes).into();
 
     if !ok {
-        return (StatusCode::UNAUTHORIZED, Json(json!({"error": "unauthorized"}))).into_response();
+        return (
+            StatusCode::UNAUTHORIZED,
+            Json(json!({"error": "unauthorized"})),
+        )
+            .into_response();
     }
 
     next.run(request).await.into_response()
@@ -193,7 +188,11 @@ async fn handle_heartbeat(
     AxumState(state): AxumState<AppState>,
     Json(req): Json<HeartbeatRequest>,
 ) -> impl IntoResponse {
-    match state.coordinator.heartbeat(&req.colleague_id, req.status).await {
+    match state
+        .coordinator
+        .heartbeat(&req.colleague_id, req.status)
+        .await
+    {
         Ok(stale_peers) => (
             StatusCode::OK,
             Json(json!({"ok": true, "stale_peers": stale_peers})),
@@ -210,9 +209,7 @@ async fn handle_heartbeat(
     }
 }
 
-async fn handle_roster(
-    AxumState(state): AxumState<AppState>,
-) -> impl IntoResponse {
+async fn handle_roster(AxumState(state): AxumState<AppState>) -> impl IntoResponse {
     let peers = state.coordinator.roster().await;
     (StatusCode::OK, Json(json!({"peers": peers})))
 }
@@ -280,7 +277,10 @@ async fn handle_spawn(
 
     let _ = state.app_handle.emit("swarm://spawn-tab", &payload);
 
-    (StatusCode::OK, Json(json!({"colleague_id": colleague_id, "tab_id": tab_id})))
+    (
+        StatusCode::OK,
+        Json(json!({"colleague_id": colleague_id, "tab_id": tab_id})),
+    )
 }
 
 async fn handle_messages(
@@ -359,6 +359,8 @@ async fn handle_focus(
 ) -> impl IntoResponse {
     use tauri::Emitter;
     // Emit event for frontend to focus the tab
-    let _ = state.app_handle.emit("swarm://focus-tab", &json!({"tab_id": req.tab_id}));
+    let _ = state
+        .app_handle
+        .emit("swarm://focus-tab", &json!({"tab_id": req.tab_id}));
     (StatusCode::OK, Json(json!({"ok": true})))
 }

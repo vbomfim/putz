@@ -174,7 +174,9 @@ describe("layoutStore", () => {
         useLayoutStore.getState().closeTab(regionId, tabId);
       });
 
-      expect(mockInvoke).toHaveBeenCalledWith("pty_close", { sessionId: "session-to-close" });
+      expect(mockInvoke).toHaveBeenCalledWith("pty_close", {
+        sessionId: "session-to-close",
+      });
     });
 
     it("activates the next tab when the active tab is closed", async () => {
@@ -402,7 +404,9 @@ describe("layoutStore", () => {
         useLayoutStore.getState().closeRegion(newRegionId);
       });
 
-      expect(mockInvoke).toHaveBeenCalledWith("pty_close", { sessionId: "session-2" });
+      expect(mockInvoke).toHaveBeenCalledWith("pty_close", {
+        sessionId: "session-2",
+      });
     });
   });
 
@@ -422,7 +426,9 @@ describe("layoutStore", () => {
 
       const state = useLayoutStore.getState();
       const allRegionIds = Object.keys(state.regions);
-      const otherRegionId = allRegionIds.find((id) => id !== state.focusedRegionId)!;
+      const otherRegionId = allRegionIds.find(
+        (id) => id !== state.focusedRegionId,
+      )!;
 
       act(() => {
         useLayoutStore.getState().setFocusedRegion(otherRegionId);
@@ -502,7 +508,9 @@ describe("layoutStore", () => {
         useLayoutStore.getState().nextTab();
       });
 
-      expect(useLayoutStore.getState().regions[regionId].activeTabId).toBe(originalActiveId);
+      expect(useLayoutStore.getState().regions[regionId].activeTabId).toBe(
+        originalActiveId,
+      );
     });
   });
 
@@ -589,7 +597,9 @@ describe("layoutStore", () => {
         useLayoutStore.getState().renameTab(regionId, tabId, "   ");
       });
 
-      expect(useLayoutStore.getState().regions[regionId].tabs[0].title).toBe(originalTitle);
+      expect(useLayoutStore.getState().regions[regionId].tabs[0].title).toBe(
+        originalTitle,
+      );
     });
   });
 
@@ -718,22 +728,30 @@ describe("layoutStore", () => {
       act(() => {
         useLayoutStore.getState().toggleTabPosition(regionId);
       });
-      expect(useLayoutStore.getState().regions[regionId].tabPosition).toBe("bottom");
+      expect(useLayoutStore.getState().regions[regionId].tabPosition).toBe(
+        "bottom",
+      );
 
       act(() => {
         useLayoutStore.getState().toggleTabPosition(regionId);
       });
-      expect(useLayoutStore.getState().regions[regionId].tabPosition).toBe("left");
+      expect(useLayoutStore.getState().regions[regionId].tabPosition).toBe(
+        "left",
+      );
 
       act(() => {
         useLayoutStore.getState().toggleTabPosition(regionId);
       });
-      expect(useLayoutStore.getState().regions[regionId].tabPosition).toBe("right");
+      expect(useLayoutStore.getState().regions[regionId].tabPosition).toBe(
+        "right",
+      );
 
       act(() => {
         useLayoutStore.getState().toggleTabPosition(regionId);
       });
-      expect(useLayoutStore.getState().regions[regionId].tabPosition).toBe("top");
+      expect(useLayoutStore.getState().regions[regionId].tabPosition).toBe(
+        "top",
+      );
     });
 
     it("ignores toggleTabPosition for non-existent region", () => {
@@ -758,7 +776,9 @@ describe("layoutStore", () => {
       );
 
       act(() => {
-        useLayoutStore.getState().addEditorTab(undefined, "/Users/me/README.md");
+        useLayoutStore
+          .getState()
+          .addEditorTab(undefined, "/Users/me/README.md");
       });
 
       expect(addMarkdownTabSpy).toHaveBeenCalledWith(
@@ -768,19 +788,25 @@ describe("layoutStore", () => {
       // Verify it created a markdown tab, not an editor tab
       const state = useLayoutStore.getState();
       const region = state.regions[state.focusedRegionId];
-      const tab = region.tabs.find((t) => t.editorFilePath === "/Users/me/README.md");
+      const tab = region.tabs.find(
+        (t) => t.editorFilePath === "/Users/me/README.md",
+      );
       expect(tab).toBeDefined();
       expect(tab!.type).toBe("markdown");
     });
 
     it("routes .markdown files to addMarkdownTab", () => {
       act(() => {
-        useLayoutStore.getState().addEditorTab(undefined, "/Users/me/NOTES.markdown");
+        useLayoutStore
+          .getState()
+          .addEditorTab(undefined, "/Users/me/NOTES.markdown");
       });
 
       const state = useLayoutStore.getState();
       const region = state.regions[state.focusedRegionId];
-      const tab = region.tabs.find((t) => t.editorFilePath === "/Users/me/NOTES.markdown");
+      const tab = region.tabs.find(
+        (t) => t.editorFilePath === "/Users/me/NOTES.markdown",
+      );
       expect(tab).toBeDefined();
       expect(tab!.type).toBe("markdown");
     });
@@ -792,7 +818,9 @@ describe("layoutStore", () => {
 
       const state = useLayoutStore.getState();
       const region = state.regions[state.focusedRegionId];
-      const tab = region.tabs.find((t) => t.editorFilePath === "/Users/me/data.csv");
+      const tab = region.tabs.find(
+        (t) => t.editorFilePath === "/Users/me/data.csv",
+      );
       expect(tab).toBeDefined();
       expect(tab!.type).toBe("csv");
     });
@@ -804,19 +832,25 @@ describe("layoutStore", () => {
 
       const state = useLayoutStore.getState();
       const region = state.regions[state.focusedRegionId];
-      const tab = region.tabs.find((t) => t.editorFilePath === "/Users/me/app.ts");
+      const tab = region.tabs.find(
+        (t) => t.editorFilePath === "/Users/me/app.ts",
+      );
       expect(tab).toBeDefined();
       expect(tab!.type).toBe("editor");
     });
 
     it("uses text mode for .md when forceText is true", () => {
       act(() => {
-        useLayoutStore.getState().addEditorTab(undefined, "/Users/me/README.md", undefined, true);
+        useLayoutStore
+          .getState()
+          .addEditorTab(undefined, "/Users/me/README.md", undefined, true);
       });
 
       const state = useLayoutStore.getState();
       const region = state.regions[state.focusedRegionId];
-      const tab = region.tabs.find((t) => t.editorFilePath === "/Users/me/README.md");
+      const tab = region.tabs.find(
+        (t) => t.editorFilePath === "/Users/me/README.md",
+      );
       expect(tab).toBeDefined();
       expect(tab!.type).toBe("editor");
     });

@@ -65,7 +65,10 @@ describe("HistoryPanel", () => {
     render(<HistoryPanel {...defaultProps} />);
     const input = screen.getByTestId("history-search-input");
     expect(input).toBeInTheDocument();
-    expect(input).toHaveAttribute("placeholder", expect.stringContaining("Search command history"));
+    expect(input).toHaveAttribute(
+      "placeholder",
+      expect.stringContaining("Search command history"),
+    );
   });
 
   it("calls onClose when close button is clicked", () => {
@@ -142,7 +145,9 @@ describe("HistoryPanel", () => {
     });
 
     fireEvent.click(screen.getByTestId("history-result-0"));
-    expect(defaultProps.onSelect).toHaveBeenCalledWith("show ip interface brief");
+    expect(defaultProps.onSelect).toHaveBeenCalledWith(
+      "show ip interface brief",
+    );
     expect(defaultProps.onClose).toHaveBeenCalled();
   });
 
@@ -157,7 +162,9 @@ describe("HistoryPanel", () => {
     });
 
     fireEvent.keyDown(input, { key: "Enter" });
-    expect(defaultProps.onSelect).toHaveBeenCalledWith("show ip interface brief");
+    expect(defaultProps.onSelect).toHaveBeenCalledWith(
+      "show ip interface brief",
+    );
     expect(defaultProps.onClose).toHaveBeenCalled();
   });
 

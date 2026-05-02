@@ -17,7 +17,10 @@ import { listen } from "@tauri-apps/api/event";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { useLayoutStore } from "./stores/layoutStore";
 import { useBookmarksStore } from "./stores/bookmarksStore";
-import { dispatchBookmarkClick, extractBasename } from "./utils/bookmarkDispatch";
+import {
+  dispatchBookmarkClick,
+  extractBasename,
+} from "./utils/bookmarkDispatch";
 import { stripBidiControls } from "./utils/sanitize";
 import {
   getBookmarkableFromFocusedTab,
@@ -180,9 +183,13 @@ function App() {
     invoke<Theme[]>("theme_list")
       .then((themes) => {
         setAvailableThemes(themes);
-        useThemeStore
-          .getState()
-          .setThemes(themes.map((t) => ({ id: t.id, name: t.name, isBuiltin: t.isBuiltin })));
+        useThemeStore.getState().setThemes(
+          themes.map((t) => ({
+            id: t.id,
+            name: t.name,
+            isBuiltin: t.isBuiltin,
+          })),
+        );
       })
       .catch((err) => {
         console.warn("[App] Failed to load themes:", err);
@@ -207,7 +214,17 @@ function App() {
       onToggleBookmarksPanel: () => addBookmarksTab(),
     });
     return () => setMenuEventCallbacks({});
-  }, [addEditorTab, addVaultTab, addHistoryTab, addTemplateTab, addSettingsTab, addBookmarksTab, toggleWorkspaceBar, toggleBookmarksBar, handleAddBookmark]);
+  }, [
+    addEditorTab,
+    addVaultTab,
+    addHistoryTab,
+    addTemplateTab,
+    addSettingsTab,
+    addBookmarksTab,
+    toggleWorkspaceBar,
+    toggleBookmarksBar,
+    handleAddBookmark,
+  ]);
 
   // Create the first tab on mount only
   useEffect(() => {
@@ -218,37 +235,50 @@ function App() {
         addTerminalTab();
       }
       // Load and apply active theme on startup
-      invoke<Theme[]>("theme_list").then((themes) => {
-        const activeId = useThemeStore.getState().activeThemeId;
-        const active = themes.find((t) => t.id === activeId) || themes[0];
-        if (active) {
-          useThemeStore.getState().setActiveTheme(active.id, active.colors);
-        }
-        setAvailableThemes(themes);
-        useThemeStore.getState().setThemes(
-          themes.map((t) => ({ id: t.id, name: t.name, isBuiltin: t.isBuiltin }))
-        );
-      }).catch(() => {});
+      invoke<Theme[]>("theme_list")
+        .then((themes) => {
+          const activeId = useThemeStore.getState().activeThemeId;
+          const active = themes.find((t) => t.id === activeId) || themes[0];
+          if (active) {
+            useThemeStore.getState().setActiveTheme(active.id, active.colors);
+          }
+          setAvailableThemes(themes);
+          useThemeStore.getState().setThemes(
+            themes.map((t) => ({
+              id: t.id,
+              name: t.name,
+              isBuiltin: t.isBuiltin,
+            })),
+          );
+        })
+        .catch(() => {});
 
       // Swarm boot sync — tell backend the persisted swarm preference
       const swarmEnabled = useSettingsStore.getState().swarmEnabled;
-      invoke("swarm_set_enabled", { enabled: swarmEnabled }).catch((err: unknown) => {
-        console.warn("[App] swarm boot sync failed:", err);
-      });
+      invoke("swarm_set_enabled", { enabled: swarmEnabled }).catch(
+        (err: unknown) => {
+          console.warn("[App] swarm boot sync failed:", err);
+        },
+      );
     }
   }, [addTerminalTab, regions]);
 
   // Swarm event listeners — handle spawn-tab requests from the broker
   useEffect(() => {
-    const unlistenSpawn = listen<{ name: string; env: Record<string, string>; tab_id: string; colleague_id: string }>(
-      "swarm://spawn-tab",
-      (event) => {
-        // TODO: Phase 2+ — spawn a colleague tab with the given env vars
-        // For now, just log the event for verification
-        // H3: Log event receipt without full payload (may contain token in env)
-        console.info("[App] swarm://spawn-tab event received, colleague:", event.payload.colleague_id);
-      },
-    );
+    const unlistenSpawn = listen<{
+      name: string;
+      env: Record<string, string>;
+      tab_id: string;
+      colleague_id: string;
+    }>("swarm://spawn-tab", (event) => {
+      // TODO: Phase 2+ — spawn a colleague tab with the given env vars
+      // For now, just log the event for verification
+      // H3: Log event receipt without full payload (may contain token in env)
+      console.info(
+        "[App] swarm://spawn-tab event received, colleague:",
+        event.payload.colleague_id,
+      );
+    });
 
     return () => {
       unlistenSpawn.then((fn) => fn());
@@ -321,25 +351,31 @@ function App() {
   }, [addTemplateTab]);
 
   /** Called when a session is opened from the sidebar. */
-  const handleSessionOpen = useCallback((_session: SessionProfile) => {
-    // Future: spawn a connection for this session profile.
-    // For now, just open a new local terminal tab.
-    addTerminalTab();
-  }, [addTerminalTab]);
+  const handleSessionOpen = useCallback(
+    (_session: SessionProfile) => {
+      // Future: spawn a connection for this session profile.
+      // For now, just open a new local terminal tab.
+      addTerminalTab();
+    },
+    [addTerminalTab],
+  );
 
   /** Called when a connection is submitted from the quick connect bar. */
-  const handleQuickConnect = useCallback((connection: ParsedConnection) => {
-    // HTTP(S) URLs → open in the system default browser
-    if (connection.protocol === "ssh" && connection.host.startsWith("http")) {
-      const url = connection.host.includes("://")
-        ? connection.host
-        : `https://${connection.host}`;
-      openUrl(url).catch(() => {});
-      return;
-    }
-    // Future: open a connection with the parsed details.
-    addTerminalTab();
-  }, [addTerminalTab]);
+  const handleQuickConnect = useCallback(
+    (connection: ParsedConnection) => {
+      // HTTP(S) URLs → open in the system default browser
+      if (connection.protocol === "ssh" && connection.host.startsWith("http")) {
+        const url = connection.host.includes("://")
+          ? connection.host
+          : `https://${connection.host}`;
+        openUrl(url).catch(() => {});
+        return;
+      }
+      // Future: open a connection with the parsed details.
+      addTerminalTab();
+    },
+    [addTerminalTab],
+  );
 
   // Empty state — all regions are empty
   // Note: don't render empty state here — RegionContainer handles all workspaces.
@@ -384,38 +420,58 @@ function App() {
             ▶
           </button>
         )}
-      <PathBar />
-      <BroadcastBar />
-      <ShortcutsPanel />
-      <QuickConnect
-        isOpen={quickConnectOpen}
-        onClose={() => setQuickConnectOpen(false)}
-        onConnect={handleQuickConnect}
-      />
-
-      {/* Font Config overlay */}
-      {fontConfigOpen && (
-        <FontConfigOverlay onClose={() => setFontConfigOpen(false)} />
-      )}
-
-      {/* Theme Selector + Editor overlay */}
-      {themeEditorOpen && (
-        <ThemeOverlay 
-          themes={availableThemes}
-          onClose={() => setThemeEditorOpen(false)} 
+        <PathBar />
+        <BroadcastBar />
+        <ShortcutsPanel />
+        <QuickConnect
+          isOpen={quickConnectOpen}
+          onClose={() => setQuickConnectOpen(false)}
+          onConnect={handleQuickConnect}
         />
-      )}
 
-      {/* Ping Dashboard */}
-      {pingOpen && (
-        <div className="modal-overlay" onClick={(e) => { if (e.target === e.currentTarget) setPingOpen(false); }} role="dialog" aria-modal="true">
-          <div className="modal-panel modal-panel--wide"><button className="modal-close" onClick={() => setPingOpen(false)}>✕</button><PingDashboard /></div>
-        </div>
-      )}
+        {/* Font Config overlay */}
+        {fontConfigOpen && (
+          <FontConfigOverlay onClose={() => setFontConfigOpen(false)} />
+        )}
 
-      {/* Toast notification — auto-dismiss, bottom-right */}
-      <Toast key={toastMessage?.key} message={toastMessage} duration={2000} onDismiss={dismissToast} />
-    </main>
+        {/* Theme Selector + Editor overlay */}
+        {themeEditorOpen && (
+          <ThemeOverlay
+            themes={availableThemes}
+            onClose={() => setThemeEditorOpen(false)}
+          />
+        )}
+
+        {/* Ping Dashboard */}
+        {pingOpen && (
+          <div
+            className="modal-overlay"
+            onClick={(e) => {
+              if (e.target === e.currentTarget) setPingOpen(false);
+            }}
+            role="dialog"
+            aria-modal="true"
+          >
+            <div className="modal-panel modal-panel--wide">
+              <button
+                className="modal-close"
+                onClick={() => setPingOpen(false)}
+              >
+                ✕
+              </button>
+              <PingDashboard />
+            </div>
+          </div>
+        )}
+
+        {/* Toast notification — auto-dismiss, bottom-right */}
+        <Toast
+          key={toastMessage?.key}
+          message={toastMessage}
+          duration={2000}
+          onDismiss={dismissToast}
+        />
+      </main>
     </div>
   );
 }
@@ -427,9 +483,19 @@ function FontConfigOverlay({ onClose }: { onClose: () => void }) {
   const fontSettings = useThemeStore((s) => s.fontSettings);
   const setFontSettings = useThemeStore((s) => s.setFontSettings);
   return (
-    <div className="modal-overlay" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }} role="dialog" aria-modal="true" aria-label="Font Settings">
+    <div
+      className="modal-overlay"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+      role="dialog"
+      aria-modal="true"
+      aria-label="Font Settings"
+    >
       <div className="modal-panel">
-        <button className="modal-close" onClick={onClose} aria-label="Close">✕</button>
+        <button className="modal-close" onClick={onClose} aria-label="Close">
+          ✕
+        </button>
         <FontConfig settings={fontSettings} onChange={setFontSettings} />
       </div>
     </div>
@@ -437,21 +503,41 @@ function FontConfigOverlay({ onClose }: { onClose: () => void }) {
 }
 
 /** Theme selection + editor overlay */
-function ThemeOverlay({ themes, onClose }: { themes: Theme[]; onClose: () => void }) {
+function ThemeOverlay({
+  themes,
+  onClose,
+}: {
+  themes: Theme[];
+  onClose: () => void;
+}) {
   const activeThemeId = useThemeStore((s) => s.activeThemeId);
   const setActiveTheme = useThemeStore((s) => s.setActiveTheme);
   const [editing, setEditing] = useState(false);
   const [localThemes, setLocalThemes] = useState(themes);
-  
+
   const handleSelectTheme = (theme: Theme) => {
     setActiveTheme(theme.id, theme.colors);
   };
-  
+
   if (editing) {
     return (
-      <div className="modal-overlay" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }} role="dialog" aria-modal="true" aria-label="Theme Editor">
+      <div
+        className="modal-overlay"
+        onClick={(e) => {
+          if (e.target === e.currentTarget) onClose();
+        }}
+        role="dialog"
+        aria-modal="true"
+        aria-label="Theme Editor"
+      >
         <div className="modal-panel modal-panel--wide">
-          <button className="modal-close" onClick={() => setEditing(false)} aria-label="Back">←</button>
+          <button
+            className="modal-close"
+            onClick={() => setEditing(false)}
+            aria-label="Back"
+          >
+            ←
+          </button>
           <ThemeEditor
             themes={localThemes}
             editingTheme={null}
@@ -474,47 +560,141 @@ function ThemeOverlay({ themes, onClose }: { themes: Theme[]; onClose: () => voi
       </div>
     );
   }
-  
+
   // Side panel — no dark overlay so user sees theme changes live
   return (
-    <div style={{
-      position: "fixed", top: 0, right: 0, bottom: 0, width: "320px",
-      background: "var(--bg-primary)", borderLeft: "1px solid var(--border-color)",
-      zIndex: 300, display: "flex", flexDirection: "column",
-      boxShadow: "-4px 0 20px rgba(0,0,0,0.3)",
-      animation: "slide-in-right 0.15s ease-out",
-    }} role="dialog" aria-label="Theme Selector">
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "16px", borderBottom: "1px solid var(--border-color)" }}>
-        <h3 style={{ margin: 0, color: "var(--text-primary)", fontSize: "16px" }}>🎨 Color Themes</h3>
-        <button onClick={onClose} style={{ background: "none", border: "none", color: "var(--text-primary)", fontSize: "18px", cursor: "pointer" }} aria-label="Close">✕</button>
+    <div
+      style={{
+        position: "fixed",
+        top: 0,
+        right: 0,
+        bottom: 0,
+        width: "320px",
+        background: "var(--bg-primary)",
+        borderLeft: "1px solid var(--border-color)",
+        zIndex: 300,
+        display: "flex",
+        flexDirection: "column",
+        boxShadow: "-4px 0 20px rgba(0,0,0,0.3)",
+        animation: "slide-in-right 0.15s ease-out",
+      }}
+      role="dialog"
+      aria-label="Theme Selector"
+    >
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          padding: "16px",
+          borderBottom: "1px solid var(--border-color)",
+        }}
+      >
+        <h3
+          style={{ margin: 0, color: "var(--text-primary)", fontSize: "16px" }}
+        >
+          🎨 Color Themes
+        </h3>
+        <button
+          onClick={onClose}
+          style={{
+            background: "none",
+            border: "none",
+            color: "var(--text-primary)",
+            fontSize: "18px",
+            cursor: "pointer",
+          }}
+          aria-label="Close"
+        >
+          ✕
+        </button>
       </div>
-      <div style={{ flex: 1, overflowY: "auto", padding: "12px", display: "flex", flexDirection: "column", gap: "6px" }}>
+      <div
+        style={{
+          flex: 1,
+          overflowY: "auto",
+          padding: "12px",
+          display: "flex",
+          flexDirection: "column",
+          gap: "6px",
+        }}
+      >
         {localThemes.map((theme) => (
           <button
             key={theme.id}
             onClick={() => handleSelectTheme(theme)}
             style={{
-              display: "flex", alignItems: "center", gap: "10px",
+              display: "flex",
+              alignItems: "center",
+              gap: "10px",
               padding: "10px 12px",
-              border: theme.id === activeThemeId ? "2px solid var(--accent)" : "1px solid var(--border-color)",
+              border:
+                theme.id === activeThemeId
+                  ? "2px solid var(--accent)"
+                  : "1px solid var(--border-color)",
               borderRadius: "6px",
               background: theme.colors.background,
               color: theme.colors.foreground,
-              cursor: "pointer", textAlign: "left", transition: "border-color 0.1s",
+              cursor: "pointer",
+              textAlign: "left",
+              transition: "border-color 0.1s",
             }}
           >
             <div style={{ display: "flex", gap: "2px", flexShrink: 0 }}>
-              {[theme.colors.red, theme.colors.green, theme.colors.blue, theme.colors.yellow, theme.colors.magenta, theme.colors.cyan].map((c, i) => (
-                <div key={i} style={{ width: "12px", height: "12px", borderRadius: "50%", background: c }} />
+              {[
+                theme.colors.red,
+                theme.colors.green,
+                theme.colors.blue,
+                theme.colors.yellow,
+                theme.colors.magenta,
+                theme.colors.cyan,
+              ].map((c, i) => (
+                <div
+                  key={i}
+                  style={{
+                    width: "12px",
+                    height: "12px",
+                    borderRadius: "50%",
+                    background: c,
+                  }}
+                />
               ))}
             </div>
-            <span style={{ fontWeight: theme.id === activeThemeId ? "bold" : "normal", fontSize: "13px" }}>{theme.name}</span>
-            {theme.id === activeThemeId && <span style={{ marginLeft: "auto", fontSize: "11px", opacity: 0.6 }}>✓</span>}
+            <span
+              style={{
+                fontWeight: theme.id === activeThemeId ? "bold" : "normal",
+                fontSize: "13px",
+              }}
+            >
+              {theme.name}
+            </span>
+            {theme.id === activeThemeId && (
+              <span
+                style={{ marginLeft: "auto", fontSize: "11px", opacity: 0.6 }}
+              >
+                ✓
+              </span>
+            )}
           </button>
         ))}
       </div>
-      <div style={{ padding: "12px", borderTop: "1px solid var(--border-color)" }}>
-        <button onClick={() => setEditing(true)} style={{ width: "100%", padding: "8px", background: "var(--accent)", color: "white", border: "none", borderRadius: "6px", cursor: "pointer", fontWeight: "bold", fontSize: "13px" }}>
+      <div
+        style={{ padding: "12px", borderTop: "1px solid var(--border-color)" }}
+      >
+        <button
+          onClick={() => setEditing(true)}
+          style={{
+            width: "100%",
+            padding: "8px",
+            background: "var(--accent)",
+            color: "white",
+            border: "none",
+            borderRadius: "6px",
+            cursor: "pointer",
+            fontWeight: "bold",
+            fontSize: "13px",
+          }}
+        >
           + Create Custom Theme
         </button>
       </div>

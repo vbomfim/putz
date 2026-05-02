@@ -53,24 +53,18 @@ describe("TemplatePanel", () => {
   });
 
   it("renders nothing when isOpen is false", () => {
-    render(
-      <TemplatePanel isOpen={false} onClose={mockOnClose} />,
-    );
+    render(<TemplatePanel isOpen={false} onClose={mockOnClose} />);
     expect(screen.queryByTestId("template-panel")).not.toBeInTheDocument();
   });
 
   it("renders the template panel when isOpen is true", async () => {
-    render(
-      <TemplatePanel isOpen={true} onClose={mockOnClose} />,
-    );
+    render(<TemplatePanel isOpen={true} onClose={mockOnClose} />);
     expect(screen.getByTestId("template-panel")).toBeInTheDocument();
     expect(screen.getByText("Command Templates")).toBeInTheDocument();
   });
 
   it("loads and displays template list", async () => {
-    render(
-      <TemplatePanel isOpen={true} onClose={mockOnClose} />,
-    );
+    render(<TemplatePanel isOpen={true} onClose={mockOnClose} />);
 
     await waitFor(() => {
       expect(screen.getByText("Backup Config")).toBeInTheDocument();
@@ -79,9 +73,7 @@ describe("TemplatePanel", () => {
   });
 
   it("shows built-in badge for built-in templates", async () => {
-    render(
-      <TemplatePanel isOpen={true} onClose={mockOnClose} />,
-    );
+    render(<TemplatePanel isOpen={true} onClose={mockOnClose} />);
 
     await waitFor(() => {
       expect(screen.getByText("Built-in")).toBeInTheDocument();
@@ -89,30 +81,26 @@ describe("TemplatePanel", () => {
   });
 
   it("shows delete button only for non-builtin templates", async () => {
-    render(
-      <TemplatePanel isOpen={true} onClose={mockOnClose} />,
-    );
+    render(<TemplatePanel isOpen={true} onClose={mockOnClose} />);
 
     await waitFor(() => {
       // t2 (non-builtin) should have delete button
       expect(screen.getByTestId("template-delete-t2")).toBeInTheDocument();
       // t1 (builtin) should NOT have delete button
-      expect(screen.queryByTestId("template-delete-t1")).not.toBeInTheDocument();
+      expect(
+        screen.queryByTestId("template-delete-t1"),
+      ).not.toBeInTheDocument();
     });
   });
 
   it("calls onClose when close button is clicked", () => {
-    render(
-      <TemplatePanel isOpen={true} onClose={mockOnClose} />,
-    );
+    render(<TemplatePanel isOpen={true} onClose={mockOnClose} />);
     fireEvent.click(screen.getByTestId("template-panel-close"));
     expect(mockOnClose).toHaveBeenCalledTimes(1);
   });
 
   it("opens new template form when + New is clicked", () => {
-    render(
-      <TemplatePanel isOpen={true} onClose={mockOnClose} />,
-    );
+    render(<TemplatePanel isOpen={true} onClose={mockOnClose} />);
 
     fireEvent.click(screen.getByTestId("template-panel-new"));
     expect(screen.getByTestId("template-panel-edit")).toBeInTheDocument();
@@ -120,9 +108,7 @@ describe("TemplatePanel", () => {
   });
 
   it("renders edit form with name, description, and content fields", () => {
-    render(
-      <TemplatePanel isOpen={true} onClose={mockOnClose} />,
-    );
+    render(<TemplatePanel isOpen={true} onClose={mockOnClose} />);
 
     fireEvent.click(screen.getByTestId("template-panel-new"));
 
@@ -133,9 +119,7 @@ describe("TemplatePanel", () => {
   });
 
   it("disables save button when name or content is empty", () => {
-    render(
-      <TemplatePanel isOpen={true} onClose={mockOnClose} />,
-    );
+    render(<TemplatePanel isOpen={true} onClose={mockOnClose} />);
 
     fireEvent.click(screen.getByTestId("template-panel-new"));
 
@@ -165,9 +149,7 @@ describe("TemplatePanel", () => {
   });
 
   it("goes back to list when back button is clicked", async () => {
-    render(
-      <TemplatePanel isOpen={true} onClose={mockOnClose} />,
-    );
+    render(<TemplatePanel isOpen={true} onClose={mockOnClose} />);
 
     fireEvent.click(screen.getByTestId("template-panel-new"));
     expect(screen.getByTestId("template-panel-edit")).toBeInTheDocument();
@@ -177,9 +159,7 @@ describe("TemplatePanel", () => {
   });
 
   it("calls onClose on Escape from list view", () => {
-    render(
-      <TemplatePanel isOpen={true} onClose={mockOnClose} />,
-    );
+    render(<TemplatePanel isOpen={true} onClose={mockOnClose} />);
 
     fireEvent.keyDown(window, { key: "Escape" });
     expect(mockOnClose).toHaveBeenCalledTimes(1);

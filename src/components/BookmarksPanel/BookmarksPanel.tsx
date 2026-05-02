@@ -12,19 +12,10 @@
  *
  * @module BookmarksPanel
  */
-import {
-  useState,
-  useCallback,
-  useEffect,
-  useRef,
-  useMemo,
-} from "react";
+import { useState, useCallback, useEffect, useRef, useMemo } from "react";
 import { useBookmarksStore } from "../../stores/bookmarksStore";
 import { stripBidiControls } from "../../utils/sanitize";
-import type {
-  BookmarkItem,
-  BookmarkFolder,
-} from "../../stores/bookmarksStore";
+import type { BookmarkItem, BookmarkFolder } from "../../stores/bookmarksStore";
 import "./BookmarksPanel.css";
 
 // ─── Constants ──────────────────────────────────────────────────────
@@ -63,7 +54,13 @@ interface DragState {
 }
 
 /** Default (idle) drag state for the mutable ref. */
-const IDLE_DRAG: DragState = { active: false, kind: null, id: null, startX: 0, startY: 0 };
+const IDLE_DRAG: DragState = {
+  active: false,
+  kind: null,
+  id: null,
+  startX: 0,
+  startY: 0,
+};
 
 // ─── Validation ─────────────────────────────────────────────────────
 
@@ -150,7 +147,10 @@ function InlineRenameInput({
 
 // ─── Main Component ─────────────────────────────────────────────────
 
-export function BookmarksPanel({ onClose, asTab = false }: BookmarksPanelProps) {
+export function BookmarksPanel({
+  onClose,
+  asTab = false,
+}: BookmarksPanelProps) {
   // Capture the element that had focus when modal opened — restore on close
   const openerRef = useRef<Element | null>(null);
   const panelRef = useRef<HTMLDivElement>(null);
@@ -182,7 +182,10 @@ export function BookmarksPanel({ onClose, asTab = false }: BookmarksPanelProps) 
   // H1: Mutable drag state in a ref — no React state for pointer lifecycle.
   // Visual drag indicators are driven via classList for zero-rerender behavior.
   const dragRef = useRef<DragState>({ ...IDLE_DRAG });
-  const [dragVisual, setDragVisual] = useState<{ isDragging: boolean; overTarget: string | null }>({
+  const [dragVisual, setDragVisual] = useState<{
+    isDragging: boolean;
+    overTarget: string | null;
+  }>({
     isDragging: false,
     overTarget: null,
   });
@@ -190,10 +193,17 @@ export function BookmarksPanel({ onClose, asTab = false }: BookmarksPanelProps) 
   // H2: Import operation token + mounted guard for FileReader race prevention.
   const importOpRef = useRef(0);
   const mountedRef = useRef(true);
-  useEffect(() => () => { mountedRef.current = false; }, []);
+  useEffect(
+    () => () => {
+      mountedRef.current = false;
+    },
+    [],
+  );
 
   // Track previously known folder IDs to detect new additions
-  const prevFolderIdsRef = useRef<Set<string>>(new Set(folders.map((f) => f.id)));
+  const prevFolderIdsRef = useRef<Set<string>>(
+    new Set(folders.map((f) => f.id)),
+  );
 
   // When a new folder appears and we have a pending rename, activate rename
   useEffect(() => {
@@ -214,9 +224,14 @@ export function BookmarksPanel({ onClose, asTab = false }: BookmarksPanelProps) 
     const result: TreeItem[] = [];
     const bookmarkItems = bookmarks
       .filter((b) => b.folderId === null)
-      .map((b) => ({ sortIndex: b.sortIndex, item: { kind: "bookmark" as const, data: b } }));
-    const folderItems = folders
-      .map((f) => ({ sortIndex: f.sortIndex, item: { kind: "folder" as const, data: f } }));
+      .map((b) => ({
+        sortIndex: b.sortIndex,
+        item: { kind: "bookmark" as const, data: b },
+      }));
+    const folderItems = folders.map((f) => ({
+      sortIndex: f.sortIndex,
+      item: { kind: "folder" as const, data: f },
+    }));
     const combined = [...bookmarkItems, ...folderItems];
     combined.sort((a, b) => a.sortIndex - b.sortIndex);
     for (const entry of combined) {
@@ -325,13 +340,10 @@ export function BookmarksPanel({ onClose, asTab = false }: BookmarksPanelProps) 
 
   // ─── Inline rename ────────────────────────────────────────────────
 
-  const startRename = useCallback(
-    (id: string, type: "bookmark" | "folder") => {
-      setRenamingId(id);
-      setRenamingType(type);
-    },
-    [],
-  );
+  const startRename = useCallback((id: string, type: "bookmark" | "folder") => {
+    setRenamingId(id);
+    setRenamingType(type);
+  }, []);
 
   const handleRenameConfirm = useCallback(
     (name: string) => {
@@ -404,8 +416,12 @@ export function BookmarksPanel({ onClose, asTab = false }: BookmarksPanelProps) 
       if (!target) return;
 
       // Read fresh state at drop time — never stale
-      const { bookmarks: freshBookmarks, folders: freshFolders, moveBookmark: freshMove, reorderBookmark: freshReorder } =
-        useBookmarksStore.getState();
+      const {
+        bookmarks: freshBookmarks,
+        folders: freshFolders,
+        moveBookmark: freshMove,
+        reorderBookmark: freshReorder,
+      } = useBookmarksStore.getState();
 
       const folderEl = target.closest("[data-folder-id]");
       const bookmarkEl = target.closest("[data-bookmark-id]");
@@ -423,7 +439,9 @@ export function BookmarksPanel({ onClose, asTab = false }: BookmarksPanelProps) 
         const targetFolderId = folderEl.getAttribute("data-folder-id");
         if (!targetFolderId) return;
         // M3: verify folder still exists at drop time
-        const folderStillExists = freshFolders.some((f) => f.id === targetFolderId);
+        const folderStillExists = freshFolders.some(
+          (f) => f.id === targetFolderId,
+        );
         if (!folderStillExists) return;
         // No-op: already in this folder
         if (draggedBookmark.folderId === targetFolderId) return;
@@ -485,7 +503,9 @@ export function BookmarksPanel({ onClose, asTab = false }: BookmarksPanelProps) 
       if (target) {
         const folderEl = target.closest("[data-folder-id]");
         const bookmarkEl = target.closest("[data-bookmark-id]");
-        const rootDrop = target.closest("[data-testid='bookmarks-panel-root-drop']");
+        const rootDrop = target.closest(
+          "[data-testid='bookmarks-panel-root-drop']",
+        );
 
         if (folderEl) {
           overTarget = folderEl.getAttribute("data-folder-id");
@@ -548,15 +568,14 @@ export function BookmarksPanel({ onClose, asTab = false }: BookmarksPanelProps) 
       const opId = ++importOpRef.current;
       const reader = new FileReader();
       reader.onload = () => {
-        if (!mountedRef.current) return;           // unmounted
-        if (opId !== importOpRef.current) return;  // superseded by newer import
+        if (!mountedRef.current) return; // unmounted
+        if (opId !== importOpRef.current) return; // superseded by newer import
         try {
           const text = reader.result as string;
           importBookmarks(text);
           setStatusMessage("Bookmarks imported successfully");
         } catch (err) {
-          const msg =
-            err instanceof Error ? err.message : "Unknown error";
+          const msg = err instanceof Error ? err.message : "Unknown error";
           setImportError(`Import failed: ${msg}`);
         }
       };

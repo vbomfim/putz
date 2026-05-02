@@ -7,7 +7,7 @@
  * @module
  */
 
-import type { VisualExpression } from '../../protocol';
+import type { VisualExpression } from "../../protocol";
 
 /** Shape of the exported canvas JSON file. */
 export interface ExportedCanvasState {
@@ -20,7 +20,7 @@ export interface ExportedCanvasState {
 }
 
 /** Current export format version. */
-const EXPORT_VERSION = '1.0';
+const EXPORT_VERSION = "1.0";
 
 /**
  * Serialize canvas state to a formatted JSON string.

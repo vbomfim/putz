@@ -8,8 +8,8 @@
  * @module
  */
 
-import { visualExpressionSchema } from '../../protocol';
-import type { VisualExpression } from '../../protocol';
+import { visualExpressionSchema } from "../../protocol";
+import type { VisualExpression } from "../../protocol";
 
 /** Successful import result. */
 export interface ImportSuccess {
@@ -41,36 +41,43 @@ export type ImportResult = ImportSuccess | ImportError;
  * @returns ImportResult — either success with data or error with message
  */
 export function importFromJson(jsonString: string): ImportResult {
-  if (!jsonString || jsonString.trim() === '') {
-    return { success: false, error: 'Invalid JSON: empty input' };
+  if (!jsonString || jsonString.trim() === "") {
+    return { success: false, error: "Invalid JSON: empty input" };
   }
 
   let parsed: unknown;
   try {
     parsed = JSON.parse(jsonString);
   } catch {
-    return { success: false, error: 'Invalid JSON: failed to parse' };
+    return { success: false, error: "Invalid JSON: failed to parse" };
   }
 
-  if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
-    return { success: false, error: 'Invalid format: expected an object' };
+  if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
+    return { success: false, error: "Invalid format: expected an object" };
   }
 
   const record = parsed as Record<string, unknown>;
 
   // Validate version field
-  if (typeof record.version !== 'string') {
+  if (typeof record.version !== "string") {
     return { success: false, error: 'Missing or invalid "version" field' };
   }
 
   // Validate expressions field
-  if (typeof record.expressions !== 'object' || record.expressions === null || Array.isArray(record.expressions)) {
+  if (
+    typeof record.expressions !== "object" ||
+    record.expressions === null ||
+    Array.isArray(record.expressions)
+  ) {
     return { success: false, error: 'Missing or invalid "expressions" field' };
   }
 
   // Validate expressionOrder field
   if (!Array.isArray(record.expressionOrder)) {
-    return { success: false, error: 'Missing or invalid "expressionOrder" field' };
+    return {
+      success: false,
+      error: 'Missing or invalid "expressionOrder" field',
+    };
   }
 
   const expressionsRecord = record.expressions as Record<string, unknown>;
@@ -81,7 +88,7 @@ export function importFromJson(jsonString: string): ImportResult {
   for (const [id, exprData] of Object.entries(expressionsRecord)) {
     const result = visualExpressionSchema.safeParse(exprData);
     if (!result.success) {
-      const issues = result.error.issues.map((i) => i.message).join(', ');
+      const issues = result.error.issues.map((i) => i.message).join(", ");
       return {
         success: false,
         error: `Invalid expression "${id}": ${issues}`,

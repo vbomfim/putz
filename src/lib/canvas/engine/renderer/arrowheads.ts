@@ -176,14 +176,8 @@ function drawBar(
 ): void {
   const perpAngle = angle + Math.PI / 2;
   const halfH = size * 0.5;
-  ctx.moveTo(
-    x + halfH * Math.cos(perpAngle),
-    y + halfH * Math.sin(perpAngle),
-  );
-  ctx.lineTo(
-    x - halfH * Math.cos(perpAngle),
-    y - halfH * Math.sin(perpAngle),
-  );
+  ctx.moveTo(x + halfH * Math.cos(perpAngle), y + halfH * Math.sin(perpAngle));
+  ctx.lineTo(x - halfH * Math.cos(perpAngle), y - halfH * Math.sin(perpAngle));
 }
 
 /**
@@ -249,19 +243,46 @@ const renderNone: ArrowheadRenderer = () => {
 };
 
 // --- classic (filled triangle) ---
-const renderClassic: ArrowheadRenderer = (ctx, tipX, tipY, angle, size, filled, strokeColor, fillColor) => {
+const renderClassic: ArrowheadRenderer = (
+  ctx,
+  tipX,
+  tipY,
+  angle,
+  size,
+  filled,
+  strokeColor,
+  fillColor,
+) => {
   drawTrianglePath(ctx, tipX, tipY, angle, size, 1.0);
   fillOrStroke(ctx, filled, strokeColor, fillColor);
 };
 
 // --- classicThin ---
-const renderClassicThin: ArrowheadRenderer = (ctx, tipX, tipY, angle, size, filled, strokeColor, fillColor) => {
+const renderClassicThin: ArrowheadRenderer = (
+  ctx,
+  tipX,
+  tipY,
+  angle,
+  size,
+  filled,
+  strokeColor,
+  fillColor,
+) => {
   drawTrianglePath(ctx, tipX, tipY, angle, size, THIN_FACTOR);
   fillOrStroke(ctx, filled, strokeColor, fillColor);
 };
 
 // --- open (outline-only triangle, always stroked) ---
-const renderOpen: ArrowheadRenderer = (ctx, tipX, tipY, angle, size, _filled, strokeColor, _fillColor) => {
+const renderOpen: ArrowheadRenderer = (
+  ctx,
+  tipX,
+  tipY,
+  angle,
+  size,
+  _filled,
+  strokeColor,
+  _fillColor,
+) => {
   const halfAngle = HALF_ANGLE;
   ctx.beginPath();
   ctx.moveTo(
@@ -279,7 +300,16 @@ const renderOpen: ArrowheadRenderer = (ctx, tipX, tipY, angle, size, _filled, st
 };
 
 // --- openThin ---
-const renderOpenThin: ArrowheadRenderer = (ctx, tipX, tipY, angle, size, _filled, strokeColor, _fillColor) => {
+const renderOpenThin: ArrowheadRenderer = (
+  ctx,
+  tipX,
+  tipY,
+  angle,
+  size,
+  _filled,
+  strokeColor,
+  _fillColor,
+) => {
   const halfAngle = HALF_ANGLE * THIN_FACTOR;
   ctx.beginPath();
   ctx.moveTo(
@@ -297,19 +327,46 @@ const renderOpenThin: ArrowheadRenderer = (ctx, tipX, tipY, angle, size, _filled
 };
 
 // --- block (filled rectangle) ---
-const renderBlock: ArrowheadRenderer = (ctx, tipX, tipY, angle, size, filled, strokeColor, fillColor) => {
+const renderBlock: ArrowheadRenderer = (
+  ctx,
+  tipX,
+  tipY,
+  angle,
+  size,
+  filled,
+  strokeColor,
+  fillColor,
+) => {
   drawBlockPath(ctx, tipX, tipY, angle, size, 1.0);
   fillOrStroke(ctx, filled, strokeColor, fillColor);
 };
 
 // --- blockThin ---
-const renderBlockThin: ArrowheadRenderer = (ctx, tipX, tipY, angle, size, filled, strokeColor, fillColor) => {
+const renderBlockThin: ArrowheadRenderer = (
+  ctx,
+  tipX,
+  tipY,
+  angle,
+  size,
+  filled,
+  strokeColor,
+  fillColor,
+) => {
   drawBlockPath(ctx, tipX, tipY, angle, size, THIN_FACTOR);
   fillOrStroke(ctx, filled, strokeColor, fillColor);
 };
 
 // --- oval (filled circle) ---
-const renderOval: ArrowheadRenderer = (ctx, tipX, tipY, angle, size, filled, strokeColor, fillColor) => {
+const renderOval: ArrowheadRenderer = (
+  ctx,
+  tipX,
+  tipY,
+  angle,
+  size,
+  filled,
+  strokeColor,
+  fillColor,
+) => {
   const r = size * 0.35;
   const cx = tipX - r * Math.cos(angle);
   const cy = tipY - r * Math.sin(angle);
@@ -319,19 +376,46 @@ const renderOval: ArrowheadRenderer = (ctx, tipX, tipY, angle, size, filled, str
 };
 
 // --- diamond (filled diamond) ---
-const renderDiamond: ArrowheadRenderer = (ctx, tipX, tipY, angle, size, filled, strokeColor, fillColor) => {
+const renderDiamond: ArrowheadRenderer = (
+  ctx,
+  tipX,
+  tipY,
+  angle,
+  size,
+  filled,
+  strokeColor,
+  fillColor,
+) => {
   drawDiamondPath(ctx, tipX, tipY, angle, size, 1.0);
   fillOrStroke(ctx, filled, strokeColor, fillColor);
 };
 
 // --- diamondThin ---
-const renderDiamondThin: ArrowheadRenderer = (ctx, tipX, tipY, angle, size, filled, strokeColor, fillColor) => {
+const renderDiamondThin: ArrowheadRenderer = (
+  ctx,
+  tipX,
+  tipY,
+  angle,
+  size,
+  filled,
+  strokeColor,
+  fillColor,
+) => {
   drawDiamondPath(ctx, tipX, tipY, angle, size, THIN_FACTOR);
   fillOrStroke(ctx, filled, strokeColor, fillColor);
 };
 
 // --- ERone (single bar |) ---
-const renderERone: ArrowheadRenderer = (ctx, tipX, tipY, angle, size, _filled, strokeColor, _fillColor) => {
+const renderERone: ArrowheadRenderer = (
+  ctx,
+  tipX,
+  tipY,
+  angle,
+  size,
+  _filled,
+  strokeColor,
+  _fillColor,
+) => {
   ctx.beginPath();
   ctx.strokeStyle = strokeColor;
   ctx.lineWidth = Math.max(ctx.lineWidth, 1.5);
@@ -340,7 +424,16 @@ const renderERone: ArrowheadRenderer = (ctx, tipX, tipY, angle, size, _filled, s
 };
 
 // --- ERmany (crow's foot >) ---
-const renderERmany: ArrowheadRenderer = (ctx, tipX, tipY, angle, size, _filled, strokeColor, _fillColor) => {
+const renderERmany: ArrowheadRenderer = (
+  ctx,
+  tipX,
+  tipY,
+  angle,
+  size,
+  _filled,
+  strokeColor,
+  _fillColor,
+) => {
   ctx.beginPath();
   ctx.strokeStyle = strokeColor;
   ctx.lineWidth = Math.max(ctx.lineWidth, 1.5);
@@ -349,7 +442,16 @@ const renderERmany: ArrowheadRenderer = (ctx, tipX, tipY, angle, size, _filled, 
 };
 
 // --- ERmandOne (double bar ||) ---
-const renderERmandOne: ArrowheadRenderer = (ctx, tipX, tipY, angle, size, _filled, strokeColor, _fillColor) => {
+const renderERmandOne: ArrowheadRenderer = (
+  ctx,
+  tipX,
+  tipY,
+  angle,
+  size,
+  _filled,
+  strokeColor,
+  _fillColor,
+) => {
   ctx.beginPath();
   ctx.strokeStyle = strokeColor;
   ctx.lineWidth = Math.max(ctx.lineWidth, 1.5);
@@ -368,7 +470,16 @@ const renderERmandOne: ArrowheadRenderer = (ctx, tipX, tipY, angle, size, _fille
 };
 
 // --- ERoneToMany (bar + crow's foot |>) ---
-const renderERoneToMany: ArrowheadRenderer = (ctx, tipX, tipY, angle, size, _filled, strokeColor, _fillColor) => {
+const renderERoneToMany: ArrowheadRenderer = (
+  ctx,
+  tipX,
+  tipY,
+  angle,
+  size,
+  _filled,
+  strokeColor,
+  _fillColor,
+) => {
   ctx.beginPath();
   ctx.strokeStyle = strokeColor;
   ctx.lineWidth = Math.max(ctx.lineWidth, 1.5);
@@ -387,7 +498,16 @@ const renderERoneToMany: ArrowheadRenderer = (ctx, tipX, tipY, angle, size, _fil
 };
 
 // --- ERzeroToOne (circle + bar o|) ---
-const renderERzeroToOne: ArrowheadRenderer = (ctx, tipX, tipY, angle, size, _filled, strokeColor, fillColor) => {
+const renderERzeroToOne: ArrowheadRenderer = (
+  ctx,
+  tipX,
+  tipY,
+  angle,
+  size,
+  _filled,
+  strokeColor,
+  fillColor,
+) => {
   ctx.strokeStyle = strokeColor;
   ctx.lineWidth = Math.max(ctx.lineWidth, 1.5);
 
@@ -409,7 +529,16 @@ const renderERzeroToOne: ArrowheadRenderer = (ctx, tipX, tipY, angle, size, _fil
 };
 
 // --- ERzeroToMany (circle + crow's foot o>) ---
-const renderERzeroToMany: ArrowheadRenderer = (ctx, tipX, tipY, angle, size, _filled, strokeColor, fillColor) => {
+const renderERzeroToMany: ArrowheadRenderer = (
+  ctx,
+  tipX,
+  tipY,
+  angle,
+  size,
+  _filled,
+  strokeColor,
+  fillColor,
+) => {
   ctx.strokeStyle = strokeColor;
   ctx.lineWidth = Math.max(ctx.lineWidth, 1.5);
 
@@ -431,7 +560,16 @@ const renderERzeroToMany: ArrowheadRenderer = (ctx, tipX, tipY, angle, size, _fi
 };
 
 // --- openAsync / chevron (open > stroke only) ---
-const renderOpenAsync: ArrowheadRenderer = (ctx, tipX, tipY, angle, size, _filled, strokeColor, _fillColor) => {
+const renderOpenAsync: ArrowheadRenderer = (
+  ctx,
+  tipX,
+  tipY,
+  angle,
+  size,
+  _filled,
+  strokeColor,
+  _fillColor,
+) => {
   ctx.beginPath();
   ctx.strokeStyle = strokeColor;
   ctx.lineWidth = Math.max(ctx.lineWidth, 1.5);
@@ -448,7 +586,16 @@ const renderOpenAsync: ArrowheadRenderer = (ctx, tipX, tipY, angle, size, _fille
 };
 
 // --- dash (short perpendicular line) ---
-const renderDash: ArrowheadRenderer = (ctx, tipX, tipY, angle, size, _filled, strokeColor, _fillColor) => {
+const renderDash: ArrowheadRenderer = (
+  ctx,
+  tipX,
+  tipY,
+  angle,
+  size,
+  _filled,
+  strokeColor,
+  _fillColor,
+) => {
   ctx.beginPath();
   ctx.strokeStyle = strokeColor;
   ctx.lineWidth = Math.max(ctx.lineWidth, 1.5);
@@ -457,7 +604,16 @@ const renderDash: ArrowheadRenderer = (ctx, tipX, tipY, angle, size, _filled, st
 };
 
 // --- cross (X mark) ---
-const renderCross: ArrowheadRenderer = (ctx, tipX, tipY, angle, size, _filled, strokeColor, _fillColor) => {
+const renderCross: ArrowheadRenderer = (
+  ctx,
+  tipX,
+  tipY,
+  angle,
+  size,
+  _filled,
+  strokeColor,
+  _fillColor,
+) => {
   const halfSize = size * 0.35;
   ctx.beginPath();
   ctx.strokeStyle = strokeColor;
@@ -487,7 +643,16 @@ const renderCross: ArrowheadRenderer = (ctx, tipX, tipY, angle, size, _filled, s
 };
 
 // --- halfCircle ---
-const renderHalfCircle: ArrowheadRenderer = (ctx, tipX, tipY, angle, size, filled, strokeColor, _fillColor) => {
+const renderHalfCircle: ArrowheadRenderer = (
+  ctx,
+  tipX,
+  tipY,
+  angle,
+  size,
+  filled,
+  strokeColor,
+  _fillColor,
+) => {
   const r = size * 0.4;
   ctx.beginPath();
   // Semicircle: arc from angle-PI/2 to angle+PI/2 (the back half)
@@ -502,7 +667,16 @@ const renderHalfCircle: ArrowheadRenderer = (ctx, tipX, tipY, angle, size, fille
 };
 
 // --- doubleBlock (two stacked block arrows) ---
-const renderDoubleBlock: ArrowheadRenderer = (ctx, tipX, tipY, angle, size, filled, strokeColor, fillColor) => {
+const renderDoubleBlock: ArrowheadRenderer = (
+  ctx,
+  tipX,
+  tipY,
+  angle,
+  size,
+  filled,
+  strokeColor,
+  fillColor,
+) => {
   // First block at tip
   drawBlockPath(ctx, tipX, tipY, angle, size * 0.7, 1.0);
   fillOrStroke(ctx, filled, strokeColor, fillColor);
@@ -523,49 +697,53 @@ const renderDoubleBlock: ArrowheadRenderer = (ctx, tipX, tipY, angle, size, fill
 // ── Register all arrowhead types ─────────────────────────────
 
 // Standard
-ARROWHEAD_REGISTRY.set('none', renderNone);
-ARROWHEAD_REGISTRY.set('classic', renderClassic);
-ARROWHEAD_REGISTRY.set('triangle', renderClassic);         // alias
-ARROWHEAD_REGISTRY.set('classicThin', renderClassicThin);
-ARROWHEAD_REGISTRY.set('open', renderOpen);
-ARROWHEAD_REGISTRY.set('openThin', renderOpenThin);
-ARROWHEAD_REGISTRY.set('block', renderBlock);
-ARROWHEAD_REGISTRY.set('blockThin', renderBlockThin);
-ARROWHEAD_REGISTRY.set('oval', renderOval);
-ARROWHEAD_REGISTRY.set('circle', renderOval);               // alias
-ARROWHEAD_REGISTRY.set('diamond', renderDiamond);
-ARROWHEAD_REGISTRY.set('diamondThin', renderDiamondThin);
-ARROWHEAD_REGISTRY.set('box', renderBlock);                  // alias
+ARROWHEAD_REGISTRY.set("none", renderNone);
+ARROWHEAD_REGISTRY.set("classic", renderClassic);
+ARROWHEAD_REGISTRY.set("triangle", renderClassic); // alias
+ARROWHEAD_REGISTRY.set("classicThin", renderClassicThin);
+ARROWHEAD_REGISTRY.set("open", renderOpen);
+ARROWHEAD_REGISTRY.set("openThin", renderOpenThin);
+ARROWHEAD_REGISTRY.set("block", renderBlock);
+ARROWHEAD_REGISTRY.set("blockThin", renderBlockThin);
+ARROWHEAD_REGISTRY.set("oval", renderOval);
+ARROWHEAD_REGISTRY.set("circle", renderOval); // alias
+ARROWHEAD_REGISTRY.set("diamond", renderDiamond);
+ARROWHEAD_REGISTRY.set("diamondThin", renderDiamondThin);
+ARROWHEAD_REGISTRY.set("box", renderBlock); // alias
 
 // ER Diagram
-ARROWHEAD_REGISTRY.set('ERone', renderERone);
-ARROWHEAD_REGISTRY.set('ERmany', renderERmany);
-ARROWHEAD_REGISTRY.set('ERmandOne', renderERmandOne);
-ARROWHEAD_REGISTRY.set('ERoneToMany', renderERoneToMany);
-ARROWHEAD_REGISTRY.set('ERzeroToOne', renderERzeroToOne);
-ARROWHEAD_REGISTRY.set('ERzeroToMany', renderERzeroToMany);
+ARROWHEAD_REGISTRY.set("ERone", renderERone);
+ARROWHEAD_REGISTRY.set("ERmany", renderERmany);
+ARROWHEAD_REGISTRY.set("ERmandOne", renderERmandOne);
+ARROWHEAD_REGISTRY.set("ERoneToMany", renderERoneToMany);
+ARROWHEAD_REGISTRY.set("ERzeroToOne", renderERzeroToOne);
+ARROWHEAD_REGISTRY.set("ERzeroToMany", renderERzeroToMany);
 
 // UML
-ARROWHEAD_REGISTRY.set('openAsync', renderOpenAsync);
-ARROWHEAD_REGISTRY.set('chevron', renderOpenAsync);         // alias
-ARROWHEAD_REGISTRY.set('dash', renderDash);
-ARROWHEAD_REGISTRY.set('cross', renderCross);
+ARROWHEAD_REGISTRY.set("openAsync", renderOpenAsync);
+ARROWHEAD_REGISTRY.set("chevron", renderOpenAsync); // alias
+ARROWHEAD_REGISTRY.set("dash", renderDash);
+ARROWHEAD_REGISTRY.set("cross", renderCross);
 
 // Other
-ARROWHEAD_REGISTRY.set('halfCircle', renderHalfCircle);
-ARROWHEAD_REGISTRY.set('doubleBlock', renderDoubleBlock);
+ARROWHEAD_REGISTRY.set("halfCircle", renderHalfCircle);
+ARROWHEAD_REGISTRY.set("doubleBlock", renderDoubleBlock);
 
 // ── Public API ───────────────────────────────────────────────
 
 /** All registered arrowhead type keys (for test completeness checks). */
-export const ALL_ARROWHEAD_TYPES: readonly string[] = [...ARROWHEAD_REGISTRY.keys()];
+export const ALL_ARROWHEAD_TYPES: readonly string[] = [
+  ...ARROWHEAD_REGISTRY.keys(),
+];
 
 /**
  * Look up the renderer for a given arrowhead type.
  *
  * Returns undefined if no renderer is registered (unknown type).
  */
-export function getArrowheadRenderer(type: string): ArrowheadRenderer | undefined {
+export function getArrowheadRenderer(
+  type: string,
+): ArrowheadRenderer | undefined {
   return ARROWHEAD_REGISTRY.get(type);
 }
 
@@ -596,14 +774,25 @@ export function renderArrowheadFromRegistry(
   strokeColor: string,
   fillColor: string,
 ): void {
-  if (type === 'none') return;
+  if (type === "none") return;
 
   const renderer = ARROWHEAD_REGISTRY.get(type);
   if (!renderer) {
-    console.warn(`[arrowheads] Unknown arrowhead type "${type}", falling back to "classic"`);
+    console.warn(
+      `[arrowheads] Unknown arrowhead type "${type}", falling back to "classic"`,
+    );
   }
-  const resolvedRenderer = renderer ?? ARROWHEAD_REGISTRY.get('classic')!;
+  const resolvedRenderer = renderer ?? ARROWHEAD_REGISTRY.get("classic")!;
   ctx.save();
-  resolvedRenderer(ctx, tipX, tipY, angle, size, filled, strokeColor, fillColor);
+  resolvedRenderer(
+    ctx,
+    tipX,
+    tipY,
+    angle,
+    size,
+    filled,
+    strokeColor,
+    fillColor,
+  );
   ctx.restore();
 }

@@ -18,12 +18,12 @@
  * @module
  */
 
-import type { RoutingMode } from '../../protocol';
-import type { PathSegment, RouterFunction, RouterOptions } from './routerTypes';
-import { computeCurvedRoute } from './curvedRouter';
-import { computeEntityRelationRoute } from './entityRelationRouter';
-import { computeIsometricRoute } from './isometricRouter';
-import { computeOrthogonalRoute } from './orthogonalRouter';
+import type { RoutingMode } from "../../protocol";
+import type { PathSegment, RouterFunction, RouterOptions } from "./routerTypes";
+import { computeCurvedRoute } from "./curvedRouter";
+import { computeEntityRelationRoute } from "./entityRelationRouter";
+import { computeIsometricRoute } from "./isometricRouter";
+import { computeOrthogonalRoute } from "./orthogonalRouter";
 
 // ── Orthogonal adapter ──────────────────────────────────────
 
@@ -51,7 +51,7 @@ function orthogonalAdapter(
   );
 
   // Convert [x,y][] to PathSegment[] — skip the first point (moveTo)
-  return points.slice(1).map(([x, y]) => ({ type: 'line' as const, x, y }));
+  return points.slice(1).map(([x, y]) => ({ type: "line" as const, x, y }));
 }
 
 // ── Elbow adapter (backward compat alias) ────────────────────
@@ -119,11 +119,11 @@ function isCorner(
 function smoothCornersWithBezier(points: [number, number][]): PathSegment[] {
   if (points.length <= 1) {
     return points.length === 1
-      ? [{ type: 'line', x: points[0]![0], y: points[0]![1] }]
+      ? [{ type: "line", x: points[0]![0], y: points[0]![1] }]
       : [];
   }
   if (points.length === 2) {
-    return [{ type: 'line', x: points[1]![0], y: points[1]![1] }];
+    return [{ type: "line", x: points[1]![0], y: points[1]![1] }];
   }
 
   const segments: PathSegment[] = [];
@@ -147,17 +147,20 @@ function smoothCornersWithBezier(points: [number, number][]): PathSegment[] {
       const afterX = curr[0] + (next[0] - curr[0]) * (offset / segLen2);
       const afterY = curr[1] + (next[1] - curr[1]) * (offset / segLen2);
 
-      segments.push({ type: 'line', x: beforeX, y: beforeY });
+      segments.push({ type: "line", x: beforeX, y: beforeY });
       segments.push({
-        type: 'bezier',
-        cp1x: curr[0], cp1y: curr[1],
-        cp2x: curr[0], cp2y: curr[1],
-        x: afterX, y: afterY,
+        type: "bezier",
+        cp1x: curr[0],
+        cp1y: curr[1],
+        cp2x: curr[0],
+        cp2y: curr[1],
+        x: afterX,
+        y: afterY,
       });
     } else if (i === points.length - 1) {
-      segments.push({ type: 'line', x: curr[0], y: curr[1] });
+      segments.push({ type: "line", x: curr[0], y: curr[1] });
     } else if (!next || !isCorner(prev, curr, next)) {
-      segments.push({ type: 'line', x: curr[0], y: curr[1] });
+      segments.push({ type: "line", x: curr[0], y: curr[1] });
     }
   }
 
@@ -174,11 +177,11 @@ function smoothCornersWithBezier(points: [number, number][]): PathSegment[] {
 function smoothCornersWithQuadratic(points: [number, number][]): PathSegment[] {
   if (points.length <= 1) {
     return points.length === 1
-      ? [{ type: 'line', x: points[0]![0], y: points[0]![1] }]
+      ? [{ type: "line", x: points[0]![0], y: points[0]![1] }]
       : [];
   }
   if (points.length === 2) {
-    return [{ type: 'line', x: points[1]![0], y: points[1]![1] }];
+    return [{ type: "line", x: points[1]![0], y: points[1]![1] }];
   }
 
   const segments: PathSegment[] = [];
@@ -200,17 +203,19 @@ function smoothCornersWithQuadratic(points: [number, number][]): PathSegment[] {
       const afterY = curr[1] + (next[1] - curr[1]) * (r / segLen2);
 
       // Line to just before the corner
-      segments.push({ type: 'line', x: beforeX, y: beforeY });
+      segments.push({ type: "line", x: beforeX, y: beforeY });
       // Quadratic curve through the corner point to just after
       segments.push({
-        type: 'quadratic',
-        cpx: curr[0], cpy: curr[1],
-        x: afterX, y: afterY,
+        type: "quadratic",
+        cpx: curr[0],
+        cpy: curr[1],
+        x: afterX,
+        y: afterY,
       });
     } else if (i === points.length - 1) {
-      segments.push({ type: 'line', x: curr[0], y: curr[1] });
+      segments.push({ type: "line", x: curr[0], y: curr[1] });
     } else if (!next || !isCorner(prev, curr, next)) {
-      segments.push({ type: 'line', x: curr[0], y: curr[1] });
+      segments.push({ type: "line", x: curr[0], y: curr[1] });
     }
   }
 
@@ -233,9 +238,14 @@ function orthogonalCurvedAdapter(
   options?: RouterOptions,
 ): PathSegment[] {
   const basePoints = computeOrthogonalRoute(
-    start, end, startAnchor, endAnchor,
-    options?.startBounds, options?.endBounds,
-    options?.jettySize, options?.midpointOffset,
+    start,
+    end,
+    startAnchor,
+    endAnchor,
+    options?.startBounds,
+    options?.endBounds,
+    options?.jettySize,
+    options?.midpointOffset,
     options?.waypoints,
   );
 
@@ -263,8 +273,10 @@ const ROUTER_MAP: Record<string, RouterFunction> = {
  * Returns `null` for 'straight' and undefined modes — the renderer
  * should use default straight-line rendering for these.
  */
-export function getRouter(mode: RoutingMode | undefined): RouterFunction | null {
-  if (!mode || mode === 'straight') return null;
+export function getRouter(
+  mode: RoutingMode | undefined,
+): RouterFunction | null {
+  if (!mode || mode === "straight") return null;
   return ROUTER_MAP[mode] ?? null;
 }
 

@@ -16,9 +16,7 @@ import type {
   SessionProfile,
 } from "./types";
 import { PROTOCOL_DEFAULT_PORTS, PROTOCOL_LABELS } from "./types";
-import {
-  SerialConfig,
-} from "../Terminal/SerialConfig";
+import { SerialConfig } from "../Terminal/SerialConfig";
 import { DEFAULT_SERIAL_CONFIG } from "../Terminal/connectionTypes";
 import type { SerialConfigValues } from "../Terminal/connectionTypes";
 import { JumpHostConfig } from "./JumpHostConfig";
@@ -72,10 +70,18 @@ export function SessionEditor({
   const [serialConfig, setSerialConfig] = useState<SerialConfigValues>(() => ({
     port: session?.serialPort ?? DEFAULT_SERIAL_CONFIG.port,
     baudRate: session?.serialBaud ?? DEFAULT_SERIAL_CONFIG.baudRate,
-    dataBits: (session?.serialDataBits as SerialConfigValues["dataBits"]) ?? DEFAULT_SERIAL_CONFIG.dataBits,
-    parity: (session?.serialParity as SerialConfigValues["parity"]) ?? DEFAULT_SERIAL_CONFIG.parity,
-    stopBits: (session?.serialStopBits as SerialConfigValues["stopBits"]) ?? DEFAULT_SERIAL_CONFIG.stopBits,
-    flowControl: (session?.serialFlowControl as SerialConfigValues["flowControl"]) ?? DEFAULT_SERIAL_CONFIG.flowControl,
+    dataBits:
+      (session?.serialDataBits as SerialConfigValues["dataBits"]) ??
+      DEFAULT_SERIAL_CONFIG.dataBits,
+    parity:
+      (session?.serialParity as SerialConfigValues["parity"]) ??
+      DEFAULT_SERIAL_CONFIG.parity,
+    stopBits:
+      (session?.serialStopBits as SerialConfigValues["stopBits"]) ??
+      DEFAULT_SERIAL_CONFIG.stopBits,
+    flowControl:
+      (session?.serialFlowControl as SerialConfigValues["flowControl"]) ??
+      DEFAULT_SERIAL_CONFIG.flowControl,
   }));
 
   // Auto-fill port when protocol changes (only in create mode)
@@ -138,9 +144,7 @@ export function SessionEditor({
           host: host.trim() || undefined,
           port: portNum,
           username: username.trim() || undefined,
-          ...(protocol === "ssh"
-            ? { jumpHostId }
-            : {}),
+          ...(protocol === "ssh" ? { jumpHostId } : {}),
           ...(protocol === "serial"
             ? {
                 serialPort: serialConfig.port,
@@ -161,9 +165,7 @@ export function SessionEditor({
           host: host.trim() || undefined,
           port: portNum,
           username: username.trim() || undefined,
-          ...(protocol === "ssh"
-            ? { jumpHostId }
-            : {}),
+          ...(protocol === "ssh" ? { jumpHostId } : {}),
           ...(protocol === "serial"
             ? {
                 serialPort: serialConfig.port,
@@ -178,7 +180,19 @@ export function SessionEditor({
         onSave(input);
       }
     },
-    [name, protocol, host, port, username, folderId, isEdit, onSave, validate, serialConfig, jumpHostId],
+    [
+      name,
+      protocol,
+      host,
+      port,
+      username,
+      folderId,
+      isEdit,
+      onSave,
+      validate,
+      serialConfig,
+      jumpHostId,
+    ],
   );
 
   /** Whether the protocol needs host/port fields. */

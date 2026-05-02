@@ -39,7 +39,10 @@ export function ScriptRunner({
 
   // Auto-scroll to bottom on new entries (scrollIntoView may not exist in jsdom)
   useEffect(() => {
-    if (logEndRef.current && typeof logEndRef.current.scrollIntoView === "function") {
+    if (
+      logEndRef.current &&
+      typeof logEndRef.current.scrollIntoView === "function"
+    ) {
       logEndRef.current.scrollIntoView({ behavior: "smooth" });
     }
   }, [logEntries]);
@@ -143,11 +146,12 @@ export function ScriptRunner({
       </div>
 
       {/* Log entries */}
-      <div className="script-runner__entries" data-testid="script-runner-entries">
+      <div
+        className="script-runner__entries"
+        data-testid="script-runner-entries"
+      >
         {logEntries.length === 0 && isActive && (
-          <div className="script-runner__waiting">
-            Waiting for output…
-          </div>
+          <div className="script-runner__waiting">Waiting for output…</div>
         )}
 
         {logEntries.map((entry, idx) => (
@@ -164,7 +168,10 @@ export function ScriptRunner({
         ))}
 
         {error && (
-          <div className="script-log__entry script-log--error" data-testid="script-runner-error">
+          <div
+            className="script-log__entry script-log--error"
+            data-testid="script-runner-error"
+          >
             <span className="script-log__message">Error: {error}</span>
           </div>
         )}

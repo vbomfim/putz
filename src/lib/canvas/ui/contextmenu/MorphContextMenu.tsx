@@ -10,8 +10,8 @@
  * @module
  */
 
-import { getMorphTargets } from '../../engine';
-import type { VisualExpression, ExpressionKind } from '../../protocol';
+import { getMorphTargets } from "../../engine";
+import type { VisualExpression, ExpressionKind } from "../../protocol";
 
 /** Props for the MorphContextMenu component. */
 export interface MorphContextMenuProps {
@@ -27,18 +27,18 @@ export interface MorphContextMenuProps {
 
 /** Human-readable display names for expression kinds. */
 const KIND_LABELS: Record<string, string> = {
-  'flowchart': 'Flowchart',
-  'table': 'Table',
-  'roadmap': 'Roadmap',
-  'kanban': 'Kanban',
-  'mind-map': 'Mind Map',
-  'reasoning-chain': 'Reasoning Chain',
-  'sequence-diagram': 'Sequence Diagram',
-  'wireframe': 'Wireframe',
-  'decision-tree': 'Decision Tree',
-  'collaboration-diagram': 'Collaboration Diagram',
-  'slide': 'Slide',
-  'code-block': 'Code Block',
+  flowchart: "Flowchart",
+  table: "Table",
+  roadmap: "Roadmap",
+  kanban: "Kanban",
+  "mind-map": "Mind Map",
+  "reasoning-chain": "Reasoning Chain",
+  "sequence-diagram": "Sequence Diagram",
+  wireframe: "Wireframe",
+  "decision-tree": "Decision Tree",
+  "collaboration-diagram": "Collaboration Diagram",
+  slide: "Slide",
+  "code-block": "Code Block",
 };
 
 /** Get human-readable label for an expression kind. */
@@ -75,29 +75,29 @@ export function MorphContextMenu({
       role="menu"
       aria-label="View as"
       style={{
-        position: 'absolute',
+        position: "absolute",
         left: `${position.x}px`,
         top: `${position.y}px`,
-        backgroundColor: '#ffffff',
+        backgroundColor: "#ffffff",
         borderRadius: 8,
-        boxShadow: '0 4px 16px rgba(0, 0, 0, 0.15)',
-        border: '1px solid #e0e0e0',
-        padding: '4px 0',
+        boxShadow: "0 4px 16px rgba(0, 0, 0, 0.15)",
+        border: "1px solid #e0e0e0",
+        padding: "4px 0",
         minWidth: 160,
         zIndex: 1000,
-        fontFamily: 'system-ui, -apple-system, sans-serif',
+        fontFamily: "system-ui, -apple-system, sans-serif",
       }}
     >
       {/* Header */}
       <div
         style={{
-          padding: '6px 12px',
+          padding: "6px 12px",
           fontSize: 12,
           fontWeight: 600,
-          color: '#888',
-          textTransform: 'uppercase',
-          letterSpacing: '0.5px',
-          borderBottom: '1px solid #eee',
+          color: "#888",
+          textTransform: "uppercase",
+          letterSpacing: "0.5px",
+          borderBottom: "1px solid #eee",
         }}
       >
         View as...
@@ -112,22 +112,22 @@ export function MorphContextMenu({
           aria-label={`View as ${getKindLabel(targetKind)}`}
           onClick={() => handleClick(targetKind)}
           style={{
-            display: 'block',
-            width: '100%',
-            padding: '8px 12px',
-            border: 'none',
-            backgroundColor: 'transparent',
-            textAlign: 'left',
-            cursor: 'pointer',
+            display: "block",
+            width: "100%",
+            padding: "8px 12px",
+            border: "none",
+            backgroundColor: "transparent",
+            textAlign: "left",
+            cursor: "pointer",
             fontSize: 14,
-            color: '#333',
-            fontFamily: 'inherit',
+            color: "#333",
+            fontFamily: "inherit",
           }}
           onMouseEnter={(e) => {
-            (e.target as HTMLElement).style.backgroundColor = '#f0f4ff';
+            (e.target as HTMLElement).style.backgroundColor = "#f0f4ff";
           }}
           onMouseLeave={(e) => {
-            (e.target as HTMLElement).style.backgroundColor = 'transparent';
+            (e.target as HTMLElement).style.backgroundColor = "transparent";
           }}
         >
           {getKindLabel(targetKind)}

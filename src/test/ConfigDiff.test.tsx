@@ -104,13 +104,17 @@ describe("ConfigDiff", () => {
 
     fireEvent.click(screen.getByTestId("config-diff-compare"));
 
-    expect(screen.getByText("Configurations are identical")).toBeInTheDocument();
+    expect(
+      screen.getByText("Configurations are identical"),
+    ).toBeInTheDocument();
   });
 
   it("clears inputs and output when Clear is clicked", () => {
     render(<ConfigDiff isOpen={true} onClose={mockOnClose} />);
 
-    const oldTextarea = screen.getByTestId("config-diff-old") as HTMLTextAreaElement;
+    const oldTextarea = screen.getByTestId(
+      "config-diff-old",
+    ) as HTMLTextAreaElement;
     fireEvent.change(oldTextarea, { target: { value: "some text" } });
     expect(oldTextarea.value).toBe("some text");
 

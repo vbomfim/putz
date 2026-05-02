@@ -37,8 +37,13 @@
 }
 
 @keyframes vault-toast-fade {
-  0%, 70% { opacity: 1; }
-  100% { opacity: 0; }
+  0%,
+  70% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
 }
 
 /* Header */
@@ -65,7 +70,9 @@
   font-size: 12px;
   font-family: inherit;
   cursor: pointer;
-  transition: background 0.15s, color 0.15s;
+  transition:
+    background 0.15s,
+    color 0.15s;
 }
 
 .vault-tab__section-btn:hover {

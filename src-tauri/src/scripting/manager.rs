@@ -13,7 +13,7 @@
 /// ```
 use std::collections::HashMap;
 use std::fs;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 
@@ -457,7 +457,7 @@ impl ScriptManager {
             .map_err(|e| ScriptError::LockError(format!("Script store mutex poisoned: {e}")))
     }
 
-    fn load_store(config_dir: &PathBuf) -> ScriptStore {
+    fn load_store(config_dir: &Path) -> ScriptStore {
         let path = config_dir.join(INDEX_FILENAME);
         if path.exists() {
             fs::read_to_string(&path)

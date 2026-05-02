@@ -8,8 +8,17 @@
  * Tags: [AC-1], [AC-3], [AC-6], [INTEGRATION]
  */
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, fireEvent, waitFor, act } from "@testing-library/react";
-import { SerialConfig, DEFAULT_SERIAL_CONFIG } from "../components/Terminal/SerialConfig";
+import {
+  render,
+  screen,
+  fireEvent,
+  waitFor,
+  act,
+} from "@testing-library/react";
+import {
+  SerialConfig,
+  DEFAULT_SERIAL_CONFIG,
+} from "../components/Terminal/SerialConfig";
 import type { SerialPortInfo } from "../components/Terminal/connectionTypes";
 
 // Mock the Tauri invoke API
@@ -33,9 +42,7 @@ describe("SerialConfig Integration", () => {
     onChange = trackingOnChange,
   ) {
     const values = { ...DEFAULT_SERIAL_CONFIG, ...overrides };
-    return render(
-      <SerialConfig values={values} onChange={onChange} />,
-    );
+    return render(<SerialConfig values={values} onChange={onChange} />);
   }
 
   // =====================================================================
@@ -154,7 +161,9 @@ describe("SerialConfig Integration", () => {
     renderConfig({ port: "/dev/ttyUSB0" }, onChange);
 
     await waitFor(() => {
-      expect(screen.getByTestId("serial-port-select")).toHaveTextContent("/dev/ttyACM0");
+      expect(screen.getByTestId("serial-port-select")).toHaveTextContent(
+        "/dev/ttyACM0",
+      );
     });
 
     // Select the second port
@@ -189,7 +198,9 @@ describe("SerialConfig Integration", () => {
     fireEvent.click(screen.getByTestId("serial-refresh-btn"));
 
     await waitFor(() => {
-      expect(screen.getByTestId("serial-port-select")).toHaveTextContent("/dev/ttyUSB0");
+      expect(screen.getByTestId("serial-port-select")).toHaveTextContent(
+        "/dev/ttyUSB0",
+      );
     });
   });
 
@@ -241,9 +252,13 @@ describe("SerialConfig Integration", () => {
     fireEvent.click(screen.getByTestId("serial-refresh-btn"));
 
     await waitFor(() => {
-      expect(screen.getByTestId("serial-port-select")).toHaveTextContent("COM3");
+      expect(screen.getByTestId("serial-port-select")).toHaveTextContent(
+        "COM3",
+      );
       // Error should be cleared
-      expect(screen.queryByText(/Failed to scan ports/)).not.toBeInTheDocument();
+      expect(
+        screen.queryByText(/Failed to scan ports/),
+      ).not.toBeInTheDocument();
     });
   });
 

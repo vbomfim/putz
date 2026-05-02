@@ -19,7 +19,9 @@ pub fn start_proxy() -> u16 {
             .build()
             .expect("tokio runtime");
         rt.block_on(async {
-            let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.expect("bind");
+            let listener = tokio::net::TcpListener::bind("127.0.0.1:0")
+                .await
+                .expect("bind");
             let port = listener.local_addr().unwrap().port();
             let _ = tx.send(port);
             loop {
@@ -72,13 +74,19 @@ async fn handle_connection(mut stream: tokio::net::TcpStream) {
     };
 
     // Extract ICY headers for real bitrate
-    let icy_br = res.headers().get("icy-br")
+    let icy_br = res
+        .headers()
+        .get("icy-br")
         .and_then(|v| v.to_str().ok())
         .unwrap_or("");
-    let icy_name = res.headers().get("icy-name")
+    let icy_name = res
+        .headers()
+        .get("icy-name")
         .and_then(|v| v.to_str().ok())
         .unwrap_or("");
-    let content_type = res.headers().get("content-type")
+    let content_type = res
+        .headers()
+        .get("content-type")
         .and_then(|v| v.to_str().ok())
         .unwrap_or("audio/mpeg")
         .to_string();
@@ -92,14 +100,18 @@ async fn handle_connection(mut stream: tokio::net::TcpStream) {
          X-Icy-Name: {icy_name}\r\n\
          Connection: close\r\n\r\n"
     );
-    if stream.write_all(header.as_bytes()).await.is_err() { return; }
+    if stream.write_all(header.as_bytes()).await.is_err() {
+        return;
+    }
 
     use futures_util::StreamExt;
     let mut body = res.bytes_stream();
     while let Some(chunk) = body.next().await {
         match chunk {
             Ok(bytes) if !bytes.is_empty() => {
-                if stream.write_all(&bytes).await.is_err() { break; }
+                if stream.write_all(&bytes).await.is_err() {
+                    break;
+                }
             }
             _ => break,
         }

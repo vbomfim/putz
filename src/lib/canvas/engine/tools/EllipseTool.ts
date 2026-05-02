@@ -6,12 +6,12 @@
  * @module
  */
 
-import { AreaShapeTool } from './AreaShapeTool';
-import type { CanvasStoreApi } from '../store/canvasStore';
+import { AreaShapeTool } from "./AreaShapeTool";
+import type { CanvasStoreApi } from "../store/canvasStore";
 
 /** Tool handler for drawing ellipses on the canvas. */
 export class EllipseTool extends AreaShapeTool {
   constructor(store: CanvasStoreApi) {
-    super('ellipse', store);
+    super("ellipse", store);
   }
 }

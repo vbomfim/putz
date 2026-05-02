@@ -86,9 +86,7 @@ Vlan    Mac Address       Type        Ports
     it("performs OUI vendor lookup", () => {
       const entries = parseMacTable(MAC_OUTPUT);
       // 000C29 is VMware
-      const vmwareEntry = entries.find(
-        (e) => e.mac === "000c.29ab.cdef",
-      );
+      const vmwareEntry = entries.find((e) => e.mac === "000c.29ab.cdef");
       expect(vmwareEntry?.vendor).toBe("VMware");
     });
 

@@ -56,9 +56,7 @@ function TransferRow({ transfer }: { transfer: TransferInfo }) {
     transfer.totalBytes > 0
       ? Math.min(
           100,
-          Math.round(
-            (transfer.bytesTransferred / transfer.totalBytes) * 100,
-          ),
+          Math.round((transfer.bytesTransferred / transfer.totalBytes) * 100),
         )
       : 0;
 
@@ -78,9 +76,7 @@ function TransferRow({ transfer }: { transfer: TransferInfo }) {
         <span className="sftp-transfer-name" title={transfer.remotePath}>
           {fileName}
         </span>
-        <span className="sftp-transfer-status">
-          {statusIcon}
-        </span>
+        <span className="sftp-transfer-status">{statusIcon}</span>
       </div>
 
       <div className="sftp-transfer-progress">

@@ -20,7 +20,7 @@
 // ── Types ────────────────────────────────────────────────────
 
 /** Cardinal exit/entry direction. */
-export type Direction = 'top' | 'right' | 'bottom' | 'left';
+export type Direction = "top" | "right" | "bottom" | "left";
 
 /** Bounding rectangle for shape-avoidance. */
 type Rect = { x: number; y: number; width: number; height: number };
@@ -30,10 +30,10 @@ type Point = [number, number];
 
 /** Unit direction vector for each cardinal direction. */
 const DIR_VECTORS: Record<Direction, { dx: number; dy: number }> = {
-  top:    { dx:  0, dy: -1 },
-  right:  { dx:  1, dy:  0 },
-  bottom: { dx:  0, dy:  1 },
-  left:   { dx: -1, dy:  0 },
+  top: { dx: 0, dy: -1 },
+  right: { dx: 1, dy: 0 },
+  bottom: { dx: 0, dy: 1 },
+  left: { dx: -1, dy: 0 },
 };
 
 // ── Constants ────────────────────────────────────────────────
@@ -80,14 +80,22 @@ export function computeOrthogonalRoute(
 ): Point[] {
   // Coincident points — degenerate case
   if (start.x === end.x && start.y === end.y) {
-    return [[start.x, start.y], [end.x, end.y]];
+    return [
+      [start.x, start.y],
+      [end.x, end.y],
+    ];
   }
 
-  const padding = typeof jettySize === 'number' ? jettySize : DEFAULT_JETTY;
+  const padding = typeof jettySize === "number" ? jettySize : DEFAULT_JETTY;
 
   // Step 1: Pick exit/entry directions
   const { exit, entry } = pickExitEntry(
-    start, end, startAnchor, endAnchor, startBounds, endBounds,
+    start,
+    end,
+    startAnchor,
+    endAnchor,
+    startBounds,
+    endBounds,
   );
 
   // Step 2: Generate exit/entry stubs
@@ -105,9 +113,12 @@ export function computeOrthogonalRoute(
 
   // Step 3: Connect stubs with pattern-based segments
   const middle = connectByPattern(
-    exitStub, entryStub,
-    exit, entry,
-    startBounds, endBounds,
+    exitStub,
+    entryStub,
+    exit,
+    entry,
+    startBounds,
+    endBounds,
     padding,
     midpointOffset,
     waypoints,
@@ -158,12 +169,12 @@ export function pickExitEntry(
   // Exit direction
   const exit: Direction = startAnchor
     ? anchorToDirection(startAnchor, start, end)
-    : inferDirection(dx, dy, 'exit');
+    : inferDirection(dx, dy, "exit");
 
   // Entry direction — opposite facing (toward source)
   const entry: Direction = endAnchor
     ? anchorToDirection(endAnchor, end, start)
-    : inferDirection(dx, dy, 'entry');
+    : inferDirection(dx, dy, "entry");
 
   return { exit, entry };
 }
@@ -177,19 +188,19 @@ export function pickExitEntry(
 function inferDirection(
   dx: number,
   dy: number,
-  role: 'exit' | 'entry',
+  role: "exit" | "entry",
 ): Direction {
-  if (role === 'exit') {
+  if (role === "exit") {
     if (Math.abs(dx) >= Math.abs(dy)) {
-      return dx >= 0 ? 'right' : 'left';
+      return dx >= 0 ? "right" : "left";
     }
-    return dy >= 0 ? 'bottom' : 'top';
+    return dy >= 0 ? "bottom" : "top";
   }
   // Entry: face opposite (toward source)
   if (Math.abs(dx) >= Math.abs(dy)) {
-    return dx >= 0 ? 'left' : 'right';
+    return dx >= 0 ? "left" : "right";
   }
-  return dy >= 0 ? 'top' : 'bottom';
+  return dy >= 0 ? "top" : "bottom";
 }
 
 /**
@@ -204,29 +215,39 @@ function anchorToDirection(
   to: { x: number; y: number },
 ): Direction {
   switch (anchor) {
-    case 'top':    return 'top';
-    case 'bottom': return 'bottom';
-    case 'left':   return 'left';
-    case 'right':  return 'right';
+    case "top":
+      return "top";
+    case "bottom":
+      return "bottom";
+    case "left":
+      return "left";
+    case "right":
+      return "right";
 
     // Corner anchors: pick axis based on which component is dominant
-    case 'top-right':
-      return Math.abs(to.y - from.y) > Math.abs(to.x - from.x) ? 'top' : 'right';
-    case 'top-left':
-      return Math.abs(to.y - from.y) > Math.abs(to.x - from.x) ? 'top' : 'left';
-    case 'bottom-right':
-      return Math.abs(to.y - from.y) > Math.abs(to.x - from.x) ? 'bottom' : 'right';
-    case 'bottom-left':
-      return Math.abs(to.y - from.y) > Math.abs(to.x - from.x) ? 'bottom' : 'left';
+    case "top-right":
+      return Math.abs(to.y - from.y) > Math.abs(to.x - from.x)
+        ? "top"
+        : "right";
+    case "top-left":
+      return Math.abs(to.y - from.y) > Math.abs(to.x - from.x) ? "top" : "left";
+    case "bottom-right":
+      return Math.abs(to.y - from.y) > Math.abs(to.x - from.x)
+        ? "bottom"
+        : "right";
+    case "bottom-left":
+      return Math.abs(to.y - from.y) > Math.abs(to.x - from.x)
+        ? "bottom"
+        : "left";
 
     default: {
       // Unknown anchor: infer from delta
       const ddx = to.x - from.x;
       const ddy = to.y - from.y;
       if (Math.abs(ddx) >= Math.abs(ddy)) {
-        return ddx >= 0 ? 'right' : 'left';
+        return ddx >= 0 ? "right" : "left";
       }
-      return ddy >= 0 ? 'bottom' : 'top';
+      return ddy >= 0 ? "bottom" : "top";
     }
   }
 }
@@ -266,17 +287,43 @@ function connectByPattern(
 
   // ── Perpendicular: L-shape ──
   if (exitH !== entryH) {
-    return buildLShape(exitStub, entryStub, exit, entry, sBounds, eBounds, padding, waypoints);
+    return buildLShape(
+      exitStub,
+      entryStub,
+      exit,
+      entry,
+      sBounds,
+      eBounds,
+      padding,
+      waypoints,
+    );
   }
 
   // ── Same axis ──
   if (exit === entry) {
     // Same direction → U-shape
-    return buildUShape(exitStub, entryStub, exit, sBounds, eBounds, padding, waypoints);
+    return buildUShape(
+      exitStub,
+      entryStub,
+      exit,
+      sBounds,
+      eBounds,
+      padding,
+      waypoints,
+    );
   }
 
   // Opposite direction → Z-shape
-  return buildZShape(exitStub, entryStub, exit, sBounds, eBounds, padding, midpointOffset, waypoints);
+  return buildZShape(
+    exitStub,
+    entryStub,
+    exit,
+    sBounds,
+    eBounds,
+    padding,
+    midpointOffset,
+    waypoints,
+  );
 }
 
 // ── Z-shape (opposite directions) ────────────────────────────
@@ -304,21 +351,43 @@ function buildZShape(
 
   if (isHorizontal(exit)) {
     // Horizontal flow: vertical mid-segment
-    let midX = waypoints?.[0] ?? (exitStub[0] + (entryStub[0] - exitStub[0]) * t);
+    let midX = waypoints?.[0] ?? exitStub[0] + (entryStub[0] - exitStub[0]) * t;
 
     // Push midX out of any blocking shape
-    midX = avoidShapesOnAxis(midX, 'x', exitStub[1], entryStub[1], sBounds, eBounds, padding);
+    midX = avoidShapesOnAxis(
+      midX,
+      "x",
+      exitStub[1],
+      entryStub[1],
+      sBounds,
+      eBounds,
+      padding,
+    );
 
-    return [[midX, exitStub[1]], [midX, entryStub[1]]];
+    return [
+      [midX, exitStub[1]],
+      [midX, entryStub[1]],
+    ];
   }
 
   // Vertical flow: horizontal mid-segment
-  let midY = waypoints?.[0] ?? (exitStub[1] + (entryStub[1] - exitStub[1]) * t);
+  let midY = waypoints?.[0] ?? exitStub[1] + (entryStub[1] - exitStub[1]) * t;
 
   // Push midY out of any blocking shape
-  midY = avoidShapesOnAxis(midY, 'y', exitStub[0], entryStub[0], sBounds, eBounds, padding);
+  midY = avoidShapesOnAxis(
+    midY,
+    "y",
+    exitStub[0],
+    entryStub[0],
+    sBounds,
+    eBounds,
+    padding,
+  );
 
-  return [[exitStub[0], midY], [entryStub[0], midY]];
+  return [
+    [exitStub[0], midY],
+    [entryStub[0], midY],
+  ];
 }
 
 // ── U-shape (same direction) ─────────────────────────────────
@@ -340,13 +409,39 @@ function buildUShape(
 ): Point[] {
   if (isHorizontal(exit)) {
     // Horizontal exit → need a vertical clearance line → connect horizontally
-    const clearX = waypoints?.[0] ?? computeUClearance(exit, 'x', sBounds, eBounds, padding, exitStub, entryStub);
-    return [[clearX, exitStub[1]], [clearX, entryStub[1]]];
+    const clearX =
+      waypoints?.[0] ??
+      computeUClearance(
+        exit,
+        "x",
+        sBounds,
+        eBounds,
+        padding,
+        exitStub,
+        entryStub,
+      );
+    return [
+      [clearX, exitStub[1]],
+      [clearX, entryStub[1]],
+    ];
   }
 
   // Vertical exit → need a horizontal clearance line
-  const clearY = waypoints?.[0] ?? computeUClearance(exit, 'y', sBounds, eBounds, padding, exitStub, entryStub);
-  return [[exitStub[0], clearY], [entryStub[0], clearY]];
+  const clearY =
+    waypoints?.[0] ??
+    computeUClearance(
+      exit,
+      "y",
+      sBounds,
+      eBounds,
+      padding,
+      exitStub,
+      entryStub,
+    );
+  return [
+    [exitStub[0], clearY],
+    [entryStub[0], clearY],
+  ];
 }
 
 /**
@@ -356,7 +451,7 @@ function buildUShape(
  */
 function computeUClearance(
   exit: Direction,
-  axis: 'x' | 'y',
+  axis: "x" | "y",
   sBounds: Rect | undefined,
   eBounds: Rect | undefined,
   padding: number,
@@ -367,26 +462,27 @@ function computeUClearance(
 
   if (rects.length === 0) {
     // No shapes: go padding past the stubs
-    const stubCoord = axis === 'x'
-      ? Math.max(exitStub[0], entryStub[0])
-      : Math.max(exitStub[1], entryStub[1]);
-    return exit === 'right' || exit === 'bottom'
+    const stubCoord =
+      axis === "x"
+        ? Math.max(exitStub[0], entryStub[0])
+        : Math.max(exitStub[1], entryStub[1]);
+    return exit === "right" || exit === "bottom"
       ? stubCoord + padding
       : stubCoord - padding;
   }
 
-  if (axis === 'x') {
-    if (exit === 'right') {
-      return Math.max(...rects.map(r => r.x + r.width)) + padding;
+  if (axis === "x") {
+    if (exit === "right") {
+      return Math.max(...rects.map((r) => r.x + r.width)) + padding;
     }
-    return Math.min(...rects.map(r => r.x)) - padding;
+    return Math.min(...rects.map((r) => r.x)) - padding;
   }
 
   // axis === 'y'
-  if (exit === 'bottom') {
-    return Math.max(...rects.map(r => r.y + r.height)) + padding;
+  if (exit === "bottom") {
+    return Math.max(...rects.map((r) => r.y + r.height)) + padding;
   }
-  return Math.min(...rects.map(r => r.y)) - padding;
+  return Math.min(...rects.map((r) => r.y)) - padding;
 }
 
 // ── L-shape (perpendicular) ──────────────────────────────────
@@ -428,42 +524,73 @@ function buildLShape(
       // Horizontal exit → first middle is vertical (X), second is horizontal (Y)
       const vx = waypoints[0]!;
       const hy = waypoints[1]!;
-      return [[vx, exitStub[1]], [vx, hy], [entryStub[0], hy]];
+      return [
+        [vx, exitStub[1]],
+        [vx, hy],
+        [entryStub[0], hy],
+      ];
     }
     // Vertical exit → first middle is horizontal (Y), second is vertical (X)
     const hy = waypoints[0]!;
     const vx = waypoints[1]!;
-    return [[exitStub[0], hy], [vx, hy], [vx, entryStub[1]]];
+    return [
+      [exitStub[0], hy],
+      [vx, hy],
+      [vx, entryStub[1]],
+    ];
   }
 
   // ── Single-waypoint form: override corner position only ──
   if (waypoints && waypoints.length > 0) {
     if (exitH) {
-      return [[waypoints[0]!, exitStub[1]], [waypoints[0]!, entryStub[1]]];
+      return [
+        [waypoints[0]!, exitStub[1]],
+        [waypoints[0]!, entryStub[1]],
+      ];
     }
-    return [[exitStub[0], waypoints[0]!], [entryStub[0], waypoints[0]!]];
+    return [
+      [exitStub[0], waypoints[0]!],
+      [entryStub[0], waypoints[0]!],
+    ];
   }
 
-  if (!segmentCrossesRect(exitStub, natural, sBounds) &&
-      !segmentCrossesRect(exitStub, natural, eBounds) &&
-      !segmentCrossesRect(natural, entryStub, sBounds) &&
-      !segmentCrossesRect(natural, entryStub, eBounds)) {
+  if (
+    !segmentCrossesRect(exitStub, natural, sBounds) &&
+    !segmentCrossesRect(exitStub, natural, eBounds) &&
+    !segmentCrossesRect(natural, entryStub, sBounds) &&
+    !segmentCrossesRect(natural, entryStub, eBounds)
+  ) {
     return [natural];
   }
 
-  if (!segmentCrossesRect(exitStub, alt, sBounds) &&
-      !segmentCrossesRect(exitStub, alt, eBounds) &&
-      !segmentCrossesRect(alt, entryStub, sBounds) &&
-      !segmentCrossesRect(alt, entryStub, eBounds)) {
+  if (
+    !segmentCrossesRect(exitStub, alt, sBounds) &&
+    !segmentCrossesRect(exitStub, alt, eBounds) &&
+    !segmentCrossesRect(alt, entryStub, sBounds) &&
+    !segmentCrossesRect(alt, entryStub, eBounds)
+  ) {
     return [alt];
   }
 
   // Both corners blocked → C-shape detour
   const useX = !exitH;
-  const cl = computeCShapeClearance(useX, sBounds, eBounds, exitStub, entryStub, padding);
+  const cl = computeCShapeClearance(
+    useX,
+    sBounds,
+    eBounds,
+    exitStub,
+    entryStub,
+    padding,
+  );
   return exitH
-    ? [[exitStub[0], cl], [entryStub[0], cl]]
-    : [[cl, exitStub[1]], [cl, entryStub[1]]];
+    ? [
+        [exitStub[0], cl],
+        [entryStub[0], cl],
+      ]
+    : [
+        [cl, exitStub[1]],
+        [cl, entryStub[1]],
+      ];
 }
 
 // ══════════════════════════════════════════════════════════════
@@ -527,11 +654,16 @@ export function computeSelfLoopPath(
   start: [number, number],
   end: [number, number],
   routing: string | undefined,
-  target: { position: { x: number; y: number }; size: { width: number; height: number } } | undefined,
+  target:
+    | {
+        position: { x: number; y: number };
+        size: { width: number; height: number };
+      }
+    | undefined,
   jettySize: number,
 ): { points: [number, number][]; isCurved: boolean } {
   // For curved/straight/undefined: renderer draws bezier
-  if (!routing || routing === 'straight' || routing === 'curved') {
+  if (!routing || routing === "straight" || routing === "curved") {
     return { points: [start, end], isCurved: true };
   }
 
@@ -551,18 +683,20 @@ export function computeSelfLoopPath(
 
   if (Math.abs(dx) >= Math.abs(dy)) {
     // Start and end are on left or right side — loop outward horizontally
-    const outX = dx >= 0
-      ? Math.max(start[0], end[0]) + jettySize
-      : Math.min(start[0], end[0]) - jettySize;
+    const outX =
+      dx >= 0
+        ? Math.max(start[0], end[0]) + jettySize
+        : Math.min(start[0], end[0]) - jettySize;
     return {
       points: [start, [outX, start[1]], [outX, end[1]], end],
       isCurved: false,
     };
   } else {
     // Start and end are on top or bottom — loop outward vertically
-    const outY = dy >= 0
-      ? Math.max(start[1], end[1]) + jettySize
-      : Math.min(start[1], end[1]) - jettySize;
+    const outY =
+      dy >= 0
+        ? Math.max(start[1], end[1]) + jettySize
+        : Math.min(start[1], end[1]) - jettySize;
     return {
       points: [start, [start[0], outY], [end[0], outY], end],
       isCurved: false,
@@ -576,7 +710,7 @@ export function computeSelfLoopPath(
 
 /** Check if a direction is horizontal (left or right). */
 function isHorizontal(dir: Direction): boolean {
-  return dir === 'left' || dir === 'right';
+  return dir === "left" || dir === "right";
 }
 
 /**
@@ -588,7 +722,7 @@ function isHorizontal(dir: Direction): boolean {
  */
 function avoidShapesOnAxis(
   midVal: number,
-  axis: 'x' | 'y',
+  axis: "x" | "y",
   crossStart: number,
   crossEnd: number,
   sBounds: Rect | undefined,
@@ -601,18 +735,26 @@ function avoidShapesOnAxis(
   for (const b of [sBounds, eBounds]) {
     if (!b) continue;
 
-    if (axis === 'x') {
+    if (axis === "x") {
       // Check if vertical segment at midVal crosses shape
-      if (midVal > b.x && midVal < b.x + b.width &&
-          hi > b.y && lo < b.y + b.height) {
+      if (
+        midVal > b.x &&
+        midVal < b.x + b.width &&
+        hi > b.y &&
+        lo < b.y + b.height
+      ) {
         const r = b.x + b.width + padding;
         const l = b.x - padding;
         midVal = Math.abs(r - midVal) <= Math.abs(l - midVal) ? r : l;
       }
     } else {
       // Check if horizontal segment at midVal crosses shape
-      if (midVal > b.y && midVal < b.y + b.height &&
-          hi > b.x && lo < b.x + b.width) {
+      if (
+        midVal > b.y &&
+        midVal < b.y + b.height &&
+        hi > b.x &&
+        lo < b.x + b.width
+      ) {
         const d = b.y + b.height + padding;
         const u = b.y - padding;
         midVal = Math.abs(d - midVal) <= Math.abs(u - midVal) ? d : u;
@@ -629,11 +771,7 @@ function avoidShapesOnAxis(
  * Uses epsilon tolerance — segments within EDGE_EPSILON of shape edges
  * are treated as crossing.
  */
-function segmentCrossesRect(
-  p1: Point,
-  p2: Point,
-  rect?: Rect,
-): boolean {
+function segmentCrossesRect(p1: Point, p2: Point, rect?: Rect): boolean {
   if (!rect) return false;
   const [x1, y1] = p1;
   const [x2, y2] = p2;
@@ -642,20 +780,24 @@ function segmentCrossesRect(
     // Horizontal segment
     const minX = Math.min(x1, x2);
     const maxX = Math.max(x1, x2);
-    return y1 > rect.y - EDGE_EPSILON &&
-           y1 < rect.y + rect.height + EDGE_EPSILON &&
-           maxX > rect.x - EDGE_EPSILON &&
-           minX < rect.x + rect.width + EDGE_EPSILON;
+    return (
+      y1 > rect.y - EDGE_EPSILON &&
+      y1 < rect.y + rect.height + EDGE_EPSILON &&
+      maxX > rect.x - EDGE_EPSILON &&
+      minX < rect.x + rect.width + EDGE_EPSILON
+    );
   }
 
   if (x1 === x2) {
     // Vertical segment
     const minY = Math.min(y1, y2);
     const maxY = Math.max(y1, y2);
-    return x1 > rect.x - EDGE_EPSILON &&
-           x1 < rect.x + rect.width + EDGE_EPSILON &&
-           maxY > rect.y - EDGE_EPSILON &&
-           minY < rect.y + rect.height + EDGE_EPSILON;
+    return (
+      x1 > rect.x - EDGE_EPSILON &&
+      x1 < rect.x + rect.width + EDGE_EPSILON &&
+      maxY > rect.y - EDGE_EPSILON &&
+      minY < rect.y + rect.height + EDGE_EPSILON
+    );
   }
 
   return false;
@@ -677,20 +819,18 @@ function computeCShapeClearance(
   const all = [sBounds, eBounds].filter(Boolean) as Rect[];
 
   if (all.length === 0) {
-    return isXAxis
-      ? (exit[0] + entry[0]) / 2
-      : (exit[1] + entry[1]) / 2;
+    return isXAxis ? (exit[0] + entry[0]) / 2 : (exit[1] + entry[1]) / 2;
   }
 
   if (isXAxis) {
-    const lo = Math.min(...all.map(b => b.x)) - padding;
-    const hi = Math.max(...all.map(b => b.x + b.width)) + padding;
+    const lo = Math.min(...all.map((b) => b.x)) - padding;
+    const hi = Math.max(...all.map((b) => b.x + b.width)) + padding;
     const avg = (exit[0] + entry[0]) / 2;
     return Math.abs(avg - lo) < Math.abs(avg - hi) ? lo : hi;
   }
 
-  const lo = Math.min(...all.map(b => b.y)) - padding;
-  const hi = Math.max(...all.map(b => b.y + b.height)) + padding;
+  const lo = Math.min(...all.map((b) => b.y)) - padding;
+  const hi = Math.max(...all.map((b) => b.y + b.height)) + padding;
   const avg = (exit[1] + entry[1]) / 2;
   return Math.abs(avg - lo) < Math.abs(avg - hi) ? lo : hi;
 }

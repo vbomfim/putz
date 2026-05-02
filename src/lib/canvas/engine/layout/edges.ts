@@ -8,8 +8,8 @@
  * @module
  */
 
-import type { VisualExpression } from '../../protocol';
-import type { LayoutEdge } from './types';
+import type { VisualExpression } from "../../protocol";
+import type { LayoutEdge } from "./types";
 
 /**
  * Extract directed edges from arrow expressions.
@@ -29,7 +29,7 @@ export function extractEdges(
   const edges: LayoutEdge[] = [];
 
   for (const arrow of arrows) {
-    if (arrow.data.kind !== 'arrow') continue;
+    if (arrow.data.kind !== "arrow") continue;
 
     const data = arrow.data as {
       startBinding?: { expressionId: string };

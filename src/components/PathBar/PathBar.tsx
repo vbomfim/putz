@@ -6,7 +6,10 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { useLayoutStore } from "../../stores/layoutStore";
 import { useBookmarksStore } from "../../stores/bookmarksStore";
-import { parseBranchOutput, parseTagListOutput } from "../../lib/git-graph/gitParser";
+import {
+  parseBranchOutput,
+  parseTagListOutput,
+} from "../../lib/git-graph/gitParser";
 import { Popover } from "../Popover/Popover";
 import "./PathBar.css";
 
@@ -56,7 +59,9 @@ export function PathBar() {
   const [cwd, setCwd] = useState<string | null>(null);
   const [git, setGit] = useState<GitInfo | null>(null);
   const [branchMenuOpen, setBranchMenuOpen] = useState(false);
-  const [branches, setBranches] = useState<{ name: string; isRemote: boolean; isCurrent: boolean }[]>([]);
+  const [branches, setBranches] = useState<
+    { name: string; isRemote: boolean; isCurrent: boolean }[]
+  >([]);
   const [tags, setTags] = useState<string[]>([]);
   const [branchFilter, setBranchFilter] = useState("");
   const branchBtnRef = useRef<HTMLButtonElement>(null);
@@ -75,8 +80,12 @@ export function PathBar() {
   // Probe perf gating once on mount. Set PUTZ_PERF=1 to enable.
   useEffect(() => {
     invoke<boolean>("perf_enabled")
-      .then((v) => { perfEnabledRef.current = v; })
-      .catch(() => { perfEnabledRef.current = false; });
+      .then((v) => {
+        perfEnabledRef.current = v;
+      })
+      .catch(() => {
+        perfEnabledRef.current = false;
+      });
   }, []);
   const focusedRegionId = useLayoutStore((s) => s.focusedRegionId);
   const regions = useLayoutStore((s) => s.regions);
@@ -104,10 +113,20 @@ export function PathBar() {
   }, []);
 
   useEffect(() => {
-    if (!sessionId) { setCwd(null); setGit(null); return; }
+    if (!sessionId) {
+      setCwd(null);
+      setGit(null);
+      return;
+    }
     invoke<string>("pty_cwd", { sessionId })
-      .then((v) => { setCwd(v); checkGit(v); })
-      .catch(() => { setCwd(null); setGit(null); });
+      .then((v) => {
+        setCwd(v);
+        checkGit(v);
+      })
+      .catch(() => {
+        setCwd(null);
+        setGit(null);
+      });
   }, [sessionId, checkGit]);
 
   useEffect(() => {
@@ -122,36 +141,46 @@ export function PathBar() {
     return () => window.removeEventListener("putz-cwd-change", handler);
   }, [sessionId, checkGit]);
 
-  const navigateTo = useCallback((path: string) => {
-    if (!sessionId) return;
-    const t0 = performance.now();
-    const perf = (msg: string) => {
-      if (!perfEnabledRef.current) return;
-      const ms = (performance.now() - t0).toFixed(1);
-      const line = `crumb t+${ms}ms ${msg}`;
-      console.log(`[PERF] ${line}`);
-      invoke("perf_log", { line }).catch(() => {});
-    };
-    perf(`click path=${path}`);
-    setCwd(path);
-    perf("after setCwd");
-    // NOTE: no dispatchEvent here — PathBar is the only listener for
-    // putz-cwd-change, so self-dispatching only causes a duplicate
-    // checkGit run (4 git invokes instead of 2). External callers
-    // (bookmarks, shell prompt) still drive the event.
-    checkGit(path);
-    perf("after checkGit call (async)");
-    const escaped = path.replace(/\\/g, "\\\\").replace(/"/g, '\\"').replace(/\$/g, "\\$").replace(/`/g, "\\`");
-    const data = Array.from(new TextEncoder().encode(`cd "${escaped}"\r`));
-    perf("before pty_write invoke");
-    invoke("pty_write", { sessionId, data })
-      .then(() => perf("pty_write OK"))
-      .catch((e) => perf(`pty_write FAIL err=${e}`));
-  }, [sessionId, checkGit]);
+  const navigateTo = useCallback(
+    (path: string) => {
+      if (!sessionId) return;
+      const t0 = performance.now();
+      const perf = (msg: string) => {
+        if (!perfEnabledRef.current) return;
+        const ms = (performance.now() - t0).toFixed(1);
+        const line = `crumb t+${ms}ms ${msg}`;
+        console.log(`[PERF] ${line}`);
+        invoke("perf_log", { line }).catch(() => {});
+      };
+      perf(`click path=${path}`);
+      setCwd(path);
+      perf("after setCwd");
+      // NOTE: no dispatchEvent here — PathBar is the only listener for
+      // putz-cwd-change, so self-dispatching only causes a duplicate
+      // checkGit run (4 git invokes instead of 2). External callers
+      // (bookmarks, shell prompt) still drive the event.
+      checkGit(path);
+      perf("after checkGit call (async)");
+      const escaped = path
+        .replace(/\\/g, "\\\\")
+        .replace(/"/g, '\\"')
+        .replace(/\$/g, "\\$")
+        .replace(/`/g, "\\`");
+      const data = Array.from(new TextEncoder().encode(`cd "${escaped}"\r`));
+      perf("before pty_write invoke");
+      invoke("pty_write", { sessionId, data })
+        .then(() => perf("pty_write OK"))
+        .catch((e) => perf(`pty_write FAIL err=${e}`));
+    },
+    [sessionId, checkGit],
+  );
 
   // Open branch menu
   const toggleBranchMenu = useCallback(async () => {
-    if (branchMenuOpen) { setBranchMenuOpen(false); return; }
+    if (branchMenuOpen) {
+      setBranchMenuOpen(false);
+      return;
+    }
     if (!git) return;
     try {
       const [branchRaw, tagRaw] = await Promise.all([
@@ -162,20 +191,28 @@ export function PathBar() {
       setTags(parseTagListOutput(tagRaw));
       setBranchFilter("");
       setBranchMenuOpen(true);
-    } catch { /* ignore */ }
+    } catch {
+      /* ignore */
+    }
   }, [git, branchMenuOpen]);
 
   // Checkout a branch
-  const handleCheckout = useCallback(async (branchName: string) => {
-    if (!git) return;
-    setBranchMenuOpen(false);
-    try {
-      await invoke<string>("git_checkout", { repoPath: git.repoRoot, branch: branchName });
-      checkGit(git.repoRoot);
-    } catch (e) {
-      console.error("Checkout failed:", e);
-    }
-  }, [git, checkGit]);
+  const handleCheckout = useCallback(
+    async (branchName: string) => {
+      if (!git) return;
+      setBranchMenuOpen(false);
+      try {
+        await invoke<string>("git_checkout", {
+          repoPath: git.repoRoot,
+          branch: branchName,
+        });
+        checkGit(git.repoRoot);
+      } catch (e) {
+        console.error("Checkout failed:", e);
+      }
+    },
+    [git, checkGit],
+  );
 
   const handlePush = useCallback(async () => {
     if (!git) return;
@@ -201,8 +238,12 @@ export function PathBar() {
   useEffect(() => {
     if (!branchMenuOpen) return;
     const handler = (e: MouseEvent) => {
-      if (branchMenuRef.current && !branchMenuRef.current.contains(e.target as Node) &&
-          branchBtnRef.current && !branchBtnRef.current.contains(e.target as Node)) {
+      if (
+        branchMenuRef.current &&
+        !branchMenuRef.current.contains(e.target as Node) &&
+        branchBtnRef.current &&
+        !branchBtnRef.current.contains(e.target as Node)
+      ) {
         setBranchMenuOpen(false);
       }
     };
@@ -231,51 +272,66 @@ export function PathBar() {
   // Fetching before opening prevents the prior WebView2/xterm-WebGL "black zone"
   // compositor bug caused by async size growth of an overlay on top of WebGL.
   // By the time the popover renders, entries are known and layout is stable.
-  const handleSegmentClick = useCallback(async (path: string) => {
-    if (openCrumb === path) { setOpenCrumb(null); return; }
-    try {
-      const entries = await invoke<DirEntry[]>("dir_list", { path });
-      setCrumbEntries(entries);
-      openCrumbAnchorRef.current = crumbBtnRefs.current.get(path) ?? null;
-      setOpenCrumb(path);
-    } catch {
-      // Permission or I/O error — silently skip; user can still use terminal.
-    }
-  }, [openCrumb]);
+  const handleSegmentClick = useCallback(
+    async (path: string) => {
+      if (openCrumb === path) {
+        setOpenCrumb(null);
+        return;
+      }
+      try {
+        const entries = await invoke<DirEntry[]>("dir_list", { path });
+        setCrumbEntries(entries);
+        openCrumbAnchorRef.current = crumbBtnRefs.current.get(path) ?? null;
+        setOpenCrumb(path);
+      } catch {
+        // Permission or I/O error — silently skip; user can still use terminal.
+      }
+    },
+    [openCrumb],
+  );
 
-  const handleCrumbEntryClick = useCallback((entry: DirEntry) => {
-    setOpenCrumb(null);
-    if (entry.isDir) {
-      navigateTo(entry.path);
-    } else {
-      const regionId = useLayoutStore.getState().focusedRegionId;
-      useLayoutStore.getState().addEditorTab(regionId, entry.path);
-    }
-  }, [navigateTo]);
+  const handleCrumbEntryClick = useCallback(
+    (entry: DirEntry) => {
+      setOpenCrumb(null);
+      if (entry.isDir) {
+        navigateTo(entry.path);
+      } else {
+        const regionId = useLayoutStore.getState().focusedRegionId;
+        useLayoutStore.getState().addEditorTab(regionId, entry.path);
+      }
+    },
+    [navigateTo],
+  );
 
   // Position bookmarks menu aligned to ★ button — opens upward from path bar
-  const handleBookmarkClick = useCallback((bm: { path: string; type: string }) => {
-    if (bm.type === "folder") {
-      navigateTo(bm.path);
-    } else {
-      const regionId = useLayoutStore.getState().focusedRegionId;
-      useLayoutStore.getState().addEditorTab(regionId, bm.path);
-    }
-    setBookmarksOpen(false);
-  }, [navigateTo]);
+  const handleBookmarkClick = useCallback(
+    (bm: { path: string; type: string }) => {
+      if (bm.type === "folder") {
+        navigateTo(bm.path);
+      } else {
+        const regionId = useLayoutStore.getState().focusedRegionId;
+        useLayoutStore.getState().addEditorTab(regionId, bm.path);
+      }
+      setBookmarksOpen(false);
+    },
+    [navigateTo],
+  );
 
   // Get root bookmarks sorted
   const rootBookmarks = bookmarks
     .filter((b) => b.folderId === null)
     .sort((a, b) => a.sortIndex - b.sortIndex);
-  const sortedFolders = bookmarkFolders
-    .sort((a, b) => a.sortIndex - b.sortIndex);
+  const sortedFolders = bookmarkFolders.sort(
+    (a, b) => a.sortIndex - b.sortIndex,
+  );
 
   if (!cwd) return null;
 
   const segments = pathSegments(cwd);
   const filteredBranches = branchFilter
-    ? branches.filter((b) => b.name.toLowerCase().includes(branchFilter.toLowerCase()))
+    ? branches.filter((b) =>
+        b.name.toLowerCase().includes(branchFilter.toLowerCase()),
+      )
     : branches;
   const filteredTags = branchFilter
     ? tags.filter((t) => t.toLowerCase().includes(branchFilter.toLowerCase()))
@@ -311,12 +367,20 @@ export function PathBar() {
               .filter((b) => b.folderId === folder.id)
               .sort((a, b) => a.sortIndex - b.sortIndex);
             return (
-              <BookmarkFolderItem key={folder.id} folder={folder} children={children}
-                onSelect={handleBookmarkClick} onClose={() => setBookmarksOpen(false)} />
+              <BookmarkFolderItem
+                key={folder.id}
+                folder={folder}
+                children={children}
+                onSelect={handleBookmarkClick}
+                onClose={() => setBookmarksOpen(false)}
+              />
             );
           })}
           {rootBookmarks.map((bm) => (
-            <div key={bm.id} className="path-bar__crumb-item path-bar__bookmark-item">
+            <div
+              key={bm.id}
+              className="path-bar__crumb-item path-bar__bookmark-item"
+            >
               <button
                 className="path-bar__crumb-name"
                 onClick={() => handleBookmarkClick(bm)}
@@ -329,7 +393,9 @@ export function PathBar() {
                 className="path-bar__crumb-star path-bar__crumb-star--active"
                 onClick={() => removeBookmark(bm.id)}
                 title="Remove from bookmarks"
-              >★</button>
+              >
+                ★
+              </button>
             </div>
           ))}
         </Popover>
@@ -340,7 +406,9 @@ export function PathBar() {
           {i > 0 && <span className="path-bar__sep">›</span>}
           <button
             type="button"
-            ref={(el) => { crumbBtnRefs.current.set(seg.path, el); }}
+            ref={(el) => {
+              crumbBtnRefs.current.set(seg.path, el);
+            }}
             className={`path-bar__segment ${openCrumb === seg.path ? "path-bar__segment--active" : ""}`}
             onClick={() => handleSegmentClick(seg.path)}
             title={seg.path}
@@ -365,7 +433,10 @@ export function PathBar() {
           <button
             type="button"
             className="path-bar__crumb-item path-bar__crumb-item--current"
-            onClick={() => { setOpenCrumb(null); navigateTo(openCrumb); }}
+            onClick={() => {
+              setOpenCrumb(null);
+              navigateTo(openCrumb);
+            }}
             title={`cd to ${openCrumb}`}
           >
             <span>→</span>
@@ -389,9 +460,7 @@ export function PathBar() {
         </Popover>
       )}
 
-      {radioName && (
-        <span className="path-bar__radio">📻 {radioName}</span>
-      )}
+      {radioName && <span className="path-bar__radio">📻 {radioName}</span>}
 
       {git && (
         <div className="path-bar__git">
@@ -404,17 +473,29 @@ export function PathBar() {
             ⎇ {git.branch} ▾
           </button>
           {git.ahead > 0 && (
-            <button className="path-bar__git-action" onClick={handlePush} title={`Push ${git.ahead} commit${git.ahead > 1 ? "s" : ""}`}>
+            <button
+              className="path-bar__git-action"
+              onClick={handlePush}
+              title={`Push ${git.ahead} commit${git.ahead > 1 ? "s" : ""}`}
+            >
               ↑{git.ahead} ⬆
             </button>
           )}
           {git.behind > 0 && (
-            <button className="path-bar__git-action path-bar__git-action--pull" onClick={handlePull} title={`Pull ${git.behind} commit${git.behind > 1 ? "s" : ""}`}>
+            <button
+              className="path-bar__git-action path-bar__git-action--pull"
+              onClick={handlePull}
+              title={`Pull ${git.behind} commit${git.behind > 1 ? "s" : ""}`}
+            >
               ↓{git.behind} ⬇
             </button>
           )}
-          {git.ahead === 0 && git.behind === 0 && <span className="path-bar__git-sync">✓</span>}
-          {git.dirty > 0 && <span className="path-bar__git-dirty">●{git.dirty}</span>}
+          {git.ahead === 0 && git.behind === 0 && (
+            <span className="path-bar__git-sync">✓</span>
+          )}
+          {git.dirty > 0 && (
+            <span className="path-bar__git-dirty">●{git.dirty}</span>
+          )}
           <button
             className="path-bar__git-tree"
             onClick={() => addGitGraphTab(undefined, git.repoRoot)}
@@ -448,8 +529,14 @@ export function PathBar() {
                     onClick={() => !b.isCurrent && handleCheckout(b.name)}
                     disabled={b.isCurrent}
                   >
-                    {b.isCurrent && <span className="path-bar__branch-check">★</span>}
-                    <span className={b.isRemote ? "path-bar__branch-remote" : ""}>{b.name}</span>
+                    {b.isCurrent && (
+                      <span className="path-bar__branch-check">★</span>
+                    )}
+                    <span
+                      className={b.isRemote ? "path-bar__branch-remote" : ""}
+                    >
+                      {b.name}
+                    </span>
                   </button>
                 ))}
                 {filteredTags.length > 0 && (
@@ -480,7 +567,12 @@ export function PathBar() {
 }
 
 /** Bookmark folder with expandable children in the ★ dropdown. */
-function BookmarkFolderItem({ folder, children, onSelect, onClose }: {
+function BookmarkFolderItem({
+  folder,
+  children,
+  onSelect,
+  onClose,
+}: {
   folder: { id: string; name: string };
   children: { id: string; name: string; path: string; type: string }[];
   onSelect: (bm: { path: string; type: string }) => void;
@@ -490,20 +582,32 @@ function BookmarkFolderItem({ folder, children, onSelect, onClose }: {
   return (
     <div>
       <div className="path-bar__crumb-item path-bar__bookmark-item">
-        <button className="path-bar__crumb-chevron" onClick={() => setExpanded((p) => !p)}>
+        <button
+          className="path-bar__crumb-chevron"
+          onClick={() => setExpanded((p) => !p)}
+        >
           {expanded ? "▾" : "▸"}
         </button>
-        <span className="path-bar__crumb-name" style={{ fontWeight: 600 }}>📁 {folder.name}</span>
+        <span className="path-bar__crumb-name" style={{ fontWeight: 600 }}>
+          📁 {folder.name}
+        </span>
       </div>
-      {expanded && children.map((bm) => (
-        <button key={bm.id} className="path-bar__crumb-item path-bar__bookmark-item"
-          style={{ paddingLeft: 22 }}
-          onClick={() => { onSelect(bm); onClose(); }}
-          title={bm.path}>
-          <span>{bm.type === "folder" ? "📁" : "📄"}</span>
-          <span className="path-bar__crumb-name">{bm.name}</span>
-        </button>
-      ))}
+      {expanded &&
+        children.map((bm) => (
+          <button
+            key={bm.id}
+            className="path-bar__crumb-item path-bar__bookmark-item"
+            style={{ paddingLeft: 22 }}
+            onClick={() => {
+              onSelect(bm);
+              onClose();
+            }}
+            title={bm.path}
+          >
+            <span>{bm.type === "folder" ? "📁" : "📄"}</span>
+            <span className="path-bar__crumb-name">{bm.name}</span>
+          </button>
+        ))}
     </div>
   );
 }

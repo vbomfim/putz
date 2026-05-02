@@ -283,8 +283,7 @@ impl SwarmCoordinator {
         let mut inner = self.inner.write().await;
 
         // M3: Capacity check (only for genuinely new colleagues)
-        if !inner.registry.contains_key(&req.colleague_id)
-            && inner.registry.len() >= MAX_COLLEAGUES
+        if !inner.registry.contains_key(&req.colleague_id) && inner.registry.len() >= MAX_COLLEAGUES
         {
             return Err("Registry full".into());
         }
@@ -505,10 +504,7 @@ fn broadcast_roster_update(inner: &CoordinatorInner) {
 /// Background task that sweeps the registry for stale/dead colleagues.
 ///
 /// M7: Collects transitions under write lock, drops it, then broadcasts under read lock.
-async fn stale_sweeper(
-    inner: Arc<RwLock<CoordinatorInner>>,
-    cancel: CancellationToken,
-) {
+async fn stale_sweeper(inner: Arc<RwLock<CoordinatorInner>>, cancel: CancellationToken) {
     loop {
         tokio::select! {
             _ = cancel.cancelled() => break,
@@ -592,7 +588,7 @@ mod tests {
     async fn coordinator_new_is_disabled() {
         let coord = SwarmCoordinator::new();
         assert!(!coord.enabled());
-        assert_eq!(coord.state().await.enabled, false);
+        assert!(!coord.state().await.enabled);
     }
 
     #[tokio::test]
@@ -664,7 +660,10 @@ mod tests {
             cwd: None,
         };
         coord.register(req).await.unwrap();
-        coord.heartbeat("alice-a1b2", ColleagueStatus::Working).await.unwrap();
+        coord
+            .heartbeat("alice-a1b2", ColleagueStatus::Working)
+            .await
+            .unwrap();
 
         let inner = coord.inner.read().await;
         assert_eq!(
@@ -860,7 +859,11 @@ mod tests {
         coord.register(req2).await.unwrap();
 
         let roster = coord.roster().await;
-        assert_eq!(roster.len(), 1, "Duplicate ID should overwrite, not duplicate");
+        assert_eq!(
+            roster.len(),
+            1,
+            "Duplicate ID should overwrite, not duplicate"
+        );
         assert_eq!(roster[0].name, "alice-v2");
     }
 
@@ -889,7 +892,11 @@ mod tests {
             .await
             .unwrap();
         coord.deregister_by_tab("nonexistent-tab").await;
-        assert_eq!(coord.roster().await.len(), 1, "Alice should still be registered");
+        assert_eq!(
+            coord.roster().await.len(),
+            1,
+            "Alice should still be registered"
+        );
     }
 
     /// [CONTRACT] deregister() cleans up sender and buffer along with registry.
@@ -966,11 +973,19 @@ mod tests {
 
         // First subscribe gets all 3 buffered messages
         let (_rx1, buffered1) = coord.subscribe("bob-0001").await.unwrap();
-        assert_eq!(buffered1.len(), 3, "First subscribe should drain all buffered messages");
+        assert_eq!(
+            buffered1.len(),
+            3,
+            "First subscribe should drain all buffered messages"
+        );
 
         // Second subscribe (re-subscribe) should get no buffered messages
         let (_rx2, buffered2) = coord.subscribe("bob-0001").await.unwrap();
-        assert_eq!(buffered2.len(), 0, "Re-subscribe should not re-deliver buffered messages");
+        assert_eq!(
+            buffered2.len(),
+            0,
+            "Re-subscribe should not re-deliver buffered messages"
+        );
     }
 
     /// [CONTRACT] subscribe() replaces the previous sender — old receiver stops getting events.
@@ -1007,12 +1022,18 @@ mod tests {
             .unwrap();
 
         // New receiver should get the message
-        assert!(rx_new.try_recv().is_ok(), "New subscriber should receive the message");
+        assert!(
+            rx_new.try_recv().is_ok(),
+            "New subscriber should receive the message"
+        );
 
         // Old receiver should NOT get new messages (sender was replaced)
         // The old tx was dropped when replaced, so old rx will eventually get None
         // For now, it should have no new messages
-        assert!(rx_old.try_recv().is_err(), "Old subscriber should not receive new messages");
+        assert!(
+            rx_old.try_recv().is_err(),
+            "Old subscriber should not receive new messages"
+        );
     }
 
     /// [EDGE] Route message from a colleague to itself.
@@ -1081,7 +1102,10 @@ mod tests {
                 body: "hello".into(),
             })
             .await;
-        assert!(result.is_err(), "Message to deregistered colleague should fail");
+        assert!(
+            result.is_err(),
+            "Message to deregistered colleague should fail"
+        );
     }
 
     /// [BOUNDARY] env_vars() returns exactly 3 vars when coordinator has URL and token set.
@@ -1094,7 +1118,9 @@ mod tests {
             inner.url = Some("http://127.0.0.1:12345".into());
             inner.token = Some("abcd1234".into());
         }
-        coord.enabled.store(true, std::sync::atomic::Ordering::SeqCst);
+        coord
+            .enabled
+            .store(true, std::sync::atomic::Ordering::SeqCst);
 
         let vars = coord.env_vars("tab-42").await.unwrap();
         assert_eq!(vars.len(), 3);
@@ -1112,7 +1138,9 @@ mod tests {
             inner.url = Some("http://127.0.0.1:12345".into());
             inner.token = Some("tok-1234".into());
         }
-        coord.enabled.store(true, std::sync::atomic::Ordering::SeqCst);
+        coord
+            .enabled
+            .store(true, std::sync::atomic::Ordering::SeqCst);
 
         let vars = coord
             .colleague_env_vars("tab-1", "alice-a1b2", "alice", "parent-0001", None)
@@ -1137,7 +1165,9 @@ mod tests {
             inner.url = Some("http://127.0.0.1:12345".into());
             inner.token = Some("tok-1234".into());
         }
-        coord.enabled.store(true, std::sync::atomic::Ordering::SeqCst);
+        coord
+            .enabled
+            .store(true, std::sync::atomic::Ordering::SeqCst);
 
         let vars = coord
             .colleague_env_vars(
@@ -1161,7 +1191,7 @@ mod tests {
     #[tokio::test]
     async fn colleague_env_vars_none_when_disabled() {
         let coord = SwarmCoordinator::new();
-        assert!(coord.enabled.load(std::sync::atomic::Ordering::SeqCst) == false);
+        assert!(!coord.enabled.load(std::sync::atomic::Ordering::SeqCst));
         let result = coord
             .colleague_env_vars("tab-1", "alice-a1b2", "alice", "parent", None)
             .await;
@@ -1172,7 +1202,9 @@ mod tests {
     #[tokio::test]
     async fn env_vars_none_when_url_missing() {
         let coord = SwarmCoordinator::new();
-        coord.enabled.store(true, std::sync::atomic::Ordering::SeqCst);
+        coord
+            .enabled
+            .store(true, std::sync::atomic::Ordering::SeqCst);
         // enabled=true but inner.url is None (start() not called)
         let result = coord.env_vars("tab-1").await;
         assert!(result.is_none(), "Should return None when URL not yet set");
@@ -1194,8 +1226,14 @@ mod tests {
             .await
             .unwrap();
 
-        coord.heartbeat("alice-a1b2", ColleagueStatus::Working).await.unwrap();
-        coord.heartbeat("alice-a1b2", ColleagueStatus::Idle).await.unwrap();
+        coord
+            .heartbeat("alice-a1b2", ColleagueStatus::Working)
+            .await
+            .unwrap();
+        coord
+            .heartbeat("alice-a1b2", ColleagueStatus::Idle)
+            .await
+            .unwrap();
 
         let inner = coord.inner.read().await;
         assert_eq!(inner.registry["alice-a1b2"].status, ColleagueStatus::Idle);
@@ -1236,7 +1274,10 @@ mod tests {
             inner.registry.get_mut("bob-0001").unwrap().status = ColleagueStatus::Stale;
         }
 
-        let stale_peers = coord.heartbeat("alice-a1b2", ColleagueStatus::Idle).await.unwrap();
+        let stale_peers = coord
+            .heartbeat("alice-a1b2", ColleagueStatus::Idle)
+            .await
+            .unwrap();
         assert_eq!(stale_peers.len(), 1);
         assert_eq!(stale_peers[0], "bob-0001");
     }
@@ -1289,7 +1330,10 @@ mod tests {
     fn generate_colleague_id_empty_name() {
         let id = SwarmCoordinator::generate_colleague_id("");
         // Format: "{name}-{4hex}", empty name → "-xxxx"
-        assert!(id.starts_with('-'), "Empty name should still produce -xxxx format");
+        assert!(
+            id.starts_with('-'),
+            "Empty name should still produce -xxxx format"
+        );
         assert_eq!(id.len(), 1 + 4, "dash + 4 hex chars");
     }
 
@@ -1358,7 +1402,7 @@ mod tests {
 
         // Bob should exist with messages buffered
         let roster = coord.roster().await;
-        assert!(roster.len() >= 1, "At least bob should be registered");
+        assert!(!roster.is_empty(), "At least bob should be registered");
     }
 
     /// [EDGE] Concurrent subscribe + route_message should not lose messages.
@@ -1382,9 +1426,7 @@ mod tests {
         let coord2 = coord.clone();
 
         // Subscribe in one task
-        let handle1 = tokio::spawn(async move {
-            coord1.subscribe("bob-0001").await.unwrap()
-        });
+        let handle1 = tokio::spawn(async move { coord1.subscribe("bob-0001").await.unwrap() });
 
         // Send messages in another
         let handle2 = tokio::spawn(async move {
@@ -1425,7 +1467,10 @@ mod tests {
             .await
             .unwrap();
 
-        coord.heartbeat("alice-a1b2", ColleagueStatus::Working).await.unwrap();
+        coord
+            .heartbeat("alice-a1b2", ColleagueStatus::Working)
+            .await
+            .unwrap();
 
         let roster = coord.roster().await;
         assert_eq!(roster[0].status, "working");
@@ -1436,7 +1481,7 @@ mod tests {
     async fn state_disabled_shape() {
         let coord = SwarmCoordinator::new();
         let state = coord.state().await;
-        assert_eq!(state.enabled, false);
+        assert!(!state.enabled);
         assert!(state.url.is_none());
         assert!(state.token.is_none());
 
@@ -1480,7 +1525,10 @@ mod tests {
 
         // Verify no token in serialized output
         let json = serde_json::to_string(&public).unwrap();
-        assert!(!json.contains("super-secret-token"), "Token must never appear in public state");
+        assert!(
+            !json.contains("super-secret-token"),
+            "Token must never appear in public state"
+        );
     }
 
     /// [CONTRACT] state_public() when disabled returns disabled shape.
@@ -1611,7 +1659,10 @@ mod tests {
                 cwd: None,
             })
             .await;
-        assert!(result.is_ok(), "Re-registration should bypass capacity check");
+        assert!(
+            result.is_ok(),
+            "Re-registration should bypass capacity check"
+        );
     }
 
     /// [M4] route_message() rejects oversized body.
@@ -1680,11 +1731,17 @@ mod tests {
 
         let before = chrono::Utc::now();
         tokio::time::sleep(std::time::Duration::from_millis(5)).await;
-        coord.heartbeat("alice-a1b2", ColleagueStatus::Working).await.unwrap();
+        coord
+            .heartbeat("alice-a1b2", ColleagueStatus::Working)
+            .await
+            .unwrap();
 
         let inner = coord.inner.read().await;
         let alice = &inner.registry["alice-a1b2"];
-        assert!(alice.last_seen_at > before, "last_seen_at should be updated after heartbeat");
+        assert!(
+            alice.last_seen_at > before,
+            "last_seen_at should be updated after heartbeat"
+        );
     }
 
     /// [M4] is_valid_identifier accepts valid patterns.

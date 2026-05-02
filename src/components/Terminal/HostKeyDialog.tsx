@@ -49,8 +49,11 @@ export function HostKeyDialog({
               ⚠️ WARNING: HOST KEY CHANGED
             </h2>
             <p className="terminal-dialog-text">
-              The host key for <strong>{displayHost}:{hostKey.port}</strong> has
-              changed! This could indicate a man-in-the-middle attack.
+              The host key for{" "}
+              <strong>
+                {displayHost}:{hostKey.port}
+              </strong>{" "}
+              has changed! This could indicate a man-in-the-middle attack.
             </p>
             <div className="terminal-dialog-details">
               <div className="terminal-dialog-field">
@@ -69,20 +72,20 @@ export function HostKeyDialog({
               )}
             </div>
             <p className="terminal-dialog-text terminal-dialog-danger">
-              If you did not expect this change, do NOT continue.
-              Contact your system administrator.
+              If you did not expect this change, do NOT continue. Contact your
+              system administrator.
             </p>
           </>
         ) : (
           <>
-            <h2
-              id="hostkey-dialog-title"
-              className="terminal-dialog-title"
-            >
+            <h2 id="hostkey-dialog-title" className="terminal-dialog-title">
               New SSH Host Key
             </h2>
             <p className="terminal-dialog-text">
-              The authenticity of host <strong>{displayHost}:{hostKey.port}</strong>{" "}
+              The authenticity of host{" "}
+              <strong>
+                {displayHost}:{hostKey.port}
+              </strong>{" "}
               can&apos;t be established.
             </p>
             <div className="terminal-dialog-details">
@@ -96,8 +99,8 @@ export function HostKeyDialog({
               </div>
             </div>
             <p className="terminal-dialog-text">
-              Are you sure you want to continue connecting?
-              The key will be saved to known hosts.
+              Are you sure you want to continue connecting? The key will be
+              saved to known hosts.
             </p>
           </>
         )}

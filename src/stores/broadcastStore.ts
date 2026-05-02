@@ -52,9 +52,7 @@ export const useBroadcastStore = create<BroadcastState>((set, get) => ({
       set({ isActive: false, targetTabIds: new Set<string>() });
     } else {
       // Activate — auto-select all other tabs as targets
-      const targets = new Set(
-        allTabIds.filter((id) => id !== activeTabId),
-      );
+      const targets = new Set(allTabIds.filter((id) => id !== activeTabId));
       // Need at least one target to enable broadcast
       if (targets.size === 0) return;
       set({ isActive: true, targetTabIds: targets });

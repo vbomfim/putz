@@ -101,15 +101,12 @@ export function KeyManager() {
   const CONTEXT_MENU_HEIGHT = 80;
 
   /** Handles right-click context menu with viewport clamping. */
-  const handleContextMenu = useCallback(
-    (e: React.MouseEvent, id: string) => {
-      e.preventDefault();
-      const x = Math.min(e.clientX, window.innerWidth - CONTEXT_MENU_WIDTH);
-      const y = Math.min(e.clientY, window.innerHeight - CONTEXT_MENU_HEIGHT);
-      setContextMenu({ x, y, id });
-    },
-    [],
-  );
+  const handleContextMenu = useCallback((e: React.MouseEvent, id: string) => {
+    e.preventDefault();
+    const x = Math.min(e.clientX, window.innerWidth - CONTEXT_MENU_WIDTH);
+    const y = Math.min(e.clientY, window.innerHeight - CONTEXT_MENU_HEIGHT);
+    setContextMenu({ x, y, id });
+  }, []);
 
   /** Closes context menu on click outside. */
   useEffect(() => {
@@ -144,10 +141,7 @@ export function KeyManager() {
 
       {/* Error banner */}
       {error && (
-        <div
-          className="key-manager-error"
-          data-testid="key-manager-error"
-        >
+        <div className="key-manager-error" data-testid="key-manager-error">
           <span>{error}</span>
           <button onClick={() => setError(null)}>✕</button>
         </div>
@@ -165,36 +159,23 @@ export function KeyManager() {
 
       {/* Loading state */}
       {isLoading && (
-        <div
-          className="key-manager-loading"
-          data-testid="key-manager-loading"
-        >
+        <div className="key-manager-loading" data-testid="key-manager-loading">
           Loading…
         </div>
       )}
 
       {/* Key list */}
       {!isLoading && keys.length === 0 && (
-        <div
-          className="key-manager-empty"
-          data-testid="key-manager-empty"
-        >
+        <div className="key-manager-empty" data-testid="key-manager-empty">
           <p>No SSH keys stored.</p>
-          <button
-            className="key-manager-empty-btn"
-            onClick={handleGenerate}
-          >
+          <button className="key-manager-empty-btn" onClick={handleGenerate}>
             Generate Key
           </button>
         </div>
       )}
 
       {!isLoading && keys.length > 0 && (
-        <ul
-          className="key-list"
-          data-testid="key-list"
-          role="list"
-        >
+        <ul className="key-list" data-testid="key-list" role="list">
           {keys.map((key) => (
             <li
               key={key.id}

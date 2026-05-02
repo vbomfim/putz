@@ -514,8 +514,8 @@ mod tests {
         // If this fails, it means the struct uses deny_unknown_fields.
         let result = serde_json::from_str::<SerialConfig>(json);
         // This documents current behavior — may or may not reject
-        if result.is_ok() {
-            assert_eq!(result.unwrap().port, "/dev/ttyUSB0");
+        if let Ok(config) = result {
+            assert_eq!(config.port, "/dev/ttyUSB0");
         }
         // Either way, test doesn't panic
     }

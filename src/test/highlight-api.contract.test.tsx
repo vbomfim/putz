@@ -195,23 +195,21 @@ describe("[CONTRACT] Highlight API error handling", () => {
   it("propagates invoke rejection for getSet", async () => {
     mockInvoke.mockRejectedValue("Highlight set not found: bad-id");
     await expect(highlightGetSet("bad-id")).rejects.toBe(
-      "Highlight set not found: bad-id"
+      "Highlight set not found: bad-id",
     );
   });
 
   it("propagates invoke rejection for deleteSet", async () => {
-    mockInvoke.mockRejectedValue(
-      "Cannot modify built-in preset: Cisco IOS"
-    );
+    mockInvoke.mockRejectedValue("Cannot modify built-in preset: Cisco IOS");
     await expect(highlightDeleteSet("builtin-cisco-ios")).rejects.toBe(
-      "Cannot modify built-in preset: Cisco IOS"
+      "Cannot modify built-in preset: Cisco IOS",
     );
   });
 
   it("propagates invoke rejection for createSet with invalid input", async () => {
     mockInvoke.mockRejectedValue("Invalid input: Name cannot be empty");
     await expect(
-      highlightCreateSet({ name: "", description: "", rules: [] })
+      highlightCreateSet({ name: "", description: "", rules: [] }),
     ).rejects.toBe("Invalid input: Name cannot be empty");
   });
 });
@@ -499,14 +497,12 @@ describe("[CONTRACT] HighlightEditor output shape", () => {
       const output = onSave.mock.calls[0][0];
       expect(
         output.rules.every(
-          (r: CreateHighlightRuleInput) => r.pattern.trim() !== ""
-        )
+          (r: CreateHighlightRuleInput) => r.pattern.trim() !== "",
+        ),
       ).toBe(true);
     } else {
       // Validation error shown — empty patterns blocked at validation
-      expect(
-        screen.getByText("Pattern is required")
-      ).toBeInTheDocument();
+      expect(screen.getByText("Pattern is required")).toBeInTheDocument();
     }
   });
 });
@@ -541,7 +537,7 @@ describe("[CONTRACT] HighlightEditor built-in preset behavior", () => {
         highlightSet={builtinSet}
         onSave={vi.fn()}
         onCancel={vi.fn()}
-      />
+      />,
     );
     expect(screen.queryByTestId("highlight-save-btn")).not.toBeInTheDocument();
   });
@@ -552,10 +548,10 @@ describe("[CONTRACT] HighlightEditor built-in preset behavior", () => {
         highlightSet={builtinSet}
         onSave={vi.fn()}
         onCancel={vi.fn()}
-      />
+      />,
     );
     expect(
-      screen.queryByTestId("highlight-add-rule-btn")
+      screen.queryByTestId("highlight-add-rule-btn"),
     ).not.toBeInTheDocument();
   });
 
@@ -565,11 +561,9 @@ describe("[CONTRACT] HighlightEditor built-in preset behavior", () => {
         highlightSet={builtinSet}
         onSave={vi.fn()}
         onCancel={vi.fn()}
-      />
+      />,
     );
-    expect(
-      screen.queryByTestId("rule-remove-0")
-    ).not.toBeInTheDocument();
+    expect(screen.queryByTestId("rule-remove-0")).not.toBeInTheDocument();
   });
 
   it("built-in preset name input is disabled", () => {
@@ -578,10 +572,10 @@ describe("[CONTRACT] HighlightEditor built-in preset behavior", () => {
         highlightSet={builtinSet}
         onSave={vi.fn()}
         onCancel={vi.fn()}
-      />
+      />,
     );
     const input = screen.getByTestId(
-      "highlight-name-input"
+      "highlight-name-input",
     ) as HTMLInputElement;
     expect(input.disabled).toBe(true);
   });
@@ -592,7 +586,7 @@ describe("[CONTRACT] HighlightEditor built-in preset behavior", () => {
         highlightSet={builtinSet}
         onSave={vi.fn()}
         onCancel={vi.fn()}
-      />
+      />,
     );
     expect(screen.getByText("Close")).toBeInTheDocument();
     expect(screen.queryByText("Cancel")).not.toBeInTheDocument();

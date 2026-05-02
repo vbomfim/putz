@@ -8,7 +8,13 @@
  * Tags: [AC-1]–[AC-6], [INTEGRATION]
  */
 import { describe, it, expect, vi, beforeEach, type Mock } from "vitest";
-import { render, screen, fireEvent, waitFor, within } from "@testing-library/react";
+import {
+  render,
+  screen,
+  fireEvent,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { SFTPPanel } from "../components/SFTP/SFTPPanel";
 import { TransferQueue } from "../components/SFTP/TransferQueue";
@@ -78,43 +84,45 @@ const HOME_FILES: RemoteFileEntry[] = [
 // ── Helpers ───────────────────────────────────────────────────────
 
 function setupInvoke() {
-  mockInvoke = vi.fn().mockImplementation(async (cmd: string, args?: Record<string, unknown>) => {
-    switch (cmd) {
-      case "sftp_open":
-        return "sftp-session-001";
-      case "sftp_list": {
-        const path = args?.path as string;
-        if (path === "/") return ROOT_FILES;
-        if (path === "/home") return HOME_FILES;
-        return [];
+  mockInvoke = vi
+    .fn()
+    .mockImplementation(async (cmd: string, args?: Record<string, unknown>) => {
+      switch (cmd) {
+        case "sftp_open":
+          return "sftp-session-001";
+        case "sftp_list": {
+          const path = args?.path as string;
+          if (path === "/") return ROOT_FILES;
+          if (path === "/home") return HOME_FILES;
+          return [];
+        }
+        case "sftp_stat":
+          return {
+            path: args?.path,
+            isDir: false,
+            size: 4096,
+            permissions: 0o644,
+            modified: 1700000000,
+            accessed: 1700000100,
+            uid: 1000,
+            gid: 1000,
+          };
+        case "sftp_download":
+          return "transfer-dl-001";
+        case "sftp_upload":
+          return "transfer-ul-001";
+        case "sftp_rename":
+          return undefined;
+        case "sftp_delete":
+          return undefined;
+        case "sftp_mkdir":
+          return undefined;
+        case "sftp_close":
+          return undefined;
+        default:
+          throw new Error(`Unknown command: ${cmd}`);
       }
-      case "sftp_stat":
-        return {
-          path: args?.path,
-          isDir: false,
-          size: 4096,
-          permissions: 0o644,
-          modified: 1700000000,
-          accessed: 1700000100,
-          uid: 1000,
-          gid: 1000,
-        };
-      case "sftp_download":
-        return "transfer-dl-001";
-      case "sftp_upload":
-        return "transfer-ul-001";
-      case "sftp_rename":
-        return undefined;
-      case "sftp_delete":
-        return undefined;
-      case "sftp_mkdir":
-        return undefined;
-      case "sftp_close":
-        return undefined;
-      default:
-        throw new Error(`Unknown command: ${cmd}`);
-    }
-  });
+    });
 }
 
 function setupListen() {
@@ -160,7 +168,9 @@ describe("SFTPPanel Integration Tests", () => {
     });
 
     it("shows error state when SFTP session fails", async () => {
-      mockInvoke.mockRejectedValueOnce(new Error("SFTP subsystem not available"));
+      mockInvoke.mockRejectedValueOnce(
+        new Error("SFTP subsystem not available"),
+      );
 
       renderPanel();
 
@@ -314,7 +324,9 @@ describe("SFTPPanel Integration Tests", () => {
       await waitFor(() => {
         // Should have called sftp_list twice — once on mount, once on refresh
         const listCalls = mockInvoke.mock.calls.filter(
-          (c: unknown[]) => c[0] === "sftp_list" && (c[1] as Record<string, unknown>)?.path === "/"
+          (c: unknown[]) =>
+            c[0] === "sftp_list" &&
+            (c[1] as Record<string, unknown>)?.path === "/",
         );
         expect(listCalls.length).toBe(2);
       });
@@ -643,7 +655,9 @@ describe("SFTPPanel Integration Tests", () => {
 
     it("download action for file calls sftp_download", async () => {
       // Mock window.prompt to return a path
-      const promptSpy = vi.spyOn(window, "prompt").mockReturnValue("~/Downloads/hosts.txt");
+      const promptSpy = vi
+        .spyOn(window, "prompt")
+        .mockReturnValue("~/Downloads/hosts.txt");
       renderPanel();
 
       await waitFor(() => {
@@ -660,11 +674,14 @@ describe("SFTPPanel Integration Tests", () => {
       fireEvent.click(screen.getByText("Download"));
 
       await waitFor(() => {
-        expect(mockInvoke).toHaveBeenCalledWith("sftp_download", expect.objectContaining({
-          sftpSessionId: "sftp-session-001",
-          remotePath: "/hosts.txt",
-          localPath: "~/Downloads/hosts.txt",
-        }));
+        expect(mockInvoke).toHaveBeenCalledWith(
+          "sftp_download",
+          expect.objectContaining({
+            sftpSessionId: "sftp-session-001",
+            remotePath: "/hosts.txt",
+            localPath: "~/Downloads/hosts.txt",
+          }),
+        );
       });
       promptSpy.mockRestore();
     });
@@ -783,10 +800,13 @@ describe("SFTPPanel Integration Tests", () => {
       });
 
       await waitFor(() => {
-        expect(mockInvoke).toHaveBeenCalledWith("sftp_upload", expect.objectContaining({
-          sftpSessionId: "sftp-session-001",
-          remotePath: "/firmware.bin",
-        }));
+        expect(mockInvoke).toHaveBeenCalledWith(
+          "sftp_upload",
+          expect.objectContaining({
+            sftpSessionId: "sftp-session-001",
+            remotePath: "/firmware.bin",
+          }),
+        );
       });
     });
   });

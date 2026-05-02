@@ -69,7 +69,8 @@ function loadPersistedState(): PersistedWorkspaceState {
             ...w,
             savedLayout: null,
           })),
-          activeWorkspaceId: parsed.activeWorkspaceId || parsed.workspaces[0].id,
+          activeWorkspaceId:
+            parsed.activeWorkspaceId || parsed.workspaces[0].id,
         };
       }
     }
@@ -123,7 +124,14 @@ function restoreLayoutState(snapshot: WorkspaceLayout | null): void {
     const regionId = generateId();
     useLayoutStore.setState({
       layout: { type: "region", regionId },
-      regions: { [regionId]: { id: regionId, tabs: [], activeTabId: "", tabPosition: "top" as const } },
+      regions: {
+        [regionId]: {
+          id: regionId,
+          tabs: [],
+          activeTabId: "",
+          tabPosition: "top" as const,
+        },
+      },
       focusedRegionId: regionId,
     });
   }
@@ -168,7 +176,9 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => {
       const newWorkspace: Workspace = {
         id: generateId(),
         name: name.trim() || "Untitled",
-        color: color || WORKSPACE_COLORS[get().workspaces.length % WORKSPACE_COLORS.length],
+        color:
+          color ||
+          WORKSPACE_COLORS[get().workspaces.length % WORKSPACE_COLORS.length],
         savedLayout: null,
         createdAt: Date.now(),
       };
@@ -274,7 +284,9 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => {
 
     getActiveWorkspace: () => {
       const { workspaces, activeWorkspaceId } = get();
-      return workspaces.find((w) => w.id === activeWorkspaceId) || workspaces[0];
+      return (
+        workspaces.find((w) => w.id === activeWorkspaceId) || workspaces[0]
+      );
     },
   };
 });

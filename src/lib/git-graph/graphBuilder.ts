@@ -3,24 +3,24 @@
  * [CLEAN-CODE][SRP] Pure function: commits in → graph out. No side effects.
  */
 
-import type { GitCommit } from './types';
-import type { GraphData, GraphNode, GraphEdge, BranchRef } from './types';
+import type { GitCommit } from "./types";
+import type { GraphData, GraphNode, GraphEdge, BranchRef } from "./types";
 
 /**
  * Color palette for branch lanes.
  * High-contrast, colorblind-friendly set.
  */
 const LANE_COLORS = [
-  '#4fc3f7', // light blue
-  '#81c784', // green
-  '#ffb74d', // orange
-  '#e57373', // red
-  '#ba68c8', // purple
-  '#4dd0e1', // cyan
-  '#fff176', // yellow
-  '#f06292', // pink
-  '#a1887f', // brown
-  '#90a4ae', // blue grey
+  "#4fc3f7", // light blue
+  "#81c784", // green
+  "#ffb74d", // orange
+  "#e57373", // red
+  "#ba68c8", // purple
+  "#4dd0e1", // cyan
+  "#fff176", // yellow
+  "#f06292", // pink
+  "#a1887f", // brown
+  "#90a4ae", // blue grey
 ] as const;
 
 /**
@@ -38,7 +38,7 @@ function buildRemoteSet(remoteNames: readonly string[]): Set<string> {
  *        "feature/test" → local (no matching remote).
  */
 function isRemoteRef(name: string, remoteSet: Set<string>): boolean {
-  const slashIndex = name.indexOf('/');
+  const slashIndex = name.indexOf("/");
   if (slashIndex <= 0) return false;
   const firstSegment = name.slice(0, slashIndex);
   return remoteSet.has(firstSegment);
@@ -122,10 +122,10 @@ export function buildGraph(
     const branches: BranchRef[] = [];
     const tags: string[] = [];
     for (const ref of commit.refs) {
-      if (ref.startsWith('tag: ')) {
-        tags.push(ref.replace('tag: ', ''));
-      } else if (ref !== 'HEAD') {
-        const name = ref.replace('HEAD -> ', '');
+      if (ref.startsWith("tag: ")) {
+        tags.push(ref.replace("tag: ", ""));
+      } else if (ref !== "HEAD") {
+        const name = ref.replace("HEAD -> ", "");
         const isRemote = isRemoteRef(name, remoteSet);
         branches.push({ name, isRemote });
       }

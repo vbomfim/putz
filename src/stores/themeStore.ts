@@ -98,15 +98,30 @@ function applyThemeToUI(colors: ThemeColors): void {
   const isLight = hexLuminance(bg) > 0.5;
 
   root.setProperty("--bg-primary", bg);
-  root.setProperty("--bg-secondary", isLight ? darken(bg, 0.05) : lighten(bg, 0.05));
+  root.setProperty(
+    "--bg-secondary",
+    isLight ? darken(bg, 0.05) : lighten(bg, 0.05),
+  );
   root.setProperty("--text-primary", fg);
-  root.setProperty("--text-secondary", isLight ? lighten(fg, 0.3) : darken(fg, 0.3));
+  root.setProperty(
+    "--text-secondary",
+    isLight ? lighten(fg, 0.3) : darken(fg, 0.3),
+  );
   root.setProperty("--accent", colors.blue);
   root.setProperty("--accent-hover", colors.brightBlue || colors.cyan);
   // Adaptive UI chrome colors
-  root.setProperty("--border-color", isLight ? "rgba(0, 0, 0, 0.12)" : "rgba(255, 255, 255, 0.08)");
-  root.setProperty("--hover-bg", isLight ? "rgba(0, 0, 0, 0.06)" : "rgba(255, 255, 255, 0.08)");
-  root.setProperty("--subtle-bg", isLight ? "rgba(0, 0, 0, 0.04)" : "rgba(255, 255, 255, 0.04)");
+  root.setProperty(
+    "--border-color",
+    isLight ? "rgba(0, 0, 0, 0.12)" : "rgba(255, 255, 255, 0.08)",
+  );
+  root.setProperty(
+    "--hover-bg",
+    isLight ? "rgba(0, 0, 0, 0.06)" : "rgba(255, 255, 255, 0.08)",
+  );
+  root.setProperty(
+    "--subtle-bg",
+    isLight ? "rgba(0, 0, 0, 0.04)" : "rgba(255, 255, 255, 0.04)",
+  );
 }
 
 function hexToRgb(hex: string): [number, number, number] {
@@ -130,7 +145,11 @@ function hexLuminance(hex: string): number {
 
 function lighten(hex: string, amount: number): string {
   const [r, g, b] = hexToRgb(hex);
-  return rgbToHex(r + (1 - r) * amount, g + (1 - g) * amount, b + (1 - b) * amount);
+  return rgbToHex(
+    r + (1 - r) * amount,
+    g + (1 - g) * amount,
+    b + (1 - b) * amount,
+  );
 }
 
 function darken(hex: string, amount: number): string {

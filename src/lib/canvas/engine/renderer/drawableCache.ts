@@ -9,9 +9,9 @@
  * @module
  */
 
-import type { ExpressionStyle } from '../../protocol';
-import type { Drawable } from 'roughjs/bin/core.js';
-import { computeRenderHash } from './styleMapper';
+import type { ExpressionStyle } from "../../protocol";
+import type { Drawable } from "roughjs/bin/core.js";
+import { computeRenderHash } from "./styleMapper";
 
 /** Entry stored in the drawable cache. */
 interface CacheEntry {
@@ -56,7 +56,12 @@ export function createDrawableCache(): DrawableCache {
       const entry = entries.get(id);
       if (!entry) return undefined;
 
-      const hash = computeRenderHash(ctx.style, ctx.position, ctx.size, ctx.data);
+      const hash = computeRenderHash(
+        ctx.style,
+        ctx.position,
+        ctx.size,
+        ctx.data,
+      );
       if (entry.renderHash !== hash) return undefined;
 
       return entry.drawable;
@@ -69,7 +74,12 @@ export function createDrawableCache(): DrawableCache {
 
     set(id: string, ctx: RenderContext, drawable: Drawable): void {
       entries.set(id, {
-        renderHash: computeRenderHash(ctx.style, ctx.position, ctx.size, ctx.data),
+        renderHash: computeRenderHash(
+          ctx.style,
+          ctx.position,
+          ctx.size,
+          ctx.data,
+        ),
         drawable,
       });
     },

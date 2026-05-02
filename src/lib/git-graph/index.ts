@@ -10,7 +10,7 @@ export type {
   GraphEdge,
   GraphData,
   BranchRef,
-} from './types';
+} from "./types";
 
 export {
   parseLogOutput,
@@ -19,13 +19,13 @@ export {
   parseRemoteOutput,
   parseCommitShowOutput,
   parseStashListOutput,
-} from './gitParser';
+} from "./gitParser";
 
-export { buildGraph } from './graphBuilder';
+export { buildGraph } from "./graphBuilder";
 
-export { renderGraph, highlightCommit } from './graphRenderer';
+export { renderGraph, highlightCommit } from "./graphRenderer";
 
-export { renderCommitDetail, hideCommitDetail } from './commitDetailPanel';
-export type { CommitDetailCallbacks } from './commitDetailPanel';
+export { renderCommitDetail, hideCommitDetail } from "./commitDetailPanel";
+export type { CommitDetailCallbacks } from "./commitDetailPanel";
 
-export { renderWorkingTree } from './workingTree';
+export { renderWorkingTree } from "./workingTree";

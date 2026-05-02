@@ -49,7 +49,10 @@ export function ChatView({ isOpen, onClose, onSendCommand }: ChatViewProps) {
 
   /** Scrolls the log to the bottom when new entries are added. */
   useEffect(() => {
-    if (logEndRef.current && typeof logEndRef.current.scrollIntoView === "function") {
+    if (
+      logEndRef.current &&
+      typeof logEndRef.current.scrollIntoView === "function"
+    ) {
       logEndRef.current.scrollIntoView({ behavior: "smooth" });
     }
   }, [entries]);
@@ -103,7 +106,9 @@ export function ChatView({ isOpen, onClose, onSendCommand }: ChatViewProps) {
 
   /** Collapses all entries. */
   const collapseAll = useCallback(() => {
-    setEntries((prev) => prev.map((entry) => ({ ...entry, isCollapsed: true })));
+    setEntries((prev) =>
+      prev.map((entry) => ({ ...entry, isCollapsed: true })),
+    );
   }, []);
 
   /** Expands all entries. */

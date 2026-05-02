@@ -13,11 +13,11 @@
  * @module
  */
 
-import type { VisualExpression, SequenceDiagramData } from '../../../protocol';
-import type { RoughCanvas } from 'roughjs/bin/canvas.js';
-import { mapStyleToRoughOptions } from '../styleMapper';
-import { renderArrowhead } from '../primitiveRenderer';
-import { registerCompositeRenderer } from '../compositeRegistry';
+import type { VisualExpression, SequenceDiagramData } from "../../../protocol";
+import type { RoughCanvas } from "roughjs/bin/canvas.js";
+import { mapStyleToRoughOptions } from "../styleMapper";
+import { renderArrowhead } from "../primitiveRenderer";
+import { registerCompositeRenderer } from "../compositeRegistry";
 
 // ── Constants ────────────────────────────────────────────────
 
@@ -57,7 +57,7 @@ const PARTICIPANT_FONT_SIZE = 13;
 const MESSAGE_FONT_SIZE = 12;
 
 /** Default font family. */
-const DEFAULT_FONT_FAMILY = 'sans-serif';
+const DEFAULT_FONT_FAMILY = "sans-serif";
 
 // ── Layout types ─────────────────────────────────────────────
 
@@ -79,7 +79,7 @@ interface ArrowLayout {
   toX: number;
   y: number;
   label: string;
-  type: 'sync' | 'async' | 'reply';
+  type: "sync" | "async" | "reply";
 }
 
 interface SequenceLayout {
@@ -127,7 +127,9 @@ function computeDataHash(data: SequenceDiagramData): string {
  * Places participants evenly spaced horizontally, computes lifeline
  * positions, and assigns vertical positions to message arrows.
  */
-export function computeSequenceLayout(data: SequenceDiagramData): SequenceLayout {
+export function computeSequenceLayout(
+  data: SequenceDiagramData,
+): SequenceLayout {
   const participantCount = data.participants.length;
 
   // Build participant position map
@@ -138,13 +140,14 @@ export function computeSequenceLayout(data: SequenceDiagramData): SequenceLayout
     y: TITLE_HEIGHT,
   }));
 
-  const participantXMap = new Map(participants.map(p => [p.id, p.x]));
+  const participantXMap = new Map(participants.map((p) => [p.id, p.x]));
 
   // Compute lifeline start/end
   const messageCount = data.messages.length;
-  const bottomY = HEADER_HEIGHT + messageCount * MESSAGE_SPACING + DIAGRAM_PADDING;
+  const bottomY =
+    HEADER_HEIGHT + messageCount * MESSAGE_SPACING + DIAGRAM_PADDING;
 
-  const lifelines: LifelineLayout[] = participants.map(p => ({
+  const lifelines: LifelineLayout[] = participants.map((p) => ({
     x: p.x,
     topY: p.y + PARTICIPANT_HEIGHT,
     bottomY,
@@ -160,9 +163,12 @@ export function computeSequenceLayout(data: SequenceDiagramData): SequenceLayout
   }));
 
   // Compute total dimensions
-  const totalWidth = participantCount > 0
-    ? DIAGRAM_PADDING * 2 + (participantCount - 1) * PARTICIPANT_SPACING + PARTICIPANT_WIDTH
-    : 200;
+  const totalWidth =
+    participantCount > 0
+      ? DIAGRAM_PADDING * 2 +
+        (participantCount - 1) * PARTICIPANT_SPACING +
+        PARTICIPANT_WIDTH
+      : 200;
   const totalHeight = bottomY + DIAGRAM_PADDING;
 
   return {
@@ -306,8 +312,8 @@ export function renderSequenceDiagram(
 
   // ── Render title ───────────────────────────────────────────
   ctx.font = `bold ${TITLE_FONT_SIZE}px ${DEFAULT_FONT_FAMILY}`;
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
   ctx.fillStyle = strokeColor;
   ctx.fillText(
     data.title,
@@ -317,14 +323,20 @@ export function renderSequenceDiagram(
 
   // ── Render participant boxes ───────────────────────────────
   ctx.font = `${PARTICIPANT_FONT_SIZE}px ${DEFAULT_FONT_FAMILY}`;
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
 
   for (const p of layout.participants) {
     const px = originX + p.x - PARTICIPANT_WIDTH / 2;
     const py = originY + p.y;
 
-    const drawable = rc.rectangle(px, py, PARTICIPANT_WIDTH, PARTICIPANT_HEIGHT, roughOptions);
+    const drawable = rc.rectangle(
+      px,
+      py,
+      PARTICIPANT_WIDTH,
+      PARTICIPANT_HEIGHT,
+      roughOptions,
+    );
     rc.draw(drawable);
 
     ctx.fillStyle = strokeColor;
@@ -355,21 +367,21 @@ export function renderSequenceDiagram(
     const ay = originY + arrow.y;
 
     switch (arrow.type) {
-      case 'sync':
+      case "sync":
         renderSyncArrow(ctx, ax, bx, ay, strokeColor);
         break;
-      case 'async':
+      case "async":
         renderAsyncArrow(ctx, ax, bx, ay, strokeColor);
         break;
-      case 'reply':
+      case "reply":
         renderReplyArrow(ctx, ax, bx, ay, strokeColor);
         break;
     }
 
     // Render label above the arrow
     const midX = (ax + bx) / 2;
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'bottom';
+    ctx.textAlign = "center";
+    ctx.textBaseline = "bottom";
     ctx.fillStyle = strokeColor;
     ctx.fillText(arrow.label, midX, ay - 4);
   }
@@ -382,4 +394,4 @@ export function renderSequenceDiagram(
 /**
  * Register the sequence diagram renderer on module load.
  */
-registerCompositeRenderer('sequence-diagram', renderSequenceDiagram);
+registerCompositeRenderer("sequence-diagram", renderSequenceDiagram);

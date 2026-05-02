@@ -67,53 +67,56 @@ export function useChangeWindowGuard(): UseChangeWindowGuardReturn {
     blockedData: "",
   });
 
-  const processInput = useCallback(async (data: string): Promise<string | null> => {
-    // Check if data contains Enter key
-    const enterIndex = data.indexOf("\r");
-    if (enterIndex === -1 && !data.includes("\n")) {
-      // No Enter key — buffer and pass through
-      for (const ch of data) {
-        if (ch === "\x7f" || ch === "\b") {
-          // Backspace — remove last char from buffer
-          lineBufferRef.current = lineBufferRef.current.slice(0, -1);
-        } else if (ch.charCodeAt(0) >= 32) {
-          // Printable character — add to buffer
-          lineBufferRef.current += ch;
+  const processInput = useCallback(
+    async (data: string): Promise<string | null> => {
+      // Check if data contains Enter key
+      const enterIndex = data.indexOf("\r");
+      if (enterIndex === -1 && !data.includes("\n")) {
+        // No Enter key — buffer and pass through
+        for (const ch of data) {
+          if (ch === "\x7f" || ch === "\b") {
+            // Backspace — remove last char from buffer
+            lineBufferRef.current = lineBufferRef.current.slice(0, -1);
+          } else if (ch.charCodeAt(0) >= 32) {
+            // Printable character — add to buffer
+            lineBufferRef.current += ch;
+          }
+          // Ignore control characters (arrows, etc.)
         }
-        // Ignore control characters (arrows, etc.)
-      }
-      return data;
-    }
-
-    // Enter detected — check the buffered command
-    // For paste with embedded newlines, check the line before the first Enter
-    const command = lineBufferRef.current.trim();
-    lineBufferRef.current = ""; // Reset buffer
-
-    if (!command) {
-      // Empty command — pass through
-      return data;
-    }
-
-    try {
-      const result = await changeWindowCheck(command);
-      if (result.allowed) {
         return data;
       }
 
-      // Command is blocked — show warning
-      setGuard({
-        showWarning: true,
-        blockedCommand: command,
-        blockedReason: result.reason,
-        blockedData: data,
-      });
-      return null; // Don't forward to PTY
-    } catch {
-      // Backend error — allow the command (fail open for usability)
-      return data;
-    }
-  }, []);
+      // Enter detected — check the buffered command
+      // For paste with embedded newlines, check the line before the first Enter
+      const command = lineBufferRef.current.trim();
+      lineBufferRef.current = ""; // Reset buffer
+
+      if (!command) {
+        // Empty command — pass through
+        return data;
+      }
+
+      try {
+        const result = await changeWindowCheck(command);
+        if (result.allowed) {
+          return data;
+        }
+
+        // Command is blocked — show warning
+        setGuard({
+          showWarning: true,
+          blockedCommand: command,
+          blockedReason: result.reason,
+          blockedData: data,
+        });
+        return null; // Don't forward to PTY
+      } catch {
+        // Backend error — allow the command (fail open for usability)
+        return data;
+      }
+    },
+    [],
+  );
 
   const handleProceed = useCallback((): string => {
     const data = guard.blockedData;

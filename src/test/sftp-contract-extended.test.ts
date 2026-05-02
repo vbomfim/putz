@@ -19,10 +19,7 @@ import type {
   TransferStatus,
   SftpContextAction,
 } from "../components/SFTP/types";
-import {
-  formatFileSize,
-  formatPermissions,
-} from "../components/SFTP/types";
+import { formatFileSize, formatPermissions } from "../components/SFTP/types";
 
 // ── IPC Command Invocation Contract ──────────────────────────────
 

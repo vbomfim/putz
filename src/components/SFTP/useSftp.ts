@@ -134,28 +134,25 @@ export function useSftp({ connectionId }: UseSftpOptions): UseSftpReturn {
     };
   }, [connectionId]);
 
-  const navigateTo = useCallback(
-    async (path: string) => {
-      const sid = sessionIdRef.current;
-      if (!sid) return;
+  const navigateTo = useCallback(async (path: string) => {
+    const sid = sessionIdRef.current;
+    if (!sid) return;
 
-      setIsLoading(true);
-      try {
-        const entries = await invoke<RemoteFileEntry[]>("sftp_list", {
-          sftpSessionId: sid,
-          path,
-        });
-        setFiles(entries);
-        setCurrentPath(path);
-      } catch (err: unknown) {
-        const message = err instanceof Error ? err.message : String(err);
-        setError(`Failed to list directory: ${message}`);
-      } finally {
-        setIsLoading(false);
-      }
-    },
-    [],
-  );
+    setIsLoading(true);
+    try {
+      const entries = await invoke<RemoteFileEntry[]>("sftp_list", {
+        sftpSessionId: sid,
+        path,
+      });
+      setFiles(entries);
+      setCurrentPath(path);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
+      setError(`Failed to list directory: ${message}`);
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
 
   const navigateUp = useCallback(async () => {
     if (currentPath === "/") return;
@@ -311,36 +308,27 @@ export function useSftp({ connectionId }: UseSftpOptions): UseSftpReturn {
     [],
   );
 
-  const renameFile = useCallback(
-    async (oldPath: string, newPath: string) => {
-      const sid = sessionIdRef.current;
-      if (!sid) throw new Error("SFTP session not ready");
-      await invoke("sftp_rename", {
-        sftpSessionId: sid,
-        oldPath,
-        newPath,
-      });
-    },
-    [],
-  );
+  const renameFile = useCallback(async (oldPath: string, newPath: string) => {
+    const sid = sessionIdRef.current;
+    if (!sid) throw new Error("SFTP session not ready");
+    await invoke("sftp_rename", {
+      sftpSessionId: sid,
+      oldPath,
+      newPath,
+    });
+  }, []);
 
-  const deleteFile = useCallback(
-    async (path: string) => {
-      const sid = sessionIdRef.current;
-      if (!sid) throw new Error("SFTP session not ready");
-      await invoke("sftp_delete", { sftpSessionId: sid, path });
-    },
-    [],
-  );
+  const deleteFile = useCallback(async (path: string) => {
+    const sid = sessionIdRef.current;
+    if (!sid) throw new Error("SFTP session not ready");
+    await invoke("sftp_delete", { sftpSessionId: sid, path });
+  }, []);
 
-  const mkdir = useCallback(
-    async (path: string) => {
-      const sid = sessionIdRef.current;
-      if (!sid) throw new Error("SFTP session not ready");
-      await invoke("sftp_mkdir", { sftpSessionId: sid, path });
-    },
-    [],
-  );
+  const mkdir = useCallback(async (path: string) => {
+    const sid = sessionIdRef.current;
+    if (!sid) throw new Error("SFTP session not ready");
+    await invoke("sftp_mkdir", { sftpSessionId: sid, path });
+  }, []);
 
   const statFile = useCallback(
     async (path: string): Promise<RemoteFileStat> => {

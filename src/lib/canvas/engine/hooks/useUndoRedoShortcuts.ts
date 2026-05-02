@@ -11,9 +11,9 @@
  * @module
  */
 
-import { useEffect } from 'react';
-import { useCanvasStoreApi } from '../store/canvasStore';
-import { isEditableTarget } from '../utils/isEditableTarget';
+import { useEffect } from "react";
+import { useCanvasStoreApi } from "../store/canvasStore";
+import { isEditableTarget } from "../utils/isEditableTarget";
 
 /**
  * Hook that registers global keyboard shortcuts for undo/redo.
@@ -35,28 +35,28 @@ export function useUndoRedoShortcuts(): void {
       const key = event.key.toLowerCase();
 
       // Ctrl+Shift+Z / Cmd+Shift+Z → redo (check shift FIRST to avoid undo match)
-      if (key === 'z' && event.shiftKey) {
+      if (key === "z" && event.shiftKey) {
         event.preventDefault();
         storeApi.getState().redo();
         return;
       }
 
       // Ctrl+Z / Cmd+Z → undo
-      if (key === 'z' && !event.shiftKey) {
+      if (key === "z" && !event.shiftKey) {
         event.preventDefault();
         storeApi.getState().undo();
         return;
       }
 
       // Ctrl+Y / Cmd+Y → redo
-      if (key === 'y') {
+      if (key === "y") {
         event.preventDefault();
         storeApi.getState().redo();
         return;
       }
     }
 
-    document.addEventListener('keydown', handleKeyDown);
-    return () => document.removeEventListener('keydown', handleKeyDown);
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
   }, [storeApi]);
 }

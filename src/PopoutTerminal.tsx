@@ -30,14 +30,19 @@ interface PopoutTerminalProps {
  * sequence. Manages its own lifecycle — on window close, the PTY
  * session is cleaned up automatically by useTerminal.
  */
-export function PopoutTerminal({ sessionId, initialTitle }: PopoutTerminalProps) {
+export function PopoutTerminal({
+  sessionId,
+  initialTitle,
+}: PopoutTerminalProps) {
   const titleSet = useRef(false);
 
   // Set the initial window title
   useEffect(() => {
     if (initialTitle && !titleSet.current) {
       titleSet.current = true;
-      getCurrentWindow().setTitle(initialTitle).catch(() => {});
+      getCurrentWindow()
+        .setTitle(initialTitle)
+        .catch(() => {});
     }
   }, [initialTitle]);
 
@@ -46,7 +51,9 @@ export function PopoutTerminal({ sessionId, initialTitle }: PopoutTerminalProps)
       <TerminalView
         sessionId={sessionId}
         onTitleChange={(title) => {
-          getCurrentWindow().setTitle(title).catch(() => {});
+          getCurrentWindow()
+            .setTitle(title)
+            .catch(() => {});
         }}
       />
     </main>

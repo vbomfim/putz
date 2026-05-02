@@ -21,7 +21,7 @@ export { FONT_SIZE_MIN, FONT_SIZE_MAX };
  * file paths (/usr/local/bin), hostnames (my-host.example.com),
  * and home paths (~/.ssh) are selected as whole words.
  */
-export const WORD_SEPARATOR = ' ()[]{}\'",;:!@#$%^&*+=|\\<>`';
+export const WORD_SEPARATOR = " ()[]{}'\",;:!@#$%^&*+=|\\<>`";
 
 // ─── Fix 7: Font Size Zoom ─────────────────────────────────────────
 

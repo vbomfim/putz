@@ -7,27 +7,27 @@
  * @module
  */
 
-import { nanoid } from 'nanoid';
-import type { VisualExpression, ExpressionData } from '../../protocol';
-import type { ToolHandler, DrawPreview } from './BaseTool';
-import type { CanvasStoreApi } from '../store/canvasStore';
+import { nanoid } from "nanoid";
+import type { VisualExpression, ExpressionData } from "../../protocol";
+import type { ToolHandler, DrawPreview } from "./BaseTool";
+import type { CanvasStoreApi } from "../store/canvasStore";
 
 const MIN_DIMENSION = 10;
 
 const LOCAL_AUTHOR = {
-  type: 'human' as const,
-  id: 'local-user',
-  name: 'You',
+  type: "human" as const,
+  id: "local-user",
+  name: "You",
 };
 
 /** Pastel colors that cycle for new sticky notes. */
 const STICKY_COLORS = [
-  '#FFE082', // yellow
-  '#F8BBD0', // pink
-  '#C8E6C9', // green
-  '#BBDEFB', // blue
-  '#E1BEE7', // purple
-  '#FFE0B2', // orange
+  "#FFE082", // yellow
+  "#F8BBD0", // pink
+  "#C8E6C9", // green
+  "#BBDEFB", // blue
+  "#E1BEE7", // purple
+  "#FFE0B2", // orange
 ];
 
 let colorIndex = 0;
@@ -86,8 +86,8 @@ export class StickyNoteTool implements ToolHandler {
     const color = nextColor();
 
     const data: ExpressionData = {
-      kind: 'sticky-note',
-      text: '',
+      kind: "sticky-note",
+      text: "",
       color,
     };
 
@@ -95,13 +95,13 @@ export class StickyNoteTool implements ToolHandler {
 
     const expression: VisualExpression = {
       id,
-      kind: 'sticky-note',
+      kind: "sticky-note",
       position: { x, y },
       size: { width, height },
       angle: 0,
       style: {
         ...store.lastUsedStyle,
-        fontFamily: 'Architects Daughter, cursive',
+        fontFamily: "Architects Daughter, cursive",
       },
       meta: {
         author: LOCAL_AUTHOR,
@@ -130,7 +130,7 @@ export class StickyNoteTool implements ToolHandler {
       return null;
     }
     const { x, y, width, height } = this.computeBounds();
-    return { kind: 'sticky-note', x, y, width, height };
+    return { kind: "sticky-note", x, y, width, height };
   }
 
   private computeBounds() {

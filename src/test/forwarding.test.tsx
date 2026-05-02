@@ -77,9 +77,7 @@ describe("Forwarding Types", () => {
         remoteHost: "0.0.0.0",
         remotePort: 8080,
       };
-      expect(formatForwardingRule(rule)).toBe(
-        "0.0.0.0:8080 → 127.0.0.1:3000",
-      );
+      expect(formatForwardingRule(rule)).toBe("0.0.0.0:8080 → 127.0.0.1:3000");
     });
 
     it("formats dynamic forward", () => {
@@ -98,9 +96,7 @@ describe("Forwarding Types", () => {
         remotePort: 80,
         bindAddress: "192.168.1.1",
       };
-      expect(formatForwardingRule(rule)).toBe(
-        "192.168.1.1:8080 → web:80",
-      );
+      expect(formatForwardingRule(rule)).toBe("192.168.1.1:8080 → web:80");
     });
   });
 
@@ -153,7 +149,9 @@ describe("ForwardingConfig", () => {
     render(<ForwardingConfig rules={rules} onChange={onChange} />);
     expect(screen.getByTestId("forwarding-rules-list")).toBeDefined();
     expect(screen.getAllByText("Local (-L)").length).toBeGreaterThanOrEqual(1);
-    expect(screen.getAllByText("Dynamic (-D)").length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText("Dynamic (-D)").length).toBeGreaterThanOrEqual(
+      1,
+    );
   });
 
   it("removes a rule when remove button is clicked", async () => {
@@ -174,9 +172,7 @@ describe("ForwardingConfig", () => {
   });
 
   it("hides add form when disabled", () => {
-    render(
-      <ForwardingConfig rules={[]} onChange={onChange} disabled={true} />,
-    );
+    render(<ForwardingConfig rules={[]} onChange={onChange} disabled={true} />);
     expect(screen.queryByTestId("forwarding-add-form")).toBeNull();
   });
 
@@ -244,9 +240,7 @@ describe("ForwardingPanel", () => {
   it("shows empty state when no tunnels", async () => {
     mockInvoke.mockResolvedValue([]);
     render(<ForwardingPanel connectionId="conn-1" />);
-    expect(
-      await screen.findByTestId("empty-state"),
-    ).toBeDefined();
+    expect(await screen.findByTestId("empty-state")).toBeDefined();
   });
 
   it("renders tunnel table with data", async () => {

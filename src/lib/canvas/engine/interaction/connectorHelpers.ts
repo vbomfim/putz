@@ -8,8 +8,8 @@
  * @module
  */
 
-import type { VisualExpression, ArrowData } from '../../protocol';
-import { BINDABLE_KINDS } from '../connectors/constants';
+import type { VisualExpression, ArrowData } from "../../protocol";
+import { BINDABLE_KINDS } from "../connectors/constants";
 
 /**
  * Find the nearest connection point on a shape's edge.
@@ -36,20 +36,51 @@ export function findSnapPoint(
   const expandedTop = y - snapDistance;
   const expandedBottom = y + height + snapDistance;
 
-  if (worldPoint.x < expandedLeft || worldPoint.x > expandedRight ||
-      worldPoint.y < expandedTop || worldPoint.y > expandedBottom) {
+  if (
+    worldPoint.x < expandedLeft ||
+    worldPoint.x > expandedRight ||
+    worldPoint.y < expandedTop ||
+    worldPoint.y > expandedBottom
+  ) {
     return null; // Too far from shape
   }
 
   // Project cursor to nearest point on each edge, pick closest
-  const edgePoints: Array<{ anchor: string; point: { x: number; y: number }; ratio: number }> = [
-    { anchor: 'top', point: { x: clamp(worldPoint.x, x, x + width), y }, ratio: width > 0 ? (clamp(worldPoint.x, x, x + width) - x) / width : 0.5 },
-    { anchor: 'bottom', point: { x: clamp(worldPoint.x, x, x + width), y: y + height }, ratio: width > 0 ? (clamp(worldPoint.x, x, x + width) - x) / width : 0.5 },
-    { anchor: 'left', point: { x, y: clamp(worldPoint.y, y, y + height) }, ratio: height > 0 ? (clamp(worldPoint.y, y, y + height) - y) / height : 0.5 },
-    { anchor: 'right', point: { x: x + width, y: clamp(worldPoint.y, y, y + height) }, ratio: height > 0 ? (clamp(worldPoint.y, y, y + height) - y) / height : 0.5 },
+  const edgePoints: Array<{
+    anchor: string;
+    point: { x: number; y: number };
+    ratio: number;
+  }> = [
+    {
+      anchor: "top",
+      point: { x: clamp(worldPoint.x, x, x + width), y },
+      ratio: width > 0 ? (clamp(worldPoint.x, x, x + width) - x) / width : 0.5,
+    },
+    {
+      anchor: "bottom",
+      point: { x: clamp(worldPoint.x, x, x + width), y: y + height },
+      ratio: width > 0 ? (clamp(worldPoint.x, x, x + width) - x) / width : 0.5,
+    },
+    {
+      anchor: "left",
+      point: { x, y: clamp(worldPoint.y, y, y + height) },
+      ratio:
+        height > 0 ? (clamp(worldPoint.y, y, y + height) - y) / height : 0.5,
+    },
+    {
+      anchor: "right",
+      point: { x: x + width, y: clamp(worldPoint.y, y, y + height) },
+      ratio:
+        height > 0 ? (clamp(worldPoint.y, y, y + height) - y) / height : 0.5,
+    },
   ];
 
-  let closest: { anchor: string; point: { x: number; y: number }; dist: number; ratio: number } | null = null;
+  let closest: {
+    anchor: string;
+    point: { x: number; y: number };
+    dist: number;
+    ratio: number;
+  } | null = null;
 
   for (const { anchor, point, ratio } of edgePoints) {
     const dist = Math.hypot(worldPoint.x - point.x, worldPoint.y - point.y);
@@ -84,27 +115,37 @@ export function getAnchorPoint(
   const { x, y } = expression.position;
   const { width, height } = expression.size;
 
-  if (anchor === 'center' || anchor === 'auto') {
+  if (anchor === "center" || anchor === "auto") {
     return { x: x + width / 2, y: y + height / 2 };
   }
 
   // Corner anchors need shape-specific geometry
-  const isCorner = anchor === 'top-left' || anchor === 'top-right'
-    || anchor === 'bottom-left' || anchor === 'bottom-right';
+  const isCorner =
+    anchor === "top-left" ||
+    anchor === "top-right" ||
+    anchor === "bottom-left" ||
+    anchor === "bottom-right";
 
   if (isCorner) {
-    return getShapeAwareCornerPoint(expression.kind, x, y, width, height, anchor);
+    return getShapeAwareCornerPoint(
+      expression.kind,
+      x,
+      y,
+      width,
+      height,
+      anchor,
+    );
   }
 
   // Edge anchors — use ratio (0-1) along the edge for precise positioning
   switch (anchor) {
-    case 'top':
+    case "top":
       return { x: x + width * ratio, y };
-    case 'right':
+    case "right":
       return { x: x + width, y: y + height * ratio };
-    case 'bottom':
+    case "bottom":
       return { x: x + width * ratio, y: y + height };
-    case 'left':
+    case "left":
       return { x, y: y + height * ratio };
     default:
       return { x: x + width / 2, y: y + height / 2 };
@@ -128,21 +169,26 @@ function getShapeAwareCornerPoint(
   height: number,
   anchor: string,
 ): { x: number; y: number } {
-  if (kind === 'ellipse') {
+  if (kind === "ellipse") {
     return getEllipseCornerPoint(x, y, width, height, anchor);
   }
 
-  if (kind === 'diamond') {
+  if (kind === "diamond") {
     return getDiamondCornerPoint(x, y, width, height, anchor);
   }
 
   // Rectangle, sticky-note, stencil — use bounding box corners
   switch (anchor) {
-    case 'top-left':      return { x, y };
-    case 'top-right':     return { x: x + width, y };
-    case 'bottom-left':   return { x, y: y + height };
-    case 'bottom-right':  return { x: x + width, y: y + height };
-    default:              return { x: x + width / 2, y: y + height / 2 };
+    case "top-left":
+      return { x, y };
+    case "top-right":
+      return { x: x + width, y };
+    case "bottom-left":
+      return { x, y: y + height };
+    case "bottom-right":
+      return { x: x + width, y: y + height };
+    default:
+      return { x: x + width / 2, y: y + height / 2 };
   }
 }
 
@@ -162,11 +208,16 @@ function getEllipseCornerPoint(
   const sin45 = Math.sin(Math.PI / 4);
 
   switch (anchor) {
-    case 'top-right':     return { x: cx + rx * cos45, y: cy - ry * sin45 };
-    case 'top-left':      return { x: cx - rx * cos45, y: cy - ry * sin45 };
-    case 'bottom-right':  return { x: cx + rx * cos45, y: cy + ry * sin45 };
-    case 'bottom-left':   return { x: cx - rx * cos45, y: cy + ry * sin45 };
-    default:              return { x: cx, y: cy };
+    case "top-right":
+      return { x: cx + rx * cos45, y: cy - ry * sin45 };
+    case "top-left":
+      return { x: cx - rx * cos45, y: cy - ry * sin45 };
+    case "bottom-right":
+      return { x: cx + rx * cos45, y: cy + ry * sin45 };
+    case "bottom-left":
+      return { x: cx - rx * cos45, y: cy + ry * sin45 };
+    default:
+      return { x: cx, y: cy };
   }
 }
 
@@ -182,17 +233,22 @@ function getDiamondCornerPoint(
   const cy = y + height / 2;
 
   // Diamond vertices
-  const top    = { x: cx,          y };
-  const right  = { x: x + width,   y: cy };
-  const bottom = { x: cx,          y: y + height };
-  const left   = { x,              y: cy };
+  const top = { x: cx, y };
+  const right = { x: x + width, y: cy };
+  const bottom = { x: cx, y: y + height };
+  const left = { x, y: cy };
 
   switch (anchor) {
-    case 'top-right':     return { x: (top.x + right.x) / 2,    y: (top.y + right.y) / 2 };
-    case 'top-left':      return { x: (top.x + left.x) / 2,     y: (top.y + left.y) / 2 };
-    case 'bottom-right':  return { x: (bottom.x + right.x) / 2, y: (bottom.y + right.y) / 2 };
-    case 'bottom-left':   return { x: (bottom.x + left.x) / 2,  y: (bottom.y + left.y) / 2 };
-    default:              return { x: cx, y: cy };
+    case "top-right":
+      return { x: (top.x + right.x) / 2, y: (top.y + right.y) / 2 };
+    case "top-left":
+      return { x: (top.x + left.x) / 2, y: (top.y + left.y) / 2 };
+    case "bottom-right":
+      return { x: (bottom.x + right.x) / 2, y: (bottom.y + right.y) / 2 };
+    case "bottom-left":
+      return { x: (bottom.x + left.x) / 2, y: (bottom.y + left.y) / 2 };
+    default:
+      return { x: cx, y: cy };
   }
 }
 
@@ -209,7 +265,7 @@ export function resolveBindings(
   arrowExpr: VisualExpression,
   expressions: Record<string, VisualExpression>,
 ): [number, number][] {
-  if (arrowExpr.data.kind !== 'arrow') return [];
+  if (arrowExpr.data.kind !== "arrow") return [];
 
   const arrowData = arrowExpr.data as ArrowData;
   const points: [number, number][] = arrowData.points.map(
@@ -219,14 +275,29 @@ export function resolveBindings(
   if (points.length < 2) return points;
 
   // Get both bound shapes
-  const startShape = arrowData.startBinding ? expressions[arrowData.startBinding.expressionId] : null;
-  const endShape = arrowData.endBinding ? expressions[arrowData.endBinding.expressionId] : null;
+  const startShape = arrowData.startBinding
+    ? expressions[arrowData.startBinding.expressionId]
+    : null;
+  const endShape = arrowData.endBinding
+    ? expressions[arrowData.endBinding.expressionId]
+    : null;
 
   // Self-loop: both bound to same shape — use stored anchors directly
-  const isSelfLoop = startShape && endShape && arrowData.startBinding!.expressionId === arrowData.endBinding!.expressionId;
+  const isSelfLoop =
+    startShape &&
+    endShape &&
+    arrowData.startBinding!.expressionId === arrowData.endBinding!.expressionId;
   if (isSelfLoop) {
-    const startPt = getAnchorPoint(startShape, arrowData.startBinding!.anchor || 'top', arrowData.startBinding!.ratio ?? 0.5);
-    const endPt = getAnchorPoint(endShape, arrowData.endBinding!.anchor || 'right', arrowData.endBinding!.ratio ?? 0.5);
+    const startPt = getAnchorPoint(
+      startShape,
+      arrowData.startBinding!.anchor || "top",
+      arrowData.startBinding!.ratio ?? 0.5,
+    );
+    const endPt = getAnchorPoint(
+      endShape,
+      arrowData.endBinding!.anchor || "right",
+      arrowData.endBinding!.ratio ?? 0.5,
+    );
     points[0] = [startPt.x, startPt.y];
     points[points.length - 1] = [endPt.x, endPt.y];
     return points;
@@ -264,7 +335,7 @@ export function findBoundArrows(
 ): string[] {
   const result: string[] = [];
   for (const [id, expr] of Object.entries(expressions)) {
-    if (expr.data.kind !== 'arrow') continue;
+    if (expr.data.kind !== "arrow") continue;
     const data = expr.data as ArrowData;
     if (
       data.startBinding?.expressionId === targetId ||

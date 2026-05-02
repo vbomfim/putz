@@ -12,12 +12,12 @@ import type {
   WorkingTreeStatus,
   CommitDetail,
   StashEntry,
-} from './types';
+} from "./types";
 
 /** Delimiter used in git log --format to separate fields. */
-export const FIELD_SEPARATOR = '\x1f'; // ASCII Unit Separator
+export const FIELD_SEPARATOR = "\x1f"; // ASCII Unit Separator
 /** Delimiter used to separate records. */
-export const RECORD_SEPARATOR = '\x1e'; // ASCII Record Separator
+export const RECORD_SEPARATOR = "\x1e"; // ASCII Record Separator
 
 /**
  * Build a git log format string using safe delimiters.
@@ -25,15 +25,15 @@ export const RECORD_SEPARATOR = '\x1e'; // ASCII Record Separator
  */
 export function getLogFormatString(): string {
   const fields = [
-    '%H',   // hash
-    '%h',   // abbreviated hash
-    '%s',   // subject
-    '%b',   // body
-    '%aN',  // author name
-    '%aE',  // author email
-    '%aI',  // author date ISO 8601
-    '%P',   // parent hashes (space-separated)
-    '%D',   // ref names
+    "%H", // hash
+    "%h", // abbreviated hash
+    "%s", // subject
+    "%b", // body
+    "%aN", // author name
+    "%aE", // author email
+    "%aI", // author date ISO 8601
+    "%P", // parent hashes (space-separated)
+    "%D", // ref names
   ];
   return RECORD_SEPARATOR + fields.join(FIELD_SEPARATOR);
 }
@@ -53,22 +53,25 @@ export function parseLogOutput(raw: string): GitCommit[] {
 function parseOneCommit(record: string): GitCommit {
   const fields = record.trim().split(FIELD_SEPARATOR);
 
-  const hash = fields[0] ?? '';
-  const abbreviatedHash = fields[1] ?? '';
-  const subject = fields[2] ?? '';
-  const body = fields[3] ?? '';
-  const authorName = fields[4] ?? '';
-  const authorEmail = fields[5] ?? '';
-  const authorDate = fields[6] ?? '';
-  const parentHashesRaw = fields[7] ?? '';
-  const refsRaw = fields[8] ?? '';
+  const hash = fields[0] ?? "";
+  const abbreviatedHash = fields[1] ?? "";
+  const subject = fields[2] ?? "";
+  const body = fields[3] ?? "";
+  const authorName = fields[4] ?? "";
+  const authorEmail = fields[5] ?? "";
+  const authorDate = fields[6] ?? "";
+  const parentHashesRaw = fields[7] ?? "";
+  const refsRaw = fields[8] ?? "";
 
   const parentHashes = parentHashesRaw
-    ? parentHashesRaw.split(' ').filter(Boolean)
+    ? parentHashesRaw.split(" ").filter(Boolean)
     : [];
 
   const refs = refsRaw
-    ? refsRaw.split(',').map((r) => r.trim()).filter(Boolean)
+    ? refsRaw
+        .split(",")
+        .map((r) => r.trim())
+        .filter(Boolean)
     : [];
 
   return {
@@ -93,27 +96,31 @@ export function parseBranchOutput(raw: string): GitBranch[] {
   }
 
   return raw
-    .split('\n')
+    .split("\n")
     .filter((line) => line.trim())
     .map(parseBranchLine);
 }
 
 function parseBranchLine(line: string): GitBranch {
-  const isCurrent = line.startsWith('* ');
-  const cleaned = line.replace(/^\*?\s+/, '').trim();
+  const isCurrent = line.startsWith("* ");
+  const cleaned = line.replace(/^\*?\s+/, "").trim();
 
   // Handle detached HEAD
-  if (cleaned.startsWith('(HEAD detached')) {
-    return { name: 'HEAD (detached)', isRemote: false, isCurrent };
+  if (cleaned.startsWith("(HEAD detached")) {
+    return { name: "HEAD (detached)", isRemote: false, isCurrent };
   }
 
   // Handle remote tracking branches from `git branch -a`
   // Format: "remotes/origin/main" or "remotes/origin/HEAD -> origin/main"
-  if (cleaned.startsWith('remotes/')) {
-    const remotePath = cleaned.replace(/^remotes\//, '');
+  if (cleaned.startsWith("remotes/")) {
+    const remotePath = cleaned.replace(/^remotes\//, "");
     // Skip symbolic HEAD refs (e.g. "origin/HEAD -> origin/main")
-    if (remotePath.includes(' -> ')) {
-      return { name: remotePath.split(' -> ')[0], isRemote: true, isCurrent: false };
+    if (remotePath.includes(" -> ")) {
+      return {
+        name: remotePath.split(" -> ")[0],
+        isRemote: true,
+        isCurrent: false,
+      };
     }
     return { name: remotePath, isRemote: true, isCurrent: false };
   }
@@ -137,7 +144,7 @@ export function parseStatusOutput(raw: string): WorkingTreeStatus {
     return { staged, unstaged, untracked };
   }
 
-  for (const line of raw.split('\n')) {
+  for (const line of raw.split("\n")) {
     if (!line || line.length < 2) {
       continue;
     }
@@ -146,13 +153,13 @@ export function parseStatusOutput(raw: string): WorkingTreeStatus {
     const workTreeStatus = line[1];
     const filePath = line.slice(3);
 
-    if (indexStatus === '?' && workTreeStatus === '?') {
+    if (indexStatus === "?" && workTreeStatus === "?") {
       untracked.push(filePath);
       continue;
     }
 
     // Staged changes (index column)
-    if (indexStatus !== ' ' && indexStatus !== '?') {
+    if (indexStatus !== " " && indexStatus !== "?") {
       staged.push({
         path: filePath,
         status: porcelainCharToStatus(indexStatus),
@@ -160,7 +167,7 @@ export function parseStatusOutput(raw: string): WorkingTreeStatus {
     }
 
     // Unstaged changes (work tree column)
-    if (workTreeStatus !== ' ' && workTreeStatus !== '?') {
+    if (workTreeStatus !== " " && workTreeStatus !== "?") {
       unstaged.push({
         path: filePath,
         status: porcelainCharToStatus(workTreeStatus),
@@ -173,18 +180,18 @@ export function parseStatusOutput(raw: string): WorkingTreeStatus {
 
 function porcelainCharToStatus(char: string): GitFileStatus {
   switch (char) {
-    case 'A':
-      return 'added';
-    case 'M':
-      return 'modified';
-    case 'D':
-      return 'deleted';
-    case 'R':
-      return 'renamed';
-    case 'C':
-      return 'copied';
+    case "A":
+      return "added";
+    case "M":
+      return "modified";
+    case "D":
+      return "deleted";
+    case "R":
+      return "renamed";
+    case "C":
+      return "copied";
     default:
-      return 'modified';
+      return "modified";
   }
 }
 
@@ -197,12 +204,12 @@ export function parseDiffNameStatus(raw: string): GitFileChange[] {
   }
 
   return raw
-    .split('\n')
+    .split("\n")
     .filter((line) => line.trim())
     .map((line) => {
-      const parts = line.split('\t');
-      const statusChar = (parts[0] ?? '')[0] ?? 'M';
-      const path = parts[1] ?? '';
+      const parts = line.split("\t");
+      const statusChar = (parts[0] ?? "")[0] ?? "M";
+      const path = parts[1] ?? "";
       const oldPath = parts[2]; // present for renames
 
       return {
@@ -229,7 +236,10 @@ export function parseRemoteOutput(raw: string): string[] {
   if (!raw.trim()) {
     return [];
   }
-  return raw.split('\n').map((l) => l.trim()).filter(Boolean);
+  return raw
+    .split("\n")
+    .map((l) => l.trim())
+    .filter(Boolean);
 }
 
 /**
@@ -260,23 +270,23 @@ export function parseCommitShowOutput(raw: string): CommitDetail | null {
   //         6=date, 7=parents, 8=refs (+ possible diff tail)
   const fields = parts[0].trim().split(FIELD_SEPARATOR);
 
-  const hash = fields[0] ?? '';
-  const abbreviatedHash = fields[1] ?? '';
-  const subject = fields[2] ?? '';
-  const body = fields[3] ?? '';
-  const authorName = fields[4] ?? '';
-  const authorEmail = fields[5] ?? '';
-  const authorDate = fields[6] ?? '';
-  const parentHashesRaw = fields[7] ?? '';
-  const refsAndDiff = fields[8] ?? '';
+  const hash = fields[0] ?? "";
+  const abbreviatedHash = fields[1] ?? "";
+  const subject = fields[2] ?? "";
+  const body = fields[3] ?? "";
+  const authorName = fields[4] ?? "";
+  const authorEmail = fields[5] ?? "";
+  const authorDate = fields[6] ?? "";
+  const parentHashesRaw = fields[7] ?? "";
+  const refsAndDiff = fields[8] ?? "";
 
   const parentHashes = parentHashesRaw
-    ? parentHashesRaw.split(' ').filter(Boolean)
+    ? parentHashesRaw.split(" ").filter(Boolean)
     : [];
 
   // The last field (refs) may have the diff section appended after a blank line.
   // Split on the first `\n\n` within the refs field to separate refs from diff.
-  const doubleNewlineIdx = refsAndDiff.indexOf('\n\n');
+  const doubleNewlineIdx = refsAndDiff.indexOf("\n\n");
   let refsRaw: string;
   let diffSection: string;
 
@@ -285,11 +295,14 @@ export function parseCommitShowOutput(raw: string): CommitDetail | null {
     diffSection = refsAndDiff.slice(doubleNewlineIdx + 2);
   } else {
     refsRaw = refsAndDiff;
-    diffSection = '';
+    diffSection = "";
   }
 
   const refs = refsRaw
-    ? refsRaw.split(',').map((r) => r.trim()).filter(Boolean)
+    ? refsRaw
+        .split(",")
+        .map((r) => r.trim())
+        .filter(Boolean)
     : [];
 
   const files = parseDiffNameStatus(diffSection);
@@ -319,7 +332,7 @@ export function parseStashListOutput(raw: string): StashEntry[] {
   }
 
   return raw
-    .split('\n')
+    .split("\n")
     .filter((line) => line.trim())
     .map((line) => {
       // Match "stash@{N}: message" and extract the hash if present
@@ -329,7 +342,7 @@ export function parseStashListOutput(raw: string): StashEntry[] {
       }
 
       const index = parseInt(match[1], 10);
-      const message = match[2] ?? '';
+      const message = match[2] ?? "";
 
       return {
         index,
@@ -348,5 +361,8 @@ export function parseTagListOutput(raw: string): string[] {
   if (!raw.trim()) {
     return [];
   }
-  return raw.split('\n').map((l) => l.trim()).filter(Boolean);
+  return raw
+    .split("\n")
+    .map((l) => l.trim())
+    .filter(Boolean);
 }

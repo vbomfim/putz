@@ -13,9 +13,9 @@
  * @module
  */
 
-import { useState, useCallback, useRef, useEffect } from 'react';
-import { useCanvasStore, useCanvasStoreApi } from '../../engine';
-import type { CameraWaypoint } from '../../engine';
+import { useState, useCallback, useRef, useEffect } from "react";
+import { useCanvasStore, useCanvasStoreApi } from "../../engine";
+import type { CameraWaypoint } from "../../engine";
 import {
   Plus,
   ChevronLeft,
@@ -23,7 +23,7 @@ import {
   Navigation,
   Trash2,
   GripVertical,
-} from 'lucide-react';
+} from "lucide-react";
 
 // ── Constants ──────────────────────────────────────────────
 
@@ -66,17 +66,26 @@ export function WaypointPanel({ isOpen }: WaypointPanelProps) {
     storeApi.getState().addWaypoint();
   }, [storeApi]);
 
-  const handleJump = useCallback((index: number) => {
-    storeApi.getState().goToWaypoint(index);
-  }, [storeApi]);
+  const handleJump = useCallback(
+    (index: number) => {
+      storeApi.getState().goToWaypoint(index);
+    },
+    [storeApi],
+  );
 
-  const handleRemove = useCallback((index: number) => {
-    storeApi.getState().removeWaypoint(index);
-  }, [storeApi]);
+  const handleRemove = useCallback(
+    (index: number) => {
+      storeApi.getState().removeWaypoint(index);
+    },
+    [storeApi],
+  );
 
-  const handleRename = useCallback((index: number, label: string) => {
-    storeApi.getState().updateWaypoint(index, { label });
-  }, [storeApi]);
+  const handleRename = useCallback(
+    (index: number, label: string) => {
+      storeApi.getState().updateWaypoint(index, { label });
+    },
+    [storeApi],
+  );
 
   const handlePrev = useCallback(() => {
     storeApi.getState().prevWaypoint();
@@ -94,13 +103,16 @@ export function WaypointPanel({ isOpen }: WaypointPanelProps) {
     setDropTargetIndex(index);
   }, []);
 
-  const handleDrop = useCallback((toIndex: number) => {
-    if (dragIndex >= 0 && dragIndex !== toIndex) {
-      storeApi.getState().reorderWaypoints(dragIndex, toIndex);
-    }
-    setDragIndex(-1);
-    setDropTargetIndex(-1);
-  }, [dragIndex, storeApi]);
+  const handleDrop = useCallback(
+    (toIndex: number) => {
+      if (dragIndex >= 0 && dragIndex !== toIndex) {
+        storeApi.getState().reorderWaypoints(dragIndex, toIndex);
+      }
+      setDragIndex(-1);
+      setDropTargetIndex(-1);
+    },
+    [dragIndex, storeApi],
+  );
 
   const handleDragEnd = useCallback(() => {
     setDragIndex(-1);
@@ -117,39 +129,39 @@ export function WaypointPanel({ isOpen }: WaypointPanelProps) {
       role="navigation"
       aria-label="Waypoints"
       style={{
-        position: 'absolute',
+        position: "absolute",
         left: 60,
-        top: '50%',
-        transform: 'translateY(-50%)',
+        top: "50%",
+        transform: "translateY(-50%)",
         width: PANEL_WIDTH,
-        maxHeight: '60vh',
-        display: 'flex',
-        flexDirection: 'column',
-        backgroundColor: 'var(--bg-toolbar, #ffffff)',
+        maxHeight: "60vh",
+        display: "flex",
+        flexDirection: "column",
+        backgroundColor: "var(--bg-toolbar, #ffffff)",
         borderRadius: 10,
-        boxShadow: '0 4px 16px var(--shadow, rgba(0, 0, 0, 0.15))',
-        border: '1px solid var(--border, #e0e0e0)',
+        boxShadow: "0 4px 16px var(--shadow, rgba(0, 0, 0, 0.15))",
+        border: "1px solid var(--border, #e0e0e0)",
         zIndex: 20,
-        fontFamily: 'system-ui, -apple-system, sans-serif',
+        fontFamily: "system-ui, -apple-system, sans-serif",
       }}
     >
       {/* Header */}
       <div
         style={{
-          display: 'flex',
-          alignItems: 'center',
+          display: "flex",
+          alignItems: "center",
           gap: 6,
-          padding: '8px 10px',
-          borderBottom: '1px solid var(--border, #e0e0e0)',
+          padding: "8px 10px",
+          borderBottom: "1px solid var(--border, #e0e0e0)",
           flexShrink: 0,
         }}
       >
-        <Navigation size={14} style={{ color: 'var(--text-primary, #333)' }} />
+        <Navigation size={14} style={{ color: "var(--text-primary, #333)" }} />
         <span
           style={{
             fontSize: 12,
             fontWeight: 600,
-            color: 'var(--text-primary, #333333)',
+            color: "var(--text-primary, #333333)",
             flex: 1,
           }}
         >
@@ -158,7 +170,7 @@ export function WaypointPanel({ isOpen }: WaypointPanelProps) {
         <span
           style={{
             fontSize: 10,
-            color: '#999',
+            color: "#999",
             fontWeight: 400,
           }}
         >
@@ -170,17 +182,17 @@ export function WaypointPanel({ isOpen }: WaypointPanelProps) {
       <div
         style={{
           flex: 1,
-          overflowY: 'auto',
-          padding: '4px 6px',
+          overflowY: "auto",
+          padding: "4px 6px",
         }}
       >
         {waypoints.length === 0 ? (
           <div
             style={{
-              padding: '16px 8px',
-              textAlign: 'center',
+              padding: "16px 8px",
+              textAlign: "center",
               fontSize: 11,
-              color: '#999',
+              color: "#999",
               lineHeight: 1.4,
             }}
           >
@@ -212,11 +224,11 @@ export function WaypointPanel({ isOpen }: WaypointPanelProps) {
       {/* Bottom controls */}
       <div
         style={{
-          display: 'flex',
-          alignItems: 'center',
+          display: "flex",
+          alignItems: "center",
           gap: 2,
-          padding: '6px 6px',
-          borderTop: '1px solid var(--border, #e0e0e0)',
+          padding: "6px 6px",
+          borderTop: "1px solid var(--border, #e0e0e0)",
           flexShrink: 0,
         }}
       >
@@ -256,16 +268,14 @@ export function WaypointPanel({ isOpen }: WaypointPanelProps) {
           data-testid="waypoint-counter"
           style={{
             minWidth: 36,
-            textAlign: 'center',
+            textAlign: "center",
             fontSize: 11,
             fontWeight: 500,
-            color: 'var(--text-primary, #333333)',
-            userSelect: 'none',
+            color: "var(--text-primary, #333333)",
+            userSelect: "none",
           }}
         >
-          {waypoints.length > 0
-            ? `${displayIndex} / ${waypoints.length}`
-            : '0'}
+          {waypoints.length > 0 ? `${displayIndex} / ${waypoints.length}` : "0"}
         </span>
 
         {/* Next */}
@@ -328,7 +338,7 @@ function WaypointItem({
   onDragEnd,
 }: WaypointItemProps) {
   const [isEditing, setIsEditing] = useState(false);
-  const [editValue, setEditValue] = useState(waypoint.label ?? '');
+  const [editValue, setEditValue] = useState(waypoint.label ?? "");
   const inputRef = useRef<HTMLInputElement>(null);
 
   // Focus input when entering edit mode
@@ -339,11 +349,14 @@ function WaypointItem({
     }
   }, [isEditing]);
 
-  const handleLabelClick = useCallback((e: React.MouseEvent) => {
-    e.stopPropagation();
-    setEditValue(waypoint.label ?? '');
-    setIsEditing(true);
-  }, [waypoint.label]);
+  const handleLabelClick = useCallback(
+    (e: React.MouseEvent) => {
+      e.stopPropagation();
+      setEditValue(waypoint.label ?? "");
+      setIsEditing(true);
+    },
+    [waypoint.label],
+  );
 
   const commitRename = useCallback(() => {
     const trimmed = editValue.trim();
@@ -355,9 +368,9 @@ function WaypointItem({
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
-      if (e.key === 'Enter') {
+      if (e.key === "Enter") {
         commitRename();
-      } else if (e.key === 'Escape') {
+      } else if (e.key === "Escape") {
         setIsEditing(false);
       }
       // Stop propagation to prevent canvas keyboard shortcuts
@@ -371,12 +384,13 @@ function WaypointItem({
       data-testid={`waypoint-item-${index}`}
       draggable
       onDragStart={(e) => {
-        e.dataTransfer.effectAllowed = 'move';
-        e.dataTransfer.setData('text/plain', String(index));
+        e.dataTransfer.effectAllowed = "move";
+        e.dataTransfer.setData("text/plain", String(index));
         // Use minimal drag image to avoid floating counter/button artifacts
-        const ghost = document.createElement('div');
+        const ghost = document.createElement("div");
         ghost.textContent = waypoint.label || `View ${index + 1}`;
-        ghost.style.cssText = 'position:absolute;top:-999px;padding:4px 8px;background:#4A90D9;color:#fff;border-radius:4px;font-size:12px;font-family:system-ui';
+        ghost.style.cssText =
+          "position:absolute;top:-999px;padding:4px 8px;background:#4A90D9;color:#fff;border-radius:4px;font-size:12px;font-family:system-ui";
         document.body.appendChild(ghost);
         e.dataTransfer.setDragImage(ghost, 0, 0);
         requestAnimationFrame(() => document.body.removeChild(ghost));
@@ -384,7 +398,7 @@ function WaypointItem({
       }}
       onDragOver={(e) => {
         e.preventDefault();
-        e.dataTransfer.dropEffect = 'move';
+        e.dataTransfer.dropEffect = "move";
         onDragOver(index);
       }}
       onDrop={(e) => {
@@ -394,29 +408,27 @@ function WaypointItem({
       onDragEnd={onDragEnd}
       onClick={() => onJump(index)}
       style={{
-        display: 'flex',
-        alignItems: 'center',
+        display: "flex",
+        alignItems: "center",
         gap: 4,
-        padding: '5px 6px',
+        padding: "5px 6px",
         borderRadius: 6,
-        cursor: 'pointer',
-        borderLeft: isActive ? '3px solid #4A90D9' : '3px solid transparent',
-        borderTop: isDropTarget ? '2px solid #4A90D9' : '2px solid transparent',
-        backgroundColor: isActive
-            ? 'rgba(74, 144, 217, 0.08)'
-            : 'transparent',
+        cursor: "pointer",
+        borderLeft: isActive ? "3px solid #4A90D9" : "3px solid transparent",
+        borderTop: isDropTarget ? "2px solid #4A90D9" : "2px solid transparent",
+        backgroundColor: isActive ? "rgba(74, 144, 217, 0.08)" : "transparent",
         opacity: isDragging ? 0.4 : 1,
-        transition: 'background-color 0.1s, opacity 0.15s',
+        transition: "background-color 0.1s, opacity 0.15s",
         marginBottom: 2,
       }}
       onMouseEnter={(e) => {
         if (!isActive && !isDropTarget) {
-          e.currentTarget.style.backgroundColor = 'rgba(0, 0, 0, 0.04)';
+          e.currentTarget.style.backgroundColor = "rgba(0, 0, 0, 0.04)";
         }
       }}
       onMouseLeave={(e) => {
         if (!isActive && !isDropTarget) {
-          e.currentTarget.style.backgroundColor = 'transparent';
+          e.currentTarget.style.backgroundColor = "transparent";
         }
       }}
     >
@@ -424,10 +436,10 @@ function WaypointItem({
       <span
         data-testid={`waypoint-drag-${index}`}
         style={{
-          display: 'flex',
-          alignItems: 'center',
-          cursor: 'grab',
-          color: '#bbb',
+          display: "flex",
+          alignItems: "center",
+          cursor: "grab",
+          color: "#bbb",
           flexShrink: 0,
         }}
         onClick={(e) => e.stopPropagation()}
@@ -447,13 +459,13 @@ function WaypointItem({
           style={{
             flex: 1,
             fontSize: 11,
-            fontFamily: 'inherit',
-            padding: '2px 4px',
-            border: '1px solid #4A90D9',
+            fontFamily: "inherit",
+            padding: "2px 4px",
+            border: "1px solid #4A90D9",
             borderRadius: 3,
-            outline: 'none',
-            backgroundColor: 'var(--bg-toolbar, #ffffff)',
-            color: 'var(--text-primary, #333333)',
+            outline: "none",
+            backgroundColor: "var(--bg-toolbar, #ffffff)",
+            color: "var(--text-primary, #333333)",
             minWidth: 0,
           }}
         />
@@ -465,11 +477,11 @@ function WaypointItem({
           style={{
             flex: 1,
             fontSize: 11,
-            color: 'var(--text-primary, #333333)',
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-            whiteSpace: 'nowrap',
-            cursor: 'text',
+            color: "var(--text-primary, #333333)",
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            whiteSpace: "nowrap",
+            cursor: "text",
           }}
         >
           {waypoint.label ?? `Waypoint ${index + 1}`}
@@ -480,32 +492,32 @@ function WaypointItem({
       <button
         type="button"
         data-testid={`waypoint-delete-${index}`}
-        aria-label={`Delete ${waypoint.label ?? 'waypoint'}`}
+        aria-label={`Delete ${waypoint.label ?? "waypoint"}`}
         onClick={(e) => {
           e.stopPropagation();
           onRemove(index);
         }}
         style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
           width: 22,
           height: 22,
-          border: 'none',
+          border: "none",
           borderRadius: 4,
-          cursor: 'pointer',
-          backgroundColor: 'transparent',
-          color: '#999',
-          transition: 'color 0.1s, background-color 0.1s',
+          cursor: "pointer",
+          backgroundColor: "transparent",
+          color: "#999",
+          transition: "color 0.1s, background-color 0.1s",
           flexShrink: 0,
         }}
         onMouseEnter={(e) => {
-          e.currentTarget.style.color = '#e03131';
-          e.currentTarget.style.backgroundColor = 'rgba(224, 49, 49, 0.08)';
+          e.currentTarget.style.color = "#e03131";
+          e.currentTarget.style.backgroundColor = "rgba(224, 49, 49, 0.08)";
         }}
         onMouseLeave={(e) => {
-          e.currentTarget.style.color = '#999';
-          e.currentTarget.style.backgroundColor = 'transparent';
+          e.currentTarget.style.color = "#999";
+          e.currentTarget.style.backgroundColor = "transparent";
         }}
       >
         <Trash2 size={12} />
@@ -516,15 +528,15 @@ function WaypointItem({
 
 /** Shared style for bottom control buttons. */
 const controlButtonStyle: React.CSSProperties = {
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'center',
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
   width: BUTTON_SIZE,
   height: BUTTON_SIZE,
-  border: 'none',
+  border: "none",
   borderRadius: 6,
-  cursor: 'pointer',
-  backgroundColor: 'transparent',
-  color: 'var(--text-primary, #333333)',
-  transition: 'background-color 0.15s',
+  cursor: "pointer",
+  backgroundColor: "transparent",
+  color: "var(--text-primary, #333333)",
+  transition: "background-color 0.15s",
 };

@@ -15,11 +15,11 @@
  */
 export function escapeXml(text: string): string {
   return text
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&apos;');
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&apos;");
 }
 
 /**
@@ -33,13 +33,13 @@ export function unescapeXml(text: string): string {
   return text
     .replace(/&apos;/g, "'")
     .replace(/&quot;/g, '"')
-    .replace(/&gt;/g, '>')
-    .replace(/&lt;/g, '<')
-    .replace(/&amp;/g, '&')
-    .replace(/&#10;/g, '\n')
-    .replace(/&#13;/g, '\r')
-    .replace(/&#xa;/gi, '\n')
-    .replace(/&#xd;/gi, '\r')
-    .replace(/&#9;/g, '\t')
-    .replace(/&#x9;/gi, '\t');
+    .replace(/&gt;/g, ">")
+    .replace(/&lt;/g, "<")
+    .replace(/&amp;/g, "&")
+    .replace(/&#10;/g, "\n")
+    .replace(/&#13;/g, "\r")
+    .replace(/&#xa;/gi, "\n")
+    .replace(/&#xd;/gi, "\r")
+    .replace(/&#9;/g, "\t")
+    .replace(/&#x9;/gi, "\t");
 }

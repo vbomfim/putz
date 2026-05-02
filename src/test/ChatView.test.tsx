@@ -16,49 +16,37 @@ describe("ChatView", () => {
   });
 
   it("renders nothing when isOpen is false", () => {
-    render(
-      <ChatView isOpen={false} onClose={mockOnClose} />,
-    );
+    render(<ChatView isOpen={false} onClose={mockOnClose} />);
     expect(screen.queryByTestId("chat-view")).not.toBeInTheDocument();
   });
 
   it("renders the chat view when isOpen is true", () => {
-    render(
-      <ChatView isOpen={true} onClose={mockOnClose} />,
-    );
+    render(<ChatView isOpen={true} onClose={mockOnClose} />);
     expect(screen.getByTestId("chat-view")).toBeInTheDocument();
     expect(screen.getByText("Session Chat Log")).toBeInTheDocument();
   });
 
   it("renders command input and send button", () => {
-    render(
-      <ChatView isOpen={true} onClose={mockOnClose} />,
-    );
+    render(<ChatView isOpen={true} onClose={mockOnClose} />);
     expect(screen.getByTestId("chat-view-input")).toBeInTheDocument();
     expect(screen.getByTestId("chat-view-send")).toBeInTheDocument();
   });
 
   it("shows empty state when no commands sent", () => {
-    render(
-      <ChatView isOpen={true} onClose={mockOnClose} />,
-    );
+    render(<ChatView isOpen={true} onClose={mockOnClose} />);
     expect(
       screen.getByText("No commands sent yet. Type a command below."),
     ).toBeInTheDocument();
   });
 
   it("calls onClose when close button is clicked", () => {
-    render(
-      <ChatView isOpen={true} onClose={mockOnClose} />,
-    );
+    render(<ChatView isOpen={true} onClose={mockOnClose} />);
     fireEvent.click(screen.getByTestId("chat-view-close"));
     expect(mockOnClose).toHaveBeenCalledTimes(1);
   });
 
   it("calls onClose when Escape is pressed", () => {
-    render(
-      <ChatView isOpen={true} onClose={mockOnClose} />,
-    );
+    render(<ChatView isOpen={true} onClose={mockOnClose} />);
     fireEvent.keyDown(window, { key: "Escape" });
     expect(mockOnClose).toHaveBeenCalledTimes(1);
   });
@@ -147,17 +135,13 @@ describe("ChatView", () => {
   });
 
   it("disables send button when input is empty", () => {
-    render(
-      <ChatView isOpen={true} onClose={mockOnClose} />,
-    );
+    render(<ChatView isOpen={true} onClose={mockOnClose} />);
     const sendBtn = screen.getByTestId("chat-view-send");
     expect(sendBtn).toBeDisabled();
   });
 
   it("toggles search bar visibility", () => {
-    render(
-      <ChatView isOpen={true} onClose={mockOnClose} />,
-    );
+    render(<ChatView isOpen={true} onClose={mockOnClose} />);
 
     expect(screen.queryByTestId("chat-view-search")).not.toBeInTheDocument();
 

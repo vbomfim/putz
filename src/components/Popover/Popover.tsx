@@ -93,7 +93,8 @@ export function Popover({
       const vh = window.innerHeight;
 
       // Horizontal: align to anchor left, clamp to viewport.
-      const panelWidth = width ?? Math.min(maxWidth ?? 280, Math.max(minWidth ?? 200, 240));
+      const panelWidth =
+        width ?? Math.min(maxWidth ?? 280, Math.max(minWidth ?? 200, 240));
       let left = rect.left;
       if (left + panelWidth > vw - margin) left = vw - panelWidth - margin;
       if (left < margin) left = margin;
@@ -102,9 +103,17 @@ export function Popover({
       const spaceBelow = vh - rect.bottom - margin;
       const spaceAbove = rect.top - margin;
       let side: "top" | "bottom" = placement;
-      if (side === "bottom" && spaceBelow < flipThreshold && spaceAbove > spaceBelow) {
+      if (
+        side === "bottom" &&
+        spaceBelow < flipThreshold &&
+        spaceAbove > spaceBelow
+      ) {
         side = "top";
-      } else if (side === "top" && spaceAbove < flipThreshold && spaceBelow > spaceAbove) {
+      } else if (
+        side === "top" &&
+        spaceAbove < flipThreshold &&
+        spaceBelow > spaceAbove
+      ) {
         side = "bottom";
       }
 
@@ -150,7 +159,18 @@ export function Popover({
       window.removeEventListener("resize", recompute);
       window.removeEventListener("scroll", recompute, true);
     };
-  }, [open, placement, width, minWidth, maxWidth, maxHeight, flipThreshold, margin, zIndex, anchorRef]);
+  }, [
+    open,
+    placement,
+    width,
+    minWidth,
+    maxWidth,
+    maxHeight,
+    flipThreshold,
+    margin,
+    zIndex,
+    anchorRef,
+  ]);
 
   // Observe the panel itself — when async children load and its size changes,
   // recompute position so the flip/clamp logic applies to the real size.
@@ -166,10 +186,25 @@ export function Popover({
       const spaceBelow = vh - rect.bottom - margin;
       const spaceAbove = rect.top - margin;
       let side: "top" | "bottom" = placement;
-      if (side === "bottom" && spaceBelow < flipThreshold && spaceAbove > spaceBelow) side = "top";
-      else if (side === "top" && spaceAbove < flipThreshold && spaceBelow > spaceAbove) side = "bottom";
-      const clampedMaxH = Math.max(60, Math.min(maxHeight, side === "bottom" ? spaceBelow : spaceAbove));
-      setComputed((prev) => (prev ? { ...prev, maxHeight: clampedMaxH } : prev));
+      if (
+        side === "bottom" &&
+        spaceBelow < flipThreshold &&
+        spaceAbove > spaceBelow
+      )
+        side = "top";
+      else if (
+        side === "top" &&
+        spaceAbove < flipThreshold &&
+        spaceBelow > spaceAbove
+      )
+        side = "bottom";
+      const clampedMaxH = Math.max(
+        60,
+        Math.min(maxHeight, side === "bottom" ? spaceBelow : spaceAbove),
+      );
+      setComputed((prev) =>
+        prev ? { ...prev, maxHeight: clampedMaxH } : prev,
+      );
     });
     ro.observe(panel);
     return () => ro.disconnect();

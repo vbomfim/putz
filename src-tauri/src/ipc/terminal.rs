@@ -57,7 +57,15 @@ pub async fn pty_spawn(
     };
 
     state
-        .spawn(&app, shell, cwd, cols, rows, merged_env, log_state.get_loggers())
+        .spawn(
+            &app,
+            shell,
+            cwd,
+            cols,
+            rows,
+            merged_env,
+            log_state.get_loggers(),
+        )
         .map_err(|e| e.to_string())
 }
 
@@ -74,7 +82,9 @@ pub fn pty_write(
     let t0 = std::time::Instant::now();
     let result = state.write(&session_id, &data).map_err(|e| e.to_string());
     let us = t0.elapsed().as_micros();
-    crate::perf::log(&format!("pty_write EXIT  session={sid} bytes={len} took_us={us}"));
+    crate::perf::log(&format!(
+        "pty_write EXIT  session={sid} bytes={len} took_us={us}"
+    ));
     result
 }
 
@@ -154,17 +164,29 @@ pub fn pty_list_shells() -> Vec<serde_json::Value> {
 
     #[cfg(windows)]
     {
-        use std::process::Command;
         use std::os::windows::process::CommandExt;
+        use std::process::Command;
         const CREATE_NO_WINDOW: u32 = 0x0800_0000;
 
         // PowerShell 7 (pwsh)
-        if Command::new("pwsh").arg("--version").creation_flags(CREATE_NO_WINDOW).output().is_ok() {
+        if Command::new("pwsh")
+            .arg("--version")
+            .creation_flags(CREATE_NO_WINDOW)
+            .output()
+            .is_ok()
+        {
             shells.push(serde_json::json!({"name": "PowerShell 7", "path": "pwsh.exe"}));
         }
         // Windows PowerShell
-        if Command::new("powershell.exe").arg("-Command").arg("$PSVersionTable.PSVersion.Major").creation_flags(CREATE_NO_WINDOW).output().is_ok() {
-            shells.push(serde_json::json!({"name": "Windows PowerShell", "path": "powershell.exe"}));
+        if Command::new("powershell.exe")
+            .arg("-Command")
+            .arg("$PSVersionTable.PSVersion.Major")
+            .creation_flags(CREATE_NO_WINDOW)
+            .output()
+            .is_ok()
+        {
+            shells
+                .push(serde_json::json!({"name": "Windows PowerShell", "path": "powershell.exe"}));
         }
         // CMD
         shells.push(serde_json::json!({"name": "Command Prompt", "path": "cmd.exe"}));
@@ -180,11 +202,21 @@ pub fn pty_list_shells() -> Vec<serde_json::Value> {
             }
         }
         // WSL
-        if Command::new("wsl.exe").arg("--status").creation_flags(CREATE_NO_WINDOW).output().is_ok() {
+        if Command::new("wsl.exe")
+            .arg("--status")
+            .creation_flags(CREATE_NO_WINDOW)
+            .output()
+            .is_ok()
+        {
             shells.push(serde_json::json!({"name": "WSL", "path": "wsl.exe"}));
         }
         // Nushell
-        if Command::new("nu.exe").arg("--version").creation_flags(CREATE_NO_WINDOW).output().is_ok() {
+        if Command::new("nu.exe")
+            .arg("--version")
+            .creation_flags(CREATE_NO_WINDOW)
+            .output()
+            .is_ok()
+        {
             shells.push(serde_json::json!({"name": "Nushell", "path": "nu.exe"}));
         }
     }

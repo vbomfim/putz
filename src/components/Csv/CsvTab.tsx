@@ -34,18 +34,29 @@ export function CsvTab({ filePath, regionId, tabId }: CsvTabProps) {
   const [parsed, setParsed] = useState<CsvParsed | null>(null);
   const [columnOrder, setColumnOrder] = useState<number[]>([]); // permutation of [0..colCount-1]
   const [hasHeader, setHasHeader] = useState(false);
-  const [sortBy, setSortBy] = useState<{ col: number; dir: SortDirection }>({ col: -1, dir: null });
+  const [sortBy, setSortBy] = useState<{ col: number; dir: SortDirection }>({
+    col: -1,
+    dir: null,
+  });
   const [search, setSearch] = useState("");
   const [frozenCols, setFrozenCols] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
   const [isDirty, setIsDirty] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [statusMessage, setStatusMessage] = useState("");
-  const [editingCell, setEditingCell] = useState<{ row: number; col: number } | null>(null);
+  const [editingCell, setEditingCell] = useState<{
+    row: number;
+    col: number;
+  } | null>(null);
   const [editValue, setEditValue] = useState("");
   const [renamingCol, setRenamingCol] = useState<number | null>(null);
   const [renameValue, setRenameValue] = useState("");
-  const [contextMenu, setContextMenu] = useState<{ x: number; y: number; col?: number; row?: number } | null>(null);
+  const [contextMenu, setContextMenu] = useState<{
+    x: number;
+    y: number;
+    col?: number;
+    row?: number;
+  } | null>(null);
   const [selectedRow, setSelectedRow] = useState<number | null>(null);
   const [selectedCol, setSelectedCol] = useState<number | null>(null);
   const lastMtimeRef = useRef<number>(0);
@@ -67,7 +78,10 @@ export function CsvTab({ filePath, regionId, tabId }: CsvTabProps) {
         if (cancelled) return;
         const ext = filePath.split(".").pop()?.toLowerCase();
         const initialDelimiter = ext === "tsv" ? "\t" : undefined;
-        const p = parseCsv(text, { hasHeader: false, delimiter: initialDelimiter });
+        const p = parseCsv(text, {
+          hasHeader: false,
+          delimiter: initialDelimiter,
+        });
         setParsed(p);
         setHasHeader(false);
         setColumnOrder(p.headers.map((_, i) => i));
@@ -95,7 +109,12 @@ export function CsvTab({ filePath, regionId, tabId }: CsvTabProps) {
       if (parsed.rows.length === 0) return;
       const newHeaders = parsed.rows[0];
       const newRows = parsed.rows.slice(1);
-      const newParsed: CsvParsed = { ...parsed, headers: newHeaders, rows: newRows, hasHeader: true };
+      const newParsed: CsvParsed = {
+        ...parsed,
+        headers: newHeaders,
+        rows: newRows,
+        hasHeader: true,
+      };
       setParsed(newParsed);
       setHasHeader(true);
       setIsDirty(true);
@@ -105,7 +124,12 @@ export function CsvTab({ filePath, regionId, tabId }: CsvTabProps) {
       const colCount = parsed.headers.length;
       const newHeaders: string[] = [];
       for (let i = 0; i < colCount; i++) newHeaders.push(columnName(i));
-      const newParsed: CsvParsed = { ...parsed, headers: newHeaders, rows: newRows, hasHeader: false };
+      const newParsed: CsvParsed = {
+        ...parsed,
+        headers: newHeaders,
+        rows: newRows,
+        hasHeader: false,
+      };
       setParsed(newParsed);
       setHasHeader(false);
       setIsDirty(true);
@@ -118,7 +142,9 @@ export function CsvTab({ filePath, regionId, tabId }: CsvTabProps) {
     const q = search.trim().toLowerCase();
     const indexed = parsed.rows.map((row, idx) => ({ idx, row }));
     if (!q) return indexed;
-    return indexed.filter(({ row }) => row.some((cell) => cell.toLowerCase().includes(q)));
+    return indexed.filter(({ row }) =>
+      row.some((cell) => cell.toLowerCase().includes(q)),
+    );
   }, [parsed, search]);
 
   // Sorted rows
@@ -130,7 +156,8 @@ export function CsvTab({ filePath, regionId, tabId }: CsvTabProps) {
       const bv = b.row[sortBy.col] ?? "";
       const an = parseFloat(av);
       const bn = parseFloat(bv);
-      const bothNum = !isNaN(an) && !isNaN(bn) && av.trim() !== "" && bv.trim() !== "";
+      const bothNum =
+        !isNaN(an) && !isNaN(bn) && av.trim() !== "" && bv.trim() !== "";
       if (bothNum) return (an - bn) * dir;
       return av.localeCompare(bv) * dir;
     });
@@ -194,7 +221,9 @@ export function CsvTab({ filePath, regionId, tabId }: CsvTabProps) {
   // Open in text mode (close this tab, open Monaco on same file)
   const handleSwitchToText = useCallback(() => {
     if (isDirty) {
-      const ok = window.confirm("You have unsaved changes. Switch to Text Mode anyway? Unsaved edits will be lost.");
+      const ok = window.confirm(
+        "You have unsaved changes. Switch to Text Mode anyway? Unsaved edits will be lost.",
+      );
       if (!ok) return;
     }
     closeTab(regionId, tabId);
@@ -229,7 +258,9 @@ export function CsvTab({ filePath, regionId, tabId }: CsvTabProps) {
       const newHeaders = parsed.headers.filter((_, i) => i !== col);
       const newRows = parsed.rows.map((r) => r.filter((_, i) => i !== col));
       setParsed({ ...parsed, headers: newHeaders, rows: newRows });
-      setColumnOrder((prev) => prev.filter((i) => i !== col).map((i) => (i > col ? i - 1 : i)));
+      setColumnOrder((prev) =>
+        prev.filter((i) => i !== col).map((i) => (i > col ? i - 1 : i)),
+      );
       setIsDirty(true);
     },
     [parsed],
@@ -315,7 +346,10 @@ export function CsvTab({ filePath, regionId, tabId }: CsvTabProps) {
           onChange={(e) => setSearch(e.target.value)}
         />
         <span className="csv-tab__sep" />
-        <label className="csv-tab__check" title="Treat the first row as column headers">
+        <label
+          className="csv-tab__check"
+          title="Treat the first row as column headers"
+        >
           <input type="checkbox" checked={hasHeader} onChange={toggleHeader} />
           <span>First row is header</span>
         </label>
@@ -326,7 +360,11 @@ export function CsvTab({ filePath, regionId, tabId }: CsvTabProps) {
             min={0}
             max={Math.max(0, totalCols - 1)}
             value={safeFrozen}
-            onChange={(e) => setFrozenCols(Math.max(0, parseInt(e.target.value || "0", 10) || 0))}
+            onChange={(e) =>
+              setFrozenCols(
+                Math.max(0, parseInt(e.target.value || "0", 10) || 0),
+              )
+            }
             className="csv-tab__num"
           />
         </label>
@@ -334,8 +372,16 @@ export function CsvTab({ filePath, regionId, tabId }: CsvTabProps) {
         <button
           type="button"
           className="csv-tab__btn"
-          onClick={() => insertRow(selectedRow !== null ? selectedRow : parsed.rows.length - 1)}
-          title={selectedRow !== null ? `Insert row after row ${selectedRow + 1}` : "Append row at end"}
+          onClick={() =>
+            insertRow(
+              selectedRow !== null ? selectedRow : parsed.rows.length - 1,
+            )
+          }
+          title={
+            selectedRow !== null
+              ? `Insert row after row ${selectedRow + 1}`
+              : "Append row at end"
+          }
         >
           + Row
         </button>
@@ -348,15 +394,25 @@ export function CsvTab({ filePath, regionId, tabId }: CsvTabProps) {
             setSelectedRow(null);
           }}
           disabled={selectedRow === null}
-          title={selectedRow !== null ? `Delete row ${selectedRow + 1}` : "Click a cell to select a row first"}
+          title={
+            selectedRow !== null
+              ? `Delete row ${selectedRow + 1}`
+              : "Click a cell to select a row first"
+          }
         >
           − Row
         </button>
         <button
           type="button"
           className="csv-tab__btn"
-          onClick={() => insertColumn(selectedCol !== null ? selectedCol : totalCols - 1)}
-          title={selectedCol !== null ? `Insert column after "${parsed.headers[selectedCol] ?? ""}"` : "Append column at end"}
+          onClick={() =>
+            insertColumn(selectedCol !== null ? selectedCol : totalCols - 1)
+          }
+          title={
+            selectedCol !== null
+              ? `Insert column after "${parsed.headers[selectedCol] ?? ""}"`
+              : "Append column at end"
+          }
         >
           + Col
         </button>
@@ -369,40 +425,65 @@ export function CsvTab({ filePath, regionId, tabId }: CsvTabProps) {
             setSelectedCol(null);
           }}
           disabled={selectedCol === null}
-          title={selectedCol !== null ? `Delete column "${parsed.headers[selectedCol] ?? ""}"` : "Click a header or cell to select a column first"}
+          title={
+            selectedCol !== null
+              ? `Delete column "${parsed.headers[selectedCol] ?? ""}"`
+              : "Click a header or cell to select a column first"
+          }
         >
           − Col
         </button>
         <span className="csv-tab__sep" />
-        <button type="button" className="csv-tab__btn" onClick={handleSwitchToText} title="Open this file in the text editor">
+        <button
+          type="button"
+          className="csv-tab__btn"
+          onClick={handleSwitchToText}
+          title="Open this file in the text editor"
+        >
           Text Mode
         </button>
         <span className="csv-tab__spacer" />
         <span className="csv-tab__status">
-          {sortedRows.length}/{parsed.rows.length} rows · {totalCols} cols ·
-          {" "}
+          {sortedRows.length}/{parsed.rows.length} rows · {totalCols} cols ·{" "}
           {parsed.delimiter === "\t" ? "TAB" : `"${parsed.delimiter}"`}
-          {statusMessage && <span className="csv-tab__status-msg"> · {statusMessage}</span>}
+          {statusMessage && (
+            <span className="csv-tab__status-msg"> · {statusMessage}</span>
+          )}
         </span>
       </div>
 
       <div className="csv-tab__container" ref={tableContainerRef}>
-        <table className="csv-tab__table" style={{ width: 40 + orderedCols.length * 160 }}>
+        <table
+          className="csv-tab__table"
+          style={{ width: 40 + orderedCols.length * 160 }}
+        >
           <thead>
             <tr>
-              <th className="csv-tab__th csv-tab__th--rownum csv-tab__th--frozen" style={{ left: 0, width: 40 }}>
+              <th
+                className="csv-tab__th csv-tab__th--rownum csv-tab__th--frozen"
+                style={{ left: 0, width: 40 }}
+              >
                 #
               </th>
               {orderedCols.map((colIdx, position) => {
                 const isFrozen = position < safeFrozen;
-                const headerLabel = parsed.headers[colIdx] ?? columnName(colIdx);
+                const headerLabel =
+                  parsed.headers[colIdx] ?? columnName(colIdx);
                 const isSorted = sortBy.col === colIdx;
-                const sortGlyph = isSorted ? (sortBy.dir === "asc" ? "▲" : "▼") : "";
+                const sortGlyph = isSorted
+                  ? sortBy.dir === "asc"
+                    ? "▲"
+                    : "▼"
+                  : "";
                 return (
                   <th
                     key={colIdx}
                     className={`csv-tab__th ${isFrozen ? "csv-tab__th--frozen" : ""} ${selectedCol === colIdx ? "csv-tab__th--selected" : ""}`}
-                    style={isFrozen ? { left: frozenLeftOffsets.get(position) } : undefined}
+                    style={
+                      isFrozen
+                        ? { left: frozenLeftOffsets.get(position) }
+                        : undefined
+                    }
                     draggable={renamingCol !== colIdx}
                     onDragStart={() => {
                       dragColRef.current = position;
@@ -423,7 +504,11 @@ export function CsvTab({ filePath, regionId, tabId }: CsvTabProps) {
                     onContextMenu={(e) => {
                       e.preventDefault();
                       setSelectedCol(colIdx);
-                      setContextMenu({ x: e.clientX, y: e.clientY, col: colIdx });
+                      setContextMenu({
+                        x: e.clientX,
+                        y: e.clientY,
+                        col: colIdx,
+                      });
                     }}
                   >
                     {renamingCol === colIdx ? (
@@ -449,8 +534,10 @@ export function CsvTab({ filePath, regionId, tabId }: CsvTabProps) {
                         onClick={() => {
                           setSelectedCol(colIdx);
                           setSortBy((prev) => {
-                            if (prev.col !== colIdx) return { col: colIdx, dir: "asc" };
-                            if (prev.dir === "asc") return { col: colIdx, dir: "desc" };
+                            if (prev.col !== colIdx)
+                              return { col: colIdx, dir: "asc" };
+                            if (prev.dir === "asc")
+                              return { col: colIdx, dir: "desc" };
                             return { col: -1, dir: null };
                           });
                         }}
@@ -460,7 +547,11 @@ export function CsvTab({ filePath, regionId, tabId }: CsvTabProps) {
                             setRenameValue(headerLabel);
                           }
                         }}
-                        title={hasHeader ? "Click: sort + select · Double-click: rename · Right-click: menu" : "Click: sort + select · Right-click: menu"}
+                        title={
+                          hasHeader
+                            ? "Click: sort + select · Double-click: rename · Right-click: menu"
+                            : "Click: sort + select · Right-click: menu"
+                        }
                       >
                         <span className="csv-tab__th-label">{headerLabel}</span>
                         <span className="csv-tab__th-sort">{sortGlyph}</span>
@@ -471,7 +562,13 @@ export function CsvTab({ filePath, regionId, tabId }: CsvTabProps) {
               })}
             </tr>
           </thead>
-          <tbody style={{ height: rowVirtualizer.getTotalSize(), display: "block", position: "relative" }}>
+          <tbody
+            style={{
+              height: rowVirtualizer.getTotalSize(),
+              display: "block",
+              position: "relative",
+            }}
+          >
             {rowVirtualizer.getVirtualItems().map((virtualRow) => {
               const item = sortedRows[virtualRow.index];
               if (!item) return null;
@@ -501,13 +598,19 @@ export function CsvTab({ filePath, regionId, tabId }: CsvTabProps) {
                   </td>
                   {orderedCols.map((colIdx, position) => {
                     const isFrozen = position < safeFrozen;
-                    const isEditing = editingCell?.row === realRowIdx && editingCell?.col === colIdx;
+                    const isEditing =
+                      editingCell?.row === realRowIdx &&
+                      editingCell?.col === colIdx;
                     const cellVal = row[colIdx] ?? "";
                     return (
                       <td
                         key={colIdx}
                         className={`csv-tab__td ${isFrozen ? "csv-tab__td--frozen" : ""} ${selectedCol === colIdx ? "csv-tab__td--col-selected" : ""}`}
-                        style={isFrozen ? { left: frozenLeftOffsets.get(position) } : undefined}
+                        style={
+                          isFrozen
+                            ? { left: frozenLeftOffsets.get(position) }
+                            : undefined
+                        }
                         onClick={() => {
                           setSelectedRow(realRowIdx);
                           setSelectedCol(colIdx);
@@ -519,7 +622,12 @@ export function CsvTab({ filePath, regionId, tabId }: CsvTabProps) {
                           e.preventDefault();
                           setSelectedRow(realRowIdx);
                           setSelectedCol(colIdx);
-                          setContextMenu({ x: e.clientX, y: e.clientY, col: colIdx, row: realRowIdx });
+                          setContextMenu({
+                            x: e.clientX,
+                            y: e.clientY,
+                            col: colIdx,
+                            row: realRowIdx,
+                          });
                         }}
                       >
                         {isEditing ? (

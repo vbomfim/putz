@@ -15,7 +15,10 @@
   flex-direction: column;
   background: var(--bg-primary, #1e1e2e);
   color: var(--text-primary, #cdd6f4);
-  font-family: system-ui, -apple-system, sans-serif;
+  font-family:
+    system-ui,
+    -apple-system,
+    sans-serif;
   font-size: 13px;
 }
 
@@ -138,11 +141,25 @@
   font-weight: 500;
 }
 
-.git-graph .wt-badge.staged { background: #388e3c40; color: #81c784; }
-.git-graph .wt-badge.unstaged { background: #f57c0040; color: #ffb74d; }
-.git-graph .wt-badge.untracked { background: #1976d240; color: #64b5f6; }
-.git-graph .wt-badge .count { font-weight: 700; }
-.git-graph .wt-label { opacity: 0.8; font-weight: 600; }
+.git-graph .wt-badge.staged {
+  background: #388e3c40;
+  color: #81c784;
+}
+.git-graph .wt-badge.unstaged {
+  background: #f57c0040;
+  color: #ffb74d;
+}
+.git-graph .wt-badge.untracked {
+  background: #1976d240;
+  color: #64b5f6;
+}
+.git-graph .wt-badge .count {
+  font-weight: 700;
+}
+.git-graph .wt-label {
+  opacity: 0.8;
+  font-weight: 600;
+}
 
 .git-graph .wt-detail {
   margin-top: 4px;
@@ -157,7 +174,7 @@
 }
 
 .git-graph .wt-detail-list li::before {
-  content: '·';
+  content: "·";
   margin-right: 6px;
 }
 
@@ -177,7 +194,9 @@
   border-bottom: 1px solid rgba(255, 255, 255, 0.06);
 }
 
-.git-graph__wt-files.visible { display: block; }
+.git-graph__wt-files.visible {
+  display: block;
+}
 
 /* ---- SVG Graph overlay ---- */
 
@@ -259,7 +278,7 @@
 }
 
 .git-graph .commit-hash {
-  font-family: 'SF Mono', 'Menlo', 'Monaco', monospace;
+  font-family: "SF Mono", "Menlo", "Monaco", monospace;
   opacity: 0.7;
   flex-shrink: 0;
 }
@@ -316,9 +335,16 @@
   margin-left: 2px;
 }
 
-.git-graph .sync-ahead { color: #81c784; }
-.git-graph .sync-behind { color: #ffb74d; margin-left: 2px; }
-.git-graph .sync-ok { color: #81c784; }
+.git-graph .sync-ahead {
+  color: #81c784;
+}
+.git-graph .sync-behind {
+  color: #ffb74d;
+  margin-left: 2px;
+}
+.git-graph .sync-ok {
+  color: #81c784;
+}
 
 .git-graph .sync-pull-btn {
   background: none;
@@ -367,7 +393,9 @@
   padding: 2px 6px;
 }
 
-.git-graph .detail-close:hover { opacity: 1; }
+.git-graph .detail-close:hover {
+  opacity: 1;
+}
 
 .git-graph .detail-section {
   padding: 8px 12px;
@@ -379,7 +407,7 @@
 }
 
 .git-graph .detail-hash {
-  font-family: 'SF Mono', 'Menlo', 'Monaco', monospace;
+  font-family: "SF Mono", "Menlo", "Monaco", monospace;
   font-size: 12px;
   opacity: 0.7;
   margin-bottom: 4px;
@@ -411,7 +439,7 @@
 }
 
 .git-graph .detail-parent-hash {
-  font-family: 'SF Mono', 'Menlo', 'Monaco', monospace;
+  font-family: "SF Mono", "Menlo", "Monaco", monospace;
   cursor: pointer;
   text-decoration: underline;
   opacity: 0.8;
@@ -429,7 +457,7 @@
 .git-graph .detail-body-text {
   white-space: pre-wrap;
   word-wrap: break-word;
-  font-family: 'SF Mono', 'Menlo', 'Monaco', monospace;
+  font-family: "SF Mono", "Menlo", "Monaco", monospace;
   font-size: 11px;
   line-height: 1.5;
   opacity: 0.8;
@@ -471,7 +499,7 @@
   font-size: 12px;
   cursor: pointer;
   border-radius: 2px;
-  font-family: 'SF Mono', 'Menlo', 'Monaco', monospace;
+  font-family: "SF Mono", "Menlo", "Monaco", monospace;
 }
 
 .git-graph .detail-file-item:hover {
@@ -486,10 +514,18 @@
   font-size: 10px;
 }
 
-.git-graph .detail-file-item .status.added { color: #81c784; }
-.git-graph .detail-file-item .status.modified { color: #ffb74d; }
-.git-graph .detail-file-item .status.deleted { color: #e57373; }
-.git-graph .detail-file-item .status.renamed { color: #64b5f6; }
+.git-graph .detail-file-item .status.added {
+  color: #81c784;
+}
+.git-graph .detail-file-item .status.modified {
+  color: #ffb74d;
+}
+.git-graph .detail-file-item .status.deleted {
+  color: #e57373;
+}
+.git-graph .detail-file-item .status.renamed {
+  color: #64b5f6;
+}
 
 .git-graph .detail-file-path {
   word-break: break-all;
@@ -537,7 +573,7 @@
   padding: 3px 4px;
   border-radius: 2px;
   cursor: context-menu;
-  font-family: 'SF Mono', 'Menlo', 'Monaco', monospace;
+  font-family: "SF Mono", "Menlo", "Monaco", monospace;
 }
 
 .git-graph .stash-item:hover {
@@ -604,7 +640,7 @@
   font-size: 0.75rem;
   cursor: pointer;
   text-align: left;
-  font-family: ui-monospace, 'SF Mono', monospace;
+  font-family: ui-monospace, "SF Mono", monospace;
 }
 
 .git-graph__status-file:hover {

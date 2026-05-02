@@ -11,7 +11,13 @@
  */
 import { useEffect, useRef, useCallback } from "react";
 
-export type BackgroundEffect = "none" | "matrix" | "starfield" | "rain" | "network" | "copilot";
+export type BackgroundEffect =
+  | "none"
+  | "matrix"
+  | "starfield"
+  | "rain"
+  | "network"
+  | "copilot";
 
 interface TerminalBackgroundProps {
   effect: BackgroundEffect;
@@ -25,7 +31,13 @@ interface TerminalBackgroundProps {
 }
 
 // ── Hostname Watermark ─────────────────────────────────────────
-function hostnameWatermark(ctx: CanvasRenderingContext2D, w: number, h: number, hostname: string, color: string) {
+function hostnameWatermark(
+  ctx: CanvasRenderingContext2D,
+  w: number,
+  h: number,
+  hostname: string,
+  color: string,
+) {
   ctx.clearRect(0, 0, w, h);
 
   // Large centered hostname
@@ -45,9 +57,14 @@ function hostnameWatermark(ctx: CanvasRenderingContext2D, w: number, h: number, 
   const rows = Math.ceil(h / (smallSize * 3));
   for (let r = 0; r < rows; r++) {
     for (let c = 0; c < cols; c++) {
-      const x = c * (hostname.length * smallSize * 0.6) + (r % 2 ? smallSize * 2 : 0);
+      const x =
+        c * (hostname.length * smallSize * 0.6) + (r % 2 ? smallSize * 2 : 0);
       const y = r * smallSize * 3;
-      if (Math.abs(y - h / 2) < fontSize * 0.7 && Math.abs(x - w / 2) < hostname.length * fontSize * 0.3) continue;
+      if (
+        Math.abs(y - h / 2) < fontSize * 0.7 &&
+        Math.abs(x - w / 2) < hostname.length * fontSize * 0.3
+      )
+        continue;
       ctx.fillText(hostname, x, y);
     }
   }
@@ -57,14 +74,24 @@ function hostnameWatermark(ctx: CanvasRenderingContext2D, w: number, h: number, 
 }
 
 // ── Matrix Digital Rain ────────────────────────────────────────
-function matrixRain(ctx: CanvasRenderingContext2D, w: number, h: number, state: MatrixState, color: string, speed: number) {
+function matrixRain(
+  ctx: CanvasRenderingContext2D,
+  w: number,
+  h: number,
+  state: MatrixState,
+  color: string,
+  speed: number,
+) {
   const fontSize = 14;
   const cols = Math.ceil(w / fontSize);
 
   if (state.drops.length !== cols) {
     state.drops = Array.from({ length: cols }, () => Math.random() * -100);
     state.chars = Array.from({ length: cols }, () => randomMatrixChar());
-    state.speeds = Array.from({ length: cols }, () => 0.3 + Math.random() * 0.7);
+    state.speeds = Array.from(
+      { length: cols },
+      () => 0.3 + Math.random() * 0.7,
+    );
   }
 
   // Clear to transparent
@@ -122,7 +149,14 @@ interface Star {
   pz: number;
 }
 
-function starfield(ctx: CanvasRenderingContext2D, w: number, h: number, state: { stars: Star[] }, color: string, speed: number) {
+function starfield(
+  ctx: CanvasRenderingContext2D,
+  w: number,
+  h: number,
+  state: { stars: Star[] },
+  color: string,
+  speed: number,
+) {
   const numStars = 200;
   if (state.stars.length !== numStars) {
     state.stars = Array.from({ length: numStars }, () => ({
@@ -167,7 +201,14 @@ function starfield(ctx: CanvasRenderingContext2D, w: number, h: number, state: {
 }
 
 // ── Digital Rain (subtle) ──────────────────────────────────────
-function digitalRain(ctx: CanvasRenderingContext2D, w: number, h: number, state: { offset: number }, color: string, speed: number) {
+function digitalRain(
+  ctx: CanvasRenderingContext2D,
+  w: number,
+  h: number,
+  state: { offset: number },
+  color: string,
+  speed: number,
+) {
   ctx.clearRect(0, 0, w, h);
 
   state.offset += 0.5 * speed;
@@ -202,7 +243,14 @@ interface Particle {
   vy: number;
 }
 
-function networkParticles(ctx: CanvasRenderingContext2D, w: number, h: number, state: { particles: Particle[] }, color: string, speed: number) {
+function networkParticles(
+  ctx: CanvasRenderingContext2D,
+  w: number,
+  h: number,
+  state: { particles: Particle[] },
+  color: string,
+  speed: number,
+) {
   const count = 60;
   if (state.particles.length !== count) {
     state.particles = Array.from({ length: count }, () => ({
@@ -332,7 +380,15 @@ interface CopilotState {
   phaseStep: number;
 }
 
-function copilotAvatar(ctx: CanvasRenderingContext2D, w: number, h: number, state: CopilotState, color: string, speed: number, size: "small" | "medium" | "large") {
+function copilotAvatar(
+  ctx: CanvasRenderingContext2D,
+  w: number,
+  h: number,
+  state: CopilotState,
+  color: string,
+  speed: number,
+  size: "small" | "medium" | "large",
+) {
   ctx.clearRect(0, 0, w, h);
 
   state.timer += speed;
@@ -358,22 +414,36 @@ function copilotAvatar(ctx: CanvasRenderingContext2D, w: number, h: number, stat
     if (state.phaseStep < 6) state.frame = "halfBlink";
     else if (state.phaseStep < 18) state.frame = "blink";
     else if (state.phaseStep < 24) state.frame = "halfBlink";
-    else { state.frame = "normal"; state.phase = "idle"; }
+    else {
+      state.frame = "normal";
+      state.phase = "idle";
+    }
   } else if (state.phase === "yawning") {
     state.phaseStep += speed;
     if (state.phaseStep < 24) state.frame = "yawn";
     else if (state.phaseStep < 48) state.frame = "yawnWide";
     else if (state.phaseStep < 72) state.frame = "yawn";
     else if (state.phaseStep < 84) state.frame = "smile";
-    else { state.frame = "normal"; state.phase = "idle"; }
+    else {
+      state.frame = "normal";
+      state.phase = "idle";
+    }
   }
 
   const lines = AVATAR_FRAMES[state.frame];
   const maxLineLen = Math.max(...lines.map((l) => l.length));
-  const sizeConfig = { small: { ratio: 0.15, maxFont: 18 }, medium: { ratio: 0.25, maxFont: 24 }, large: { ratio: 0.4, maxFont: 32 } };
+  const sizeConfig = {
+    small: { ratio: 0.15, maxFont: 18 },
+    medium: { ratio: 0.25, maxFont: 24 },
+    large: { ratio: 0.4, maxFont: 32 },
+  };
   const { ratio, maxFont } = sizeConfig[size];
   const targetH = h * ratio;
-  const fontSize = Math.min(targetH / lines.length, w / (maxLineLen * 0.6), maxFont);
+  const fontSize = Math.min(
+    targetH / lines.length,
+    w / (maxLineLen * 0.6),
+    maxFont,
+  );
 
   ctx.font = `${fontSize}px monospace`;
   ctx.textBaseline = "middle";
@@ -393,12 +463,36 @@ function copilotAvatar(ctx: CanvasRenderingContext2D, w: number, h: number, stat
   ];
   // Eyes/mouth rows vary per expression
   const eyeColorMaps: Record<string, string[]> = {
-    normal:   ["PPPP.....G..G.....PPPP", "PPPP.....G..G.....PPPP", "PPPPP............PPPPP"],
-    blink:    ["PPPP.....G..G.....PPPP", "PPPP..............PPPP", "PPPPP............PPPPP"],
-    halfBlink:["PPPP.....G..G.....PPPP", "PPPP..............PPPP", "PPPPP............PPPPP"],
-    yawn:     ["PPPP.....G..G.....PPPP", "PPPP..............PPPP", "PPPPP............PPPPP"],
-    yawnWide: ["PPPP.....G..G.....PPPP", "PPPP..............PPPP", "PPPPP............PPPPP"],
-    smile:    ["PPPP.....G..G.....PPPP", "PPPP..............PPPP", "PPPPP............PPPPP"],
+    normal: [
+      "PPPP.....G..G.....PPPP",
+      "PPPP.....G..G.....PPPP",
+      "PPPPP............PPPPP",
+    ],
+    blink: [
+      "PPPP.....G..G.....PPPP",
+      "PPPP..............PPPP",
+      "PPPPP............PPPPP",
+    ],
+    halfBlink: [
+      "PPPP.....G..G.....PPPP",
+      "PPPP..............PPPP",
+      "PPPPP............PPPPP",
+    ],
+    yawn: [
+      "PPPP.....G..G.....PPPP",
+      "PPPP..............PPPP",
+      "PPPPP............PPPPP",
+    ],
+    yawnWide: [
+      "PPPP.....G..G.....PPPP",
+      "PPPP..............PPPP",
+      "PPPPP............PPPPP",
+    ],
+    smile: [
+      "PPPP.....G..G.....PPPP",
+      "PPPP..............PPPP",
+      "PPPPP............PPPPP",
+    ],
   };
   const colorMapRow8 = "...PPPPPPPPPPPPPPPP...";
 
@@ -406,7 +500,12 @@ function copilotAvatar(ctx: CanvasRenderingContext2D, w: number, h: number, stat
   const colorMap = [...colorMapTop, ...eyeRows, colorMapRow8];
 
   const useMultiColor = color === "multicolor";
-  const colorLookup: Record<string, string> = { P: PURPLE, C: CYAN, G: GREEN, R: RED };
+  const colorLookup: Record<string, string> = {
+    P: PURPLE,
+    C: CYAN,
+    G: GREEN,
+    R: RED,
+  };
 
   // Measure char width
   const charW = ctx.measureText("█").width;
@@ -451,11 +550,18 @@ export function TerminalBackground({
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const animRef = useRef<number>(0);
   const stateRef = useRef<Record<string, unknown>>({
-    drops: [], chars: [], speeds: [],
+    drops: [],
+    chars: [],
+    speeds: [],
     stars: [],
     offset: 0,
     particles: [],
-    frame: "normal" as AvatarFrame, timer: 0, blinkTimer: 0, idleTimer: 0, phase: "idle", phaseStep: 0,
+    frame: "normal" as AvatarFrame,
+    timer: 0,
+    blinkTimer: 0,
+    idleTimer: 0,
+    phase: "idle",
+    phaseStep: 0,
   });
 
   // Static hostname watermark (no animation loop needed)
@@ -471,7 +577,8 @@ export function TerminalBackground({
       canvas.width = parent.clientWidth;
       canvas.height = parent.clientHeight;
       const ctx = canvas.getContext("2d");
-      if (ctx) hostnameWatermark(ctx, canvas.width, canvas.height, hostname, color);
+      if (ctx)
+        hostnameWatermark(ctx, canvas.width, canvas.height, hostname, color);
     };
 
     draw();
@@ -495,25 +602,62 @@ export function TerminalBackground({
 
     // Resolve rainbow color — cycle hue each frame
     frameCountRef.current += 1;
-    const resolvedColor = color === "rainbow"
-      ? `hsl(${(frameCountRef.current * 0.5) % 360}, 100%, 60%)`
-      : color;
+    const resolvedColor =
+      color === "rainbow"
+        ? `hsl(${(frameCountRef.current * 0.5) % 360}, 100%, 60%)`
+        : color;
 
     switch (effect) {
       case "matrix":
-        matrixRain(ctx, w, h, s as unknown as MatrixState, resolvedColor, speed);
+        matrixRain(
+          ctx,
+          w,
+          h,
+          s as unknown as MatrixState,
+          resolvedColor,
+          speed,
+        );
         break;
       case "starfield":
-        starfield(ctx, w, h, s as unknown as { stars: Star[] }, resolvedColor, speed);
+        starfield(
+          ctx,
+          w,
+          h,
+          s as unknown as { stars: Star[] },
+          resolvedColor,
+          speed,
+        );
         break;
       case "rain":
-        digitalRain(ctx, w, h, s as unknown as { offset: number }, resolvedColor, speed);
+        digitalRain(
+          ctx,
+          w,
+          h,
+          s as unknown as { offset: number },
+          resolvedColor,
+          speed,
+        );
         break;
       case "network":
-        networkParticles(ctx, w, h, s as unknown as { particles: Particle[] }, resolvedColor, speed);
+        networkParticles(
+          ctx,
+          w,
+          h,
+          s as unknown as { particles: Particle[] },
+          resolvedColor,
+          speed,
+        );
         break;
       case "copilot":
-        copilotAvatar(ctx, w, h, s as unknown as CopilotState, resolvedColor, speed, size);
+        copilotAvatar(
+          ctx,
+          w,
+          h,
+          s as unknown as CopilotState,
+          resolvedColor,
+          speed,
+          size,
+        );
         break;
     }
 

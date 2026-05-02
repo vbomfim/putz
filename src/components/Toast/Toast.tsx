@@ -76,12 +76,7 @@ export function Toast({
   if (!message || !visible) return null;
 
   return (
-    <div
-      className="toast"
-      role="status"
-      aria-live="polite"
-      data-testid="toast"
-    >
+    <div className="toast" role="status" aria-live="polite" data-testid="toast">
       <span className="toast__text">{message.text}</span>
     </div>
   );

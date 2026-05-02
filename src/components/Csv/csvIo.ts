@@ -49,7 +49,10 @@ function sniffLineEnding(input: string): "\n" | "\r\n" {
   return "\n";
 }
 
-export function parseCsv(input: string, opts?: { hasHeader?: boolean; delimiter?: CsvDelimiter }): CsvParsed {
+export function parseCsv(
+  input: string,
+  opts?: { hasHeader?: boolean; delimiter?: CsvDelimiter },
+): CsvParsed {
   const delimiter = opts?.delimiter ?? sniffDelimiter(input);
   const lineEnding = sniffLineEnding(input);
   const result = Papa.parse<string[]>(input, {
@@ -71,7 +74,13 @@ export function parseCsv(input: string, opts?: { hasHeader?: boolean; delimiter?
   });
   if (hasHeader) {
     const headers = normalized[0];
-    return { headers, rows: normalized.slice(1), delimiter, hasHeader, lineEnding };
+    return {
+      headers,
+      rows: normalized.slice(1),
+      delimiter,
+      hasHeader,
+      lineEnding,
+    };
   }
   // Synthesize column names: A, B, C, ...
   const headers: string[] = [];
@@ -94,7 +103,9 @@ export function columnName(index: number): string {
 }
 
 export function serializeCsv(parsed: CsvParsed): string {
-  const data = parsed.hasHeader ? [parsed.headers, ...parsed.rows] : parsed.rows;
+  const data = parsed.hasHeader
+    ? [parsed.headers, ...parsed.rows]
+    : parsed.rows;
   return Papa.unparse(data, {
     delimiter: parsed.delimiter,
     newline: parsed.lineEnding,

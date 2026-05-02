@@ -16,9 +16,9 @@
  * @module
  */
 
-import { useState, useEffect, useRef, useCallback } from 'react';
-import { useCanvasStore, worldToScreen } from '../../engine';
-import type { ArrowData, RoutingMode } from '../../protocol';
+import { useState, useEffect, useRef, useCallback } from "react";
+import { useCanvasStore, worldToScreen } from "../../engine";
+import type { ArrowData, RoutingMode } from "../../protocol";
 
 // ── Constants ──────────────────────────────────────────────
 
@@ -37,46 +37,46 @@ const VIEWPORT_MARGIN = 12;
 
 /** Routing mode options for arrows. */
 const ROUTING_MODES: { value: RoutingMode; label: string; icon: string }[] = [
-  { value: 'straight', label: 'Straight', icon: '─' },
-  { value: 'orthogonal', label: 'Orthogonal', icon: '┌' },
-  { value: 'curved', label: 'Curved', icon: '╭' },
-  { value: 'elbow', label: 'Elbow', icon: '└' },
-  { value: 'entityRelation', label: 'ER', icon: '╟' },
-  { value: 'isometric', label: 'Isometric', icon: '◇' },
-  { value: 'orthogonalCurved', label: 'Smooth', icon: '╮' },
+  { value: "straight", label: "Straight", icon: "─" },
+  { value: "orthogonal", label: "Orthogonal", icon: "┌" },
+  { value: "curved", label: "Curved", icon: "╭" },
+  { value: "elbow", label: "Elbow", icon: "└" },
+  { value: "entityRelation", label: "ER", icon: "╟" },
+  { value: "isometric", label: "Isometric", icon: "◇" },
+  { value: "orthogonalCurved", label: "Smooth", icon: "╮" },
 ];
 
 /** Arrowhead types grouped by category. */
 const ARROWHEAD_GROUPS = [
   {
-    label: 'Standard',
+    label: "Standard",
     types: [
-      { value: 'none', label: 'None' },
-      { value: 'classic', label: '▶ Classic' },
-      { value: 'open', label: '▷ Open' },
-      { value: 'block', label: '■ Block' },
-      { value: 'oval', label: '● Oval' },
-      { value: 'diamond', label: '◆ Diamond' },
+      { value: "none", label: "None" },
+      { value: "classic", label: "▶ Classic" },
+      { value: "open", label: "▷ Open" },
+      { value: "block", label: "■ Block" },
+      { value: "oval", label: "● Oval" },
+      { value: "diamond", label: "◆ Diamond" },
     ],
   },
   {
-    label: 'ER Diagram',
+    label: "ER Diagram",
     types: [
-      { value: 'ERone', label: '│ One' },
-      { value: 'ERmany', label: '❯ Many' },
-      { value: 'ERmandOne', label: '║ Mand. One' },
-      { value: 'ERoneToMany', label: '│❯ One→Many' },
-      { value: 'ERzeroToOne', label: 'o│ Zero→One' },
-      { value: 'ERzeroToMany', label: 'o❯ Zero→Many' },
+      { value: "ERone", label: "│ One" },
+      { value: "ERmany", label: "❯ Many" },
+      { value: "ERmandOne", label: "║ Mand. One" },
+      { value: "ERoneToMany", label: "│❯ One→Many" },
+      { value: "ERzeroToOne", label: "o│ Zero→One" },
+      { value: "ERzeroToMany", label: "o❯ Zero→Many" },
     ],
   },
   {
-    label: 'Other',
+    label: "Other",
     types: [
-      { value: 'openAsync', label: '⟩ Async' },
-      { value: 'dash', label: '— Dash' },
-      { value: 'cross', label: '✕ Cross' },
-      { value: 'halfCircle', label: '◗ Half Circle' },
+      { value: "openAsync", label: "⟩ Async" },
+      { value: "dash", label: "— Dash" },
+      { value: "cross", label: "✕ Cross" },
+      { value: "halfCircle", label: "◗ Half Circle" },
     ],
   },
 ] as const;
@@ -84,45 +84,45 @@ const ARROWHEAD_GROUPS = [
 // ── Style constants ────────────────────────────────────────
 
 const FLOATING_PANEL_STYLE: React.CSSProperties = {
-  backgroundColor: 'var(--bg-panel, #ffffff)',
+  backgroundColor: "var(--bg-panel, #ffffff)",
   borderRadius: 8,
-  boxShadow: '0 4px 16px rgba(0, 0, 0, 0.15)',
-  border: '1px solid var(--border, #e0e0e0)',
+  boxShadow: "0 4px 16px rgba(0, 0, 0, 0.15)",
+  border: "1px solid var(--border, #e0e0e0)",
   padding: 8,
   zIndex: 50,
   width: PANEL_WIDTH,
   fontSize: 11,
-  fontFamily: 'system-ui, -apple-system, sans-serif',
-  pointerEvents: 'auto',
+  fontFamily: "system-ui, -apple-system, sans-serif",
+  pointerEvents: "auto",
 };
 
 const PANEL_HEADER_STYLE: React.CSSProperties = {
   margin: 0,
   fontSize: 10,
   fontWeight: 600,
-  color: 'var(--text-secondary, #555)',
-  textTransform: 'uppercase',
-  letterSpacing: '0.5px',
+  color: "var(--text-secondary, #555)",
+  textTransform: "uppercase",
+  letterSpacing: "0.5px",
   marginBottom: 6,
-  cursor: 'grab',
-  userSelect: 'none',
-  padding: '2px 0',
+  cursor: "grab",
+  userSelect: "none",
+  padding: "2px 0",
 };
 
 const SELECT_STYLE: React.CSSProperties = {
-  width: '100%',
-  padding: '3px 4px',
+  width: "100%",
+  padding: "3px 4px",
   borderRadius: 4,
-  border: '1px solid var(--border, #ccc)',
-  backgroundColor: 'var(--bg-panel, #fff)',
-  color: 'var(--text-primary, #333)',
+  border: "1px solid var(--border, #ccc)",
+  backgroundColor: "var(--bg-panel, #fff)",
+  color: "var(--text-primary, #333)",
   fontSize: 10,
-  cursor: 'pointer',
+  cursor: "pointer",
 };
 
 const COMPACT_SELECT_STYLE: React.CSSProperties = {
   ...SELECT_STYLE,
-  padding: '2px 2px',
+  padding: "2px 2px",
   fontSize: 10,
 };
 
@@ -130,22 +130,25 @@ const INLINE_LABEL_STYLE: React.CSSProperties = {
   margin: 0,
   fontSize: 9,
   fontWeight: 500,
-  color: 'var(--text-secondary, #777)',
+  color: "var(--text-secondary, #777)",
 };
 
 const CHECKBOX_LABEL_STYLE: React.CSSProperties = {
-  display: 'flex',
-  alignItems: 'center',
+  display: "flex",
+  alignItems: "center",
   gap: 4,
   fontSize: 10,
-  cursor: 'pointer',
-  color: 'var(--text-primary, #333)',
+  cursor: "pointer",
+  color: "var(--text-primary, #333)",
 };
 
 // ── Helpers ────────────────────────────────────────────────
 
 /** Calculate the visual midpoint of an arrow from its points array. */
-function getArrowMidpoint(points: [number, number][]): { x: number; y: number } {
+function getArrowMidpoint(points: [number, number][]): {
+  x: number;
+  y: number;
+} {
   if (points.length === 0) return { x: 0, y: 0 };
   if (points.length === 1) return { x: points[0]![0], y: points[0]![1] };
 
@@ -167,16 +170,22 @@ function clampPosition(
   viewportHeight: number,
 ): { x: number; y: number } {
   return {
-    x: Math.max(VIEWPORT_MARGIN, Math.min(x, viewportWidth - PANEL_WIDTH - VIEWPORT_MARGIN)),
-    y: Math.max(VIEWPORT_MARGIN, Math.min(y, viewportHeight - PANEL_HEIGHT - VIEWPORT_MARGIN)),
+    x: Math.max(
+      VIEWPORT_MARGIN,
+      Math.min(x, viewportWidth - PANEL_WIDTH - VIEWPORT_MARGIN),
+    ),
+    y: Math.max(
+      VIEWPORT_MARGIN,
+      Math.min(y, viewportHeight - PANEL_HEIGHT - VIEWPORT_MARGIN),
+    ),
   };
 }
 
 /** Resolve arrowhead value to a normalized string type. */
 function resolveArrowheadType(val: string | boolean | undefined): string {
-  if (val === true) return 'classic';
-  if (val === false || val === undefined) return 'none';
-  if (val === 'triangle') return 'classic';
+  if (val === true) return "classic";
+  if (val === false || val === undefined) return "none";
+  if (val === "triangle") return "classic";
   return val;
 }
 
@@ -198,17 +207,27 @@ export function FloatingConnectorPanel() {
   const setDefaultArrowStyle = useCanvasStore((s) => s.setDefaultArrowStyle);
 
   // ── Drag state (ephemeral — not persisted to canvas state) ──
-  const [dragOffset, setDragOffset] = useState<{ x: number; y: number } | null>(null);
+  const [dragOffset, setDragOffset] = useState<{ x: number; y: number } | null>(
+    null,
+  );
   const [isDragging, setIsDragging] = useState(false);
-  const dragStartRef = useRef<{ mouseX: number; mouseY: number; offsetX: number; offsetY: number } | null>(null);
+  const dragStartRef = useRef<{
+    mouseX: number;
+    mouseY: number;
+    offsetX: number;
+    offsetY: number;
+  } | null>(null);
   const prevSelectedIdRef = useRef<string | undefined>(undefined);
 
   // Determine mode
-  const isDrawingMode = selectedIds.size === 0 && activeTool === 'arrow';
-  const firstSelectedId = selectedIds.size > 0 ? [...selectedIds][0]! : undefined;
+  const isDrawingMode = selectedIds.size === 0 && activeTool === "arrow";
+  const firstSelectedId =
+    selectedIds.size > 0 ? [...selectedIds][0]! : undefined;
   const firstExpr = firstSelectedId ? expressions[firstSelectedId] : undefined;
-  const isArrowSelected = !isDrawingMode && firstExpr &&
-    (firstExpr.kind === 'arrow' || firstExpr.kind === 'line');
+  const isArrowSelected =
+    !isDrawingMode &&
+    firstExpr &&
+    (firstExpr.kind === "arrow" || firstExpr.kind === "line");
 
   // Reset drag offset when a different arrow is selected [CLEAN-CODE]
   useEffect(() => {
@@ -218,17 +237,20 @@ export function FloatingConnectorPanel() {
 
   // ── Drag event handlers ──
 
-  const handleDragStart = useCallback((e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setIsDragging(true);
-    dragStartRef.current = {
-      mouseX: e.clientX,
-      mouseY: e.clientY,
-      offsetX: dragOffset?.x ?? 0,
-      offsetY: dragOffset?.y ?? 0,
-    };
-  }, [dragOffset]);
+  const handleDragStart = useCallback(
+    (e: React.MouseEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      setIsDragging(true);
+      dragStartRef.current = {
+        mouseX: e.clientX,
+        mouseY: e.clientY,
+        offsetX: dragOffset?.x ?? 0,
+        offsetY: dragOffset?.y ?? 0,
+      };
+    },
+    [dragOffset],
+  );
 
   useEffect(() => {
     if (!isDragging) return;
@@ -248,12 +270,12 @@ export function FloatingConnectorPanel() {
       dragStartRef.current = null;
     }
 
-    document.addEventListener('mousemove', handleMouseMove);
-    document.addEventListener('mouseup', handleMouseUp);
+    document.addEventListener("mousemove", handleMouseMove);
+    document.addEventListener("mouseup", handleMouseUp);
 
     return () => {
-      document.removeEventListener('mousemove', handleMouseMove);
-      document.removeEventListener('mouseup', handleMouseUp);
+      document.removeEventListener("mousemove", handleMouseMove);
+      document.removeEventListener("mouseup", handleMouseUp);
     };
   }, [isDragging]);
 
@@ -265,7 +287,7 @@ export function FloatingConnectorPanel() {
 
   // Current values (from expression or defaults)
   const currentRouting: RoutingMode = isArrowSelected
-    ? (arrowData?.routing ?? 'straight')
+    ? (arrowData?.routing ?? "straight")
     : defaultArrowStyle.routing;
 
   const startArrowheadType = isArrowSelected
@@ -277,7 +299,9 @@ export function FloatingConnectorPanel() {
     : resolveArrowheadType(defaultArrowStyle.endArrowhead);
 
   const currentCurved = isArrowSelected ? (arrowData?.curved ?? false) : false;
-  const currentRounded = isArrowSelected ? (arrowData?.rounded ?? false) : false;
+  const currentRounded = isArrowSelected
+    ? (arrowData?.rounded ?? false)
+    : false;
 
   // Calculate panel position
   let panelX: number;
@@ -291,13 +315,20 @@ export function FloatingConnectorPanel() {
     panelY = midScreen.y + PANEL_OFFSET_Y;
   } else {
     // Drawing mode: static position near bottom-center
-    panelX = (typeof window !== 'undefined' ? window.innerWidth : 1024) / 2 - PANEL_WIDTH / 2;
-    panelY = (typeof window !== 'undefined' ? window.innerHeight : 768) - PANEL_HEIGHT - 60;
+    panelX =
+      (typeof window !== "undefined" ? window.innerWidth : 1024) / 2 -
+      PANEL_WIDTH / 2;
+    panelY =
+      (typeof window !== "undefined" ? window.innerHeight : 768) -
+      PANEL_HEIGHT -
+      60;
   }
 
   // Clamp to viewport
-  const viewportWidth = typeof window !== 'undefined' ? window.innerWidth : 1024;
-  const viewportHeight = typeof window !== 'undefined' ? window.innerHeight : 768;
+  const viewportWidth =
+    typeof window !== "undefined" ? window.innerWidth : 1024;
+  const viewportHeight =
+    typeof window !== "undefined" ? window.innerHeight : 768;
 
   // Apply drag offset before clamping [CLEAN-CODE]
   const finalX = panelX + (dragOffset?.x ?? 0);
@@ -314,21 +345,25 @@ export function FloatingConnectorPanel() {
     }
   }
 
-  function handleArrowheadChange(end: 'start' | 'end', type: string) {
+  function handleArrowheadChange(end: "start" | "end", type: string) {
     if (isDrawingMode) {
-      if (end === 'start') {
-        setDefaultArrowStyle({ startArrowhead: type as typeof defaultArrowStyle.startArrowhead });
+      if (end === "start") {
+        setDefaultArrowStyle({
+          startArrowhead: type as typeof defaultArrowStyle.startArrowhead,
+        });
       } else {
-        setDefaultArrowStyle({ endArrowhead: type as typeof defaultArrowStyle.endArrowhead });
+        setDefaultArrowStyle({
+          endArrowhead: type as typeof defaultArrowStyle.endArrowhead,
+        });
       }
     } else if (firstSelectedId) {
       updateArrowData(firstSelectedId, {
-        [end === 'start' ? 'startArrowhead' : 'endArrowhead']: type,
+        [end === "start" ? "startArrowhead" : "endArrowhead"]: type,
       });
     }
   }
 
-  function handleEdgeToggle(prop: 'curved' | 'rounded', value: boolean) {
+  function handleEdgeToggle(prop: "curved" | "rounded", value: boolean) {
     if (firstSelectedId && isArrowSelected) {
       updateArrowData(firstSelectedId, { [prop]: value });
     }
@@ -342,7 +377,7 @@ export function FloatingConnectorPanel() {
       onMouseDown={(e) => e.stopPropagation()}
       style={{
         ...FLOATING_PANEL_STYLE,
-        position: 'absolute',
+        position: "absolute",
         left: `${clamped.x}px`,
         top: `${clamped.y}px`,
       }}
@@ -352,7 +387,7 @@ export function FloatingConnectorPanel() {
         onMouseDown={handleDragStart}
         style={{
           ...PANEL_HEADER_STYLE,
-          cursor: isDragging ? 'grabbing' : 'grab',
+          cursor: isDragging ? "grabbing" : "grab",
         }}
       >
         Connector
@@ -374,13 +409,16 @@ export function FloatingConnectorPanel() {
       </select>
 
       {/* Arrowheads — two selects side by side */}
-      <div data-testid="arrowhead-row" style={{ display: 'flex', gap: 4, marginTop: 4 }}>
+      <div
+        data-testid="arrowhead-row"
+        style={{ display: "flex", gap: 4, marginTop: 4 }}
+      >
         <div style={{ flex: 1, minWidth: 0 }}>
           <p style={INLINE_LABEL_STYLE}>Start</p>
           <select
             data-testid="start-arrowhead-select"
             value={startArrowheadType}
-            onChange={(e) => handleArrowheadChange('start', e.target.value)}
+            onChange={(e) => handleArrowheadChange("start", e.target.value)}
             style={COMPACT_SELECT_STYLE}
             aria-label="Start arrowhead"
           >
@@ -400,7 +438,7 @@ export function FloatingConnectorPanel() {
           <select
             data-testid="end-arrowhead-select"
             value={endArrowheadType}
-            onChange={(e) => handleArrowheadChange('end', e.target.value)}
+            onChange={(e) => handleArrowheadChange("end", e.target.value)}
             style={COMPACT_SELECT_STYLE}
             aria-label="End arrowhead"
           >
@@ -418,43 +456,69 @@ export function FloatingConnectorPanel() {
       </div>
 
       {/* Edge Properties — Smooth/Rounded only for orthogonal routing */}
-      {isArrowSelected && (currentRouting === 'orthogonal' || currentRouting === 'orthogonalCurved') && (
-        <div data-testid="edge-properties-row" style={{ display: 'flex', gap: 8, marginTop: 4, flexWrap: 'wrap' }}>
-          <label style={CHECKBOX_LABEL_STYLE}>
-            <input
-              type="checkbox"
-              checked={currentCurved}
-              onChange={(e) => handleEdgeToggle('curved', e.target.checked)}
-            />
-            Smooth
-          </label>
-          <label style={CHECKBOX_LABEL_STYLE}>
-            <input
-              type="checkbox"
-              checked={currentRounded}
-              onChange={(e) => handleEdgeToggle('rounded', e.target.checked)}
-            />
-            Rounded
-          </label>
-        </div>
-      )}
+      {isArrowSelected &&
+        (currentRouting === "orthogonal" ||
+          currentRouting === "orthogonalCurved") && (
+          <div
+            data-testid="edge-properties-row"
+            style={{ display: "flex", gap: 8, marginTop: 4, flexWrap: "wrap" }}
+          >
+            <label style={CHECKBOX_LABEL_STYLE}>
+              <input
+                type="checkbox"
+                checked={currentCurved}
+                onChange={(e) => handleEdgeToggle("curved", e.target.checked)}
+              />
+              Smooth
+            </label>
+            <label style={CHECKBOX_LABEL_STYLE}>
+              <input
+                type="checkbox"
+                checked={currentRounded}
+                onChange={(e) => handleEdgeToggle("rounded", e.target.checked)}
+              />
+              Rounded
+            </label>
+          </div>
+        )}
       {/* Spacing — shown for all non-straight routing modes (self-loops need it for loop size) */}
-      {isArrowSelected && currentRouting && currentRouting !== 'straight' && (
-        <div data-testid="spacing-row" style={{ display: 'flex', alignItems: 'center', gap: 4, marginTop: 4 }}>
+      {isArrowSelected && currentRouting && currentRouting !== "straight" && (
+        <div
+          data-testid="spacing-row"
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 4,
+            marginTop: 4,
+          }}
+        >
           <label style={CHECKBOX_LABEL_STYLE}>
             Spacing
             <input
               type="number"
               min={0}
               max={9999}
-              value={isArrowSelected ? (typeof arrowData?.jettySize === 'number' ? arrowData.jettySize : 20) : 20}
+              value={
+                isArrowSelected
+                  ? typeof arrowData?.jettySize === "number"
+                    ? arrowData.jettySize
+                    : 20
+                  : 20
+              }
               onChange={(e) => {
                 const val = parseInt(e.target.value, 10);
                 if (!isNaN(val) && isArrowSelected && firstExpr) {
-                  updateArrowData(firstExpr.id, { jettySize: Math.max(0, val) });
+                  updateArrowData(firstExpr.id, {
+                    jettySize: Math.max(0, val),
+                  });
                 }
               }}
-              style={{ width: 50, marginLeft: 4, padding: '2px 4px', fontSize: 12 }}
+              style={{
+                width: 50,
+                marginLeft: 4,
+                padding: "2px 4px",
+                fontSize: 12,
+              }}
             />
           </label>
         </div>

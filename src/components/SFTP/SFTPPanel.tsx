@@ -10,7 +10,11 @@
  * @module SFTPPanel
  */
 import { useCallback, useState, useRef } from "react";
-import type { RemoteFileEntry, RemoteFileStat, SftpContextAction } from "./types";
+import type {
+  RemoteFileEntry,
+  RemoteFileStat,
+  SftpContextAction,
+} from "./types";
 import { formatFileSize, formatPermissions } from "./types";
 import { useSftp } from "./useSftp";
 import "./SFTP.css";
@@ -47,7 +51,9 @@ export function SFTPPanel({ connectionId, onClose }: SFTPPanelProps) {
     close,
   } = useSftp({ connectionId });
 
-  const [selectedFile, setSelectedFile] = useState<RemoteFileEntry | null>(null);
+  const [selectedFile, setSelectedFile] = useState<RemoteFileEntry | null>(
+    null,
+  );
   const [contextMenu, setContextMenu] = useState<{
     x: number;
     y: number;
@@ -186,9 +192,7 @@ export function SFTPPanel({ connectionId, onClose }: SFTPPanelProps) {
       for (let i = 0; i < droppedFiles.length; i++) {
         const file = droppedFiles[i];
         const remotePath =
-          currentPath === "/"
-            ? `/${file.name}`
-            : `${currentPath}/${file.name}`;
+          currentPath === "/" ? `/${file.name}` : `${currentPath}/${file.name}`;
         try {
           // Note: In Tauri, drag-drop gives us the file path
           await upload(file.name, remotePath);

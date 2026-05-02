@@ -221,9 +221,7 @@ describe("Theme contract types", () => {
   });
 
   it("THEME_COLOR_FIELDS groups are correct", () => {
-    const terminal = THEME_COLOR_FIELDS.filter(
-      (f) => f.group === "terminal",
-    );
+    const terminal = THEME_COLOR_FIELDS.filter((f) => f.group === "terminal");
     const ansi = THEME_COLOR_FIELDS.filter((f) => f.group === "ansi");
     const ansiBright = THEME_COLOR_FIELDS.filter(
       (f) => f.group === "ansi-bright",
@@ -249,10 +247,16 @@ describe("Theme contract types", () => {
   });
 
   it("DEFAULT_FONT_SETTINGS has valid defaults", () => {
-    expect(DEFAULT_FONT_SETTINGS.fontSize).toBeGreaterThanOrEqual(FONT_SIZE_MIN);
+    expect(DEFAULT_FONT_SETTINGS.fontSize).toBeGreaterThanOrEqual(
+      FONT_SIZE_MIN,
+    );
     expect(DEFAULT_FONT_SETTINGS.fontSize).toBeLessThanOrEqual(FONT_SIZE_MAX);
-    expect(DEFAULT_FONT_SETTINGS.lineHeight).toBeGreaterThanOrEqual(LINE_HEIGHT_MIN);
-    expect(DEFAULT_FONT_SETTINGS.lineHeight).toBeLessThanOrEqual(LINE_HEIGHT_MAX);
+    expect(DEFAULT_FONT_SETTINGS.lineHeight).toBeGreaterThanOrEqual(
+      LINE_HEIGHT_MIN,
+    );
+    expect(DEFAULT_FONT_SETTINGS.lineHeight).toBeLessThanOrEqual(
+      LINE_HEIGHT_MAX,
+    );
     expect(DEFAULT_FONT_SETTINGS.fontFamily).toContain("monospace");
   });
 

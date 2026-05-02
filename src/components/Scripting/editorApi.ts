@@ -25,7 +25,10 @@ export async function fileWrite(path: string, content: string): Promise<void> {
 }
 
 /** Detect editor language from file extension. */
-export function detectLanguage(filePath: string, content?: string): EditorLanguage {
+export function detectLanguage(
+  filePath: string,
+  content?: string,
+): EditorLanguage {
   const ext = filePath.split(".").pop()?.toLowerCase() || "";
   switch (ext) {
     case "ios":
@@ -105,7 +108,8 @@ export function detectLanguage(filePath: string, content?: string): EditorLangua
     if (tfCount >= 2) return "terraform";
 
     // ARM template detection (JSON with deployment schema)
-    if (/deploymentTemplate/i.test(head) && /\$schema/i.test(head)) return "json";
+    if (/deploymentTemplate/i.test(head) && /\$schema/i.test(head))
+      return "json";
 
     // Jinja2 detection ({{ }}, {% %} patterns)
     const jinjaExprCount = (head.match(/\{\{/g) || []).length;

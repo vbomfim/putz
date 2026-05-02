@@ -47,7 +47,18 @@ function loadPersistedSettings(): PersistedSettings {
   } catch {
     // Corrupted localStorage — fall through to defaults
   }
-  return { workspaceBarVisible: true, bookmarksBarVisible: false, backgroundEffect: "none", backgroundOpacity: 0.15, backgroundColorMode: "theme", backgroundCustomColor: "#50fa7b", backgroundSpeed: 1, backgroundSize: "large", defaultShell: "", swarmEnabled: false };
+  return {
+    workspaceBarVisible: true,
+    bookmarksBarVisible: false,
+    backgroundEffect: "none",
+    backgroundOpacity: 0.15,
+    backgroundColorMode: "theme",
+    backgroundCustomColor: "#50fa7b",
+    backgroundSpeed: 1,
+    backgroundSize: "large",
+    defaultShell: "",
+    swarmEnabled: false,
+  };
 }
 
 /** Saves settings to localStorage. */

@@ -15,10 +15,10 @@
  * @module
  */
 
-import { useState, useRef, useEffect, useCallback } from 'react';
-import { useCanvasStoreApi } from '../store/canvasStore';
-import { screenToWorld } from '../camera';
-import { findExpressionAtPoint } from '../interaction/selectionManager';
+import { useState, useRef, useEffect, useCallback } from "react";
+import { useCanvasStoreApi } from "../store/canvasStore";
+import { screenToWorld } from "../camera";
+import { findExpressionAtPoint } from "../interaction/selectionManager";
 
 /** Hit-test tolerance in screen pixels (matches useSelectionInteraction). */
 const HIT_TOLERANCE_PX = 5;
@@ -31,18 +31,18 @@ const HIT_TOLERANCE_PX = 5;
  *   if false, the field is set to `undefined` (label removed)
  */
 interface EditableKindConfig {
-  field: 'text' | 'label';
+  field: "text" | "label";
   deleteOnEmpty: boolean;
 }
 
 /** Exported for testing — which expression kinds support inline editing. */
 export const EDITABLE_KINDS: Record<string, EditableKindConfig> = {
-  'text': { field: 'text', deleteOnEmpty: true },
-  'sticky-note': { field: 'text', deleteOnEmpty: true },
-  'rectangle': { field: 'label', deleteOnEmpty: false },
-  'ellipse': { field: 'label', deleteOnEmpty: false },
-  'diamond': { field: 'label', deleteOnEmpty: false },
-  'stencil': { field: 'label', deleteOnEmpty: false },
+  text: { field: "text", deleteOnEmpty: true },
+  "sticky-note": { field: "text", deleteOnEmpty: true },
+  rectangle: { field: "label", deleteOnEmpty: false },
+  ellipse: { field: "label", deleteOnEmpty: false },
+  diamond: { field: "label", deleteOnEmpty: false },
+  stencil: { field: "label", deleteOnEmpty: false },
 };
 
 /** Public interface returned by the useInlineEditor hook. */
@@ -70,7 +70,7 @@ export function useInlineEditor(
 ): InlineEditorState {
   const storeApi = useCanvasStoreApi();
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [initialChar, setInitialChar] = useState<string>('');
+  const [initialChar, setInitialChar] = useState<string>("");
 
   // Ref keeps editingId in sync for stable callbacks
   const editingIdRef = useRef<string | null>(null);
@@ -78,92 +78,101 @@ export function useInlineEditor(
 
   // ── Start editing ──────────────────────────────────────────
 
-  const startEditing = useCallback((id: string, seedChar?: string) => {
-    const state = storeApi.getState();
-    const expression = state.expressions[id];
+  const startEditing = useCallback(
+    (id: string, seedChar?: string) => {
+      const state = storeApi.getState();
+      const expression = state.expressions[id];
 
-    if (!expression) return;
-    if (expression.meta.locked) return;
-    if (!EDITABLE_KINDS[expression.kind]) return;
+      if (!expression) return;
+      if (expression.meta.locked) return;
+      if (!EDITABLE_KINDS[expression.kind]) return;
 
-    setInitialChar(seedChar ?? '');
-    setEditingId(id);
-  }, [storeApi]);
+      setInitialChar(seedChar ?? "");
+      setEditingId(id);
+    },
+    [storeApi],
+  );
 
   // ── Get current text for the editing expression ────────────
 
   const getEditingText = useCallback((): string => {
     const id = editingIdRef.current;
-    if (!id) return '';
+    if (!id) return "";
 
     const state = storeApi.getState();
     const expression = state.expressions[id];
-    if (!expression) return '';
+    if (!expression) return "";
 
     const config = EDITABLE_KINDS[expression.kind];
-    if (!config) return '';
+    if (!config) return "";
 
     const data = expression.data as unknown as Record<string, unknown>;
     const value = data[config.field];
-    const existingText = typeof value === 'string' ? value : '';
+    const existingText = typeof value === "string" ? value : "";
     return existingText || initialChar;
   }, [initialChar, storeApi]);
 
   // ── Commit edit ────────────────────────────────────────────
 
-  const commitEdit = useCallback((newText: string) => {
-    const id = editingIdRef.current;
-    if (!id) return;
+  const commitEdit = useCallback(
+    (newText: string) => {
+      const id = editingIdRef.current;
+      if (!id) return;
 
-    const state = storeApi.getState();
-    const expression = state.expressions[id];
+      const state = storeApi.getState();
+      const expression = state.expressions[id];
 
-    if (!expression) {
-      setEditingId(null);
-      return;
-    }
+      if (!expression) {
+        setEditingId(null);
+        return;
+      }
 
-    const config = EDITABLE_KINDS[expression.kind];
-    if (!config) {
-      setEditingId(null);
-      return;
-    }
+      const config = EDITABLE_KINDS[expression.kind];
+      if (!config) {
+        setEditingId(null);
+        return;
+      }
 
-    const trimmed = newText.trim();
+      const trimmed = newText.trim();
 
-    if (!trimmed) {
-      // Empty text handling
-      if (config.deleteOnEmpty) {
-        // Text and sticky-note: delete the expression
-        state.deleteExpressions([id]);
+      if (!trimmed) {
+        // Empty text handling
+        if (config.deleteOnEmpty) {
+          // Text and sticky-note: delete the expression
+          state.deleteExpressions([id]);
+        } else {
+          // Shapes: remove the label (set to undefined)
+          const updatedData = { ...expression.data } as unknown as Record<
+            string,
+            unknown
+          >;
+          delete updatedData[config.field];
+          state.updateExpression(id, {
+            data: updatedData as unknown as typeof expression.data,
+          });
+        }
       } else {
-        // Shapes: remove the label (set to undefined)
-        const updatedData = { ...expression.data } as unknown as Record<string, unknown>;
-        delete updatedData[config.field];
+        // Non-empty text: update the field
+        const updatedData = {
+          ...expression.data,
+          [config.field]: trimmed,
+        };
         state.updateExpression(id, {
-          data: updatedData as unknown as typeof expression.data,
+          data: updatedData as typeof expression.data,
         });
       }
-    } else {
-      // Non-empty text: update the field
-      const updatedData = {
-        ...expression.data,
-        [config.field]: trimmed,
-      };
-      state.updateExpression(id, {
-        data: updatedData as typeof expression.data,
-      });
-    }
 
-    setEditingId(null);
-    setInitialChar('');
-  }, [storeApi]);
+      setEditingId(null);
+      setInitialChar("");
+    },
+    [storeApi],
+  );
 
   // ── Cancel edit ────────────────────────────────────────────
 
   const cancelEdit = useCallback(() => {
     setEditingId(null);
-    setInitialChar('');
+    setInitialChar("");
   }, []);
 
   // ── Double-click listener ──────────────────────────────────
@@ -176,7 +185,7 @@ export function useInlineEditor(
       const state = storeApi.getState();
 
       // Only respond in select mode
-      if (state.activeTool !== 'select') return;
+      if (state.activeTool !== "select") return;
 
       const { camera, expressions, expressionOrder } = state;
       const worldTolerance = HIT_TOLERANCE_PX / camera.zoom;
@@ -206,10 +215,10 @@ export function useInlineEditor(
       setEditingId(hitId);
     };
 
-    canvas.addEventListener('dblclick', handleDblClick);
+    canvas.addEventListener("dblclick", handleDblClick);
 
     return () => {
-      canvas.removeEventListener('dblclick', handleDblClick);
+      canvas.removeEventListener("dblclick", handleDblClick);
     };
   }, [canvasRef, storeApi]);
 

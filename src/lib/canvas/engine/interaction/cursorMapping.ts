@@ -8,10 +8,10 @@
  * @module
  */
 
-import type { ToolType } from '../types/index';
+import type { ToolType } from "../types/index";
 
 /** Hover target type for cursor determination. */
-export type HoverTarget = 'none' | 'body' | 'handle';
+export type HoverTarget = "none" | "body" | "handle";
 
 /**
  * Get the appropriate CSS cursor based on the active tool and hover state.
@@ -33,23 +33,23 @@ export function getCursorForToolState(
 ): string {
   // Pan mode overrides everything
   if (isPanMode) {
-    return 'grab';
+    return "grab";
   }
 
   // Text tool has its own cursor
-  if (tool === 'text') {
-    return 'text';
+  if (tool === "text") {
+    return "text";
   }
 
   // Drawing tools (not select, not text) → crosshair
-  if (tool !== 'select') {
-    return 'crosshair';
+  if (tool !== "select") {
+    return "crosshair";
   }
 
   // Select tool: cursor depends on what we're hovering
-  if (hoverTarget === 'body') {
-    return 'move';
+  if (hoverTarget === "body") {
+    return "move";
   }
 
-  return 'default';
+  return "default";
 }

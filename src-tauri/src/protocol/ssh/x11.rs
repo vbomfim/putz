@@ -39,6 +39,7 @@ const X11_RELAY_BUFFER: usize = 8 * 1024;
 /// Configuration for X11 forwarding.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+#[derive(Default)]
 pub struct X11ForwardingConfig {
     /// Whether X11 forwarding is enabled.
     pub enabled: bool,
@@ -48,16 +49,6 @@ pub struct X11ForwardingConfig {
     /// Whether to use trusted forwarding (ForwardX11Trusted).
     /// Trusted mode disables X11 SECURITY extension restrictions.
     pub trusted: bool,
-}
-
-impl Default for X11ForwardingConfig {
-    fn default() -> Self {
-        Self {
-            enabled: false,
-            display_number: None,
-            trusted: false,
-        }
-    }
 }
 
 /// Status of X11 forwarding on a connection.
@@ -371,9 +362,9 @@ mod tests {
         };
         let json = serde_json::to_string(&config).unwrap();
         let restored: X11ForwardingConfig = serde_json::from_str(&json).unwrap();
-        assert_eq!(restored.enabled, true);
+        assert!(restored.enabled);
         assert_eq!(restored.display_number, Some(5));
-        assert_eq!(restored.trusted, false);
+        assert!(!restored.trusted);
     }
 
     // ── X11ForwardingStatus ──────────────────────────────────────

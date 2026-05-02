@@ -9,10 +9,10 @@
  */
 
 /** Supported layout algorithm identifiers. */
-export type LayoutAlgorithm = 'tree' | 'force' | 'grid';
+export type LayoutAlgorithm = "tree" | "force" | "grid";
 
 /** Direction for hierarchical (tree) layouts. */
-export type LayoutDirection = 'TB' | 'BT' | 'LR' | 'RL';
+export type LayoutDirection = "TB" | "BT" | "LR" | "RL";
 
 /** Spacing configuration for layout algorithms. */
 export interface LayoutSpacing {

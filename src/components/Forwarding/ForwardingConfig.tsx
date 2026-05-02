@@ -42,8 +42,7 @@ export function ForwardingConfig({
   onChange,
   disabled = false,
 }: ForwardingConfigProps) {
-  const [forwardingType, setForwardingType] =
-    useState<ForwardingType>("local");
+  const [forwardingType, setForwardingType] = useState<ForwardingType>("local");
   const [localPort, setLocalPort] = useState("");
   const [remoteHost, setRemoteHost] = useState("");
   const [remotePort, setRemotePort] = useState("");
@@ -98,9 +97,7 @@ export function ForwardingConfig({
       localPort: parseInt(localPort, 10),
       remoteHost: forwardingType !== "dynamic" ? remoteHost.trim() : undefined,
       remotePort:
-        forwardingType !== "dynamic"
-          ? parseInt(remotePort, 10)
-          : undefined,
+        forwardingType !== "dynamic" ? parseInt(remotePort, 10) : undefined,
       bindAddress: addr,
     };
 
@@ -139,7 +136,10 @@ export function ForwardingConfig({
 
       {/* Existing rules */}
       {rules.length > 0 && (
-        <div className="forwarding-rules-list" data-testid="forwarding-rules-list">
+        <div
+          className="forwarding-rules-list"
+          data-testid="forwarding-rules-list"
+        >
           {rules.map((rule, index) => (
             <div key={index} className="forwarding-rule-item">
               <span className="forwarding-rule-type">
@@ -269,8 +269,8 @@ export function ForwardingConfig({
               className="forwarding-security-warning"
               data-testid="security-warning"
             >
-              ⚠️ Binding to all interfaces ({bindAddress}) exposes the tunnel
-              to the network. Click &ldquo;Add Rule&rdquo; again to confirm.
+              ⚠️ Binding to all interfaces ({bindAddress}) exposes the tunnel to
+              the network. Click &ldquo;Add Rule&rdquo; again to confirm.
             </div>
           )}
         </div>

@@ -12,7 +12,7 @@
  * @module
  */
 
-import type { PathSegment } from './routerTypes';
+import type { PathSegment } from "./routerTypes";
 
 /** Tangent of 30° — rise/run for isometric diagonal. */
 const TAN_30 = Math.tan(Math.PI / 6); // ≈ 0.577
@@ -35,17 +35,17 @@ export function computeIsometricRoute(
 ): PathSegment[] {
   // Same point — degenerate
   if (start.x === end.x && start.y === end.y) {
-    return [{ type: 'line', x: end.x, y: end.y }];
+    return [{ type: "line", x: end.x, y: end.y }];
   }
 
   // Pure vertical — travel at 90°
   if (start.x === end.x) {
-    return [{ type: 'line', x: end.x, y: end.y }];
+    return [{ type: "line", x: end.x, y: end.y }];
   }
 
   // Pure horizontal — travel at 0°
   if (start.y === end.y) {
-    return [{ type: 'line', x: end.x, y: end.y }];
+    return [{ type: "line", x: end.x, y: end.y }];
   }
 
   const dx = end.x - start.x;
@@ -63,7 +63,7 @@ export function computeIsometricRoute(
   if (Math.abs(dy) <= diagonalDy) {
     // The vertical delta is small enough to cover entirely with diagonal.
     // Travel diagonal to cover all dy, then horizontal for remaining dx.
-    const diagDx = Math.abs(dy) / TAN_30 * Math.sign(dx);
+    const diagDx = (Math.abs(dy) / TAN_30) * Math.sign(dx);
     const diagEndX = start.x + diagDx;
     const diagEndY = start.y + dy; // covers all dy
 
@@ -71,17 +71,17 @@ export function computeIsometricRoute(
 
     // Diagonal leg (30° or 150°)
     if (diagDx !== 0 || dy !== 0) {
-      segments.push({ type: 'line', x: diagEndX, y: diagEndY });
+      segments.push({ type: "line", x: diagEndX, y: diagEndY });
     }
 
     // Horizontal leg to reach end.x
     if (Math.abs(diagEndX - end.x) > 0.01) {
-      segments.push({ type: 'line', x: end.x, y: end.y });
+      segments.push({ type: "line", x: end.x, y: end.y });
     }
 
     return segments.length > 0
       ? segments
-      : [{ type: 'line', x: end.x, y: end.y }];
+      : [{ type: "line", x: end.x, y: end.y }];
   }
 
   // The vertical delta is larger than what the diagonal covers.
@@ -92,11 +92,11 @@ export function computeIsometricRoute(
   const segments: PathSegment[] = [];
 
   // Diagonal leg covers all dx
-  segments.push({ type: 'line', x: diagEndX, y: diagEndY });
+  segments.push({ type: "line", x: diagEndX, y: diagEndY });
 
   // Vertical leg covers remaining dy
   if (Math.abs(diagEndY - end.y) > 0.01) {
-    segments.push({ type: 'line', x: end.x, y: end.y });
+    segments.push({ type: "line", x: end.x, y: end.y });
   }
 
   return segments;

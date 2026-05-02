@@ -8,9 +8,9 @@
  * @module
  */
 
-import { useEffect } from 'react';
-import { useUiStore, applyThemeToDocument } from '../../engine';
-import { Sun, Moon } from 'lucide-react';
+import { useEffect } from "react";
+import { useUiStore, applyThemeToDocument } from "../../engine";
+import { Sun, Moon } from "lucide-react";
 
 /** Theme toggle button — renders sun (dark→light) or moon (light→dark). */
 export function ThemeToggle() {
@@ -27,7 +27,7 @@ export function ThemeToggle() {
     useUiStore.getState().loadPersistedTheme();
   }, []);
 
-  const Icon = theme === 'dark' ? Sun : Moon;
+  const Icon = theme === "dark" ? Sun : Moon;
 
   return (
     <button
@@ -36,17 +36,17 @@ export function ThemeToggle() {
       data-theme={theme}
       onClick={toggleTheme}
       style={{
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
         width: 36,
         height: 36,
-        border: 'none',
+        border: "none",
         borderRadius: 6,
-        cursor: 'pointer',
-        backgroundColor: 'transparent',
-        color: 'var(--text-primary, #333333)',
-        transition: 'background-color 0.15s, color 0.15s',
+        cursor: "pointer",
+        backgroundColor: "transparent",
+        color: "var(--text-primary, #333333)",
+        transition: "background-color 0.15s, color 0.15s",
       }}
     >
       <Icon size={18} />

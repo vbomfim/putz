@@ -7,8 +7,7 @@
  * @module
  */
 
-import { z } from 'zod';
-
+import { z } from "zod";
 
 // ── Depth limiting for recursive schemas ───────────────────
 
@@ -23,11 +22,13 @@ const MAX_DECISION_DEPTH = 8;
  * A leaf node (no children or empty children) has depth 1.
  */
 function measureChildrenDepth(node: unknown, depth = 1): number {
-  if (typeof node !== 'object' || node === null) return depth;
+  if (typeof node !== "object" || node === null) return depth;
   const record = node as Record<string, unknown>;
   const children = record.children;
   if (!Array.isArray(children) || children.length === 0) return depth;
-  return Math.max(...children.map((child) => measureChildrenDepth(child, depth + 1)));
+  return Math.max(
+    ...children.map((child) => measureChildrenDepth(child, depth + 1)),
+  );
 }
 
 /**
@@ -41,7 +42,7 @@ export function withMaxDepth<T>(schema: z.ZodType<T>, maxDepth: number) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         message: `Recursive structure exceeds maximum depth of ${maxDepth}`,
-        path: ['children'],
+        path: ["children"],
       });
     }
   });
@@ -50,19 +51,19 @@ export function withMaxDepth<T>(schema: z.ZodType<T>, maxDepth: number) {
 // ── Metadata Schemas ───────────────────────────────────────
 
 export const humanAuthorSchema = z.object({
-  type: z.literal('human'),
+  type: z.literal("human"),
   id: z.string().min(1),
   name: z.string().min(1).max(500),
 });
 
 export const agentAuthorSchema = z.object({
-  type: z.literal('agent'),
+  type: z.literal("agent"),
   id: z.string().min(1),
   name: z.string().min(1).max(500),
   provider: z.string().min(1).max(500),
 });
 
-export const authorInfoSchema = z.discriminatedUnion('type', [
+export const authorInfoSchema = z.discriminatedUnion("type", [
   humanAuthorSchema,
   agentAuthorSchema,
 ]);
@@ -70,13 +71,15 @@ export const authorInfoSchema = z.discriminatedUnion('type', [
 const hexColorPattern = /^#[0-9a-fA-F]{6}$/;
 
 export const expressionStyleSchema = z.object({
-  strokeColor: z.string().regex(hexColorPattern, 'Must be a hex color (e.g. #000000)'),
+  strokeColor: z
+    .string()
+    .regex(hexColorPattern, "Must be a hex color (e.g. #000000)"),
   backgroundColor: z.union([
-    z.string().regex(hexColorPattern, 'Must be a hex color'),
-    z.literal('transparent'),
+    z.string().regex(hexColorPattern, "Must be a hex color"),
+    z.literal("transparent"),
   ]),
-  fillStyle: z.enum(['solid', 'hachure', 'cross-hatch', 'none']),
-  strokeStyle: z.enum(['solid', 'dashed', 'dotted']).default('solid'),
+  fillStyle: z.enum(["solid", "hachure", "cross-hatch", "none"]),
+  strokeStyle: z.enum(["solid", "dashed", "dotted"]).default("solid"),
   strokeWidth: z.number().positive().max(100),
   roughness: z.number().min(0),
   opacity: z.number().min(0).max(1),
@@ -87,31 +90,41 @@ export const expressionStyleSchema = z.object({
 // ── Primitive Data Schemas ─────────────────────────────────
 
 export const rectangleDataSchema = z.object({
-  kind: z.literal('rectangle'),
+  kind: z.literal("rectangle"),
   label: z.string().max(500).optional(),
 });
 
 export const ellipseDataSchema = z.object({
-  kind: z.literal('ellipse'),
+  kind: z.literal("ellipse"),
   label: z.string().max(500).optional(),
 });
 
 export const diamondDataSchema = z.object({
-  kind: z.literal('diamond'),
+  kind: z.literal("diamond"),
   label: z.string().max(500).optional(),
 });
 
 const point2dSchema = z.tuple([z.number(), z.number()]);
 
 export const lineDataSchema = z.object({
-  kind: z.literal('line'),
+  kind: z.literal("line"),
   points: z.array(point2dSchema).min(2),
 });
 
 const arrowBindingSchema = z.object({
   expressionId: z.string().min(1),
-  anchor: z.enum(['center', 'top', 'right', 'bottom', 'left',
-    'top-left', 'top-right', 'bottom-left', 'bottom-right', 'auto']),
+  anchor: z.enum([
+    "center",
+    "top",
+    "right",
+    "bottom",
+    "left",
+    "top-left",
+    "top-right",
+    "bottom-left",
+    "bottom-right",
+    "auto",
+  ]),
   ratio: z.number().min(0).max(1).optional(),
   portX: z.number().min(0).max(1).optional(),
   portY: z.number().min(0).max(1).optional(),
@@ -119,25 +132,49 @@ const arrowBindingSchema = z.object({
 
 const arrowheadTypeSchema = z.enum([
   // Legacy (backward compat)
-  'none', 'triangle', 'chevron', 'circle',
+  "none",
+  "triangle",
+  "chevron",
+  "circle",
   // Standard
-  'classic', 'classicThin', 'open', 'openThin',
-  'block', 'blockThin', 'oval', 'diamond', 'diamondThin',
+  "classic",
+  "classicThin",
+  "open",
+  "openThin",
+  "block",
+  "blockThin",
+  "oval",
+  "diamond",
+  "diamondThin",
   // ER Diagram
-  'ERone', 'ERmany', 'ERmandOne', 'ERoneToMany', 'ERzeroToOne', 'ERzeroToMany',
+  "ERone",
+  "ERmany",
+  "ERmandOne",
+  "ERoneToMany",
+  "ERzeroToOne",
+  "ERzeroToMany",
   // UML
-  'openAsync', 'dash', 'cross',
+  "openAsync",
+  "dash",
+  "cross",
   // Other
-  'box', 'halfCircle', 'doubleBlock',
+  "box",
+  "halfCircle",
+  "doubleBlock",
 ]);
 
 const routingModeSchema = z.enum([
-  'straight', 'orthogonal', 'curved', 'elbow',
-  'entityRelation', 'isometric', 'orthogonalCurved',
+  "straight",
+  "orthogonal",
+  "curved",
+  "elbow",
+  "entityRelation",
+  "isometric",
+  "orthogonalCurved",
 ]);
 
 export const arrowDataSchema = z.object({
-  kind: z.literal('arrow'),
+  kind: z.literal("arrow"),
   points: z.array(point2dSchema).min(2),
   startArrowhead: z.union([z.boolean(), arrowheadTypeSchema]).optional(),
   endArrowhead: z.union([z.boolean(), arrowheadTypeSchema]).optional(),
@@ -149,51 +186,57 @@ export const arrowDataSchema = z.object({
   routing: routingModeSchema.optional(),
   curved: z.boolean().optional(),
   rounded: z.boolean().optional(),
-  jettySize: z.union([z.number().nonnegative(), z.literal('auto')]).optional(),
+  jettySize: z.union([z.number().nonnegative(), z.literal("auto")]).optional(),
   midpointOffset: z.number().min(0).max(1).optional(),
 });
 
 const point3dSchema = z.tuple([z.number(), z.number(), z.number()]);
 
 export const freehandDataSchema = z.object({
-  kind: z.literal('freehand'),
+  kind: z.literal("freehand"),
   points: z.array(point3dSchema).min(1),
 });
 
 export const textDataSchema = z.object({
-  kind: z.literal('text'),
+  kind: z.literal("text"),
   text: z.string().max(10_000),
   fontSize: z.number().positive(),
   fontFamily: z.string().min(1).max(500),
-  textAlign: z.enum(['left', 'center', 'right']),
+  textAlign: z.enum(["left", "center", "right"]),
 });
 
 export const stickyNoteDataSchema = z.object({
-  kind: z.literal('sticky-note'),
+  kind: z.literal("sticky-note"),
   text: z.string().max(10_000),
   color: z.string().min(1).max(500),
 });
 
 export const imageDataSchema = z.object({
-  kind: z.literal('image'),
-  src: z.string().min(1).max(2_000_000).refine(
-    (s) => /^(https?:\/\/|data:image\/)/.test(s),
-    'Must be http(s) URL or data:image/ URI',
-  ),
+  kind: z.literal("image"),
+  src: z
+    .string()
+    .min(1)
+    .max(2_000_000)
+    .refine(
+      (s) => /^(https?:\/\/|data:image\/)/.test(s),
+      "Must be http(s) URL or data:image/ URI",
+    ),
   alt: z.string().max(500).optional(),
 });
 
 export const stencilDataSchema = z.object({
-  kind: z.literal('stencil'),
+  kind: z.literal("stencil"),
   stencilId: z.string().min(1).max(100),
   category: z.string().min(1).max(100),
   label: z.string().max(200).optional(),
-  labelPosition: z.enum(['below', 'top-left', 'top-center', 'center']).optional(),
+  labelPosition: z
+    .enum(["below", "top-left", "top-center", "center"])
+    .optional(),
   labelFontSize: z.number().positive().optional(),
 });
 
 export const containerDataSchema = z.object({
-  kind: z.literal('container'),
+  kind: z.literal("container"),
   title: z.string().max(500),
   headerHeight: z.number().positive(),
   padding: z.number().nonnegative(),
@@ -205,7 +248,7 @@ export const containerDataSchema = z.object({
 const flowNodeSchema = z.object({
   id: z.string().min(1),
   label: z.string().max(500),
-  shape: z.enum(['rect', 'diamond', 'ellipse', 'parallelogram', 'cylinder']),
+  shape: z.enum(["rect", "diamond", "ellipse", "parallelogram", "cylinder"]),
 });
 
 const flowEdgeSchema = z.object({
@@ -215,11 +258,11 @@ const flowEdgeSchema = z.object({
 });
 
 export const flowchartDataSchema = z.object({
-  kind: z.literal('flowchart'),
+  kind: z.literal("flowchart"),
   title: z.string().max(500),
   nodes: z.array(flowNodeSchema).min(1),
   edges: z.array(flowEdgeSchema),
-  direction: z.enum(['TB', 'LR', 'BT', 'RL']),
+  direction: z.enum(["TB", "LR", "BT", "RL"]),
 });
 
 const participantSchema = z.object({
@@ -231,11 +274,11 @@ const messageSchema = z.object({
   from: z.string().min(1),
   to: z.string().min(1),
   label: z.string().max(500),
-  type: z.enum(['sync', 'async', 'reply']),
+  type: z.enum(["sync", "async", "reply"]),
 });
 
 export const sequenceDiagramDataSchema = z.object({
-  kind: z.literal('sequence-diagram'),
+  kind: z.literal("sequence-diagram"),
   title: z.string().max(500),
   participants: z.array(participantSchema).min(2),
   messages: z.array(messageSchema),
@@ -243,7 +286,15 @@ export const sequenceDiagramDataSchema = z.object({
 
 const wireframeComponentSchema = z.object({
   id: z.string().min(1),
-  type: z.enum(['button', 'input', 'text', 'image', 'container', 'nav', 'list']),
+  type: z.enum([
+    "button",
+    "input",
+    "text",
+    "image",
+    "container",
+    "nav",
+    "list",
+  ]),
   label: z.string().max(500),
   x: z.number(),
   y: z.number(),
@@ -252,7 +303,7 @@ const wireframeComponentSchema = z.object({
 });
 
 export const wireframeDataSchema = z.object({
-  kind: z.literal('wireframe'),
+  kind: z.literal("wireframe"),
   title: z.string().max(500),
   screenSize: z.object({
     width: z.number().positive(),
@@ -267,7 +318,7 @@ const reasoningStepSchema = z.object({
 });
 
 export const reasoningChainDataSchema = z.object({
-  kind: z.literal('reasoning-chain'),
+  kind: z.literal("reasoning-chain"),
   question: z.string().min(1).max(10_000),
   steps: z.array(reasoningStepSchema).min(1),
   finalAnswer: z.string().min(1).max(10_000),
@@ -276,7 +327,7 @@ export const reasoningChainDataSchema = z.object({
 const roadmapItemSchema = z.object({
   id: z.string().min(1),
   title: z.string().min(1).max(500),
-  status: z.enum(['planned', 'in-progress', 'done']),
+  status: z.enum(["planned", "in-progress", "done"]),
 });
 
 const roadmapPhaseSchema = z.object({
@@ -286,9 +337,9 @@ const roadmapPhaseSchema = z.object({
 });
 
 export const roadmapDataSchema = z.object({
-  kind: z.literal('roadmap'),
+  kind: z.literal("roadmap"),
   title: z.string().max(500),
-  orientation: z.enum(['horizontal', 'vertical']),
+  orientation: z.enum(["horizontal", "vertical"]),
   phases: z.array(roadmapPhaseSchema).min(1),
 });
 
@@ -305,7 +356,7 @@ const mindMapBranchSchema: z.ZodType<{
 );
 
 export const mindMapDataSchema = z.object({
-  kind: z.literal('mind-map'),
+  kind: z.literal("mind-map"),
   centralTopic: z.string().min(1).max(500),
   branches: z.array(mindMapBranchSchema),
 });
@@ -323,7 +374,7 @@ const kanbanColumnSchema = z.object({
 });
 
 export const kanbanDataSchema = z.object({
-  kind: z.literal('kanban'),
+  kind: z.literal("kanban"),
   title: z.string().max(500),
   columns: z.array(kanbanColumnSchema).min(1),
 });
@@ -341,7 +392,7 @@ const decisionOptionSchema: z.ZodType<{
 );
 
 export const decisionTreeDataSchema = z.object({
-  kind: z.literal('decision-tree'),
+  kind: z.literal("decision-tree"),
   question: z.string().min(1).max(10_000),
   options: z.array(decisionOptionSchema).min(1),
 });
@@ -356,25 +407,25 @@ const collabLinkSchema = z.object({
   from: z.string().min(1),
   to: z.string().min(1),
   label: z.string().max(500),
-  direction: z.enum(['unidirectional', 'bidirectional']),
+  direction: z.enum(["unidirectional", "bidirectional"]),
 });
 
 export const collaborationDiagramDataSchema = z.object({
-  kind: z.literal('collaboration-diagram'),
+  kind: z.literal("collaboration-diagram"),
   title: z.string().max(500),
   objects: z.array(collabObjectSchema),
   links: z.array(collabLinkSchema),
 });
 
 export const slideDataSchema = z.object({
-  kind: z.literal('slide'),
+  kind: z.literal("slide"),
   title: z.string().max(500),
   bullets: z.array(z.string().max(10_000)),
-  layout: z.enum(['title', 'bullets', 'split']),
+  layout: z.enum(["title", "bullets", "split"]),
 });
 
 export const codeBlockDataSchema = z.object({
-  kind: z.literal('code-block'),
+  kind: z.literal("code-block"),
   language: z.string().min(1).max(500),
   code: z.string().max(100_000),
 });
@@ -388,7 +439,7 @@ const tableCellSchema = z.object({
 });
 
 export const tableDataSchema = z.object({
-  kind: z.literal('table'),
+  kind: z.literal("table"),
   title: z.string().max(500).optional(),
   headers: z.array(z.string().max(500)).min(1),
   rows: z.array(z.array(z.union([z.string().max(10_000), tableCellSchema]))),
@@ -397,34 +448,34 @@ export const tableDataSchema = z.object({
 // ── Annotation Data Schemas ────────────────────────────────
 
 export const commentDataSchema = z.object({
-  kind: z.literal('comment'),
+  kind: z.literal("comment"),
   text: z.string().min(1).max(10_000),
   targetExpressionId: z.string().min(1),
   resolved: z.boolean(),
 });
 
 export const calloutDataSchema = z.object({
-  kind: z.literal('callout'),
+  kind: z.literal("callout"),
   text: z.string().min(1).max(10_000),
   targetExpressionId: z.string().min(1),
-  position: z.enum(['top', 'right', 'bottom', 'left']),
+  position: z.enum(["top", "right", "bottom", "left"]),
 });
 
 export const highlightDataSchema = z.object({
-  kind: z.literal('highlight'),
+  kind: z.literal("highlight"),
   targetExpressionIds: z.array(z.string().min(1)).min(1),
   color: z.string().min(1).max(500),
 });
 
 export const markerDataSchema = z.object({
-  kind: z.literal('marker'),
+  kind: z.literal("marker"),
   label: z.string().min(1).max(500),
   icon: z.string().max(500).optional(),
 });
 
 // ── Expression Data Union ──────────────────────────────────
 
-export const expressionDataSchema = z.discriminatedUnion('kind', [
+export const expressionDataSchema = z.discriminatedUnion("kind", [
   // Primitives
   rectangleDataSchema,
   ellipseDataSchema,
@@ -478,54 +529,63 @@ const expressionMetaSchema = z.object({
   locked: z.boolean(),
 });
 
-export const visualExpressionSchema = z.object({
-  id: z.string().min(1),
-  kind: z.string().min(1),
-  position: positionSchema,
-  size: sizeSchema,
-  angle: z.number(),
-  style: expressionStyleSchema,
-  meta: expressionMetaSchema,
-  parentId: z.string().optional(),
-  children: z.array(z.string()).optional(),
-  layerId: z.string().optional(),
-  data: expressionDataSchema,
-}).refine(
-  (expr) => expr.kind === (expr.data as { kind: string }).kind,
-  { message: 'Expression kind must match data.kind', path: ['kind'] },
-).superRefine((expr, ctx) => {
-  // Depth-limit recursive schemas [S7-3]
-  const data = expr.data as Record<string, unknown>;
-  if (data.kind === 'mind-map' && Array.isArray(data.branches)) {
-    for (let i = 0; i < (data.branches as unknown[]).length; i++) {
-      if (measureChildrenDepth((data.branches as unknown[])[i]) > MAX_MIND_MAP_DEPTH) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          message: `Mind map branch exceeds maximum depth of ${MAX_MIND_MAP_DEPTH}`,
-          path: ['data', 'branches', i],
-        });
+export const visualExpressionSchema = z
+  .object({
+    id: z.string().min(1),
+    kind: z.string().min(1),
+    position: positionSchema,
+    size: sizeSchema,
+    angle: z.number(),
+    style: expressionStyleSchema,
+    meta: expressionMetaSchema,
+    parentId: z.string().optional(),
+    children: z.array(z.string()).optional(),
+    layerId: z.string().optional(),
+    data: expressionDataSchema,
+  })
+  .refine((expr) => expr.kind === (expr.data as { kind: string }).kind, {
+    message: "Expression kind must match data.kind",
+    path: ["kind"],
+  })
+  .superRefine((expr, ctx) => {
+    // Depth-limit recursive schemas [S7-3]
+    const data = expr.data as Record<string, unknown>;
+    if (data.kind === "mind-map" && Array.isArray(data.branches)) {
+      for (let i = 0; i < (data.branches as unknown[]).length; i++) {
+        if (
+          measureChildrenDepth((data.branches as unknown[])[i]) >
+          MAX_MIND_MAP_DEPTH
+        ) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: `Mind map branch exceeds maximum depth of ${MAX_MIND_MAP_DEPTH}`,
+            path: ["data", "branches", i],
+          });
+        }
       }
     }
-  }
-  if (data.kind === 'decision-tree' && Array.isArray(data.options)) {
-    for (let i = 0; i < (data.options as unknown[]).length; i++) {
-      if (measureChildrenDepth((data.options as unknown[])[i]) > MAX_DECISION_DEPTH) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          message: `Decision tree exceeds maximum depth of ${MAX_DECISION_DEPTH}`,
-          path: ['data', 'options', i],
-        });
+    if (data.kind === "decision-tree" && Array.isArray(data.options)) {
+      for (let i = 0; i < (data.options as unknown[]).length; i++) {
+        if (
+          measureChildrenDepth((data.options as unknown[])[i]) >
+          MAX_DECISION_DEPTH
+        ) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: `Decision tree exceeds maximum depth of ${MAX_DECISION_DEPTH}`,
+            path: ["data", "options", i],
+          });
+        }
       }
     }
-  }
-});
+  });
 
 // ── Operation Schemas ──────────────────────────────────────
 
 const expressionKindSchema = z.string().min(1);
 
 export const createPayloadSchema = z.object({
-  type: z.literal('create'),
+  type: z.literal("create"),
   expressionId: z.string().min(1),
   kind: expressionKindSchema,
   position: positionSchema,
@@ -536,7 +596,7 @@ export const createPayloadSchema = z.object({
 });
 
 export const updatePayloadSchema = z.object({
-  type: z.literal('update'),
+  type: z.literal("update"),
   expressionId: z.string().min(1),
   changes: z.object({
     position: positionSchema.optional(),
@@ -548,19 +608,19 @@ export const updatePayloadSchema = z.object({
 });
 
 export const deletePayloadSchema = z.object({
-  type: z.literal('delete'),
+  type: z.literal("delete"),
   expressionIds: z.array(z.string().min(1)).min(1),
 });
 
 export const movePayloadSchema = z.object({
-  type: z.literal('move'),
+  type: z.literal("move"),
   expressionId: z.string().min(1),
   from: positionSchema,
   to: positionSchema,
 });
 
 export const transformPayloadSchema = z.object({
-  type: z.literal('transform'),
+  type: z.literal("transform"),
   expressionId: z.string().min(1),
   angle: z.number().optional(),
   scale: z.object({ x: z.number(), y: z.number() }).optional(),
@@ -568,25 +628,25 @@ export const transformPayloadSchema = z.object({
 });
 
 export const groupPayloadSchema = z.object({
-  type: z.literal('group'),
+  type: z.literal("group"),
   expressionIds: z.array(z.string().min(1)).min(2),
   groupId: z.string().min(1),
 });
 
 export const ungroupPayloadSchema = z.object({
-  type: z.literal('ungroup'),
+  type: z.literal("ungroup"),
   groupId: z.string().min(1),
 });
 
 export const annotatePayloadSchema = z.object({
-  type: z.literal('annotate'),
+  type: z.literal("annotate"),
   targetExpressionId: z.string().min(1),
   annotationId: z.string().min(1),
-  annotationKind: z.enum(['comment', 'callout', 'highlight', 'marker']),
+  annotationKind: z.enum(["comment", "callout", "highlight", "marker"]),
 });
 
 export const morphPayloadSchema = z.object({
-  type: z.literal('morph'),
+  type: z.literal("morph"),
   expressionId: z.string().min(1),
   fromKind: expressionKindSchema,
   toKind: expressionKindSchema,
@@ -594,35 +654,35 @@ export const morphPayloadSchema = z.object({
 });
 
 export const lockPayloadSchema = z.object({
-  type: z.literal('lock'),
+  type: z.literal("lock"),
   expressionIds: z.array(z.string().min(1)).min(1),
 });
 
 export const unlockPayloadSchema = z.object({
-  type: z.literal('unlock'),
+  type: z.literal("unlock"),
   expressionIds: z.array(z.string().min(1)).min(1),
 });
 
 export const stylePayloadSchema = z.object({
-  type: z.literal('style'),
+  type: z.literal("style"),
   expressionIds: z.array(z.string().min(1)).min(1),
   style: expressionStyleSchema.partial(),
 });
 
 export const reorderPayloadSchema = z.object({
-  type: z.literal('reorder'),
+  type: z.literal("reorder"),
   expressionId: z.string().min(1),
   newIndex: z.number().int().nonnegative(),
 });
 
 export const snapshotPayloadSchema = z.object({
-  type: z.literal('snapshot'),
+  type: z.literal("snapshot"),
   label: z.string().min(1).max(500),
   expressionIds: z.array(z.string()),
 });
 
 export const queryPayloadSchema = z.object({
-  type: z.literal('query'),
+  type: z.literal("query"),
   kind: expressionKindSchema.optional(),
   tags: z.array(z.string()).optional(),
   bounds: z
@@ -635,7 +695,7 @@ export const queryPayloadSchema = z.object({
     .optional(),
 });
 
-export const operationPayloadSchema = z.discriminatedUnion('type', [
+export const operationPayloadSchema = z.discriminatedUnion("type", [
   createPayloadSchema,
   updatePayloadSchema,
   deletePayloadSchema,
@@ -656,10 +716,21 @@ export const operationPayloadSchema = z.discriminatedUnion('type', [
 export const protocolOperationSchema = z.object({
   id: z.string().min(1),
   type: z.enum([
-    'create', 'update', 'delete', 'move', 'transform',
-    'group', 'ungroup', 'annotate', 'morph',
-    'lock', 'unlock', 'style', 'reorder',
-    'snapshot', 'query',
+    "create",
+    "update",
+    "delete",
+    "move",
+    "transform",
+    "group",
+    "ungroup",
+    "annotate",
+    "morph",
+    "lock",
+    "unlock",
+    "style",
+    "reorder",
+    "snapshot",
+    "query",
   ]),
   author: authorInfoSchema,
   timestamp: z.number().int().nonnegative(),

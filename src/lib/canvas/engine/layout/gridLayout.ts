@@ -9,9 +9,9 @@
  * @module
  */
 
-import type { VisualExpression } from '../../protocol';
-import type { GridLayoutOptions } from './types';
-import { DEFAULT_SPACING, DEFAULT_GRID_COLUMNS } from './types';
+import type { VisualExpression } from "../../protocol";
+import type { GridLayoutOptions } from "./types";
+import { DEFAULT_SPACING, DEFAULT_GRID_COLUMNS } from "./types";
 
 /**
  * Compute grid positions for the given shapes.

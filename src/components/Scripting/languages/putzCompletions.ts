@@ -20,35 +20,41 @@ const putzApiMethods: PutzApiMethod[] = [
   {
     label: "putz.send",
     detail: "Send command to terminal",
-    documentation: "Sends a string to the active PTY session. Equivalent to typing the text and pressing Enter.",
+    documentation:
+      "Sends a string to the active PTY session. Equivalent to typing the text and pressing Enter.",
     insertText: 'putz.send("${1:show version}");',
     kind: "method",
   },
   {
     label: "putz.waitFor",
     detail: "Wait for pattern in output",
-    documentation: "Waits for a string or regex pattern to appear in the terminal output. Returns the captured output. Default timeout: 30 seconds.",
+    documentation:
+      "Waits for a string or regex pattern to appear in the terminal output. Returns the captured output. Default timeout: 30 seconds.",
     insertText: 'putz.waitFor("${1:#}", ${2:5000});',
     kind: "method",
   },
   {
     label: "putz.sendAndCapture",
     detail: "Send command and capture output",
-    documentation: "Sends a command, then waits for a prompt pattern and returns everything between. Combines send() + waitFor().",
-    insertText: 'const ${1:output} = putz.sendAndCapture("${2:show version}", "${3:#}", ${4:5000});',
+    documentation:
+      "Sends a command, then waits for a prompt pattern and returns everything between. Combines send() + waitFor().",
+    insertText:
+      'const ${1:output} = putz.sendAndCapture("${2:show version}", "${3:#}", ${4:5000});',
     kind: "method",
   },
   {
     label: "putz.sleep",
     detail: "Pause execution (ms)",
-    documentation: "Pauses script execution for the specified number of milliseconds.",
+    documentation:
+      "Pauses script execution for the specified number of milliseconds.",
     insertText: "putz.sleep(${1:1000});",
     kind: "method",
   },
   {
     label: "putz.log",
     detail: "Log message to output panel",
-    documentation: "Writes a message to the script output panel. Useful for debugging and status reporting.",
+    documentation:
+      "Writes a message to the script output panel. Useful for debugging and status reporting.",
     insertText: 'putz.log("${1:message}");',
     kind: "method",
   },
@@ -62,7 +68,8 @@ const putzApiMethods: PutzApiMethod[] = [
   {
     label: "putz.vault.get",
     detail: "Get credential from vault",
-    documentation: "Retrieves a stored credential by name from the Putz vault. Use for passwords, keys, and secrets.",
+    documentation:
+      "Retrieves a stored credential by name from the Putz vault. Use for passwords, keys, and secrets.",
     insertText: 'const ${1:password} = putz.vault.get("${2:credential-name}");',
     kind: "method",
   },
@@ -72,12 +79,13 @@ const putzSnippets: PutzApiMethod[] = [
   {
     label: "putz-login",
     detail: "SSH login script template",
-    documentation: "Complete SSH login script with credential retrieval and prompt detection.",
+    documentation:
+      "Complete SSH login script with credential retrieval and prompt detection.",
     insertText: [
-      '// Login to device via SSH',
+      "// Login to device via SSH",
       'putz.waitFor("${1:Password:}", ${2:10000});',
       'const password = putz.vault.get("${3:device-password}");',
-      'putz.send(password);',
+      "putz.send(password);",
       'putz.waitFor("${4:#}", ${5:5000});',
       'putz.log("Login successful");',
     ].join("\n"),
@@ -88,7 +96,7 @@ const putzSnippets: PutzApiMethod[] = [
     detail: "Backup running-config",
     documentation: "Captures the running configuration and logs it.",
     insertText: [
-      '// Backup running configuration',
+      "// Backup running configuration",
       'putz.send("terminal length 0");',
       'putz.waitFor("#", 3000);',
       'const config = putz.sendAndCapture("show running-config", "#", 30000);',
@@ -112,21 +120,22 @@ const putzSnippets: PutzApiMethod[] = [
   {
     label: "putz-multi-command",
     detail: "Run multiple commands template",
-    documentation: "Template for running multiple commands and capturing output.",
+    documentation:
+      "Template for running multiple commands and capturing output.",
     insertText: [
-      'const commands = [',
+      "const commands = [",
       '  "show version",',
       '  "show ip interface brief",',
       '  "show ip route",',
-      '];',
-      '',
-      'for (const cmd of commands) {',
-      '  putz.send(cmd);',
+      "];",
+      "",
+      "for (const cmd of commands) {",
+      "  putz.send(cmd);",
       '  const output = putz.waitFor("#", 5000);',
       '  putz.log("=== " + cmd + " ===");',
-      '  putz.log(output);',
-      '  putz.sleep(500);',
-      '}',
+      "  putz.log(output);",
+      "  putz.sleep(500);",
+      "}",
     ].join("\n"),
     kind: "snippet",
   },
@@ -135,17 +144,17 @@ const putzSnippets: PutzApiMethod[] = [
     detail: "Config change with save",
     documentation: "Enter config mode, make changes, save config.",
     insertText: [
-      '// Enter configuration mode',
+      "// Enter configuration mode",
       'putz.send("configure terminal");',
       'putz.waitFor("(config)#", 3000);',
-      '',
-      '// Make changes',
+      "",
+      "// Make changes",
       'putz.send("${1:interface GigabitEthernet0/0}");',
       'putz.waitFor("(config-if)#", 3000);',
       'putz.send("${2:description Updated by Putz}");',
       'putz.waitFor("(config-if)#", 3000);',
-      '',
-      '// Save',
+      "",
+      "// Save",
       'putz.send("end");',
       'putz.waitFor("#", 3000);',
       'putz.send("write memory");',
@@ -175,11 +184,15 @@ export function registerPutzCompletions(monacoInstance: typeof monaco): void {
         endColumn: word.endColumn,
       };
 
-      const { CompletionItemKind, CompletionItemInsertTextRule } = monacoInstance.languages;
+      const { CompletionItemKind, CompletionItemInsertTextRule } =
+        monacoInstance.languages;
       const suggestions: monaco.languages.CompletionItem[] = [];
 
       // After "putz." — show API methods
-      if (textBeforeCursor.endsWith("putz.") || textBeforeCursor.match(/putz\.[\w]*$/)) {
+      if (
+        textBeforeCursor.endsWith("putz.") ||
+        textBeforeCursor.match(/putz\.[\w]*$/)
+      ) {
         for (const method of putzApiMethods) {
           // Strip "putz." prefix from insertText since user already typed it
           const stripped = method.insertText.replace(/^putz\./, "");
@@ -198,8 +211,13 @@ export function registerPutzCompletions(monacoInstance: typeof monaco): void {
       }
 
       // After "putz.vault." — show vault methods
-      if (textBeforeCursor.endsWith("putz.vault.") || textBeforeCursor.match(/putz\.vault\.[\w]*$/)) {
-        const vaultGet = putzApiMethods.find((m) => m.label === "putz.vault.get")!;
+      if (
+        textBeforeCursor.endsWith("putz.vault.") ||
+        textBeforeCursor.match(/putz\.vault\.[\w]*$/)
+      ) {
+        const vaultGet = putzApiMethods.find(
+          (m) => m.label === "putz.vault.get",
+        )!;
         const stripped = vaultGet.insertText.replace(/^.*putz\.vault\./, "");
         suggestions.push({
           label: "get",

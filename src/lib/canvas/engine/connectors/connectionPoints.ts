@@ -8,13 +8,19 @@
  * @module
  */
 
-import type { VisualExpression } from '../../protocol';
-import { BINDABLE_KINDS } from './constants';
+import type { VisualExpression } from "../../protocol";
+import { BINDABLE_KINDS } from "./constants";
 
 /** Named position of a connection point on a shape. */
 export type ShapeConnectionPointPosition =
-  | 'top' | 'right' | 'bottom' | 'left'
-  | 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right';
+  | "top"
+  | "right"
+  | "bottom"
+  | "left"
+  | "top-left"
+  | "top-right"
+  | "bottom-left"
+  | "bottom-right";
 
 /** A computed connection point on a shape in world coordinates. */
 export interface ShapeConnectionPoint {
@@ -36,17 +42,19 @@ export interface ShapeConnectionPoint {
  * Returns an empty array for non-bindable kinds (arrow, line, etc.).
  * [CLEAN-CODE] [SRP]
  */
-export function getConnectionPoints(expr: VisualExpression): ShapeConnectionPoint[] {
+export function getConnectionPoints(
+  expr: VisualExpression,
+): ShapeConnectionPoint[] {
   if (!BINDABLE_KINDS.has(expr.kind)) return [];
 
   const { x, y } = expr.position;
   const { width, height } = expr.size;
 
-  if (expr.kind === 'ellipse') {
+  if (expr.kind === "ellipse") {
     return computeEllipseConnectionPoints(x, y, width, height);
   }
 
-  if (expr.kind === 'diamond') {
+  if (expr.kind === "diamond") {
     return computeDiamondConnectionPoints(x, y, width, height);
   }
 
@@ -101,15 +109,15 @@ function computeRectangleConnectionPoints(
 
   return [
     // Edge midpoints
-    { position: 'top', x: cx, y },
-    { position: 'right', x: x + width, y: cy },
-    { position: 'bottom', x: cx, y: y + height },
-    { position: 'left', x, y: cy },
+    { position: "top", x: cx, y },
+    { position: "right", x: x + width, y: cy },
+    { position: "bottom", x: cx, y: y + height },
+    { position: "left", x, y: cy },
     // Corners
-    { position: 'top-left', x, y },
-    { position: 'top-right', x: x + width, y },
-    { position: 'bottom-left', x, y: y + height },
-    { position: 'bottom-right', x: x + width, y: y + height },
+    { position: "top-left", x, y },
+    { position: "top-right", x: x + width, y },
+    { position: "bottom-left", x, y: y + height },
+    { position: "bottom-right", x: x + width, y: y + height },
   ];
 }
 
@@ -130,15 +138,15 @@ function computeEllipseConnectionPoints(
 
   return [
     // Cardinal points (0°, 90°, 180°, 270°)
-    { position: 'top', x: cx, y: cy - ry },
-    { position: 'right', x: cx + rx, y: cy },
-    { position: 'bottom', x: cx, y: cy + ry },
-    { position: 'left', x: cx - rx, y: cy },
+    { position: "top", x: cx, y: cy - ry },
+    { position: "right", x: cx + rx, y: cy },
+    { position: "bottom", x: cx, y: cy + ry },
+    { position: "left", x: cx - rx, y: cy },
     // Diagonal points (45°, 135°, 225°, 315°)
-    { position: 'top-right', x: cx + rx * cos45, y: cy - ry * sin45 },
-    { position: 'top-left', x: cx - rx * cos45, y: cy - ry * sin45 },
-    { position: 'bottom-right', x: cx + rx * cos45, y: cy + ry * sin45 },
-    { position: 'bottom-left', x: cx - rx * cos45, y: cy + ry * sin45 },
+    { position: "top-right", x: cx + rx * cos45, y: cy - ry * sin45 },
+    { position: "top-left", x: cx - rx * cos45, y: cy - ry * sin45 },
+    { position: "bottom-right", x: cx + rx * cos45, y: cy + ry * sin45 },
+    { position: "bottom-left", x: cx - rx * cos45, y: cy + ry * sin45 },
   ];
 }
 
@@ -165,14 +173,26 @@ function computeDiamondConnectionPoints(
 
   return [
     // Vertices as edge connection points
-    { position: 'top', x: top.x, y: top.y },
-    { position: 'right', x: right.x, y: right.y },
-    { position: 'bottom', x: bottom.x, y: bottom.y },
-    { position: 'left', x: left.x, y: left.y },
+    { position: "top", x: top.x, y: top.y },
+    { position: "right", x: right.x, y: right.y },
+    { position: "bottom", x: bottom.x, y: bottom.y },
+    { position: "left", x: left.x, y: left.y },
     // Edge midpoints as corner connection points
-    { position: 'top-right', x: (top.x + right.x) / 2, y: (top.y + right.y) / 2 },
-    { position: 'top-left', x: (top.x + left.x) / 2, y: (top.y + left.y) / 2 },
-    { position: 'bottom-right', x: (bottom.x + right.x) / 2, y: (bottom.y + right.y) / 2 },
-    { position: 'bottom-left', x: (bottom.x + left.x) / 2, y: (bottom.y + left.y) / 2 },
+    {
+      position: "top-right",
+      x: (top.x + right.x) / 2,
+      y: (top.y + right.y) / 2,
+    },
+    { position: "top-left", x: (top.x + left.x) / 2, y: (top.y + left.y) / 2 },
+    {
+      position: "bottom-right",
+      x: (bottom.x + right.x) / 2,
+      y: (bottom.y + right.y) / 2,
+    },
+    {
+      position: "bottom-left",
+      x: (bottom.x + left.x) / 2,
+      y: (bottom.y + left.y) / 2,
+    },
   ];
 }

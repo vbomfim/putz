@@ -181,9 +181,9 @@ describe("themeStore", () => {
 
   it("setUiTheme applies data attribute to document", () => {
     useThemeStore.getState().setUiTheme("light");
-    expect(
-      document.documentElement.getAttribute("data-ui-theme"),
-    ).toBe("light");
+    expect(document.documentElement.getAttribute("data-ui-theme")).toBe(
+      "light",
+    );
   });
 
   // ─── Session Overrides ─────────────────────────────────────
@@ -207,15 +207,15 @@ describe("themeStore", () => {
 
   it("getEffectiveThemeId returns override if set", () => {
     useThemeStore.getState().setSessionOverride("session-1", "builtin-nord");
-    expect(
-      useThemeStore.getState().getEffectiveThemeId("session-1"),
-    ).toBe("builtin-nord");
+    expect(useThemeStore.getState().getEffectiveThemeId("session-1")).toBe(
+      "builtin-nord",
+    );
   });
 
   it("getEffectiveThemeId returns active theme if no override", () => {
-    expect(
-      useThemeStore.getState().getEffectiveThemeId("session-1"),
-    ).toBe("builtin-dracula");
+    expect(useThemeStore.getState().getEffectiveThemeId("session-1")).toBe(
+      "builtin-dracula",
+    );
   });
 
   it("session overrides persist to localStorage", () => {

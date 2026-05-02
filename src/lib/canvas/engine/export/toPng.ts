@@ -7,16 +7,16 @@
  * @module
  */
 
-import type { VisualExpression } from '../../protocol';
-import type { Theme } from '../store/uiStore';
+import type { VisualExpression } from "../../protocol";
+import type { Theme } from "../store/uiStore";
 
 /** Padding around exported image in pixels. */
 export const EXPORT_PADDING = 20;
 
 /** Background colors per theme. */
 const BACKGROUND_COLORS: Record<Theme, string> = {
-  light: '#ffffff',
-  dark: '#1e1e1e',
+  light: "#ffffff",
+  dark: "#1e1e1e",
 };
 
 /** Bounding box for export calculation. */
@@ -75,7 +75,7 @@ export function computeExportBounds(
  */
 function downloadBlob(blob: Blob, filename: string): void {
   const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
+  const a = document.createElement("a");
   a.href = url;
   a.download = filename;
   document.body.appendChild(a);
@@ -113,11 +113,11 @@ export async function exportToPng(
   const canvasWidth = bounds.width + EXPORT_PADDING * 2;
   const canvasHeight = bounds.height + EXPORT_PADDING * 2;
 
-  const offscreen = document.createElement('canvas');
+  const offscreen = document.createElement("canvas");
   offscreen.width = canvasWidth;
   offscreen.height = canvasHeight;
 
-  const ctx = offscreen.getContext('2d');
+  const ctx = offscreen.getContext("2d");
   if (!ctx) return;
 
   // Fill background
@@ -136,9 +136,9 @@ export async function exportToPng(
   return new Promise<void>((resolve) => {
     offscreen.toBlob((blob) => {
       if (blob) {
-        downloadBlob(blob, 'infinicanvas-export.png');
+        downloadBlob(blob, "infinicanvas-export.png");
       }
       resolve();
-    }, 'image/png');
+    }, "image/png");
   });
 }

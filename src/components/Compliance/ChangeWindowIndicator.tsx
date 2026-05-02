@@ -45,9 +45,7 @@ export function ChangeWindowIndicator() {
           ? "Within change window — changes allowed"
           : "Outside change window — dangerous commands will warn"
       }
-      aria-label={
-        isActive ? "Change window active" : "Change window inactive"
-      }
+      aria-label={isActive ? "Change window active" : "Change window inactive"}
       data-testid="change-window-indicator"
     >
       {isActive ? "🔓" : "🔒"}

@@ -337,7 +337,10 @@ mod tests {
     fn register_request_missing_colleague_id_fails() {
         let json = r#"{"name": "alice", "tab_id": "tab-1"}"#;
         let result: Result<RegisterRequest, _> = serde_json::from_str(json);
-        assert!(result.is_err(), "Missing colleague_id should fail deserialization");
+        assert!(
+            result.is_err(),
+            "Missing colleague_id should fail deserialization"
+        );
     }
 
     /// [EDGE] RegisterRequest fails when required field "name" is missing.
@@ -404,11 +407,13 @@ mod tests {
             ("normal", Severity::Normal),
             ("ambient", Severity::Ambient),
         ] {
-            let json = format!(
-                r#"{{"from": "a", "to": "b", "severity": "{sev_str}", "body": "hello"}}"#
-            );
+            let json =
+                format!(r#"{{"from": "a", "to": "b", "severity": "{sev_str}", "body": "hello"}}"#);
             let req: MessageRequest = serde_json::from_str(&json).unwrap();
-            assert_eq!(req.severity, expected, "Severity '{sev_str}' should deserialize");
+            assert_eq!(
+                req.severity, expected,
+                "Severity '{sev_str}' should deserialize"
+            );
         }
     }
 
@@ -417,7 +422,10 @@ mod tests {
     fn message_request_invalid_severity_fails() {
         let json = r#"{"from": "a", "to": "b", "severity": "critical", "body": "hello"}"#;
         let result: Result<MessageRequest, _> = serde_json::from_str(json);
-        assert!(result.is_err(), "Unknown severity should fail deserialization");
+        assert!(
+            result.is_err(),
+            "Unknown severity should fail deserialization"
+        );
     }
 
     /// [CONTRACT] FocusRequest deserializes correctly.
@@ -558,7 +566,10 @@ mod tests {
         }
         let drained = buf.drain_valid();
         assert_eq!(drained.len(), 10);
-        assert!(buf.messages.is_empty(), "Buffer should be empty after drain");
+        assert!(
+            buf.messages.is_empty(),
+            "Buffer should be empty after drain"
+        );
     }
 
     /// [EDGE] MessageBuffer push after drain works correctly.
@@ -612,7 +623,10 @@ mod tests {
         };
         let json = serde_json::to_string(&msg).unwrap();
         let parsed: Message = serde_json::from_str(&json).unwrap();
-        assert_eq!(parsed.body, msg.body, "Unicode/emoji must survive roundtrip");
+        assert_eq!(
+            parsed.body, msg.body,
+            "Unicode/emoji must survive roundtrip"
+        );
     }
 
     /// [EDGE] RegisterRequest with empty strings (valid JSON but semantically empty).
@@ -646,10 +660,17 @@ mod tests {
         let view = ColleagueView::from(&c);
         // Should be a valid RFC3339 string
         let parsed = chrono::DateTime::parse_from_rfc3339(&view.last_seen);
-        assert!(parsed.is_ok(), "last_seen should be RFC3339: got {}", view.last_seen);
+        assert!(
+            parsed.is_ok(),
+            "last_seen should be RFC3339: got {}",
+            view.last_seen
+        );
         // H2: Should reflect last_seen_at, not registered_at
         let parsed_ts = parsed.unwrap().with_timezone(&chrono::Utc);
-        assert_eq!(parsed_ts, seen, "last_seen must use last_seen_at, not registered_at");
+        assert_eq!(
+            parsed_ts, seen,
+            "last_seen must use last_seen_at, not registered_at"
+        );
     }
 
     /// [CONTRACT] SwarmStatePublic excludes token field.
@@ -662,7 +683,10 @@ mod tests {
             colleague_ids: vec!["a".into(), "b".into(), "c".into()],
         };
         let json = serde_json::to_value(&state).unwrap();
-        assert!(json.get("token").is_none(), "SwarmStatePublic must not contain token");
+        assert!(
+            json.get("token").is_none(),
+            "SwarmStatePublic must not contain token"
+        );
         assert_eq!(json["colleague_count"], 3);
         assert_eq!(json["colleague_ids"].as_array().unwrap().len(), 3);
     }
@@ -705,6 +729,9 @@ mod tests {
     fn heartbeat_request_invalid_status_deser_fails() {
         let json = r#"{"colleague_id": "alice-a1b2", "status": "bogus"}"#;
         let result: Result<HeartbeatRequest, _> = serde_json::from_str(json);
-        assert!(result.is_err(), "Invalid status should fail deserialization");
+        assert!(
+            result.is_err(),
+            "Invalid status should fail deserialization"
+        );
     }
 }

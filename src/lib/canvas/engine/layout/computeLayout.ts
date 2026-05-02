@@ -10,14 +10,14 @@
  * @module
  */
 
-import type { VisualExpression } from '../../protocol';
-import type { LayoutOptions } from './types';
-import { computeTreeLayout } from './treeLayout';
-import { computeForceLayout } from './forceLayout';
-import { computeGridLayout } from './gridLayout';
+import type { VisualExpression } from "../../protocol";
+import type { LayoutOptions } from "./types";
+import { computeTreeLayout } from "./treeLayout";
+import { computeForceLayout } from "./forceLayout";
+import { computeGridLayout } from "./gridLayout";
 
 /** Expression kinds that are connectors (edges), not nodes. */
-const CONNECTOR_KINDS = new Set(['arrow', 'line']);
+const CONNECTOR_KINDS = new Set(["arrow", "line"]);
 
 /**
  * Compute new positions for canvas expressions using the specified algorithm.
@@ -38,26 +38,26 @@ export function computeLayout(
   const shapes = expressions.filter(
     (expr) => !CONNECTOR_KINDS.has(expr.kind) && !expr.meta.locked,
   );
-  const arrows = expressions.filter((expr) => expr.kind === 'arrow');
+  const arrows = expressions.filter((expr) => expr.kind === "arrow");
 
   if (shapes.length === 0) {
     return new Map();
   }
 
   switch (options.algorithm) {
-    case 'tree':
+    case "tree":
       return computeTreeLayout(shapes, arrows, {
         direction: options.direction,
         spacing: options.spacing,
       });
 
-    case 'force':
+    case "force":
       return computeForceLayout(shapes, arrows, {
         iterations: options.iterations,
         spacing: options.spacing,
       });
 
-    case 'grid':
+    case "grid":
       return computeGridLayout(shapes, {
         columns: options.columns,
         spacing: options.spacing,

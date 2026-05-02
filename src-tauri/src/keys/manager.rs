@@ -669,7 +669,7 @@ mod tests {
 
     #[test]
     fn get_key_path_returns_valid_path() {
-        let (mgr, dir) = test_manager();
+        let (mgr, _dir) = test_manager();
         let meta = mgr
             .generate(GenerateKeyInput {
                 name: "Path Test".into(),

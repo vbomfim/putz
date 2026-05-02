@@ -90,9 +90,10 @@ export function TabBar() {
     const handleMouseMove = (e: MouseEvent) => {
       if (!dragState.current || !tabsContainerRef.current) return;
       dragState.current.active = true;
-      
+
       // Find which tab element the mouse is over
-      const tabElements = tabsContainerRef.current.querySelectorAll('[role="tab"]');
+      const tabElements =
+        tabsContainerRef.current.querySelectorAll('[role="tab"]');
       for (let i = 0; i < tabElements.length; i++) {
         const rect = tabElements[i].getBoundingClientRect();
         if (e.clientX >= rect.left && e.clientX <= rect.right) {
@@ -148,7 +149,15 @@ export function TabBar() {
         }
       }
     },
-    [contextMenu, removeTab, closeOtherTabs, closeAllTabs, duplicateTab, tabs, moveTab],
+    [
+      contextMenu,
+      removeTab,
+      closeOtherTabs,
+      closeAllTabs,
+      duplicateTab,
+      tabs,
+      moveTab,
+    ],
   );
 
   return (
@@ -186,70 +195,71 @@ export function TabBar() {
         +
       </button>
 
-      {contextMenu && (() => {
-        const ctxIndex = tabs.findIndex((t) => t.id === contextMenu.tabId);
-        return (
-        <div
-          ref={contextMenuRef}
-          className="tabbar__context-menu"
-          style={{ top: contextMenu.y, left: contextMenu.x }}
-          role="menu"
-        >
-          <button
-            className="tabbar__context-item"
-            onClick={() => handleContextAction("close")}
-            role="menuitem"
-            type="button"
-          >
-            Close
-          </button>
-          <button
-            className="tabbar__context-item"
-            onClick={() => handleContextAction("closeOthers")}
-            role="menuitem"
-            type="button"
-          >
-            Close Others
-          </button>
-          <button
-            className="tabbar__context-item"
-            onClick={() => handleContextAction("closeAll")}
-            role="menuitem"
-            type="button"
-          >
-            Close All
-          </button>
-          <div className="tabbar__context-separator" />
-          <button
-            className="tabbar__context-item"
-            onClick={() => handleContextAction("duplicate")}
-            role="menuitem"
-            type="button"
-          >
-            Duplicate
-          </button>
-          <div className="tabbar__context-separator" />
-          <button
-            className="tabbar__context-item"
-            onClick={() => handleContextAction("moveLeft")}
-            role="menuitem"
-            type="button"
-            disabled={ctxIndex <= 0}
-          >
-            Move Left
-          </button>
-          <button
-            className="tabbar__context-item"
-            onClick={() => handleContextAction("moveRight")}
-            role="menuitem"
-            type="button"
-            disabled={ctxIndex < 0 || ctxIndex >= tabs.length - 1}
-          >
-            Move Right
-          </button>
-        </div>
-        );
-      })()}
+      {contextMenu &&
+        (() => {
+          const ctxIndex = tabs.findIndex((t) => t.id === contextMenu.tabId);
+          return (
+            <div
+              ref={contextMenuRef}
+              className="tabbar__context-menu"
+              style={{ top: contextMenu.y, left: contextMenu.x }}
+              role="menu"
+            >
+              <button
+                className="tabbar__context-item"
+                onClick={() => handleContextAction("close")}
+                role="menuitem"
+                type="button"
+              >
+                Close
+              </button>
+              <button
+                className="tabbar__context-item"
+                onClick={() => handleContextAction("closeOthers")}
+                role="menuitem"
+                type="button"
+              >
+                Close Others
+              </button>
+              <button
+                className="tabbar__context-item"
+                onClick={() => handleContextAction("closeAll")}
+                role="menuitem"
+                type="button"
+              >
+                Close All
+              </button>
+              <div className="tabbar__context-separator" />
+              <button
+                className="tabbar__context-item"
+                onClick={() => handleContextAction("duplicate")}
+                role="menuitem"
+                type="button"
+              >
+                Duplicate
+              </button>
+              <div className="tabbar__context-separator" />
+              <button
+                className="tabbar__context-item"
+                onClick={() => handleContextAction("moveLeft")}
+                role="menuitem"
+                type="button"
+                disabled={ctxIndex <= 0}
+              >
+                Move Left
+              </button>
+              <button
+                className="tabbar__context-item"
+                onClick={() => handleContextAction("moveRight")}
+                role="menuitem"
+                type="button"
+                disabled={ctxIndex < 0 || ctxIndex >= tabs.length - 1}
+              >
+                Move Right
+              </button>
+            </div>
+          );
+        })()}
     </div>
   );
 }

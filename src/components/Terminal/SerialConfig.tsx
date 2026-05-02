@@ -165,9 +165,7 @@ export function SerialConfig({ values, onChange, errors }: SerialConfigProps) {
             {errors.port}
           </span>
         )}
-        {scanError && (
-          <span className="session-editor-error">{scanError}</span>
-        )}
+        {scanError && <span className="session-editor-error">{scanError}</span>}
         {!isScanning && ports.length === 0 && !scanError && (
           <span className="session-editor-hint">
             No serial ports found. Plug in a USB adapter and click ↻.

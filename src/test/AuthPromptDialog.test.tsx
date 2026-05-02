@@ -58,9 +58,7 @@ describe("AuthPromptDialog", () => {
         onCancel={onCancel}
       />,
     );
-    expect(
-      screen.getByText(/admin@router\.local/),
-    ).toBeInTheDocument();
+    expect(screen.getByText(/admin@router\.local/)).toBeInTheDocument();
   });
 
   it("shows a password input field", () => {

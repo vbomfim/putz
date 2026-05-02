@@ -62,7 +62,6 @@ export function RegionView({ region, isFocused }: RegionViewProps) {
     [region.id, region.activeTabId, region.tabs, renameTab],
   );
 
-
   /** Map tab position to the CSS class that sets the correct flex-direction. */
   const positionClass: Record<string, string> = {
     top: "",
@@ -93,7 +92,16 @@ export function RegionView({ region, isFocused }: RegionViewProps) {
           const isTabActive = tab.id === region.activeTabId;
           if (tab.type === "editor") {
             return (
-              <div key={tab.id} style={{ display: isTabActive ? "flex" : "none", flex: 1, flexDirection: "column", minHeight: 0, overflow: "hidden" }}>
+              <div
+                key={tab.id}
+                style={{
+                  display: isTabActive ? "flex" : "none",
+                  flex: 1,
+                  flexDirection: "column",
+                  minHeight: 0,
+                  overflow: "hidden",
+                }}
+              >
                 <EditorTab
                   filePath={tab.editorFilePath}
                   scriptId={tab.editorScriptId}
@@ -105,7 +113,16 @@ export function RegionView({ region, isFocused }: RegionViewProps) {
           }
           if (tab.type === "diff") {
             return (
-              <div key={tab.id} style={{ display: isTabActive ? "flex" : "none", flex: 1, flexDirection: "column", minHeight: 0, overflow: "hidden" }}>
+              <div
+                key={tab.id}
+                style={{
+                  display: isTabActive ? "flex" : "none",
+                  flex: 1,
+                  flexDirection: "column",
+                  minHeight: 0,
+                  overflow: "hidden",
+                }}
+              >
                 <DiffEditorTab
                   leftPath={tab.diffLeftPath}
                   rightPath={tab.diffRightPath}
@@ -119,7 +136,16 @@ export function RegionView({ region, isFocused }: RegionViewProps) {
           }
           if (tab.type === "search") {
             return (
-              <div key={tab.id} style={{ display: isTabActive ? "flex" : "none", flex: 1, flexDirection: "column", minHeight: 0, overflow: "hidden" }}>
+              <div
+                key={tab.id}
+                style={{
+                  display: isTabActive ? "flex" : "none",
+                  flex: 1,
+                  flexDirection: "column",
+                  minHeight: 0,
+                  overflow: "hidden",
+                }}
+              >
                 <SearchReplaceTab
                   initialDirectory={tab.editorFilePath}
                   regionId={region.id}
@@ -130,76 +156,192 @@ export function RegionView({ region, isFocused }: RegionViewProps) {
           }
           if (tab.type === "vault") {
             return (
-              <div key={tab.id} style={{ display: isTabActive ? "flex" : "none", flex: 1, flexDirection: "column", minHeight: 0, overflow: "hidden" }}>
+              <div
+                key={tab.id}
+                style={{
+                  display: isTabActive ? "flex" : "none",
+                  flex: 1,
+                  flexDirection: "column",
+                  minHeight: 0,
+                  overflow: "hidden",
+                }}
+              >
                 <VaultTab />
               </div>
             );
           }
           if (tab.type === "history") {
             return (
-              <div key={tab.id} style={{ display: isTabActive ? "flex" : "none", flex: 1, flexDirection: "column", minHeight: 0, overflow: "hidden" }}>
+              <div
+                key={tab.id}
+                style={{
+                  display: isTabActive ? "flex" : "none",
+                  flex: 1,
+                  flexDirection: "column",
+                  minHeight: 0,
+                  overflow: "hidden",
+                }}
+              >
                 <HistoryTab />
               </div>
             );
           }
           if (tab.type === "templates") {
             return (
-              <div key={tab.id} style={{ display: isTabActive ? "flex" : "none", flex: 1, flexDirection: "column", minHeight: 0, overflow: "hidden" }}>
+              <div
+                key={tab.id}
+                style={{
+                  display: isTabActive ? "flex" : "none",
+                  flex: 1,
+                  flexDirection: "column",
+                  minHeight: 0,
+                  overflow: "hidden",
+                }}
+              >
                 <TemplateTab />
               </div>
             );
           }
           if (tab.type === "settings") {
             return (
-              <div key={tab.id} style={{ display: isTabActive ? "flex" : "none", flex: 1, flexDirection: "column", minHeight: 0, overflow: "hidden" }}>
+              <div
+                key={tab.id}
+                style={{
+                  display: isTabActive ? "flex" : "none",
+                  flex: 1,
+                  flexDirection: "column",
+                  minHeight: 0,
+                  overflow: "hidden",
+                }}
+              >
                 <SettingsTab />
               </div>
             );
           }
           if (tab.type === "bookmarks") {
             return (
-              <div key={tab.id} style={{ display: isTabActive ? "flex" : "none", flex: 1, flexDirection: "column", minHeight: 0, overflow: "hidden" }}>
+              <div
+                key={tab.id}
+                style={{
+                  display: isTabActive ? "flex" : "none",
+                  flex: 1,
+                  flexDirection: "column",
+                  minHeight: 0,
+                  overflow: "hidden",
+                }}
+              >
                 <BookmarksPanel asTab />
               </div>
             );
           }
           if (tab.type === "markdown" && tab.editorFilePath) {
             return (
-              <div key={tab.id} style={{ display: isTabActive ? "flex" : "none", flex: 1, flexDirection: "column", minHeight: 0, overflow: "hidden" }}>
-                <MarkdownTab filePath={tab.editorFilePath} regionId={region.id} tabId={tab.id} />
+              <div
+                key={tab.id}
+                style={{
+                  display: isTabActive ? "flex" : "none",
+                  flex: 1,
+                  flexDirection: "column",
+                  minHeight: 0,
+                  overflow: "hidden",
+                }}
+              >
+                <MarkdownTab
+                  filePath={tab.editorFilePath}
+                  regionId={region.id}
+                  tabId={tab.id}
+                />
               </div>
             );
           }
           if (tab.type === "csv" && tab.editorFilePath) {
             return (
-              <div key={tab.id} style={{ display: isTabActive ? "flex" : "none", flex: 1, flexDirection: "column", minHeight: 0, overflow: "hidden" }}>
-                <CsvTab filePath={tab.editorFilePath} regionId={region.id} tabId={tab.id} />
+              <div
+                key={tab.id}
+                style={{
+                  display: isTabActive ? "flex" : "none",
+                  flex: 1,
+                  flexDirection: "column",
+                  minHeight: 0,
+                  overflow: "hidden",
+                }}
+              >
+                <CsvTab
+                  filePath={tab.editorFilePath}
+                  regionId={region.id}
+                  tabId={tab.id}
+                />
               </div>
             );
           }
           if (tab.type === "drawio" && tab.editorFilePath) {
             return (
-              <div key={tab.id} style={{ display: isTabActive ? "flex" : "none", flex: 1, flexDirection: "column", minHeight: 0, overflow: "hidden" }}>
-                <DrawioEditor filePath={tab.editorFilePath} regionId={region.id} tabId={tab.id} isActive={isTabActive} />
+              <div
+                key={tab.id}
+                style={{
+                  display: isTabActive ? "flex" : "none",
+                  flex: 1,
+                  flexDirection: "column",
+                  minHeight: 0,
+                  overflow: "hidden",
+                }}
+              >
+                <DrawioEditor
+                  filePath={tab.editorFilePath}
+                  regionId={region.id}
+                  tabId={tab.id}
+                  isActive={isTabActive}
+                />
               </div>
             );
           }
           if (tab.type === "git-graph" && tab.editorFilePath) {
             return (
-              <div key={tab.id} style={{ display: isTabActive ? "flex" : "none", flex: 1, flexDirection: "column", minHeight: 0, overflow: "hidden" }}>
-                <GitGraph repoPath={tab.editorFilePath} regionId={region.id} tabId={tab.id} />
+              <div
+                key={tab.id}
+                style={{
+                  display: isTabActive ? "flex" : "none",
+                  flex: 1,
+                  flexDirection: "column",
+                  minHeight: 0,
+                  overflow: "hidden",
+                }}
+              >
+                <GitGraph
+                  repoPath={tab.editorFilePath}
+                  regionId={region.id}
+                  tabId={tab.id}
+                />
               </div>
             );
           }
           if (tab.type === "radio") {
             return (
-              <div key={tab.id} style={{ display: isTabActive ? "flex" : "none", flex: 1, flexDirection: "column", minHeight: 0, overflow: "hidden" }}>
+              <div
+                key={tab.id}
+                style={{
+                  display: isTabActive ? "flex" : "none",
+                  flex: 1,
+                  flexDirection: "column",
+                  minHeight: 0,
+                  overflow: "hidden",
+                }}
+              >
                 <Radio />
               </div>
             );
           }
           return (
-            <div key={tab.id} style={{ display: isTabActive ? "flex" : "none", flex: 1, flexDirection: "column", minHeight: 0, overflow: "hidden" }}>
+            <div
+              key={tab.id}
+              style={{
+                display: isTabActive ? "flex" : "none",
+                flex: 1,
+                flexDirection: "column",
+                minHeight: 0,
+                overflow: "hidden",
+              }}
+            >
               <TerminalView
                 sessionId={tab.sessionId}
                 onTitleChange={handleTitleChange}

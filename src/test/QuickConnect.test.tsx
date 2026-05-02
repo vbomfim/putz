@@ -35,7 +35,10 @@ describe("QuickConnect", () => {
     render(<QuickConnect {...defaultProps} />);
     const input = screen.getByTestId("quickconnect-input");
     expect(input).toBeInTheDocument();
-    expect(input).toHaveAttribute("placeholder", expect.stringContaining("ssh"));
+    expect(input).toHaveAttribute(
+      "placeholder",
+      expect.stringContaining("ssh"),
+    );
   });
 
   it("renders Connect button", () => {
@@ -70,7 +73,9 @@ describe("QuickConnect", () => {
 
   it("shows no preview for empty input", () => {
     render(<QuickConnect {...defaultProps} />);
-    expect(screen.queryByTestId("quickconnect-preview")).not.toBeInTheDocument();
+    expect(
+      screen.queryByTestId("quickconnect-preview"),
+    ).not.toBeInTheDocument();
   });
 
   it("calls onConnect with parsed connection on form submit", () => {

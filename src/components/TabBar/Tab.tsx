@@ -13,9 +13,7 @@ import { MAX_TITLE_LENGTH, useTabStore } from "../../stores/tabStore";
 import { useBroadcastStore } from "../../stores/broadcastStore";
 
 /** Extracts the first leaf session ID from a PaneNode tree. */
-function getFirstLeafSessionId(
-  node: TabType["layout"],
-): string {
+function getFirstLeafSessionId(node: TabType["layout"]): string {
   if (node.type === "leaf") return node.terminalSessionId;
   return getFirstLeafSessionId(node.children[0]);
 }
@@ -72,8 +70,7 @@ export function Tab({
 
   // Broadcast indicators
   const isBroadcastSource = isBroadcastActive && isActive;
-  const isBroadcastTarget =
-    isBroadcastActive && broadcastTargetIds.has(tab.id);
+  const isBroadcastTarget = isBroadcastActive && broadcastTargetIds.has(tab.id);
 
   const handleClick = useCallback(
     (e: React.MouseEvent) => {

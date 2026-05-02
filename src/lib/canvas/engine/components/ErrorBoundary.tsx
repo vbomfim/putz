@@ -7,8 +7,8 @@
  * @module
  */
 
-import { Component } from 'react';
-import type { ErrorInfo, ReactNode } from 'react';
+import { Component } from "react";
+import type { ErrorInfo, ReactNode } from "react";
 
 interface ErrorBoundaryProps {
   /** Content to render when no error has occurred. */
@@ -22,7 +22,10 @@ interface ErrorBoundaryState {
   error: Error | null;
 }
 
-export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
+export class ErrorBoundary extends Component<
+  ErrorBoundaryProps,
+  ErrorBoundaryState
+> {
   constructor(props: ErrorBoundaryProps) {
     super(props);
     this.state = { hasError: false, error: null };
@@ -33,7 +36,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
   }
 
   override componentDidCatch(error: Error, errorInfo: ErrorInfo): void {
-    console.error('[ErrorBoundary] Rendering error caught:', error, errorInfo);
+    console.error("[ErrorBoundary] Rendering error caught:", error, errorInfo);
   }
 
   override render(): ReactNode {
@@ -45,20 +48,20 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
       return (
         <div
           style={{
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            justifyContent: 'center',
-            width: '100vw',
-            height: '100vh',
-            backgroundColor: '#fef2f2',
-            color: '#991b1b',
-            fontFamily: 'system-ui, sans-serif',
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            justifyContent: "center",
+            width: "100vw",
+            height: "100vh",
+            backgroundColor: "#fef2f2",
+            color: "#991b1b",
+            fontFamily: "system-ui, sans-serif",
           }}
         >
-          <h2 style={{ marginBottom: '8px' }}>Something went wrong</h2>
-          <p style={{ color: '#b91c1c', fontSize: '14px' }}>
-            {this.state.error?.message ?? 'An unexpected error occurred.'}
+          <h2 style={{ marginBottom: "8px" }}>Something went wrong</h2>
+          <p style={{ color: "#b91c1c", fontSize: "14px" }}>
+            {this.state.error?.message ?? "An unexpected error occurred."}
           </p>
         </div>
       );

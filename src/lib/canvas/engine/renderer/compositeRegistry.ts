@@ -12,8 +12,8 @@
  * @module
  */
 
-import type { VisualExpression } from '../../protocol';
-import type { RoughCanvas } from 'roughjs/bin/canvas.js';
+import type { VisualExpression } from "../../protocol";
+import type { RoughCanvas } from "roughjs/bin/canvas.js";
 
 // ── Types ────────────────────────────────────────────────────
 

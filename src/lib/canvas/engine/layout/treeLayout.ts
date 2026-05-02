@@ -10,11 +10,11 @@
  * @module
  */
 
-import dagre from '@dagrejs/dagre';
-import type { VisualExpression } from '../../protocol';
-import type { TreeLayoutOptions } from './types';
-import { DEFAULT_SPACING } from './types';
-import { extractEdges } from './edges';
+import dagre from "@dagrejs/dagre";
+import type { VisualExpression } from "../../protocol";
+import type { TreeLayoutOptions } from "./types";
+import { DEFAULT_SPACING } from "./types";
+import { extractEdges } from "./edges";
 
 /**
  * Compute hierarchical tree positions for the given shapes.
@@ -38,7 +38,7 @@ export function computeTreeLayout(
   if (shapes.length === 0) return result;
 
   const spacing = options.spacing ?? DEFAULT_SPACING;
-  const direction = options.direction ?? 'TB';
+  const direction = options.direction ?? "TB";
 
   // Build dagre graph
   const graph = new dagre.graphlib.Graph();

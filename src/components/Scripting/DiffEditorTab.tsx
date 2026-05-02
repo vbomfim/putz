@@ -12,7 +12,10 @@ import * as monacoEditor from "monaco-editor";
 import type * as monaco from "monaco-editor";
 import { loader } from "@monaco-editor/react";
 import { fileRead, detectLanguage } from "./editorApi";
-import { registerCiscoIosLanguage, CISCO_IOS_LANGUAGE_ID } from "./languages/ciscoIos";
+import {
+  registerCiscoIosLanguage,
+  CISCO_IOS_LANGUAGE_ID,
+} from "./languages/ciscoIos";
 import { useThemeStore } from "../../stores/themeStore";
 import { useLayoutStore } from "../../stores/layoutStore";
 import "./Scripting.css";
@@ -37,7 +40,9 @@ interface DiffEditorTabProps {
 }
 
 /** Build theme (reuse logic from MonacoEditor) */
-function buildDiffTheme(colors: Record<string, string> | null | object): monaco.editor.IStandaloneThemeData {
+function buildDiffTheme(
+  colors: Record<string, string> | null | object,
+): monaco.editor.IStandaloneThemeData {
   const c = (colors ?? {}) as Record<string, string>;
   const bg = c.background || "#1e1e2e";
   const fg = c.foreground || "#cdd6f4";
@@ -95,8 +100,12 @@ export function DiffEditorTab({
       setError(null);
       try {
         const [left, right] = await Promise.all([
-          leftPath ? fileRead(leftPath) : Promise.resolve(leftContentProp || ""),
-          rightPath ? fileRead(rightPath) : Promise.resolve(rightContentProp || ""),
+          leftPath
+            ? fileRead(leftPath)
+            : Promise.resolve(leftContentProp || ""),
+          rightPath
+            ? fileRead(rightPath)
+            : Promise.resolve(rightContentProp || ""),
         ]);
         if (cancelled) return;
         setLeftContent(left);
@@ -119,8 +128,18 @@ export function DiffEditorTab({
       }
     };
     load();
-    return () => { cancelled = true; };
-  }, [leftPath, rightPath, leftContentProp, rightContentProp, regionId, tabId, renameTab]);
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    leftPath,
+    rightPath,
+    leftContentProp,
+    rightContentProp,
+    regionId,
+    tabId,
+    renameTab,
+  ]);
 
   const handleMount: DiffOnMount = useCallback((_editor, monacoInstance) => {
     monacoRef.current = monacoInstance;
@@ -196,7 +215,8 @@ export function DiffEditorTab({
             renderSideBySide: !inline,
             minimap: { enabled: false },
             fontSize: 13,
-            fontFamily: "'JetBrains Mono', 'Fira Code', 'Cascadia Code', 'Menlo', monospace",
+            fontFamily:
+              "'JetBrains Mono', 'Fira Code', 'Cascadia Code', 'Menlo', monospace",
             scrollBeyondLastLine: false,
             automaticLayout: true,
             renderIndicators: true,
@@ -204,7 +224,15 @@ export function DiffEditorTab({
             padding: { top: 8 },
           }}
           loading={
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100%", color: "var(--text-secondary)" }}>
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                height: "100%",
+                color: "var(--text-secondary)",
+              }}
+            >
               Loading diff…
             </div>
           }

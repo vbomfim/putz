@@ -8,7 +8,7 @@
  * @module
  */
 
-import type { Camera } from '../types/index';
+import type { Camera } from "../types/index";
 
 /** Axis-aligned bounding box in world coordinates. */
 export interface BoundingBox {

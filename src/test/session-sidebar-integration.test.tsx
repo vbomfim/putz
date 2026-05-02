@@ -10,7 +10,10 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, waitFor, act } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import type { SessionNode, SessionProfile } from "../components/SessionManager/types";
+import type {
+  SessionNode,
+  SessionProfile,
+} from "../components/SessionManager/types";
 
 // ─── Mock Tauri IPC ─────────────────────────────────────────────────
 const mockInvoke = vi.fn();
@@ -93,14 +96,17 @@ function setupMockInvoke(overrides: Record<string, unknown> = {}) {
   mockInvoke.mockImplementation(async (cmd: string, args?: unknown) => {
     if (cmd in defaults) {
       const val = defaults[cmd];
-      if (typeof val === "function") return (val as (a: unknown) => unknown)(args);
+      if (typeof val === "function")
+        return (val as (a: unknown) => unknown)(args);
       return val;
     }
     throw new Error(`Unmocked command: ${cmd}`);
   });
 }
 
-function renderSidebar(props: Partial<React.ComponentProps<typeof SessionSidebar>> = {}) {
+function renderSidebar(
+  props: Partial<React.ComponentProps<typeof SessionSidebar>> = {},
+) {
   const defaultProps = {
     isOpen: true,
     onToggle: vi.fn(),
@@ -238,7 +244,10 @@ describe("SessionSidebar — Integration", () => {
     await user.click(screen.getByTestId("session-add-btn"));
 
     // Switch protocol to telnet
-    await user.selectOptions(screen.getByTestId("session-editor-protocol"), "telnet");
+    await user.selectOptions(
+      screen.getByTestId("session-editor-protocol"),
+      "telnet",
+    );
 
     // Port should auto-fill to 23
     const port = screen.getByTestId("session-editor-port") as HTMLInputElement;
@@ -280,7 +289,9 @@ describe("SessionSidebar — Integration", () => {
 
     // Should fetch full profile via session_get
     await waitFor(() => {
-      expect(mockInvoke).toHaveBeenCalledWith("session_get", { id: "sess-001" });
+      expect(mockInvoke).toHaveBeenCalledWith("session_get", {
+        id: "sess-001",
+      });
     });
 
     // Should call onSessionOpen with the full profile
@@ -317,7 +328,9 @@ describe("SessionSidebar — Integration", () => {
 
     // Should fetch the session profile for editing
     await waitFor(() => {
-      expect(mockInvoke).toHaveBeenCalledWith("session_get", { id: "sess-003" });
+      expect(mockInvoke).toHaveBeenCalledWith("session_get", {
+        id: "sess-003",
+      });
     });
 
     // Editor should open in edit mode
@@ -366,7 +379,9 @@ describe("SessionSidebar — Integration", () => {
 
     // Verify IPC call
     await waitFor(() => {
-      expect(mockInvoke).toHaveBeenCalledWith("session_duplicate", { id: "sess-003" });
+      expect(mockInvoke).toHaveBeenCalledWith("session_duplicate", {
+        id: "sess-003",
+      });
     });
 
     // Tree should reload with the duplicate
@@ -408,7 +423,9 @@ describe("SessionSidebar — Integration", () => {
 
     // Verify IPC call
     await waitFor(() => {
-      expect(mockInvoke).toHaveBeenCalledWith("session_delete", { id: "sess-003" });
+      expect(mockInvoke).toHaveBeenCalledWith("session_delete", {
+        id: "sess-003",
+      });
     });
 
     // Session should be gone from tree
@@ -441,7 +458,10 @@ describe("SessionSidebar — Integration", () => {
     expect(window.confirm).toHaveBeenCalled();
 
     // session_delete should NOT have been called (user cancelled)
-    expect(mockInvoke).not.toHaveBeenCalledWith("session_delete", expect.anything());
+    expect(mockInvoke).not.toHaveBeenCalledWith(
+      "session_delete",
+      expect.anything(),
+    );
 
     // Session should still be in the tree
     expect(screen.getByText("Local Shell")).toBeInTheDocument();
@@ -482,7 +502,9 @@ describe("SessionSidebar — Integration", () => {
 
     // Verify search IPC was called
     await waitFor(() => {
-      expect(mockInvoke).toHaveBeenCalledWith("session_search", { query: "core" });
+      expect(mockInvoke).toHaveBeenCalledWith("session_search", {
+        query: "core",
+      });
     });
 
     // Filtered results should show only matching session
@@ -589,7 +611,9 @@ describe("SessionSidebar — Integration", () => {
     await user.click(screen.getByText("Dismiss"));
 
     // Error should be gone
-    expect(screen.queryByTestId("session-sidebar-error")).not.toBeInTheDocument();
+    expect(
+      screen.queryByTestId("session-sidebar-error"),
+    ).not.toBeInTheDocument();
   });
 
   it("[BOUNDARY] shows error when session_delete fails", async () => {
@@ -637,7 +661,9 @@ describe("SessionSidebar — Integration", () => {
     await user.click(screen.getByText("Duplicate"));
 
     await waitFor(() => {
-      expect(screen.getByText(/Failed to duplicate session/)).toBeInTheDocument();
+      expect(
+        screen.getByText(/Failed to duplicate session/),
+      ).toBeInTheDocument();
     });
   });
 

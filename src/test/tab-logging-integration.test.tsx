@@ -26,11 +26,9 @@ vi.mock("@tauri-apps/api/event", () => ({
 
 // Mock Allotment
 vi.mock("allotment", () => ({
-  Allotment: ({
-    children,
-  }: {
-    children: React.ReactNode;
-  }) => <div data-testid="allotment">{children}</div>,
+  Allotment: ({ children }: { children: React.ReactNode }) => (
+    <div data-testid="allotment">{children}</div>
+  ),
   __esModule: true,
 }));
 
@@ -44,11 +42,7 @@ import type { Tab as TabType } from "../types";
 
 // ── Helpers ───────────────────────────────────────────────────────────
 
-function makeTab(
-  id: string,
-  sessionId: string,
-  title = "Terminal 1",
-): TabType {
+function makeTab(id: string, sessionId: string, title = "Terminal 1"): TabType {
   return {
     id,
     title,

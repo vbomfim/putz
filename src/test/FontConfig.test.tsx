@@ -11,30 +11,21 @@ import { DEFAULT_FONT_SETTINGS } from "../components/Terminal/themeTypes";
 describe("FontConfig", () => {
   it("renders font config with title", () => {
     render(
-      <FontConfig
-        settings={{ ...DEFAULT_FONT_SETTINGS }}
-        onChange={vi.fn()}
-      />,
+      <FontConfig settings={{ ...DEFAULT_FONT_SETTINGS }} onChange={vi.fn()} />,
     );
     expect(screen.getByText("Font Settings")).toBeInTheDocument();
   });
 
   it("renders font family dropdown", () => {
     render(
-      <FontConfig
-        settings={{ ...DEFAULT_FONT_SETTINGS }}
-        onChange={vi.fn()}
-      />,
+      <FontConfig settings={{ ...DEFAULT_FONT_SETTINGS }} onChange={vi.fn()} />,
     );
     expect(screen.getByTestId("font-family-select")).toBeInTheDocument();
   });
 
   it("renders font size slider", () => {
     render(
-      <FontConfig
-        settings={{ ...DEFAULT_FONT_SETTINGS }}
-        onChange={vi.fn()}
-      />,
+      <FontConfig settings={{ ...DEFAULT_FONT_SETTINGS }} onChange={vi.fn()} />,
     );
     const slider = screen.getByTestId("font-size-slider") as HTMLInputElement;
     expect(slider).toBeInTheDocument();
@@ -45,10 +36,7 @@ describe("FontConfig", () => {
 
   it("renders ligature toggle", () => {
     render(
-      <FontConfig
-        settings={{ ...DEFAULT_FONT_SETTINGS }}
-        onChange={vi.fn()}
-      />,
+      <FontConfig settings={{ ...DEFAULT_FONT_SETTINGS }} onChange={vi.fn()} />,
     );
     const toggle = screen.getByTestId(
       "font-ligatures-toggle",
@@ -59,24 +47,16 @@ describe("FontConfig", () => {
 
   it("renders line height slider", () => {
     render(
-      <FontConfig
-        settings={{ ...DEFAULT_FONT_SETTINGS }}
-        onChange={vi.fn()}
-      />,
+      <FontConfig settings={{ ...DEFAULT_FONT_SETTINGS }} onChange={vi.fn()} />,
     );
-    const slider = screen.getByTestId(
-      "line-height-slider",
-    ) as HTMLInputElement;
+    const slider = screen.getByTestId("line-height-slider") as HTMLInputElement;
     expect(slider).toBeInTheDocument();
     expect(slider.type).toBe("range");
   });
 
   it("renders font preview", () => {
     render(
-      <FontConfig
-        settings={{ ...DEFAULT_FONT_SETTINGS }}
-        onChange={vi.fn()}
-      />,
+      <FontConfig settings={{ ...DEFAULT_FONT_SETTINGS }} onChange={vi.fn()} />,
     );
     expect(screen.getByTestId("font-preview")).toBeInTheDocument();
   });

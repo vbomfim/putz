@@ -229,14 +229,12 @@ fn handle_subnegotiation(buf: &[u8], responses: &mut Vec<u8>) {
     let sub_data = &buf[1..];
 
     match option {
-        OPT_TTYPE => {
+        OPT_TTYPE if sub_data.first() == Some(&TTYPE_SEND) => {
             // Server requests terminal type: SB TTYPE SEND
-            if sub_data.first() == Some(&TTYPE_SEND) {
-                // Respond: SB TTYPE IS <terminal_type>
-                responses.extend_from_slice(&[IAC, SB, OPT_TTYPE, TTYPE_IS]);
-                responses.extend_from_slice(TERMINAL_TYPE);
-                responses.extend_from_slice(&[IAC, SE]);
-            }
+            // Respond: SB TTYPE IS <terminal_type>
+            responses.extend_from_slice(&[IAC, SB, OPT_TTYPE, TTYPE_IS]);
+            responses.extend_from_slice(TERMINAL_TYPE);
+            responses.extend_from_slice(&[IAC, SE]);
         }
         _ => {
             // Unknown subnegotiation — ignore

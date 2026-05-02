@@ -72,7 +72,11 @@ function replaceRegionNode(
     return { ...node, children: [leftResult, node.children[1]] };
   }
 
-  const rightResult = replaceRegionNode(node.children[1], regionId, replacement);
+  const rightResult = replaceRegionNode(
+    node.children[1],
+    regionId,
+    replacement,
+  );
   if (rightResult) {
     return { ...node, children: [node.children[0], rightResult] };
   }
@@ -131,7 +135,12 @@ function createInitialRegion(): { region: Region; regionId: string } {
   const regionId = generateId();
   return {
     regionId,
-    region: { id: regionId, tabs: [], activeTabId: "", tabPosition: "top" as TabPosition },
+    region: {
+      id: regionId,
+      tabs: [],
+      activeTabId: "",
+      tabPosition: "top" as TabPosition,
+    },
   };
 }
 
@@ -159,10 +168,21 @@ interface LayoutState {
   addTerminalTab: (regionId?: string) => Promise<void>;
 
   /** Adds an editor tab to a region (defaults to focused region). */
-  addEditorTab: (regionId?: string, filePath?: string, scriptId?: string, forceText?: boolean) => void;
+  addEditorTab: (
+    regionId?: string,
+    filePath?: string,
+    scriptId?: string,
+    forceText?: boolean,
+  ) => void;
 
   /** Adds a diff tab comparing two files or content strings. */
-  addDiffTab: (regionId?: string, leftPath?: string, rightPath?: string, leftContent?: string, rightContent?: string) => void;
+  addDiffTab: (
+    regionId?: string,
+    leftPath?: string,
+    rightPath?: string,
+    leftContent?: string,
+    rightContent?: string,
+  ) => void;
 
   /** Adds a search & replace tab. */
   addSearchTab: (regionId?: string, directory?: string) => void;
@@ -202,10 +222,20 @@ interface LayoutState {
   renameTab: (regionId: string, tabId: string, title: string) => void;
 
   /** Moves a tab from one region to another (or reorders within the same region). */
-  moveTab: (fromRegionId: string, tabId: string, toRegionId: string, insertIndex?: number) => void;
+  moveTab: (
+    fromRegionId: string,
+    tabId: string,
+    toRegionId: string,
+    insertIndex?: number,
+  ) => void;
 
   /** Splits a tab into a new region in the given direction. */
-  splitTabToNew: (regionId: string, tabId: string, direction: "horizontal" | "vertical", position: "before" | "after") => void;
+  splitTabToNew: (
+    regionId: string,
+    tabId: string,
+    direction: "horizontal" | "vertical",
+    position: "before" | "after",
+  ) => void;
 
   // ─── Split / Close Region Actions ─────────────────────────────────
 
@@ -323,7 +353,12 @@ export const useLayoutStore = create<LayoutState>((set, get) => ({
     }, 100);
   },
 
-  addEditorTab: (regionId?: string, filePath?: string, scriptId?: string, forceText?: boolean) => {
+  addEditorTab: (
+    regionId?: string,
+    filePath?: string,
+    scriptId?: string,
+    forceText?: boolean,
+  ) => {
     const targetRegionId = regionId || get().focusedRegionId;
     const region = get().regions[targetRegionId];
     if (!region) return;
@@ -401,7 +436,13 @@ export const useLayoutStore = create<LayoutState>((set, get) => ({
     }));
   },
 
-  addDiffTab: (regionId?: string, leftPath?: string, rightPath?: string, leftContent?: string, rightContent?: string) => {
+  addDiffTab: (
+    regionId?: string,
+    leftPath?: string,
+    rightPath?: string,
+    leftContent?: string,
+    rightContent?: string,
+  ) => {
     const targetRegionId = regionId || get().focusedRegionId;
     const region = get().regions[targetRegionId];
     if (!region) return;
@@ -477,7 +518,10 @@ export const useLayoutStore = create<LayoutState>((set, get) => ({
       set((state) => ({
         regions: {
           ...state.regions,
-          [targetRegionId]: { ...state.regions[targetRegionId], activeTabId: existing.id },
+          [targetRegionId]: {
+            ...state.regions[targetRegionId],
+            activeTabId: existing.id,
+          },
         },
       }));
       return;
@@ -511,11 +555,35 @@ export const useLayoutStore = create<LayoutState>((set, get) => ({
     if (!region) return;
     const existing = region.tabs.find((t) => t.type === "history");
     if (existing) {
-      set((state) => ({ regions: { ...state.regions, [targetRegionId]: { ...state.regions[targetRegionId], activeTabId: existing.id } } }));
+      set((state) => ({
+        regions: {
+          ...state.regions,
+          [targetRegionId]: {
+            ...state.regions[targetRegionId],
+            activeTabId: existing.id,
+          },
+        },
+      }));
       return;
     }
-    const tab: RegionTab = { id: generateId(), title: "History", type: "history", sessionId: `${EDITOR_SESSION_PREFIX}hist-${generateId()}`, status: "local" };
-    set((state) => ({ regions: { ...state.regions, [targetRegionId]: { ...state.regions[targetRegionId], tabs: [...state.regions[targetRegionId].tabs, tab], activeTabId: tab.id } }, tabCounter: state.tabCounter + 1 }));
+    const tab: RegionTab = {
+      id: generateId(),
+      title: "History",
+      type: "history",
+      sessionId: `${EDITOR_SESSION_PREFIX}hist-${generateId()}`,
+      status: "local",
+    };
+    set((state) => ({
+      regions: {
+        ...state.regions,
+        [targetRegionId]: {
+          ...state.regions[targetRegionId],
+          tabs: [...state.regions[targetRegionId].tabs, tab],
+          activeTabId: tab.id,
+        },
+      },
+      tabCounter: state.tabCounter + 1,
+    }));
   },
 
   addTemplateTab: (regionId?: string) => {
@@ -524,11 +592,35 @@ export const useLayoutStore = create<LayoutState>((set, get) => ({
     if (!region) return;
     const existing = region.tabs.find((t) => t.type === "templates");
     if (existing) {
-      set((state) => ({ regions: { ...state.regions, [targetRegionId]: { ...state.regions[targetRegionId], activeTabId: existing.id } } }));
+      set((state) => ({
+        regions: {
+          ...state.regions,
+          [targetRegionId]: {
+            ...state.regions[targetRegionId],
+            activeTabId: existing.id,
+          },
+        },
+      }));
       return;
     }
-    const tab: RegionTab = { id: generateId(), title: "Templates", type: "templates", sessionId: `${EDITOR_SESSION_PREFIX}tmpl-${generateId()}`, status: "local" };
-    set((state) => ({ regions: { ...state.regions, [targetRegionId]: { ...state.regions[targetRegionId], tabs: [...state.regions[targetRegionId].tabs, tab], activeTabId: tab.id } }, tabCounter: state.tabCounter + 1 }));
+    const tab: RegionTab = {
+      id: generateId(),
+      title: "Templates",
+      type: "templates",
+      sessionId: `${EDITOR_SESSION_PREFIX}tmpl-${generateId()}`,
+      status: "local",
+    };
+    set((state) => ({
+      regions: {
+        ...state.regions,
+        [targetRegionId]: {
+          ...state.regions[targetRegionId],
+          tabs: [...state.regions[targetRegionId].tabs, tab],
+          activeTabId: tab.id,
+        },
+      },
+      tabCounter: state.tabCounter + 1,
+    }));
   },
 
   addSettingsTab: (regionId?: string) => {
@@ -537,11 +629,35 @@ export const useLayoutStore = create<LayoutState>((set, get) => ({
     if (!region) return;
     const existing = region.tabs.find((t) => t.type === "settings");
     if (existing) {
-      set((state) => ({ regions: { ...state.regions, [targetRegionId]: { ...state.regions[targetRegionId], activeTabId: existing.id } } }));
+      set((state) => ({
+        regions: {
+          ...state.regions,
+          [targetRegionId]: {
+            ...state.regions[targetRegionId],
+            activeTabId: existing.id,
+          },
+        },
+      }));
       return;
     }
-    const tab: RegionTab = { id: generateId(), title: "Settings", type: "settings", sessionId: `${EDITOR_SESSION_PREFIX}settings-${generateId()}`, status: "local" };
-    set((state) => ({ regions: { ...state.regions, [targetRegionId]: { ...state.regions[targetRegionId], tabs: [...state.regions[targetRegionId].tabs, tab], activeTabId: tab.id } }, tabCounter: state.tabCounter + 1 }));
+    const tab: RegionTab = {
+      id: generateId(),
+      title: "Settings",
+      type: "settings",
+      sessionId: `${EDITOR_SESSION_PREFIX}settings-${generateId()}`,
+      status: "local",
+    };
+    set((state) => ({
+      regions: {
+        ...state.regions,
+        [targetRegionId]: {
+          ...state.regions[targetRegionId],
+          tabs: [...state.regions[targetRegionId].tabs, tab],
+          activeTabId: tab.id,
+        },
+      },
+      tabCounter: state.tabCounter + 1,
+    }));
   },
 
   addBookmarksTab: (regionId?: string) => {
@@ -550,11 +666,35 @@ export const useLayoutStore = create<LayoutState>((set, get) => ({
     if (!region) return;
     const existing = region.tabs.find((t) => t.type === "bookmarks");
     if (existing) {
-      set((state) => ({ regions: { ...state.regions, [targetRegionId]: { ...state.regions[targetRegionId], activeTabId: existing.id } } }));
+      set((state) => ({
+        regions: {
+          ...state.regions,
+          [targetRegionId]: {
+            ...state.regions[targetRegionId],
+            activeTabId: existing.id,
+          },
+        },
+      }));
       return;
     }
-    const tab: RegionTab = { id: generateId(), title: "Bookmarks", type: "bookmarks", sessionId: `${EDITOR_SESSION_PREFIX}bookmarks-${generateId()}`, status: "local" };
-    set((state) => ({ regions: { ...state.regions, [targetRegionId]: { ...state.regions[targetRegionId], tabs: [...state.regions[targetRegionId].tabs, tab], activeTabId: tab.id } }, tabCounter: state.tabCounter + 1 }));
+    const tab: RegionTab = {
+      id: generateId(),
+      title: "Bookmarks",
+      type: "bookmarks",
+      sessionId: `${EDITOR_SESSION_PREFIX}bookmarks-${generateId()}`,
+      status: "local",
+    };
+    set((state) => ({
+      regions: {
+        ...state.regions,
+        [targetRegionId]: {
+          ...state.regions[targetRegionId],
+          tabs: [...state.regions[targetRegionId].tabs, tab],
+          activeTabId: tab.id,
+        },
+      },
+      tabCounter: state.tabCounter + 1,
+    }));
   },
 
   addMarkdownTab: (regionId?: string, filePath?: string) => {
@@ -562,58 +702,168 @@ export const useLayoutStore = create<LayoutState>((set, get) => ({
     const region = get().regions[targetRegionId];
     if (!region || !filePath) return;
     // Deduplicate by path
-    const existing = region.tabs.find((t) => t.type === "markdown" && t.editorFilePath === filePath);
+    const existing = region.tabs.find(
+      (t) => t.type === "markdown" && t.editorFilePath === filePath,
+    );
     if (existing) {
-      set((state) => ({ regions: { ...state.regions, [targetRegionId]: { ...state.regions[targetRegionId], activeTabId: existing.id } } }));
+      set((state) => ({
+        regions: {
+          ...state.regions,
+          [targetRegionId]: {
+            ...state.regions[targetRegionId],
+            activeTabId: existing.id,
+          },
+        },
+      }));
       return;
     }
     const name = filePath.split("/").pop() || filePath;
-    const tab: RegionTab = { id: generateId(), title: `📖 ${name}`, type: "markdown", sessionId: `${EDITOR_SESSION_PREFIX}md-${generateId()}`, editorFilePath: filePath, status: "local" };
-    set((state) => ({ regions: { ...state.regions, [targetRegionId]: { ...state.regions[targetRegionId], tabs: [...state.regions[targetRegionId].tabs, tab], activeTabId: tab.id } }, tabCounter: state.tabCounter + 1 }));
+    const tab: RegionTab = {
+      id: generateId(),
+      title: `📖 ${name}`,
+      type: "markdown",
+      sessionId: `${EDITOR_SESSION_PREFIX}md-${generateId()}`,
+      editorFilePath: filePath,
+      status: "local",
+    };
+    set((state) => ({
+      regions: {
+        ...state.regions,
+        [targetRegionId]: {
+          ...state.regions[targetRegionId],
+          tabs: [...state.regions[targetRegionId].tabs, tab],
+          activeTabId: tab.id,
+        },
+      },
+      tabCounter: state.tabCounter + 1,
+    }));
   },
 
   addCsvTab: (regionId?: string, filePath?: string) => {
     const targetRegionId = regionId || get().focusedRegionId;
     const region = get().regions[targetRegionId];
     if (!region || !filePath) return;
-    const existing = region.tabs.find((t) => t.type === "csv" && t.editorFilePath === filePath);
+    const existing = region.tabs.find(
+      (t) => t.type === "csv" && t.editorFilePath === filePath,
+    );
     if (existing) {
-      set((state) => ({ regions: { ...state.regions, [targetRegionId]: { ...state.regions[targetRegionId], activeTabId: existing.id } } }));
+      set((state) => ({
+        regions: {
+          ...state.regions,
+          [targetRegionId]: {
+            ...state.regions[targetRegionId],
+            activeTabId: existing.id,
+          },
+        },
+      }));
       return;
     }
     const name = filePath.split("/").pop() || filePath;
-    const tab: RegionTab = { id: generateId(), title: `📊 ${name}`, type: "csv", sessionId: `${EDITOR_SESSION_PREFIX}csv-${generateId()}`, editorFilePath: filePath, status: "local" };
-    set((state) => ({ regions: { ...state.regions, [targetRegionId]: { ...state.regions[targetRegionId], tabs: [...state.regions[targetRegionId].tabs, tab], activeTabId: tab.id } }, tabCounter: state.tabCounter + 1 }));
+    const tab: RegionTab = {
+      id: generateId(),
+      title: `📊 ${name}`,
+      type: "csv",
+      sessionId: `${EDITOR_SESSION_PREFIX}csv-${generateId()}`,
+      editorFilePath: filePath,
+      status: "local",
+    };
+    set((state) => ({
+      regions: {
+        ...state.regions,
+        [targetRegionId]: {
+          ...state.regions[targetRegionId],
+          tabs: [...state.regions[targetRegionId].tabs, tab],
+          activeTabId: tab.id,
+        },
+      },
+      tabCounter: state.tabCounter + 1,
+    }));
   },
 
   addDrawioTab: (regionId?: string, filePath?: string) => {
     const targetRegionId = regionId || get().focusedRegionId;
     const region = get().regions[targetRegionId];
     if (!region || !filePath) return;
-    const existing = region.tabs.find((t) => t.type === "drawio" && t.editorFilePath === filePath);
+    const existing = region.tabs.find(
+      (t) => t.type === "drawio" && t.editorFilePath === filePath,
+    );
     if (existing) {
-      set((state) => ({ regions: { ...state.regions, [targetRegionId]: { ...state.regions[targetRegionId], activeTabId: existing.id } } }));
+      set((state) => ({
+        regions: {
+          ...state.regions,
+          [targetRegionId]: {
+            ...state.regions[targetRegionId],
+            activeTabId: existing.id,
+          },
+        },
+      }));
       // Signal the editor to check for file changes
-      window.dispatchEvent(new CustomEvent("drawio-reactivate", { detail: { filePath } }));
+      window.dispatchEvent(
+        new CustomEvent("drawio-reactivate", { detail: { filePath } }),
+      );
       return;
     }
     const name = filePath.split("/").pop() || filePath;
-    const tab: RegionTab = { id: generateId(), title: `📐 ${name}`, type: "drawio", sessionId: `${EDITOR_SESSION_PREFIX}drawio-${generateId()}`, editorFilePath: filePath, status: "local" };
-    set((state) => ({ regions: { ...state.regions, [targetRegionId]: { ...state.regions[targetRegionId], tabs: [...state.regions[targetRegionId].tabs, tab], activeTabId: tab.id } }, tabCounter: state.tabCounter + 1 }));
+    const tab: RegionTab = {
+      id: generateId(),
+      title: `📐 ${name}`,
+      type: "drawio",
+      sessionId: `${EDITOR_SESSION_PREFIX}drawio-${generateId()}`,
+      editorFilePath: filePath,
+      status: "local",
+    };
+    set((state) => ({
+      regions: {
+        ...state.regions,
+        [targetRegionId]: {
+          ...state.regions[targetRegionId],
+          tabs: [...state.regions[targetRegionId].tabs, tab],
+          activeTabId: tab.id,
+        },
+      },
+      tabCounter: state.tabCounter + 1,
+    }));
   },
 
   addGitGraphTab: (regionId?: string, repoPath?: string) => {
     const targetRegionId = regionId || get().focusedRegionId;
     const region = get().regions[targetRegionId];
     if (!region || !repoPath) return;
-    const existing = region.tabs.find((t) => t.type === "git-graph" && t.editorFilePath === repoPath);
+    const existing = region.tabs.find(
+      (t) => t.type === "git-graph" && t.editorFilePath === repoPath,
+    );
     if (existing) {
-      set((state) => ({ regions: { ...state.regions, [targetRegionId]: { ...state.regions[targetRegionId], activeTabId: existing.id } } }));
+      set((state) => ({
+        regions: {
+          ...state.regions,
+          [targetRegionId]: {
+            ...state.regions[targetRegionId],
+            activeTabId: existing.id,
+          },
+        },
+      }));
       return;
     }
     const name = repoPath.split("/").pop() || "Git Graph";
-    const tab: RegionTab = { id: generateId(), title: `🌳 ${name}`, type: "git-graph", sessionId: `${EDITOR_SESSION_PREFIX}git-graph-${generateId()}`, editorFilePath: repoPath, status: "local" };
-    set((state) => ({ regions: { ...state.regions, [targetRegionId]: { ...state.regions[targetRegionId], tabs: [...state.regions[targetRegionId].tabs, tab], activeTabId: tab.id } }, tabCounter: state.tabCounter + 1 }));
+    const tab: RegionTab = {
+      id: generateId(),
+      title: `🌳 ${name}`,
+      type: "git-graph",
+      sessionId: `${EDITOR_SESSION_PREFIX}git-graph-${generateId()}`,
+      editorFilePath: repoPath,
+      status: "local",
+    };
+    set((state) => ({
+      regions: {
+        ...state.regions,
+        [targetRegionId]: {
+          ...state.regions[targetRegionId],
+          tabs: [...state.regions[targetRegionId].tabs, tab],
+          activeTabId: tab.id,
+        },
+      },
+      tabCounter: state.tabCounter + 1,
+    }));
   },
 
   addRadioTab: (regionId?: string) => {
@@ -622,11 +872,35 @@ export const useLayoutStore = create<LayoutState>((set, get) => ({
     if (!region) return;
     const existing = region.tabs.find((t) => t.type === "radio");
     if (existing) {
-      set((state) => ({ regions: { ...state.regions, [targetRegionId]: { ...state.regions[targetRegionId], activeTabId: existing.id } } }));
+      set((state) => ({
+        regions: {
+          ...state.regions,
+          [targetRegionId]: {
+            ...state.regions[targetRegionId],
+            activeTabId: existing.id,
+          },
+        },
+      }));
       return;
     }
-    const tab: RegionTab = { id: generateId(), title: "📻 Radio", type: "radio", sessionId: `${EDITOR_SESSION_PREFIX}radio-${generateId()}`, status: "local" };
-    set((state) => ({ regions: { ...state.regions, [targetRegionId]: { ...state.regions[targetRegionId], tabs: [...state.regions[targetRegionId].tabs, tab], activeTabId: tab.id } }, tabCounter: state.tabCounter + 1 }));
+    const tab: RegionTab = {
+      id: generateId(),
+      title: "📻 Radio",
+      type: "radio",
+      sessionId: `${EDITOR_SESSION_PREFIX}radio-${generateId()}`,
+      status: "local",
+    };
+    set((state) => ({
+      regions: {
+        ...state.regions,
+        [targetRegionId]: {
+          ...state.regions[targetRegionId],
+          tabs: [...state.regions[targetRegionId].tabs, tab],
+          activeTabId: tab.id,
+        },
+      },
+      tabCounter: state.tabCounter + 1,
+    }));
   },
 
   closeTab: (regionId: string, tabId: string) => {
@@ -734,7 +1008,12 @@ export const useLayoutStore = create<LayoutState>((set, get) => ({
     });
   },
 
-  moveTab: (fromRegionId: string, tabId: string, toRegionId: string, insertIndex?: number) => {
+  moveTab: (
+    fromRegionId: string,
+    tabId: string,
+    toRegionId: string,
+    insertIndex?: number,
+  ) => {
     set((state) => {
       const fromRegion = state.regions[fromRegionId];
       const toRegion = state.regions[toRegionId];
@@ -748,7 +1027,7 @@ export const useLayoutStore = create<LayoutState>((set, get) => ({
       const fromTabs = fromRegion.tabs.filter((t) => t.id !== tabId);
       const fromActiveTabId =
         fromRegion.activeTabId === tabId
-          ? (fromTabs[Math.min(tabIndex, fromTabs.length - 1)]?.id || "")
+          ? fromTabs[Math.min(tabIndex, fromTabs.length - 1)]?.id || ""
           : fromRegion.activeTabId;
 
       // Insert into target
@@ -756,7 +1035,10 @@ export const useLayoutStore = create<LayoutState>((set, get) => ({
       if (fromRegionId === toRegionId) {
         // Reorder within same region
         toTabs = fromTabs;
-        const idx = insertIndex !== undefined ? Math.min(insertIndex, toTabs.length) : toTabs.length;
+        const idx =
+          insertIndex !== undefined
+            ? Math.min(insertIndex, toTabs.length)
+            : toTabs.length;
         toTabs = [...toTabs.slice(0, idx), tab, ...toTabs.slice(idx)];
         return {
           regions: {
@@ -771,8 +1053,15 @@ export const useLayoutStore = create<LayoutState>((set, get) => ({
       }
 
       // Move between regions
-      const idx = insertIndex !== undefined ? Math.min(insertIndex, toRegion.tabs.length) : toRegion.tabs.length;
-      toTabs = [...toRegion.tabs.slice(0, idx), tab, ...toRegion.tabs.slice(idx)];
+      const idx =
+        insertIndex !== undefined
+          ? Math.min(insertIndex, toRegion.tabs.length)
+          : toRegion.tabs.length;
+      toTabs = [
+        ...toRegion.tabs.slice(0, idx),
+        tab,
+        ...toRegion.tabs.slice(idx),
+      ];
 
       const newRegions = { ...state.regions };
       let newLayout = state.layout;
@@ -808,7 +1097,12 @@ export const useLayoutStore = create<LayoutState>((set, get) => ({
     });
   },
 
-  splitTabToNew: (regionId: string, tabId: string, direction: "horizontal" | "vertical", position: "before" | "after") => {
+  splitTabToNew: (
+    regionId: string,
+    tabId: string,
+    direction: "horizontal" | "vertical",
+    position: "before" | "after",
+  ) => {
     const { regions, layout } = get();
     const region = regions[regionId];
     if (!region) return;
@@ -823,9 +1117,10 @@ export const useLayoutStore = create<LayoutState>((set, get) => ({
     // If this is the only tab, can't split — nothing would remain
     if (remainingTabs.length === 0) return;
 
-    const newActiveTabId = region.activeTabId === tabId
-      ? (remainingTabs[Math.min(tabIndex, remainingTabs.length - 1)]?.id || "")
-      : region.activeTabId;
+    const newActiveTabId =
+      region.activeTabId === tabId
+        ? remainingTabs[Math.min(tabIndex, remainingTabs.length - 1)]?.id || ""
+        : region.activeTabId;
 
     // Create new region with the moved tab
     const newRegionId = generateId();
@@ -838,12 +1133,14 @@ export const useLayoutStore = create<LayoutState>((set, get) => ({
 
     // Replace the region node in layout with a split
     const ratio = position === "before" ? 0.5 : 0.5;
-    const first = position === "before"
-      ? { type: "region" as const, regionId: newRegionId }
-      : { type: "region" as const, regionId };
-    const second = position === "before"
-      ? { type: "region" as const, regionId }
-      : { type: "region" as const, regionId: newRegionId };
+    const first =
+      position === "before"
+        ? { type: "region" as const, regionId: newRegionId }
+        : { type: "region" as const, regionId };
+    const second =
+      position === "before"
+        ? { type: "region" as const, regionId }
+        : { type: "region" as const, regionId: newRegionId };
 
     const splitNode: LayoutNode = {
       type: "split",
@@ -859,7 +1156,11 @@ export const useLayoutStore = create<LayoutState>((set, get) => ({
       layout: newLayout,
       regions: {
         ...state.regions,
-        [regionId]: { ...region, tabs: remainingTabs, activeTabId: newActiveTabId },
+        [regionId]: {
+          ...region,
+          tabs: remainingTabs,
+          activeTabId: newActiveTabId,
+        },
         [newRegionId]: newRegion,
       },
       focusedRegionId: newRegionId,

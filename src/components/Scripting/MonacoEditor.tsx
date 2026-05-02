@@ -13,17 +13,36 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import Editor, { type OnMount, loader } from "@monaco-editor/react";
 import type * as monaco from "monaco-editor";
 import * as monacoEditor from "monaco-editor";
-import { registerCiscoIosLanguage, CISCO_IOS_LANGUAGE_ID } from "./languages/ciscoIos";
+import {
+  registerCiscoIosLanguage,
+  CISCO_IOS_LANGUAGE_ID,
+} from "./languages/ciscoIos";
 import { registerCiscoCompletions } from "./languages/ciscoCompletions";
 import { registerPutzCompletions } from "./languages/putzCompletions";
-import { registerTerraformLanguage, TERRAFORM_LANGUAGE_ID } from "./languages/terraformHcl";
-import { registerJinja2Language, registerJinja2Completions, JINJA2_LANGUAGE_ID } from "./languages/jinja2";
+import {
+  registerTerraformLanguage,
+  TERRAFORM_LANGUAGE_ID,
+} from "./languages/terraformHcl";
+import {
+  registerJinja2Language,
+  registerJinja2Completions,
+  JINJA2_LANGUAGE_ID,
+} from "./languages/jinja2";
 import { useThemeStore } from "../../stores/themeStore";
 
 // Use locally bundled Monaco instead of CDN (required for Tauri/offline)
 loader.config({ monaco: monacoEditor });
 
-export type EditorLanguage = "text" | "markdown" | "javascript" | "cisco-ios" | "python" | "terraform" | "json" | "yaml" | "jinja2";
+export type EditorLanguage =
+  | "text"
+  | "markdown"
+  | "javascript"
+  | "cisco-ios"
+  | "python"
+  | "terraform"
+  | "json"
+  | "yaml"
+  | "jinja2";
 
 interface MonacoEditorProps {
   /** Current editor content. */
@@ -71,30 +90,46 @@ function buildPutzTheme(
 
   // Detect if light theme via luminance
   const isLight = hexLuminance(bg) > 0.5;
-  const lineHighlight = isLight
-    ? blendAlpha(fg, 0.06)
-    : blendAlpha(fg, 0.06);
-  const lineNumber = isLight
-    ? blendAlpha(fg, 0.4)
-    : blendAlpha(fg, 0.35);
+  const lineHighlight = isLight ? blendAlpha(fg, 0.06) : blendAlpha(fg, 0.06);
+  const lineNumber = isLight ? blendAlpha(fg, 0.4) : blendAlpha(fg, 0.35);
 
   return {
     base: isLight ? "vs" : "vs-dark",
     inherit: true,
     rules: [
       // Comments
-      { token: "comment", foreground: stripHash(brightBlack), fontStyle: "italic" },
+      {
+        token: "comment",
+        foreground: stripHash(brightBlack),
+        fontStyle: "italic",
+      },
 
       // Cisco IOS tokens
       { token: "keyword.command", foreground: stripHash(blue) },
-      { token: "keyword.section", foreground: stripHash(magenta), fontStyle: "bold" },
+      {
+        token: "keyword.section",
+        foreground: stripHash(magenta),
+        fontStyle: "bold",
+      },
       { token: "keyword.subcommand", foreground: stripHash(cyan) },
       { token: "keyword.routing", foreground: stripHash(blue) },
-      { token: "keyword.action", foreground: stripHash(brightRed), fontStyle: "bold" },
-      { token: "keyword.negation", foreground: stripHash(red), fontStyle: "bold" },
+      {
+        token: "keyword.action",
+        foreground: stripHash(brightRed),
+        fontStyle: "bold",
+      },
+      {
+        token: "keyword.negation",
+        foreground: stripHash(red),
+        fontStyle: "bold",
+      },
       { token: "keyword.protocol", foreground: stripHash(yellow) },
       { token: "keyword.port", foreground: stripHash(yellow) },
-      { token: "type.interface", foreground: stripHash(green), fontStyle: "bold" },
+      {
+        token: "type.interface",
+        foreground: stripHash(green),
+        fontStyle: "bold",
+      },
       { token: "number.ip", foreground: stripHash(brightYellow) },
       { token: "number", foreground: stripHash(brightYellow) },
       { token: "string", foreground: stripHash(green) },
@@ -124,7 +159,7 @@ function buildPutzTheme(
       "input.background": blendAlpha(fg, 0.05),
       "input.foreground": fg,
       "input.border": blendAlpha(fg, 0.15),
-      "focusBorder": stripHash(cyan),
+      focusBorder: stripHash(cyan),
       "scrollbarSlider.background": blendAlpha(fg, 0.1),
       "scrollbarSlider.hoverBackground": blendAlpha(fg, 0.2),
       "scrollbarSlider.activeBackground": blendAlpha(fg, 0.3),
@@ -149,7 +184,9 @@ function blendAlpha(hex: string, alpha: number): string {
   const r = parseInt(c.substring(0, 2), 16);
   const g = parseInt(c.substring(2, 4), 16);
   const b = parseInt(c.substring(4, 6), 16);
-  const a = Math.round(alpha * 255).toString(16).padStart(2, "0");
+  const a = Math.round(alpha * 255)
+    .toString(16)
+    .padStart(2, "0");
   return `#${r.toString(16).padStart(2, "0")}${g.toString(16).padStart(2, "0")}${b.toString(16).padStart(2, "0")}${a}`;
 }
 
@@ -171,7 +208,8 @@ export function MonacoEditor({
 }: MonacoEditorProps) {
   const editorRef = useRef<monaco.editor.IStandaloneCodeEditor | null>(null);
   const monacoRef = useRef<typeof monaco | null>(null);
-  const eolCollectionRef = useRef<monaco.editor.IEditorDecorationsCollection | null>(null);
+  const eolCollectionRef =
+    useRef<monaco.editor.IEditorDecorationsCollection | null>(null);
   const [mounted, setMounted] = useState(false);
 
   // Apply theme on mount and when themeStore changes
@@ -196,7 +234,10 @@ export function MonacoEditor({
       const editor = editorRef.current;
       if (!editor) return;
       // Only trigger if this editor has DOM focus
-      if (editor.hasTextFocus() || editor.getDomNode()?.contains(document.activeElement)) {
+      if (
+        editor.hasTextFocus() ||
+        editor.getDomNode()?.contains(document.activeElement)
+      ) {
         editor.getAction("actions.find")?.run();
       }
     };
@@ -263,12 +304,17 @@ export function MonacoEditor({
         if (model.getLanguageId() !== "markdown") return;
         const text = model.getValueInRange(sel);
         const replacement = `${left}${text}${right}`;
-        editor.executeEdits("md-wrap", [{ range: sel, text: replacement, forceMoveMarkers: true }]);
+        editor.executeEdits("md-wrap", [
+          { range: sel, text: replacement, forceMoveMarkers: true },
+        ]);
         // Place cursor inside if no selection
         if (text.length === 0) {
           const pos = editor.getPosition();
           if (pos) {
-            editor.setPosition({ lineNumber: pos.lineNumber, column: pos.column - right.length });
+            editor.setPosition({
+              lineNumber: pos.lineNumber,
+              column: pos.column - right.length,
+            });
           }
         }
         editor.focus();
@@ -294,7 +340,9 @@ export function MonacoEditor({
           if (model.getLanguageId() !== "markdown") return;
           const text = model.getValueInRange(sel);
           const replacement = `[${text || "text"}](url)`;
-          editor.executeEdits("md-link", [{ range: sel, text: replacement, forceMoveMarkers: true }]);
+          editor.executeEdits("md-link", [
+            { range: sel, text: replacement, forceMoveMarkers: true },
+          ]);
           editor.focus();
         },
       );
@@ -382,11 +430,15 @@ export function MonacoEditor({
   }, [showWhitespace, mounted]);
 
   const monacoLanguage =
-    language === "text" ? "plaintext" :
-    language === "cisco-ios" ? CISCO_IOS_LANGUAGE_ID :
-    language === "terraform" ? TERRAFORM_LANGUAGE_ID :
-    language === "jinja2" ? JINJA2_LANGUAGE_ID :
-    language; // js, python, json, yaml are built-in Monaco IDs
+    language === "text"
+      ? "plaintext"
+      : language === "cisco-ios"
+        ? CISCO_IOS_LANGUAGE_ID
+        : language === "terraform"
+          ? TERRAFORM_LANGUAGE_ID
+          : language === "jinja2"
+            ? JINJA2_LANGUAGE_ID
+            : language; // js, python, json, yaml are built-in Monaco IDs
 
   return (
     <Editor
@@ -402,7 +454,8 @@ export function MonacoEditor({
         renderControlCharacters: showWhitespace,
         minimap: { enabled: true, maxColumn: 80 },
         fontSize: 13,
-        fontFamily: "'JetBrains Mono', 'Fira Code', 'Cascadia Code', 'Menlo', monospace",
+        fontFamily:
+          "'JetBrains Mono', 'Fira Code', 'Cascadia Code', 'Menlo', monospace",
         lineNumbers: "on",
         renderLineHighlight: "line",
         scrollBeyondLastLine: false,
@@ -432,14 +485,16 @@ export function MonacoEditor({
         },
       }}
       loading={
-        <div style={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          height: "100%",
-          color: "var(--text-secondary)",
-          fontSize: "0.875rem",
-        }}>
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            height: "100%",
+            color: "var(--text-secondary)",
+            fontSize: "0.875rem",
+          }}
+        >
           Loading editor…
         </div>
       }

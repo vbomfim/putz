@@ -69,9 +69,7 @@ describe("SessionSidebar", () => {
         onSessionOpen={onSessionOpen}
       />,
     );
-    expect(
-      screen.getByLabelText("Session Manager"),
-    ).toBeInTheDocument();
+    expect(screen.getByLabelText("Session Manager")).toBeInTheDocument();
   });
 
   // ─── Close button ────────────────────────────────────────
