@@ -131,13 +131,15 @@ pub fn pty_list_shells() -> Vec<serde_json::Value> {
     #[cfg(windows)]
     {
         use std::process::Command;
+        use std::os::windows::process::CommandExt;
+        const CREATE_NO_WINDOW: u32 = 0x0800_0000;
 
         // PowerShell 7 (pwsh)
-        if Command::new("pwsh").arg("--version").output().is_ok() {
+        if Command::new("pwsh").arg("--version").creation_flags(CREATE_NO_WINDOW).output().is_ok() {
             shells.push(serde_json::json!({"name": "PowerShell 7", "path": "pwsh.exe"}));
         }
         // Windows PowerShell
-        if Command::new("powershell.exe").arg("-Command").arg("$PSVersionTable.PSVersion.Major").output().is_ok() {
+        if Command::new("powershell.exe").arg("-Command").arg("$PSVersionTable.PSVersion.Major").creation_flags(CREATE_NO_WINDOW).output().is_ok() {
             shells.push(serde_json::json!({"name": "Windows PowerShell", "path": "powershell.exe"}));
         }
         // CMD
@@ -154,11 +156,11 @@ pub fn pty_list_shells() -> Vec<serde_json::Value> {
             }
         }
         // WSL
-        if Command::new("wsl.exe").arg("--status").output().is_ok() {
+        if Command::new("wsl.exe").arg("--status").creation_flags(CREATE_NO_WINDOW).output().is_ok() {
             shells.push(serde_json::json!({"name": "WSL", "path": "wsl.exe"}));
         }
         // Nushell
-        if Command::new("nu.exe").arg("--version").output().is_ok() {
+        if Command::new("nu.exe").arg("--version").creation_flags(CREATE_NO_WINDOW).output().is_ok() {
             shells.push(serde_json::json!({"name": "Nushell", "path": "nu.exe"}));
         }
     }
