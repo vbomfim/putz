@@ -80,8 +80,7 @@ export function HistoryPanel({
           setResults(entries);
           setSelectedIndex(0);
         } catch (err: unknown) {
-          const message =
-            err instanceof Error ? err.message : "Search failed";
+          const message = err instanceof Error ? err.message : "Search failed";
           setError(message);
           setResults([]);
         } finally {
@@ -188,9 +187,7 @@ export function HistoryPanel({
           </div>
         )}
 
-        {isSearching && (
-          <div className="history-panel-status">Searching…</div>
-        )}
+        {isSearching && <div className="history-panel-status">Searching…</div>}
 
         {results.length > 0 && (
           <ul

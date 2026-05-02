@@ -9,9 +9,9 @@
  * @module
  */
 
-import type { CanvasStoreApi } from '../store/canvasStore';
-import { saveCanvasState } from '../persistence/localStorage';
-import type { PersistedCanvasState } from '../persistence/localStorage';
+import type { CanvasStoreApi } from "../store/canvasStore";
+import { saveCanvasState } from "../persistence/localStorage";
+import type { PersistedCanvasState } from "../persistence/localStorage";
 
 /** Debounce delay in milliseconds for auto-save. [AC1] */
 export const DEBOUNCE_MS = 2000;

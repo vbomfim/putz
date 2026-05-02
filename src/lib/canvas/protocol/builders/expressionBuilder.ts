@@ -15,11 +15,11 @@
  * @module
  */
 
-import { nanoid } from 'nanoid';
-import type { AuthorInfo, ExpressionStyle } from '../schema/metadata';
-import { DEFAULT_EXPRESSION_STYLE } from '../schema/metadata';
-import type { VisualExpression, ExpressionData } from '../schema/expressions';
-import type { FlowNode, FlowEdge, ReasoningStep } from '../schema/composites';
+import { nanoid } from "nanoid";
+import type { AuthorInfo, ExpressionStyle } from "../schema/metadata";
+import { DEFAULT_EXPRESSION_STYLE } from "../schema/metadata";
+import type { VisualExpression, ExpressionData } from "../schema/expressions";
+import type { FlowNode, FlowEdge, ReasoningStep } from "../schema/composites";
 
 /**
  * Internal builder that accumulates properties and produces
@@ -123,9 +123,16 @@ class ExpressionDraft {
 export class ShapeBuilder {
   private readonly draft: ExpressionDraft;
   private labelValue?: string;
-  private readonly kind: 'rectangle' | 'ellipse' | 'diamond';
+  private readonly kind: "rectangle" | "ellipse" | "diamond";
 
-  constructor(author: AuthorInfo, kind: 'rectangle' | 'ellipse' | 'diamond', x: number, y: number, width: number, height: number) {
+  constructor(
+    author: AuthorInfo,
+    kind: "rectangle" | "ellipse" | "diamond",
+    x: number,
+    y: number,
+    width: number,
+    height: number,
+  ) {
     this.kind = kind;
     this.draft = new ExpressionDraft(author, { kind, label: undefined });
     this.draft.setGeometry(x, y, width, height);
@@ -162,21 +169,21 @@ export class FlowchartBuilder {
   private readonly title: string;
   private readonly nodes: FlowNode[] = [];
   private readonly edges: FlowEdge[] = [];
-  private dir: 'TB' | 'LR' | 'BT' | 'RL' = 'TB';
+  private dir: "TB" | "LR" | "BT" | "RL" = "TB";
 
   constructor(author: AuthorInfo, title: string) {
     this.title = title;
     this.draft = new ExpressionDraft(author, {
-      kind: 'flowchart',
+      kind: "flowchart",
       title,
       nodes: [],
       edges: [],
-      direction: 'TB',
+      direction: "TB",
     });
   }
 
   /** Add a node to the flowchart. */
-  node(id: string, label: string, shape: FlowNode['shape'] = 'rect'): this {
+  node(id: string, label: string, shape: FlowNode["shape"] = "rect"): this {
     this.nodes.push({ id, label, shape });
     return this;
   }
@@ -188,7 +195,7 @@ export class FlowchartBuilder {
   }
 
   /** Set the layout direction. */
-  direction(dir: 'TB' | 'LR' | 'BT' | 'RL'): this {
+  direction(dir: "TB" | "LR" | "BT" | "RL"): this {
     this.dir = dir;
     return this;
   }
@@ -202,7 +209,7 @@ export class FlowchartBuilder {
   /** Build the VisualExpression. */
   build(): VisualExpression {
     this.draft.setData({
-      kind: 'flowchart',
+      kind: "flowchart",
       title: this.title,
       nodes: this.nodes,
       edges: this.edges,
@@ -217,15 +224,15 @@ export class ReasoningChainBuilder {
   private readonly draft: ExpressionDraft;
   private readonly question: string;
   private readonly steps: ReasoningStep[] = [];
-  private finalAnswerValue = '';
+  private finalAnswerValue = "";
 
   constructor(author: AuthorInfo, question: string) {
     this.question = question;
     this.draft = new ExpressionDraft(author, {
-      kind: 'reasoning-chain',
+      kind: "reasoning-chain",
       question,
       steps: [],
-      finalAnswer: '',
+      finalAnswer: "",
     });
   }
 
@@ -250,7 +257,7 @@ export class ReasoningChainBuilder {
   /** Build the VisualExpression. */
   build(): VisualExpression {
     this.draft.setData({
-      kind: 'reasoning-chain',
+      kind: "reasoning-chain",
       question: this.question,
       steps: this.steps,
       finalAnswer: this.finalAnswerValue,
@@ -264,17 +271,17 @@ export class TextBuilder {
   private readonly draft: ExpressionDraft;
   private textValue: string;
   private fontSizeValue = 16;
-  private fontFamilyValue = 'sans-serif';
-  private textAlignValue: 'left' | 'center' | 'right' = 'left';
+  private fontFamilyValue = "sans-serif";
+  private textAlignValue: "left" | "center" | "right" = "left";
 
   constructor(author: AuthorInfo, text: string, x: number, y: number) {
     this.textValue = text;
     this.draft = new ExpressionDraft(author, {
-      kind: 'text',
+      kind: "text",
       text,
       fontSize: 16,
-      fontFamily: 'sans-serif',
-      textAlign: 'left',
+      fontFamily: "sans-serif",
+      textAlign: "left",
     });
     this.draft.setGeometry(x, y, 200, 50);
   }
@@ -292,7 +299,7 @@ export class TextBuilder {
   }
 
   /** Set text alignment. */
-  align(alignment: 'left' | 'center' | 'right'): this {
+  align(alignment: "left" | "center" | "right"): this {
     this.textAlignValue = alignment;
     return this;
   }
@@ -306,7 +313,7 @@ export class TextBuilder {
   /** Build the VisualExpression. */
   build(): VisualExpression {
     this.draft.setData({
-      kind: 'text',
+      kind: "text",
       text: this.textValue,
       fontSize: this.fontSizeValue,
       fontFamily: this.fontFamilyValue,
@@ -322,11 +329,11 @@ export class StickyNoteBuilder {
   private textValue: string;
   private colorValue: string;
 
-  constructor(author: AuthorInfo, text: string, color: string = '#FFEB3B') {
+  constructor(author: AuthorInfo, text: string, color: string = "#FFEB3B") {
     this.textValue = text;
     this.colorValue = color;
     this.draft = new ExpressionDraft(author, {
-      kind: 'sticky-note',
+      kind: "sticky-note",
       text,
       color,
     });
@@ -348,7 +355,7 @@ export class StickyNoteBuilder {
   /** Build the VisualExpression. */
   build(): VisualExpression {
     this.draft.setData({
-      kind: 'sticky-note',
+      kind: "sticky-note",
       text: this.textValue,
       color: this.colorValue,
     });
@@ -371,17 +378,17 @@ export class ExpressionBuilder {
 
   /** Start building a rectangle expression. */
   rectangle(x: number, y: number, width: number, height: number): ShapeBuilder {
-    return new ShapeBuilder(this.author, 'rectangle', x, y, width, height);
+    return new ShapeBuilder(this.author, "rectangle", x, y, width, height);
   }
 
   /** Start building an ellipse expression. */
   ellipse(x: number, y: number, width: number, height: number): ShapeBuilder {
-    return new ShapeBuilder(this.author, 'ellipse', x, y, width, height);
+    return new ShapeBuilder(this.author, "ellipse", x, y, width, height);
   }
 
   /** Start building a diamond expression. */
   diamond(x: number, y: number, width: number, height: number): ShapeBuilder {
-    return new ShapeBuilder(this.author, 'diamond', x, y, width, height);
+    return new ShapeBuilder(this.author, "diamond", x, y, width, height);
   }
 
   /** Start building a text expression. */

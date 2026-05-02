@@ -8,10 +8,10 @@
  * @module
  */
 
-import type { VisualExpression, Layer } from '../../protocol';
-import { DEFAULT_LAYER_ID } from '../../protocol';
-import { hitTestExpression } from './hitTest';
-import type { WorldPoint } from './hitTest';
+import type { VisualExpression, Layer } from "../../protocol";
+import { DEFAULT_LAYER_ID } from "../../protocol";
+import { hitTestExpression } from "./hitTest";
+import type { WorldPoint } from "./hitTest";
 
 /** Axis-aligned bounding box in world coordinates. */
 export interface Marquee {
@@ -112,10 +112,7 @@ export function findExpressionsInMarquee(
 
     // Containment test — marquee must fully encompass the expression
     const contained =
-      x >= mx &&
-      y >= my &&
-      exprRight <= mRight &&
-      exprBottom <= mBottom;
+      x >= mx && y >= my && exprRight <= mRight && exprBottom <= mBottom;
 
     if (contained) {
       result.push(id);

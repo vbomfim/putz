@@ -8,15 +8,15 @@
  * @module
  */
 
-import { nanoid } from 'nanoid';
-import type { VisualExpression } from '../../protocol';
-import type { ToolHandler, DrawPreview } from './BaseTool';
-import type { CanvasStoreApi } from '../store/canvasStore';
+import { nanoid } from "nanoid";
+import type { VisualExpression } from "../../protocol";
+import type { ToolHandler, DrawPreview } from "./BaseTool";
+import type { CanvasStoreApi } from "../store/canvasStore";
 
 /** Default text properties. */
 const DEFAULT_FONT_SIZE = 16;
-const DEFAULT_FONT_FAMILY = 'sans-serif';
-const DEFAULT_TEXT_ALIGN = 'left' as const;
+const DEFAULT_FONT_FAMILY = "sans-serif";
+const DEFAULT_TEXT_ALIGN = "left" as const;
 
 /** Default text expression size. */
 const TEXT_WIDTH = 200;
@@ -24,9 +24,9 @@ const TEXT_HEIGHT = 50;
 
 /** Human author for locally-drawn expressions. */
 const LOCAL_AUTHOR = {
-  type: 'human' as const,
-  id: 'local-user',
-  name: 'You',
+  type: "human" as const,
+  id: "local-user",
+  name: "You",
 };
 
 /**
@@ -108,7 +108,7 @@ export class TextTool implements ToolHandler {
 
     const expression: VisualExpression = {
       id,
-      kind: 'text',
+      kind: "text",
       position: { x: this.inputPosition.x, y: this.inputPosition.y },
       size: { width: TEXT_WIDTH, height: TEXT_HEIGHT },
       angle: 0,
@@ -121,7 +121,7 @@ export class TextTool implements ToolHandler {
         locked: false,
       },
       data: {
-        kind: 'text',
+        kind: "text",
         text,
         fontSize: DEFAULT_FONT_SIZE,
         fontFamily: DEFAULT_FONT_FAMILY,
@@ -154,7 +154,7 @@ export class TextTool implements ToolHandler {
 
     const expression: VisualExpression = {
       id,
-      kind: 'text',
+      kind: "text",
       position: { x: worldX, y: worldY },
       size: { width: w, height: h },
       angle: 0,
@@ -167,8 +167,8 @@ export class TextTool implements ToolHandler {
         locked: false,
       },
       data: {
-        kind: 'text',
-        text: '',
+        kind: "text",
+        text: "",
         fontSize,
         fontFamily: DEFAULT_FONT_FAMILY,
         textAlign: DEFAULT_TEXT_ALIGN,

@@ -49,7 +49,9 @@ describe("Template IPC contract", () => {
 
   it("templateDelete calls invoke('template_delete', { id })", async () => {
     await templateDelete("abc-123");
-    expect(mockInvoke).toHaveBeenCalledWith("template_delete", { id: "abc-123" });
+    expect(mockInvoke).toHaveBeenCalledWith("template_delete", {
+      id: "abc-123",
+    });
   });
 
   it("templateExecute calls invoke('template_execute', { input })", async () => {

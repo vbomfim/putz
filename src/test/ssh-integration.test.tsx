@@ -24,12 +24,12 @@ vi.mock("@tauri-apps/api/core", () => ({
 
 type EventHandler = (event: { payload: unknown }) => void;
 const eventListeners = new Map<string, EventHandler>();
-const mockListen = vi.fn().mockImplementation(
-  (eventName: string, handler: EventHandler) => {
+const mockListen = vi
+  .fn()
+  .mockImplementation((eventName: string, handler: EventHandler) => {
     eventListeners.set(eventName, handler);
     return Promise.resolve(vi.fn());
-  },
-);
+  });
 vi.mock("@tauri-apps/api/event", () => ({
   listen: (...args: unknown[]) => mockListen(...args),
 }));
@@ -64,12 +64,12 @@ const sshConfigWithVault: ConnectionOpenInput = {
 describe("SSH Protocol — Integration Tests", () => {
   beforeEach(() => {
     mockInvoke.mockReset().mockResolvedValue("ssh-conn-001");
-    mockListen.mockReset().mockImplementation(
-      (eventName: string, handler: EventHandler) => {
+    mockListen
+      .mockReset()
+      .mockImplementation((eventName: string, handler: EventHandler) => {
         eventListeners.set(eventName, handler);
         return Promise.resolve(vi.fn());
-      },
-    );
+      });
     eventListeners.clear();
   });
 
@@ -123,16 +123,21 @@ describe("SSH Protocol — Integration Tests", () => {
 
       // Simulate backend requesting password
       await act(async () => {
-        emitEvent("connection-auth-prompt-ssh-conn-001", JSON.stringify({
-          username: "admin",
-          methods: ["password", "keyboard-interactive"],
-        }));
+        emitEvent(
+          "connection-auth-prompt-ssh-conn-001",
+          JSON.stringify({
+            username: "admin",
+            methods: ["password", "keyboard-interactive"],
+          }),
+        );
       });
 
       // AuthPromptDialog is intentionally NOT rendered yet —
       // the IPC command to send passwords back is not implemented.
       // The state is still captured via the useConnection hook.
-      expect(screen.queryByTestId("auth-prompt-dialog")).not.toBeInTheDocument();
+      expect(
+        screen.queryByTestId("auth-prompt-dialog"),
+      ).not.toBeInTheDocument();
     });
   });
 
@@ -141,9 +146,7 @@ describe("SSH Protocol — Integration Tests", () => {
   describe("[AC-2] Connect with SSH key", () => {
     it("sends keyPath to connection_open for key-based auth", async () => {
       await act(async () => {
-        render(
-          <ConnectionTerminalView connectionConfig={sshConfigWithKey} />,
-        );
+        render(<ConnectionTerminalView connectionConfig={sshConfigWithKey} />);
       });
 
       expect(mockInvoke).toHaveBeenCalledWith(
@@ -191,13 +194,16 @@ describe("SSH Protocol — Integration Tests", () => {
       });
 
       await act(async () => {
-        emitEvent("connection-hostkey-ssh-conn-001", JSON.stringify({
-          host: "switch.lab.local",
-          port: 22,
-          keyType: "ssh-ed25519",
-          fingerprint: "SHA256:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
-          action: "new",
-        }));
+        emitEvent(
+          "connection-hostkey-ssh-conn-001",
+          JSON.stringify({
+            host: "switch.lab.local",
+            port: 22,
+            keyType: "ssh-ed25519",
+            fingerprint: "SHA256:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
+            action: "new",
+          }),
+        );
       });
 
       expect(screen.getByTestId("hostkey-dialog")).toBeInTheDocument();
@@ -211,13 +217,16 @@ describe("SSH Protocol — Integration Tests", () => {
       });
 
       await act(async () => {
-        emitEvent("connection-hostkey-ssh-conn-001", JSON.stringify({
-          host: "switch.lab.local",
-          port: 22,
-          keyType: "ssh-ed25519",
-          fingerprint: "SHA256:TestFingerprint123",
-          action: "new",
-        }));
+        emitEvent(
+          "connection-hostkey-ssh-conn-001",
+          JSON.stringify({
+            host: "switch.lab.local",
+            port: 22,
+            keyType: "ssh-ed25519",
+            fingerprint: "SHA256:TestFingerprint123",
+            action: "new",
+          }),
+        );
       });
 
       expect(screen.getByText("ssh-ed25519")).toBeInTheDocument();
@@ -230,13 +239,16 @@ describe("SSH Protocol — Integration Tests", () => {
       });
 
       await act(async () => {
-        emitEvent("connection-hostkey-ssh-conn-001", JSON.stringify({
-          host: "switch.lab.local",
-          port: 22,
-          keyType: "ssh-ed25519",
-          fingerprint: "SHA256:test",
-          action: "new",
-        }));
+        emitEvent(
+          "connection-hostkey-ssh-conn-001",
+          JSON.stringify({
+            host: "switch.lab.local",
+            port: 22,
+            keyType: "ssh-ed25519",
+            fingerprint: "SHA256:test",
+            action: "new",
+          }),
+        );
       });
 
       const acceptBtn = screen.getByTestId("hostkey-accept");
@@ -253,14 +265,17 @@ describe("SSH Protocol — Integration Tests", () => {
       });
 
       await act(async () => {
-        emitEvent("connection-hostkey-warning-ssh-conn-001", JSON.stringify({
-          host: "switch.lab.local",
-          port: 22,
-          keyType: "ssh-rsa",
-          fingerprint: "SHA256:NewBadFingerprint",
-          action: "changed",
-          expectedFingerprint: "SHA256:OriginalGoodFingerprint",
-        }));
+        emitEvent(
+          "connection-hostkey-warning-ssh-conn-001",
+          JSON.stringify({
+            host: "switch.lab.local",
+            port: 22,
+            keyType: "ssh-rsa",
+            fingerprint: "SHA256:NewBadFingerprint",
+            action: "changed",
+            expectedFingerprint: "SHA256:OriginalGoodFingerprint",
+          }),
+        );
       });
 
       expect(screen.getByTestId("hostkey-dialog")).toBeInTheDocument();
@@ -274,14 +289,17 @@ describe("SSH Protocol — Integration Tests", () => {
       });
 
       await act(async () => {
-        emitEvent("connection-hostkey-warning-ssh-conn-001", JSON.stringify({
-          host: "switch.lab.local",
-          port: 22,
-          keyType: "ssh-rsa",
-          fingerprint: "SHA256:NewBad",
-          action: "changed",
-          expectedFingerprint: "SHA256:OldGood",
-        }));
+        emitEvent(
+          "connection-hostkey-warning-ssh-conn-001",
+          JSON.stringify({
+            host: "switch.lab.local",
+            port: 22,
+            keyType: "ssh-rsa",
+            fingerprint: "SHA256:NewBad",
+            action: "changed",
+            expectedFingerprint: "SHA256:OldGood",
+          }),
+        );
       });
 
       expect(screen.getByText("SHA256:NewBad")).toBeInTheDocument();
@@ -294,14 +312,17 @@ describe("SSH Protocol — Integration Tests", () => {
       });
 
       await act(async () => {
-        emitEvent("connection-hostkey-warning-ssh-conn-001", JSON.stringify({
-          host: "switch.lab.local",
-          port: 22,
-          keyType: "ssh-rsa",
-          fingerprint: "SHA256:new",
-          action: "changed",
-          expectedFingerprint: "SHA256:old",
-        }));
+        emitEvent(
+          "connection-hostkey-warning-ssh-conn-001",
+          JSON.stringify({
+            host: "switch.lab.local",
+            port: 22,
+            keyType: "ssh-rsa",
+            fingerprint: "SHA256:new",
+            action: "changed",
+            expectedFingerprint: "SHA256:old",
+          }),
+        );
       });
 
       const acceptBtn = screen.getByTestId("hostkey-accept");
@@ -315,14 +336,17 @@ describe("SSH Protocol — Integration Tests", () => {
       });
 
       await act(async () => {
-        emitEvent("connection-hostkey-warning-ssh-conn-001", JSON.stringify({
-          host: "switch.lab.local",
-          port: 22,
-          keyType: "ssh-rsa",
-          fingerprint: "SHA256:new",
-          action: "changed",
-          expectedFingerprint: "SHA256:old",
-        }));
+        emitEvent(
+          "connection-hostkey-warning-ssh-conn-001",
+          JSON.stringify({
+            host: "switch.lab.local",
+            port: 22,
+            keyType: "ssh-rsa",
+            fingerprint: "SHA256:new",
+            action: "changed",
+            expectedFingerprint: "SHA256:old",
+          }),
+        );
       });
 
       expect(screen.getByText(/do NOT continue/i)).toBeInTheDocument();
@@ -334,7 +358,9 @@ describe("SSH Protocol — Integration Tests", () => {
 
   describe("[AC-6] Connection failure handling", () => {
     it("displays 'Connection refused' error clearly", async () => {
-      mockInvoke.mockRejectedValue(new Error("Connection refused: 192.168.1.1:22"));
+      mockInvoke.mockRejectedValue(
+        new Error("Connection refused: 192.168.1.1:22"),
+      );
 
       await act(async () => {
         render(<ConnectionTerminalView connectionConfig={sshConfig} />);
@@ -346,7 +372,9 @@ describe("SSH Protocol — Integration Tests", () => {
     });
 
     it("displays 'Authentication failed' error", async () => {
-      mockInvoke.mockRejectedValue(new Error("Authentication failed: Password rejected by server"));
+      mockInvoke.mockRejectedValue(
+        new Error("Authentication failed: Password rejected by server"),
+      );
 
       await act(async () => {
         render(<ConnectionTerminalView connectionConfig={sshConfig} />);
@@ -565,13 +593,16 @@ describe("SSH Protocol — Integration Tests", () => {
 
       // First: host key verification
       await act(async () => {
-        emitEvent("connection-hostkey-ssh-conn-001", JSON.stringify({
-          host: "switch.lab.local",
-          port: 22,
-          keyType: "ssh-ed25519",
-          fingerprint: "SHA256:abc",
-          action: "new",
-        }));
+        emitEvent(
+          "connection-hostkey-ssh-conn-001",
+          JSON.stringify({
+            host: "switch.lab.local",
+            port: 22,
+            keyType: "ssh-ed25519",
+            fingerprint: "SHA256:abc",
+            action: "new",
+          }),
+        );
       });
 
       expect(screen.getByTestId("hostkey-dialog")).toBeInTheDocument();
@@ -579,13 +610,18 @@ describe("SSH Protocol — Integration Tests", () => {
       // Then: auth prompt event arrives but dialog is NOT rendered
       // (AuthPromptDialog disabled until IPC response wiring is complete)
       await act(async () => {
-        emitEvent("connection-auth-prompt-ssh-conn-001", JSON.stringify({
-          username: "admin",
-          methods: ["password"],
-        }));
+        emitEvent(
+          "connection-auth-prompt-ssh-conn-001",
+          JSON.stringify({
+            username: "admin",
+            methods: ["password"],
+          }),
+        );
       });
 
-      expect(screen.queryByTestId("auth-prompt-dialog")).not.toBeInTheDocument();
+      expect(
+        screen.queryByTestId("auth-prompt-dialog"),
+      ).not.toBeInTheDocument();
     });
   });
 
@@ -594,9 +630,7 @@ describe("SSH Protocol — Integration Tests", () => {
   describe("[COVERAGE] Connection cleanup on unmount", () => {
     it("sends connection_close when SSH component unmounts", async () => {
       const { unmount } = await act(async () => {
-        return render(
-          <ConnectionTerminalView connectionConfig={sshConfig} />,
-        );
+        return render(<ConnectionTerminalView connectionConfig={sshConfig} />);
       });
 
       mockInvoke.mockClear();
@@ -612,7 +646,9 @@ describe("SSH Protocol — Integration Tests", () => {
       let resolveOpen: ((value: string) => void) | undefined;
       mockInvoke.mockImplementation((cmd: string) => {
         if (cmd === "connection_open") {
-          return new Promise<string>((resolve) => { resolveOpen = resolve; });
+          return new Promise<string>((resolve) => {
+            resolveOpen = resolve;
+          });
         }
         return Promise.resolve();
       });

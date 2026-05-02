@@ -118,10 +118,7 @@ function generateId(): string {
 function basename(path: string): string {
   const trimmed = path.replace(/[/\\]+$/, "");
   if (!trimmed) return path;
-  const lastSep = Math.max(
-    trimmed.lastIndexOf("/"),
-    trimmed.lastIndexOf("\\"),
-  );
+  const lastSep = Math.max(trimmed.lastIndexOf("/"), trimmed.lastIndexOf("\\"));
   return lastSep >= 0 ? trimmed.substring(lastSep + 1) : trimmed;
 }
 
@@ -204,10 +201,9 @@ function rootSiblings(
   bookmarks: BookmarkItem[],
   folders: BookmarkFolder[],
 ): Array<BookmarkItem | BookmarkFolder> {
-  return [
-    ...bookmarks.filter((b) => b.folderId === null),
-    ...folders,
-  ].sort((a, b) => a.sortIndex - b.sortIndex);
+  return [...bookmarks.filter((b) => b.folderId === null), ...folders].sort(
+    (a, b) => a.sortIndex - b.sortIndex,
+  );
 }
 
 /**
@@ -287,7 +283,11 @@ function validateBookmarkItem(raw: unknown, index: number): BookmarkItem {
       `Invalid import: bookmark at index ${index} is missing/invalid field 'folderId'.`,
     );
   }
-  if (typeof item.sortIndex !== "number" || !Number.isFinite(item.sortIndex) || !Number.isInteger(item.sortIndex)) {
+  if (
+    typeof item.sortIndex !== "number" ||
+    !Number.isFinite(item.sortIndex) ||
+    !Number.isInteger(item.sortIndex)
+  ) {
     throw new Error(
       `Invalid import: bookmark at index ${index} is missing/invalid field 'sortIndex'.`,
     );
@@ -303,7 +303,7 @@ function validateBookmarkItem(raw: unknown, index: number): BookmarkItem {
     name: truncate(String(item.name).trim(), MAX_NAME_LENGTH),
     path: safePath,
     type: item.type as "file" | "folder",
-    folderId: (item.folderId as string | null),
+    folderId: item.folderId as string | null,
     sortIndex: item.sortIndex,
     createdAt: item.createdAt,
   };
@@ -333,7 +333,11 @@ function validateFolder(raw: unknown, index: number): BookmarkFolder {
       `Invalid import: folder at index ${index} is missing/invalid field 'name'.`,
     );
   }
-  if (typeof item.sortIndex !== "number" || !Number.isFinite(item.sortIndex) || !Number.isInteger(item.sortIndex)) {
+  if (
+    typeof item.sortIndex !== "number" ||
+    !Number.isFinite(item.sortIndex) ||
+    !Number.isInteger(item.sortIndex)
+  ) {
     throw new Error(
       `Invalid import: folder at index ${index} is missing/invalid field 'sortIndex'.`,
     );
@@ -372,7 +376,8 @@ function tryValidateFolder(raw: unknown): BookmarkFolder | null {
 
 /** Silently validates a CommandBookmark for localStorage load. Returns null on failure. */
 function tryValidateCommand(raw: unknown): CommandBookmark | null {
-  if (typeof raw !== "object" || raw === null || Array.isArray(raw)) return null;
+  if (typeof raw !== "object" || raw === null || Array.isArray(raw))
+    return null;
   const item = raw as Record<string, unknown>;
   if (typeof item.id !== "string" || !item.id) return null;
   if (typeof item.name !== "string" || !item.name) return null;
@@ -395,7 +400,8 @@ function tryValidateCommand(raw: unknown): CommandBookmark | null {
 
 /** Silently validates a CommandGroup for localStorage load. Returns null on failure. */
 function tryValidateCommandGroup(raw: unknown): CommandGroup | null {
-  if (typeof raw !== "object" || raw === null || Array.isArray(raw)) return null;
+  if (typeof raw !== "object" || raw === null || Array.isArray(raw))
+    return null;
   const item = raw as Record<string, unknown>;
   if (typeof item.id !== "string" || !item.id) return null;
   if (typeof item.name !== "string" || !item.name) return null;
@@ -425,7 +431,9 @@ function loadPersistedBookmarks(): PersistedBookmarks {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) {
       const parsed = JSON.parse(raw) as Partial<PersistedBookmarks>;
-      const rawBookmarks = Array.isArray(parsed.bookmarks) ? parsed.bookmarks : [];
+      const rawBookmarks = Array.isArray(parsed.bookmarks)
+        ? parsed.bookmarks
+        : [];
       const rawFolders = Array.isArray(parsed.folders) ? parsed.folders : [];
 
       // [C3] DoS limit on load — truncate, don't crash
@@ -473,7 +481,9 @@ function loadPersistedBookmarks(): PersistedBookmarks {
       }
 
       // Load command groups (backward compatible)
-      const rawCmdGroups = Array.isArray(parsed.commandGroups) ? parsed.commandGroups : [];
+      const rawCmdGroups = Array.isArray(parsed.commandGroups)
+        ? parsed.commandGroups
+        : [];
       const commandGroups: CommandGroup[] = [];
       for (const item of rawCmdGroups) {
         const valid = tryValidateCommandGroup(item);
@@ -558,13 +568,25 @@ interface BookmarksState {
   // ─── Command Actions ──────────────────────────────────────
 
   /** Adds a new command bookmark. */
-  addCommand: (opts: { name: string; command: string; autoExecute?: boolean; newTerminal?: boolean; hotkey?: string; color?: string; icon?: string; groupId?: string | null }) => void;
+  addCommand: (opts: {
+    name: string;
+    command: string;
+    autoExecute?: boolean;
+    newTerminal?: boolean;
+    hotkey?: string;
+    color?: string;
+    icon?: string;
+    groupId?: string | null;
+  }) => void;
 
   /** Removes a command bookmark by ID. */
   removeCommand: (id: string) => void;
 
   /** Updates a command bookmark. */
-  updateCommand: (id: string, updates: Partial<Omit<CommandBookmark, "id" | "createdAt">>) => void;
+  updateCommand: (
+    id: string,
+    updates: Partial<Omit<CommandBookmark, "id" | "createdAt">>,
+  ) => void;
 
   /** Reorders a command in the bookmark bar. */
   reorderCommand: (id: string, newIndex: number) => void;
@@ -612,11 +634,7 @@ export const useBookmarksStore = create<BookmarksState>((set, get) => {
 
     // ─── Bookmark Actions ──────────────────────────────────────
 
-    addBookmark: (
-      path: string,
-      type: "file" | "folder",
-      folderId?: string,
-    ) => {
+    addBookmark: (path: string, type: "file" | "folder", folderId?: string) => {
       const trimmedPath = sanitizePath(path);
       if (!trimmedPath) return; // [B6] rejects control chars, empty, too long
 
@@ -626,12 +644,13 @@ export const useBookmarksStore = create<BookmarksState>((set, get) => {
       const resolved = resolveFolderId(folders, folderId); // [B4]
 
       // [B2] Shared root sortIndex namespace
-      const sortIdx = resolved === null
-        ? nextSortIndex([
-            ...bookmarks.filter((b) => b.folderId === null),
-            ...folders,
-          ])
-        : nextSortIndex(bookmarks.filter((b) => b.folderId === resolved));
+      const sortIdx =
+        resolved === null
+          ? nextSortIndex([
+              ...bookmarks.filter((b) => b.folderId === null),
+              ...folders,
+            ])
+          : nextSortIndex(bookmarks.filter((b) => b.folderId === resolved));
 
       const newBookmark: BookmarkItem = {
         id: generateId(),
@@ -663,9 +682,7 @@ export const useBookmarksStore = create<BookmarksState>((set, get) => {
 
       set({
         bookmarks: bookmarks.map((b) =>
-          b.id === id
-            ? { ...b, name: truncate(trimmed, MAX_NAME_LENGTH) }
-            : b,
+          b.id === id ? { ...b, name: truncate(trimmed, MAX_NAME_LENGTH) } : b,
         ),
       });
       persist();
@@ -683,9 +700,13 @@ export const useBookmarksStore = create<BookmarksState>((set, get) => {
 
       if (index !== undefined && resolved === null) {
         // [C1] Indexed insert at ROOT — siblings = combined root set (excl. moved item)
-        const combined = rootSiblings(bookmarks, folders)
-          .filter((item) => item.id !== id);
-        const reindex = reindexSiblings(combined, Math.max(0, Math.min(index, combined.length)));
+        const combined = rootSiblings(bookmarks, folders).filter(
+          (item) => item.id !== id,
+        );
+        const reindex = reindexSiblings(
+          combined,
+          Math.max(0, Math.min(index, combined.length)),
+        );
         const targetIdx = Math.max(0, Math.min(index, combined.length));
         reindex.set(id, targetIdx);
         const updated = applyRootReindex(reindex, bookmarks, folders);
@@ -704,20 +725,29 @@ export const useBookmarksStore = create<BookmarksState>((set, get) => {
         const reindex = reindexSiblings(siblings, clamped);
         set({
           bookmarks: bookmarks.map((b) => {
-            if (b.id === id) return { ...b, folderId: resolved, sortIndex: clamped };
+            if (b.id === id)
+              return { ...b, folderId: resolved, sortIndex: clamped };
             const newIdx = reindex.get(b.id);
             return newIdx !== undefined ? { ...b, sortIndex: newIdx } : b;
           }),
         });
       } else {
         // Append to end — no indexed insert
-        const targetIdx = resolved === null
-          ? nextSortIndex(rootSiblings(bookmarks, folders)
-              .filter((item) => item.id !== id))
-          : nextSortIndex(bookmarks.filter((b) => b.folderId === resolved && b.id !== id));
+        const targetIdx =
+          resolved === null
+            ? nextSortIndex(
+                rootSiblings(bookmarks, folders).filter(
+                  (item) => item.id !== id,
+                ),
+              )
+            : nextSortIndex(
+                bookmarks.filter((b) => b.folderId === resolved && b.id !== id),
+              );
         set({
           bookmarks: bookmarks.map((b) =>
-            b.id === id ? { ...b, folderId: resolved, sortIndex: targetIdx } : b,
+            b.id === id
+              ? { ...b, folderId: resolved, sortIndex: targetIdx }
+              : b,
           ),
         });
       }
@@ -732,14 +762,25 @@ export const useBookmarksStore = create<BookmarksState>((set, get) => {
       if (bookmark.folderId === null) {
         // [C1] Root reorder — combined root bookmarks + folders
         const combined = rootSiblings(bookmarks, folders);
-        const reordered = reorderItems(combined, id, (item) => item.id, newIndex);
-        const indexMap = new Map(reordered.map((item) => [item.id, item.sortIndex]));
+        const reordered = reorderItems(
+          combined,
+          id,
+          (item) => item.id,
+          newIndex,
+        );
+        const indexMap = new Map(
+          reordered.map((item) => [item.id, item.sortIndex]),
+        );
         const updated = applyRootReindex(indexMap, bookmarks, folders);
         set(updated);
       } else {
         // Within-folder reorder — only bookmarks in that folder
-        const siblings = bookmarks.filter((b) => b.folderId === bookmark.folderId);
-        const others = bookmarks.filter((b) => b.folderId !== bookmark.folderId);
+        const siblings = bookmarks.filter(
+          (b) => b.folderId === bookmark.folderId,
+        );
+        const others = bookmarks.filter(
+          (b) => b.folderId !== bookmark.folderId,
+        );
         const reordered = reorderItems(siblings, id, (b) => b.id, newIndex);
         set({ bookmarks: [...others, ...reordered] });
       }
@@ -789,7 +830,11 @@ export const useBookmarksStore = create<BookmarksState>((set, get) => {
       const updatedBookmarks = bookmarks.map((b) => {
         if (b.folderId !== id) return b;
         const rank = orphanRank.get(b.id)!;
-        return { ...b, folderId: null as string | null, sortIndex: baseIdx + rank };
+        return {
+          ...b,
+          folderId: null as string | null,
+          sortIndex: baseIdx + rank,
+        };
       });
 
       set({ folders: survivingFolders, bookmarks: updatedBookmarks });
@@ -805,9 +850,7 @@ export const useBookmarksStore = create<BookmarksState>((set, get) => {
 
       set({
         folders: folders.map((f) =>
-          f.id === id
-            ? { ...f, name: truncate(trimmed, MAX_NAME_LENGTH) }
-            : f,
+          f.id === id ? { ...f, name: truncate(trimmed, MAX_NAME_LENGTH) } : f,
         ),
       });
       persist();
@@ -817,10 +860,13 @@ export const useBookmarksStore = create<BookmarksState>((set, get) => {
       const { bookmarks, folders, commands } = get();
       if (!folders.some((f) => f.id === id)) return;
 
-      const combined = [...rootSiblings(bookmarks, folders), ...commands]
-        .sort((a, b) => a.sortIndex - b.sortIndex);
+      const combined = [...rootSiblings(bookmarks, folders), ...commands].sort(
+        (a, b) => a.sortIndex - b.sortIndex,
+      );
       const reordered = reorderItems(combined, id, (item) => item.id, newIndex);
-      const indexMap = new Map(reordered.map((item) => [item.id, item.sortIndex]));
+      const indexMap = new Map(
+        reordered.map((item) => [item.id, item.sortIndex]),
+      );
       const updated = applyRootReindex(indexMap, bookmarks, folders);
       set({
         ...updated,
@@ -875,7 +921,15 @@ export const useBookmarksStore = create<BookmarksState>((set, get) => {
       if (!commands.some((c) => c.id === id)) return;
       set({
         commands: commands.map((c) =>
-          c.id === id ? { ...c, ...updates, name: updates.name ? truncate(updates.name.trim(), MAX_NAME_LENGTH) : c.name } : c,
+          c.id === id
+            ? {
+                ...c,
+                ...updates,
+                name: updates.name
+                  ? truncate(updates.name.trim(), MAX_NAME_LENGTH)
+                  : c.name,
+              }
+            : c,
         ),
       });
       persist();
@@ -885,10 +939,13 @@ export const useBookmarksStore = create<BookmarksState>((set, get) => {
       const { bookmarks, folders, commands } = get();
       if (!commands.some((c) => c.id === id)) return;
 
-      const combined = [...rootSiblings(bookmarks, folders), ...commands]
-        .sort((a, b) => a.sortIndex - b.sortIndex);
+      const combined = [...rootSiblings(bookmarks, folders), ...commands].sort(
+        (a, b) => a.sortIndex - b.sortIndex,
+      );
       const reordered = reorderItems(combined, id, (item) => item.id, newIndex);
-      const indexMap = new Map(reordered.map((item) => [item.id, item.sortIndex]));
+      const indexMap = new Map(
+        reordered.map((item) => [item.id, item.sortIndex]),
+      );
       const updated = applyRootReindex(indexMap, bookmarks, folders);
       set({
         ...updated,
@@ -927,7 +984,9 @@ export const useBookmarksStore = create<BookmarksState>((set, get) => {
       // Orphan commands to root
       set({
         commandGroups: commandGroups.filter((g) => g.id !== id),
-        commands: commands.map((c) => c.groupId === id ? { ...c, groupId: null } : c),
+        commands: commands.map((c) =>
+          c.groupId === id ? { ...c, groupId: null } : c,
+        ),
       });
       persist();
     },
@@ -953,16 +1012,21 @@ export const useBookmarksStore = create<BookmarksState>((set, get) => {
         .sort((a, b) => a.sortIndex - b.sortIndex);
     },
 
-    getRootItems: (): (BookmarkItem | BookmarkFolder | CommandBookmark | CommandGroup)[] => {
+    getRootItems: (): (
+      | BookmarkItem
+      | BookmarkFolder
+      | CommandBookmark
+      | CommandGroup
+    )[] => {
       const { bookmarks, folders, commands, commandGroups } = get();
       const rootBookmarks = bookmarks.filter((b) => b.folderId === null);
       const rootCommands = commands.filter((c) => c.groupId === null);
-      const items: (BookmarkItem | BookmarkFolder | CommandBookmark | CommandGroup)[] = [
-        ...rootBookmarks,
-        ...folders,
-        ...rootCommands,
-        ...commandGroups,
-      ];
+      const items: (
+        | BookmarkItem
+        | BookmarkFolder
+        | CommandBookmark
+        | CommandGroup
+      )[] = [...rootBookmarks, ...folders, ...rootCommands, ...commandGroups];
       return items.sort((a, b) => a.sortIndex - b.sortIndex);
     },
 
@@ -978,9 +1042,7 @@ export const useBookmarksStore = create<BookmarksState>((set, get) => {
       try {
         parsed = JSON.parse(json);
       } catch {
-        throw new Error(
-          "Invalid JSON: could not parse bookmarks import data.",
-        );
+        throw new Error("Invalid JSON: could not parse bookmarks import data.");
       }
 
       const data = parsed as Record<string, unknown>;
@@ -1008,8 +1070,8 @@ export const useBookmarksStore = create<BookmarksState>((set, get) => {
       }
 
       // [B3] Validate every item
-      const validatedBookmarks = data.bookmarks.map((item: unknown, i: number) =>
-        validateBookmarkItem(item, i),
+      const validatedBookmarks = data.bookmarks.map(
+        (item: unknown, i: number) => validateBookmarkItem(item, i),
       );
       const validatedFolders = data.folders.map((item: unknown, i: number) =>
         validateFolder(item, i),

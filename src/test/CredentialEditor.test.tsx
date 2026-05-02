@@ -31,9 +31,7 @@ describe("CredentialEditor", () => {
     expect(
       screen.getByTestId("credential-editor-username"),
     ).toBeInTheDocument();
-    expect(
-      screen.getByTestId("credential-editor-secret"),
-    ).toBeInTheDocument();
+    expect(screen.getByTestId("credential-editor-secret")).toBeInTheDocument();
     expect(screen.getByTestId("credential-editor-type")).toBeInTheDocument();
   });
 
@@ -100,10 +98,7 @@ describe("CredentialEditor", () => {
     render(<CredentialEditor onSave={onSave} onCancel={onCancel} />);
 
     await user.type(screen.getByTestId("credential-editor-name"), "Test");
-    await user.type(
-      screen.getByTestId("credential-editor-username"),
-      "admin",
-    );
+    await user.type(screen.getByTestId("credential-editor-username"), "admin");
     const saveBtn = screen.getByTestId("credential-editor-save");
     await user.click(saveBtn);
 
@@ -117,18 +112,9 @@ describe("CredentialEditor", () => {
     const user = userEvent.setup();
     render(<CredentialEditor onSave={onSave} onCancel={onCancel} />);
 
-    await user.type(
-      screen.getByTestId("credential-editor-name"),
-      "cred/prod",
-    );
-    await user.type(
-      screen.getByTestId("credential-editor-username"),
-      "admin",
-    );
-    await user.type(
-      screen.getByTestId("credential-editor-secret"),
-      "password",
-    );
+    await user.type(screen.getByTestId("credential-editor-name"), "cred/prod");
+    await user.type(screen.getByTestId("credential-editor-username"), "admin");
+    await user.type(screen.getByTestId("credential-editor-secret"), "password");
     await user.click(screen.getByTestId("credential-editor-save"));
 
     expect(
@@ -143,18 +129,9 @@ describe("CredentialEditor", () => {
     const user = userEvent.setup();
     render(<CredentialEditor onSave={onSave} onCancel={onCancel} />);
 
-    await user.type(
-      screen.getByTestId("credential-editor-name"),
-      "DC1 Admin",
-    );
-    await user.type(
-      screen.getByTestId("credential-editor-username"),
-      "admin",
-    );
-    await user.type(
-      screen.getByTestId("credential-editor-secret"),
-      "hunter2",
-    );
+    await user.type(screen.getByTestId("credential-editor-name"), "DC1 Admin");
+    await user.type(screen.getByTestId("credential-editor-username"), "admin");
+    await user.type(screen.getByTestId("credential-editor-secret"), "hunter2");
     await user.click(screen.getByTestId("credential-editor-save"));
 
     expect(onSave).toHaveBeenCalledWith({
@@ -170,14 +147,8 @@ describe("CredentialEditor", () => {
     const user = userEvent.setup();
     render(<CredentialEditor onSave={onSave} onCancel={onCancel} />);
 
-    await user.type(
-      screen.getByTestId("credential-editor-name"),
-      "SSH Key",
-    );
-    await user.type(
-      screen.getByTestId("credential-editor-username"),
-      "deploy",
-    );
+    await user.type(screen.getByTestId("credential-editor-name"), "SSH Key");
+    await user.type(screen.getByTestId("credential-editor-username"), "deploy");
     await user.type(
       screen.getByTestId("credential-editor-secret"),
       "passphrase",
@@ -304,11 +275,7 @@ describe("CredentialEditor", () => {
 
   it("disables buttons when saving", () => {
     render(
-      <CredentialEditor
-        onSave={onSave}
-        onCancel={onCancel}
-        isSaving={true}
-      />,
+      <CredentialEditor onSave={onSave} onCancel={onCancel} isSaving={true} />,
     );
 
     expect(screen.getByTestId("credential-editor-save")).toBeDisabled();
@@ -350,7 +317,10 @@ describe("CredentialEditor", () => {
     const overlay = screen.getByTestId("credential-editor");
     expect(overlay).toHaveAttribute("role", "dialog");
     expect(overlay).toHaveAttribute("aria-modal", "true");
-    expect(overlay).toHaveAttribute("aria-labelledby", "credential-editor-title");
+    expect(overlay).toHaveAttribute(
+      "aria-labelledby",
+      "credential-editor-title",
+    );
 
     // Title must have matching id
     const title = screen.getByText("New Credential");

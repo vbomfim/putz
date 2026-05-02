@@ -36,12 +36,10 @@ vi.mock("@tauri-apps/api/core", () => ({
 
 type ListenCallback = (event: { payload: unknown }) => void;
 const capturedListeners = new Map<string, ListenCallback>();
-const mockListen = vi.fn(
-  (event: string, callback: ListenCallback) => {
-    capturedListeners.set(event, callback);
-    return Promise.resolve(vi.fn());
-  },
-);
+const mockListen = vi.fn((event: string, callback: ListenCallback) => {
+  capturedListeners.set(event, callback);
+  return Promise.resolve(vi.fn());
+});
 vi.mock("@tauri-apps/api/event", () => ({
   listen: (...args: unknown[]) =>
     mockListen(args[0] as string, args[1] as ListenCallback),
@@ -150,8 +148,18 @@ vi.mock("../stores/layoutStore", () => ({
             id: "region-1",
             activeTabId: "tab-1",
             tabs: [
-              { id: "tab-1", type: "terminal", status: mockActiveTabStatus, sessionId: "s1" },
-              { id: "tab-2", type: "terminal", status: "connected", sessionId: "s2" },
+              {
+                id: "tab-1",
+                type: "terminal",
+                status: mockActiveTabStatus,
+                sessionId: "s1",
+              },
+              {
+                id: "tab-2",
+                type: "terminal",
+                status: "connected",
+                sessionId: "s2",
+              },
             ],
           },
         },
@@ -176,12 +184,10 @@ describe("Bug 1: Split pane terminal fitting", () => {
     mockInvoke.mockReset().mockResolvedValue(undefined);
     mockListen.mockReset();
     capturedListeners.clear();
-    mockListen.mockImplementation(
-      (event: string, callback: ListenCallback) => {
-        capturedListeners.set(event, callback);
-        return Promise.resolve(vi.fn());
-      },
-    );
+    mockListen.mockImplementation((event: string, callback: ListenCallback) => {
+      capturedListeners.set(event, callback);
+      return Promise.resolve(vi.fn());
+    });
   });
 
   afterEach(() => {
@@ -193,9 +199,7 @@ describe("Bug 1: Split pane terminal fitting", () => {
     // zero-dimension containers and retries at staggered intervals.
     // Since jsdom doesn't support xterm rendering, we test the pattern
     // exists in the source code as a structural assertion.
-    const { useTerminal } = await import(
-      "../components/Terminal/useTerminal"
-    );
+    const { useTerminal } = await import("../components/Terminal/useTerminal");
 
     // Verify the hook can be instantiated without errors
     // (the actual fit timing is a runtime behavior tested in integration)
@@ -234,12 +238,10 @@ describe("Bug 3: Credential Vault and SSH Key Manager wiring", () => {
     vi.clearAllMocks();
     mockInvoke.mockReset().mockResolvedValue(undefined);
     capturedListeners.clear();
-    mockListen.mockImplementation(
-      (event: string, callback: ListenCallback) => {
-        capturedListeners.set(event, callback);
-        return Promise.resolve(vi.fn());
-      },
-    );
+    mockListen.mockImplementation((event: string, callback: ListenCallback) => {
+      capturedListeners.set(event, callback);
+      return Promise.resolve(vi.fn());
+    });
   });
 
   it("menu-credential-vault event is handled without error", async () => {

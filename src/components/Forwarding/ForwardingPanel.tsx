@@ -15,11 +15,7 @@ import type {
   ForwardingRuleInput,
   ForwardingType,
 } from "./types";
-import {
-  FORWARDING_TYPE_LABELS,
-  formatBytes,
-  statusIndicator,
-} from "./types";
+import { FORWARDING_TYPE_LABELS, formatBytes, statusIndicator } from "./types";
 import {
   forwardingList,
   forwardingAdd,
@@ -101,7 +97,9 @@ export function ForwardingPanel({
 
   if (isLoading) {
     return (
-      <div className="forwarding-panel forwarding-loading">Loading tunnels…</div>
+      <div className="forwarding-panel forwarding-loading">
+        Loading tunnels…
+      </div>
     );
   }
 
@@ -238,8 +236,7 @@ function AdHocAddForm({ onAdd }: AdHocAddFormProps) {
       forwardingType: type,
       localPort: lp,
       remoteHost: type !== "dynamic" ? remoteHost.trim() : undefined,
-      remotePort:
-        type !== "dynamic" ? parseInt(remotePort, 10) : undefined,
+      remotePort: type !== "dynamic" ? parseInt(remotePort, 10) : undefined,
     });
   };
 

@@ -58,12 +58,8 @@ describe("SessionEditor", () => {
     const protocol = screen.getByTestId("session-editor-protocol");
     await user.selectOptions(protocol, "local");
 
-    expect(
-      screen.queryByTestId("session-editor-host"),
-    ).not.toBeInTheDocument();
-    expect(
-      screen.queryByTestId("session-editor-port"),
-    ).not.toBeInTheDocument();
+    expect(screen.queryByTestId("session-editor-host")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("session-editor-port")).not.toBeInTheDocument();
   });
 
   // ─── Validation ──────────────────────────────────────────
@@ -75,9 +71,7 @@ describe("SessionEditor", () => {
     const saveBtn = screen.getByTestId("session-editor-save");
     await user.click(saveBtn);
 
-    expect(
-      screen.getByTestId("session-editor-name-error"),
-    ).toBeInTheDocument();
+    expect(screen.getByTestId("session-editor-name-error")).toBeInTheDocument();
     expect(onSave).not.toHaveBeenCalled();
   });
 
@@ -91,9 +85,7 @@ describe("SessionEditor", () => {
     const saveBtn = screen.getByTestId("session-editor-save");
     await user.click(saveBtn);
 
-    expect(
-      screen.getByTestId("session-editor-host-error"),
-    ).toBeInTheDocument();
+    expect(screen.getByTestId("session-editor-host-error")).toBeInTheDocument();
   });
 
   it("validates port range (1-65535)", async () => {
@@ -128,9 +120,7 @@ describe("SessionEditor", () => {
     const saveBtn = screen.getByTestId("session-editor-save");
     await user.click(saveBtn);
 
-    expect(
-      screen.getByTestId("session-editor-name-error"),
-    ).toBeInTheDocument();
+    expect(screen.getByTestId("session-editor-name-error")).toBeInTheDocument();
   });
 
   // ─── Successful submit ──────────────────────────────────
@@ -138,11 +128,7 @@ describe("SessionEditor", () => {
   it("[AC-1] calls onSave with CreateSessionInput on valid submit", async () => {
     const user = userEvent.setup();
     render(
-      <SessionEditor
-        onSave={onSave}
-        onCancel={onCancel}
-        folderId="folder-1"
-      />,
+      <SessionEditor onSave={onSave} onCancel={onCancel} folderId="folder-1" />,
     );
 
     await user.type(screen.getByTestId("session-editor-name"), "New Server");
@@ -176,11 +162,7 @@ describe("SessionEditor", () => {
     };
 
     render(
-      <SessionEditor
-        session={session}
-        onSave={onSave}
-        onCancel={onCancel}
-      />,
+      <SessionEditor session={session} onSave={onSave} onCancel={onCancel} />,
     );
 
     expect(screen.getByText("Edit Session")).toBeInTheDocument();
@@ -207,11 +189,7 @@ describe("SessionEditor", () => {
     };
 
     render(
-      <SessionEditor
-        session={session}
-        onSave={onSave}
-        onCancel={onCancel}
-      />,
+      <SessionEditor session={session} onSave={onSave} onCancel={onCancel} />,
     );
 
     expect(screen.getByTestId("session-editor-save")).toHaveTextContent(
@@ -233,11 +211,7 @@ describe("SessionEditor", () => {
 
   it("disables buttons when saving", () => {
     render(
-      <SessionEditor
-        onSave={onSave}
-        onCancel={onCancel}
-        isSaving={true}
-      />,
+      <SessionEditor onSave={onSave} onCancel={onCancel} isSaving={true} />,
     );
 
     expect(screen.getByTestId("session-editor-save")).toBeDisabled();

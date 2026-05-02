@@ -8,16 +8,16 @@
  * @module
  */
 
-import type { VisualExpression } from '../../protocol';
-import type { Theme } from '../store/uiStore';
+import type { VisualExpression } from "../../protocol";
+import type { Theme } from "../store/uiStore";
 
 /** Padding around exported SVG in world units. */
 const SVG_PADDING = 20;
 
 /** Background colors per theme. */
 const BACKGROUND_COLORS: Record<Theme, string> = {
-  light: '#ffffff',
-  dark: '#1e1e1e',
+  light: "#ffffff",
+  dark: "#1e1e1e",
 };
 
 /**
@@ -86,8 +86,8 @@ export function buildSvgString(
   return [
     `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${vbX} ${vbY} ${vbW} ${vbH}" width="${vbW}" height="${vbH}">`,
     ...elements,
-    '</svg>',
-  ].join('\n');
+    "</svg>",
+  ].join("\n");
 }
 
 /**
@@ -100,14 +100,17 @@ function renderExpressionToSvg(expr: VisualExpression): string {
   const { x, y } = expr.position;
   const { width, height } = expr.size;
   const stroke = expr.style.strokeColor;
-  const fill = expr.style.backgroundColor === 'transparent' ? 'none' : expr.style.backgroundColor;
+  const fill =
+    expr.style.backgroundColor === "transparent"
+      ? "none"
+      : expr.style.backgroundColor;
   const strokeWidth = expr.style.strokeWidth;
 
   switch (expr.kind) {
-    case 'rectangle':
+    case "rectangle":
       return `<rect x="${x}" y="${y}" width="${width}" height="${height}" stroke="${stroke}" fill="${fill}" stroke-width="${strokeWidth}" />`;
 
-    case 'ellipse': {
+    case "ellipse": {
       const cx = x + width / 2;
       const cy = y + height / 2;
       const rx = width / 2;
@@ -115,7 +118,7 @@ function renderExpressionToSvg(expr: VisualExpression): string {
       return `<ellipse cx="${cx}" cy="${cy}" rx="${rx}" ry="${ry}" stroke="${stroke}" fill="${fill}" stroke-width="${strokeWidth}" />`;
     }
 
-    case 'diamond': {
+    case "diamond": {
       const cx = x + width / 2;
       const cy = y + height / 2;
       const points = [
@@ -123,37 +126,39 @@ function renderExpressionToSvg(expr: VisualExpression): string {
         `${x + width},${cy}`,
         `${cx},${y + height}`,
         `${x},${cy}`,
-      ].join(' ');
+      ].join(" ");
       return `<polygon points="${points}" stroke="${stroke}" fill="${fill}" stroke-width="${strokeWidth}" />`;
     }
 
-    case 'line': {
-      const data = expr.data as { kind: 'line'; points: number[][] };
+    case "line": {
+      const data = expr.data as { kind: "line"; points: number[][] };
       if (data.points.length >= 2) {
         const [x1, y1] = data.points[0]!;
         const [x2, y2] = data.points[data.points.length - 1]!;
         return `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="${stroke}" stroke-width="${strokeWidth}" />`;
       }
-      return '';
+      return "";
     }
 
-    case 'arrow': {
-      const data = expr.data as { kind: 'arrow'; points: number[][] };
+    case "arrow": {
+      const data = expr.data as { kind: "arrow"; points: number[][] };
       if (data.points.length >= 2) {
-        const pathPoints = data.points.map(([px, py]) => `${px},${py}`).join(' ');
+        const pathPoints = data.points
+          .map(([px, py]) => `${px},${py}`)
+          .join(" ");
         return `<polyline points="${pathPoints}" stroke="${stroke}" fill="none" stroke-width="${strokeWidth}" marker-end="url(#arrowhead)" />`;
       }
-      return '';
+      return "";
     }
 
-    case 'text': {
-      const data = expr.data as unknown as { kind: 'text'; content: string };
+    case "text": {
+      const data = expr.data as unknown as { kind: "text"; content: string };
       const fontSize = expr.style.fontSize ?? 16;
       return `<text x="${x}" y="${y + fontSize}" font-size="${fontSize}" fill="${stroke}">${escapeXml(data.content)}</text>`;
     }
 
-    case 'sticky-note':
-      return `<rect x="${x}" y="${y}" width="${width}" height="${height}" stroke="${stroke}" fill="${fill || '#FFEB3B'}" stroke-width="${strokeWidth}" rx="4" />`;
+    case "sticky-note":
+      return `<rect x="${x}" y="${y}" width="${width}" height="${height}" stroke="${stroke}" fill="${fill || "#FFEB3B"}" stroke-width="${strokeWidth}" rx="4" />`;
 
     default:
       // Fallback for unsupported kinds (composites, freehand, image)
@@ -164,11 +169,11 @@ function renderExpressionToSvg(expr: VisualExpression): string {
 /** Escape special XML characters for safe embedding. */
 function escapeXml(text: string): string {
   return text
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&apos;');
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&apos;");
 }
 
 /**
@@ -178,9 +183,9 @@ function escapeXml(text: string): string {
  * @param filename - Name for the downloaded file
  */
 export function downloadSvg(svgContent: string, filename: string): void {
-  const blob = new Blob([svgContent], { type: 'image/svg+xml;charset=utf-8' });
+  const blob = new Blob([svgContent], { type: "image/svg+xml;charset=utf-8" });
   const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
+  const a = document.createElement("a");
   a.href = url;
   a.download = filename;
   document.body.appendChild(a);

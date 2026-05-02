@@ -17,7 +17,9 @@ export async function keyList(): Promise<SSHKeyMeta[]> {
  * Returns the key metadata (public key, fingerprint, algorithm).
  * The private key is stored on disk — NEVER returned via IPC.
  */
-export async function keyGenerate(input: GenerateKeyInput): Promise<SSHKeyMeta> {
+export async function keyGenerate(
+  input: GenerateKeyInput,
+): Promise<SSHKeyMeta> {
   return invoke<SSHKeyMeta>("key_generate", { input });
 }
 

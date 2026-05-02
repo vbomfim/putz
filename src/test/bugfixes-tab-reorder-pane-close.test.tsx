@@ -225,9 +225,7 @@ describe("Bug 5: Split pane close button", () => {
     };
 
     await act(async () => {
-      render(
-        <SplitContainer layout={layout} tabId="tab-1" isActive={true} />,
-      );
+      render(<SplitContainer layout={layout} tabId="tab-1" isActive={true} />);
     });
 
     const closeBtn = screen.queryByTestId("pane-close-btn");
@@ -246,9 +244,7 @@ describe("Bug 5: Split pane close button", () => {
     };
 
     await act(async () => {
-      render(
-        <SplitContainer layout={layout} tabId="tab-1" isActive={true} />,
-      );
+      render(<SplitContainer layout={layout} tabId="tab-1" isActive={true} />);
     });
 
     const closeBtns = screen.getAllByTestId("pane-close-btn");
@@ -267,9 +263,7 @@ describe("Bug 5: Split pane close button", () => {
     };
 
     await act(async () => {
-      render(
-        <SplitContainer layout={layout} tabId="tab-1" isActive={true} />,
-      );
+      render(<SplitContainer layout={layout} tabId="tab-1" isActive={true} />);
     });
 
     const closeBtns = screen.getAllByTestId("pane-close-btn");
@@ -298,9 +292,7 @@ describe("Bug 5: Split pane close button", () => {
     };
 
     await act(async () => {
-      render(
-        <SplitContainer layout={layout} tabId="tab-1" isActive={true} />,
-      );
+      render(<SplitContainer layout={layout} tabId="tab-1" isActive={true} />);
     });
 
     // All 3 leaf nodes are inside splits → all should have close buttons

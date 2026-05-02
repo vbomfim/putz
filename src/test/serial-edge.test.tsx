@@ -8,7 +8,10 @@
  */
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
-import { SerialConfig, DEFAULT_SERIAL_CONFIG } from "../components/Terminal/SerialConfig";
+import {
+  SerialConfig,
+  DEFAULT_SERIAL_CONFIG,
+} from "../components/Terminal/SerialConfig";
 import type { SerialConfigValues } from "../components/Terminal/SerialConfig";
 import type { SerialPortInfo } from "../components/Terminal/connectionTypes";
 
@@ -95,8 +98,8 @@ describe("SerialConfig Edge Cases", () => {
     });
 
     // onChange should not have been called with NaN
-    const nanCalls = onChange.mock.calls.filter(
-      (call) => isNaN(call[0].baudRate),
+    const nanCalls = onChange.mock.calls.filter((call) =>
+      isNaN(call[0].baudRate),
     );
     expect(nanCalls).toHaveLength(0);
   });
@@ -190,11 +193,24 @@ describe("SerialConfig Edge Cases", () => {
 
     const select = screen.getByTestId("serial-baud-select");
     const options = select.querySelectorAll("option");
-    const optionValues = Array.from(options).map((opt) => opt.getAttribute("value"));
+    const optionValues = Array.from(options).map((opt) =>
+      opt.getAttribute("value"),
+    );
 
     const expectedRates = [
-      "300", "1200", "2400", "4800", "9600", "19200",
-      "38400", "57600", "115200", "230400", "460800", "921600", "custom",
+      "300",
+      "1200",
+      "2400",
+      "4800",
+      "9600",
+      "19200",
+      "38400",
+      "57600",
+      "115200",
+      "230400",
+      "460800",
+      "921600",
+      "custom",
     ];
 
     for (const rate of expectedRates) {
@@ -206,8 +222,8 @@ describe("SerialConfig Edge Cases", () => {
     renderConfig();
 
     const select = screen.getByTestId("serial-data-bits");
-    const options = Array.from(select.querySelectorAll("option")).map(
-      (opt) => opt.getAttribute("value"),
+    const options = Array.from(select.querySelectorAll("option")).map((opt) =>
+      opt.getAttribute("value"),
     );
 
     expect(options).toEqual(["five", "six", "seven", "eight"]);
@@ -217,8 +233,8 @@ describe("SerialConfig Edge Cases", () => {
     renderConfig();
 
     const select = screen.getByTestId("serial-parity");
-    const options = Array.from(select.querySelectorAll("option")).map(
-      (opt) => opt.getAttribute("value"),
+    const options = Array.from(select.querySelectorAll("option")).map((opt) =>
+      opt.getAttribute("value"),
     );
 
     expect(options).toEqual(["none", "even", "odd"]);
@@ -228,8 +244,8 @@ describe("SerialConfig Edge Cases", () => {
     renderConfig();
 
     const select = screen.getByTestId("serial-stop-bits");
-    const options = Array.from(select.querySelectorAll("option")).map(
-      (opt) => opt.getAttribute("value"),
+    const options = Array.from(select.querySelectorAll("option")).map((opt) =>
+      opt.getAttribute("value"),
     );
 
     expect(options).toEqual(["one", "two"]);
@@ -239,8 +255,8 @@ describe("SerialConfig Edge Cases", () => {
     renderConfig();
 
     const select = screen.getByTestId("serial-flow-control");
-    const options = Array.from(select.querySelectorAll("option")).map(
-      (opt) => opt.getAttribute("value"),
+    const options = Array.from(select.querySelectorAll("option")).map((opt) =>
+      opt.getAttribute("value"),
     );
 
     expect(options).toEqual(["none", "hardware", "software"]);
@@ -262,7 +278,9 @@ describe("SerialConfig Edge Cases", () => {
 
   it("[EDGE] error span rendered with correct message", () => {
     renderConfig({}, defaultOnChange, { port: "Port is required" });
-    expect(screen.getByTestId("serial-port-error")).toHaveTextContent("Port is required");
+    expect(screen.getByTestId("serial-port-error")).toHaveTextContent(
+      "Port is required",
+    );
   });
 
   // =====================================================================

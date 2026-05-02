@@ -9,10 +9,10 @@
  * @module
  */
 
-import type { VisualExpression, SlideData } from '../../../protocol';
-import type { RoughCanvas } from 'roughjs/bin/canvas.js';
-import { mapStyleToRoughOptions } from '../styleMapper';
-import { registerCompositeRenderer } from '../compositeRegistry';
+import type { VisualExpression, SlideData } from "../../../protocol";
+import type { RoughCanvas } from "roughjs/bin/canvas.js";
+import { mapStyleToRoughOptions } from "../styleMapper";
+import { registerCompositeRenderer } from "../compositeRegistry";
 
 // ── Constants ────────────────────────────────────────────────
 
@@ -20,7 +20,7 @@ import { registerCompositeRenderer } from '../compositeRegistry';
 const PADDING = 24;
 
 /** Default font family. */
-const FONT_FAMILY = 'sans-serif';
+const FONT_FAMILY = "sans-serif";
 
 /** Title font size for "title" layout (large centered). */
 const TITLE_LARGE_FONT_SIZE = 28;
@@ -35,7 +35,7 @@ const BULLET_FONT_SIZE = 14;
 const BULLET_LINE_HEIGHT = 28;
 
 /** Bullet character. */
-const BULLET_CHAR = '• ';
+const BULLET_CHAR = "• ";
 
 /** Space between title and content area. */
 const TITLE_GAP = 16;
@@ -62,18 +62,33 @@ export function renderSlide(
   ctx.save();
 
   // ── Slide border ───────────────────────────────────────────
-  const borderDrawable = rc.rectangle(originX, originY, width, height, roughOptions);
+  const borderDrawable = rc.rectangle(
+    originX,
+    originY,
+    width,
+    height,
+    roughOptions,
+  );
   rc.draw(borderDrawable);
 
   switch (data.layout) {
-    case 'title':
+    case "title":
       renderTitleLayout(ctx, data, originX, originY, width, height);
       break;
-    case 'bullets':
+    case "bullets":
       renderBulletsLayout(ctx, data, originX, originY, width, height);
       break;
-    case 'split':
-      renderSplitLayout(ctx, rc, data, originX, originY, width, height, roughOptions);
+    case "split":
+      renderSplitLayout(
+        ctx,
+        rc,
+        data,
+        originX,
+        originY,
+        width,
+        height,
+        roughOptions,
+      );
       break;
     default:
       renderBulletsLayout(ctx, data, originX, originY, width, height);
@@ -95,9 +110,9 @@ function renderTitleLayout(
   h: number,
 ): void {
   ctx.font = `bold ${TITLE_LARGE_FONT_SIZE}px ${FONT_FAMILY}`;
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  ctx.fillStyle = '#000000';
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillStyle = "#000000";
   ctx.fillText(data.title, x + w / 2, y + h / 2);
 }
 
@@ -114,9 +129,9 @@ function renderBulletsLayout(
 ): void {
   // Title
   ctx.font = `bold ${TITLE_FONT_SIZE}px ${FONT_FAMILY}`;
-  ctx.textAlign = 'left';
-  ctx.textBaseline = 'top';
-  ctx.fillStyle = '#000000';
+  ctx.textAlign = "left";
+  ctx.textBaseline = "top";
+  ctx.fillStyle = "#000000";
   ctx.fillText(data.title, x + PADDING, y + PADDING);
 
   // Bullets
@@ -144,9 +159,9 @@ function renderSplitLayout(
 ): void {
   // Title
   ctx.font = `bold ${TITLE_FONT_SIZE}px ${FONT_FAMILY}`;
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'top';
-  ctx.fillStyle = '#000000';
+  ctx.textAlign = "center";
+  ctx.textBaseline = "top";
+  ctx.fillStyle = "#000000";
   ctx.fillText(data.title, x + w / 2, y + PADDING);
 
   // Vertical divider
@@ -161,8 +176,8 @@ function renderSplitLayout(
   const rightBullets = data.bullets.slice(midIdx);
 
   ctx.font = `${BULLET_FONT_SIZE}px ${FONT_FAMILY}`;
-  ctx.textAlign = 'left';
-  ctx.textBaseline = 'top';
+  ctx.textAlign = "left";
+  ctx.textBaseline = "top";
 
   // Left column
   let bulletY = divTop;
@@ -181,4 +196,4 @@ function renderSplitLayout(
 
 // ── Self-registration ────────────────────────────────────────
 
-registerCompositeRenderer('slide', renderSlide);
+registerCompositeRenderer("slide", renderSlide);

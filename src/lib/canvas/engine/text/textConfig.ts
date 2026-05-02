@@ -13,7 +13,7 @@
  * @module
  */
 
-import type { VisualExpression } from '../../protocol';
+import type { VisualExpression } from "../../protocol";
 
 // ── Constants (mirrored from primitiveRenderer.ts) ───────────
 // These MUST stay in sync with the renderer. They are intentionally
@@ -24,7 +24,7 @@ import type { VisualExpression } from '../../protocol';
 const DEFAULT_FONT_SIZE = 16;
 
 /** Default font family when not specified. */
-const DEFAULT_FONT_FAMILY = 'Architects Daughter, cursive';
+const DEFAULT_FONT_FAMILY = "Architects Daughter, cursive";
 
 /** Padding inside sticky notes for text (px). */
 const STICKY_NOTE_PADDING = 12;
@@ -46,7 +46,7 @@ export interface TextConfig {
   /** The text content to edit/display. */
   text: string;
   /** Data field name where text is stored ('text' or 'label'). */
-  field: 'text' | 'label';
+  field: "text" | "label";
   /** World-space X position of the text area. */
   worldX: number;
   /** World-space Y position of the text area. */
@@ -62,9 +62,9 @@ export interface TextConfig {
   /** Text color (CSS color string). */
   color: string;
   /** Horizontal text alignment. */
-  textAlign: 'left' | 'center';
+  textAlign: "left" | "center";
   /** Vertical text alignment: top for text/sticky, middle for shape labels. */
-  verticalAlign: 'top' | 'middle';
+  verticalAlign: "top" | "middle";
   /** Whether empty text should delete the expression. */
   deleteOnEmpty: boolean;
   /** Background for the textarea (e.g., sticky note color). */
@@ -89,15 +89,15 @@ export function resolveTextConfig(
   const { kind } = expression;
 
   switch (kind) {
-    case 'text':
+    case "text":
       return resolveTextKind(expression);
-    case 'sticky-note':
+    case "sticky-note":
       return resolveStickyNoteKind(expression);
-    case 'rectangle':
-    case 'ellipse':
-    case 'diamond':
+    case "rectangle":
+    case "ellipse":
+    case "diamond":
       return resolveShapeLabelKind(expression);
-    case 'stencil':
+    case "stencil":
       return resolveStencilKind(expression);
     default:
       return null;
@@ -117,7 +117,7 @@ function resolveTextKind(expr: VisualExpression): TextConfig {
     text: string;
     fontSize: number;
     fontFamily: string;
-    textAlign: 'left' | 'center' | 'right';
+    textAlign: "left" | "center" | "right";
   };
 
   // Inset text so it doesn't overlap resize handles
@@ -125,7 +125,7 @@ function resolveTextKind(expr: VisualExpression): TextConfig {
 
   return {
     text: data.text,
-    field: 'text',
+    field: "text",
     worldX: expr.position.x + pad,
     worldY: expr.position.y + pad,
     worldWidth: expr.size.width - pad * 2,
@@ -133,10 +133,13 @@ function resolveTextKind(expr: VisualExpression): TextConfig {
     fontSize: data.fontSize,
     fontFamily: data.fontFamily,
     color: expr.style.strokeColor,
-    textAlign: data.textAlign === 'right' ? 'left' : data.textAlign as 'left' | 'center',
-    verticalAlign: 'top',
+    textAlign:
+      data.textAlign === "right"
+        ? "left"
+        : (data.textAlign as "left" | "center"),
+    verticalAlign: "top",
     deleteOnEmpty: true,
-    background: 'white',
+    background: "white",
   };
 }
 
@@ -154,16 +157,16 @@ function resolveStickyNoteKind(expr: VisualExpression): TextConfig {
 
   return {
     text: data.text,
-    field: 'text',
+    field: "text",
     worldX: expr.position.x + STICKY_NOTE_PADDING,
     worldY: expr.position.y + STICKY_NOTE_PADDING,
     worldWidth: expr.size.width - STICKY_NOTE_PADDING * 2,
     worldHeight: expr.size.height - STICKY_NOTE_PADDING * 2,
     fontSize,
     fontFamily,
-    color: '#000000',
-    textAlign: 'left',
-    verticalAlign: 'top',
+    color: "#000000",
+    textAlign: "left",
+    verticalAlign: "top",
     deleteOnEmpty: true,
     background: data.color,
   };
@@ -189,8 +192,8 @@ function resolveShapeLabelKind(expr: VisualExpression): TextConfig {
   }
 
   return {
-    text: data.label ?? '',
-    field: 'label',
+    text: data.label ?? "",
+    field: "label",
     worldX: expr.position.x,
     worldY: expr.position.y,
     worldWidth: expr.size.width,
@@ -198,10 +201,10 @@ function resolveShapeLabelKind(expr: VisualExpression): TextConfig {
     fontSize,
     fontFamily,
     color: expr.style.strokeColor,
-    textAlign: 'center',
-    verticalAlign: 'middle',
+    textAlign: "center",
+    verticalAlign: "middle",
     deleteOnEmpty: false,
-    background: 'transparent',
+    background: "transparent",
   };
 }
 
@@ -218,9 +221,13 @@ function resolveShapeLabelKind(expr: VisualExpression): TextConfig {
  * Otherwise the auto-scale formula (proportional to icon size) applies.
  */
 function resolveStencilKind(expr: VisualExpression): TextConfig {
-  const data = expr.data as { label?: string; labelPosition?: string; labelFontSize?: number };
+  const data = expr.data as {
+    label?: string;
+    labelPosition?: string;
+    labelFontSize?: number;
+  };
   const fontFamily = expr.style.fontFamily ?? DEFAULT_FONT_FAMILY;
-  const position = data.labelPosition ?? 'below';
+  const position = data.labelPosition ?? "below";
 
   // Font size: explicit labelFontSize bypasses auto-scaling.
   let fontSize: number;
@@ -240,35 +247,35 @@ function resolveStencilKind(expr: VisualExpression): TextConfig {
   let worldY = expr.position.y + expr.size.height + gap;
   let worldWidth = expr.size.width;
   let worldHeight = fontSize * 1.4;
-  let textAlign: 'left' | 'center' = 'center';
-  let verticalAlign: 'top' | 'middle' = 'top';
+  let textAlign: "left" | "center" = "center";
+  let verticalAlign: "top" | "middle" = "top";
 
-  if (position === 'top-left') {
+  if (position === "top-left") {
     worldX = expr.position.x + 8;
     worldY = expr.position.y + 8;
     worldWidth = expr.size.width - 16;
     worldHeight = fontSize * 1.4;
-    textAlign = 'left';
-    verticalAlign = 'top';
-  } else if (position === 'top-center') {
+    textAlign = "left";
+    verticalAlign = "top";
+  } else if (position === "top-center") {
     worldX = expr.position.x;
     worldY = expr.position.y + 8;
     worldWidth = expr.size.width;
     worldHeight = fontSize * 1.4;
-    textAlign = 'center';
-    verticalAlign = 'top';
-  } else if (position === 'center') {
+    textAlign = "center";
+    verticalAlign = "top";
+  } else if (position === "center") {
     worldX = expr.position.x;
     worldY = expr.position.y;
     worldWidth = expr.size.width;
     worldHeight = expr.size.height;
-    textAlign = 'center';
-    verticalAlign = 'middle';
+    textAlign = "center";
+    verticalAlign = "middle";
   }
 
   return {
-    text: data.label ?? '',
-    field: 'label',
+    text: data.label ?? "",
+    field: "label",
     worldX,
     worldY,
     worldWidth,
@@ -279,6 +286,6 @@ function resolveStencilKind(expr: VisualExpression): TextConfig {
     textAlign,
     verticalAlign,
     deleteOnEmpty: false,
-    background: 'transparent',
+    background: "transparent",
   };
 }

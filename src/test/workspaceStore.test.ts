@@ -207,7 +207,13 @@ describe("workspaceStore", () => {
         "region-1": {
           id: "region-1",
           tabs: [
-            { id: "tab-1", type: "terminal", title: "Terminal 1", sessionId: "s1", isSearchOpen: false },
+            {
+              id: "tab-1",
+              type: "terminal",
+              title: "Terminal 1",
+              sessionId: "s1",
+              isSearchOpen: false,
+            },
           ],
           activeTabId: "tab-1",
         },
@@ -217,7 +223,9 @@ describe("workspaceStore", () => {
 
     useWorkspaceStore.getState().addWorkspace("Dev");
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const _devId = useWorkspaceStore.getState().workspaces.find((w) => w.name === "Dev")!.id;
+    const _devId = useWorkspaceStore
+      .getState()
+      .workspaces.find((w) => w.name === "Dev")!.id;
 
     // The old workspace (default) should have saved the layout
     const defaultWs = useWorkspaceStore
@@ -225,14 +233,18 @@ describe("workspaceStore", () => {
       .workspaces.find((w) => w.id === "default");
     expect(defaultWs?.savedLayout).not.toBeNull();
     expect(defaultWs?.savedLayout?.regions["region-1"]?.tabs).toHaveLength(1);
-    expect(defaultWs?.savedLayout?.regions["region-1"]?.tabs[0].id).toBe("tab-1");
+    expect(defaultWs?.savedLayout?.regions["region-1"]?.tabs[0].id).toBe(
+      "tab-1",
+    );
   });
 
   it("switchWorkspace restores target workspace layout to layoutStore", () => {
     // Add a workspace with pre-saved layout
     useWorkspaceStore.getState().addWorkspace("Dev");
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const _devId = useWorkspaceStore.getState().workspaces.find((w) => w.name === "Dev")!.id;
+    const _devId = useWorkspaceStore
+      .getState()
+      .workspaces.find((w) => w.name === "Dev")!.id;
 
     // Manually set saved layout in the default workspace (simulating previous state)
     useWorkspaceStore.setState((state) => ({
@@ -246,7 +258,13 @@ describe("workspaceStore", () => {
                   "r-saved": {
                     id: "r-saved",
                     tabs: [
-                      { id: "saved-tab-1", type: "terminal" as const, title: "Saved Terminal", sessionId: "saved-s1", isSearchOpen: false },
+                      {
+                        id: "saved-tab-1",
+                        type: "terminal" as const,
+                        title: "Saved Terminal",
+                        sessionId: "saved-s1",
+                        isSearchOpen: false,
+                      },
                     ],
                     activeTabId: "saved-tab-1",
                   },

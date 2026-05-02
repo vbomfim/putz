@@ -14,7 +14,12 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { nanoid } from "nanoid";
-import { Canvas, useCanvasStoreApi, CanvasStoreProvider, computeFitToContent } from "../../lib/canvas/engine";
+import {
+  Canvas,
+  useCanvasStoreApi,
+  CanvasStoreProvider,
+  computeFitToContent,
+} from "../../lib/canvas/engine";
 import type { VisualExpression } from "../../lib/canvas/protocol";
 import type { DrawioPage } from "../../lib/canvas/protocol";
 import { drawioToPages, pagesToDrawio } from "../../lib/canvas/protocol";
@@ -45,7 +50,13 @@ interface PageCache {
 /**
  * Inner component that uses the canvas store (must be inside CanvasStoreProvider).
  */
-function DrawioEditorInner({ filePath, isActive }: { filePath: string; isActive: boolean }) {
+function DrawioEditorInner({
+  filePath,
+  isActive,
+}: {
+  filePath: string;
+  isActive: boolean;
+}) {
   const storeApi = useCanvasStoreApi();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -70,25 +81,36 @@ function DrawioEditorInner({ filePath, isActive }: { filePath: string; isActive:
   }, [storeApi]);
 
   /** Load expressions into the store from a page cache or raw expressions. */
-  const loadPageIntoStore = useCallback((cache: PageCache | null, exprs?: VisualExpression[]) => {
-    if (cache) {
-      storeApi.getState().replaceState(cache.expressions, cache.order);
-      storeApi.getState().setCamera(cache.camera);
-    } else if (exprs) {
-      const exprMap: Record<string, VisualExpression> = {};
-      const order: string[] = [];
-      for (const expr of exprs) {
-        exprMap[expr.id] = expr;
-        order.push(expr.id);
+  const loadPageIntoStore = useCallback(
+    (cache: PageCache | null, exprs?: VisualExpression[]) => {
+      if (cache) {
+        storeApi.getState().replaceState(cache.expressions, cache.order);
+        storeApi.getState().setCamera(cache.camera);
+      } else if (exprs) {
+        const exprMap: Record<string, VisualExpression> = {};
+        const order: string[] = [];
+        for (const expr of exprs) {
+          exprMap[expr.id] = expr;
+          order.push(expr.id);
+        }
+        const cam =
+          exprs.length > 0
+            ? computeFitToContent(
+                exprMap,
+                order,
+                window.innerWidth,
+                window.innerHeight,
+              )
+            : { x: 0, y: 0, zoom: 1 };
+        const ordered = order
+          .map((id) => exprMap[id])
+          .filter(Boolean) as VisualExpression[];
+        storeApi.getState().replaceState(ordered, order);
+        storeApi.getState().setCamera(cam);
       }
-      const cam = exprs.length > 0
-        ? computeFitToContent(exprMap, order, window.innerWidth, window.innerHeight)
-        : { x: 0, y: 0, zoom: 1 };
-      const ordered = order.map((id) => exprMap[id]).filter(Boolean) as VisualExpression[];
-      storeApi.getState().replaceState(ordered, order);
-      storeApi.getState().setCamera(cam);
-    }
-  }, [storeApi]);
+    },
+    [storeApi],
+  );
 
   /** Load file from disk into the store. */
   const loadFromDisk = useCallback(async () => {
@@ -98,7 +120,7 @@ function DrawioEditorInner({ filePath, isActive }: { filePath: string; isActive:
       lastMtimeRef.current = mtime;
 
       if (!xml.trim()) {
-        setPages([{ id: nanoid(), name: 'Page 1', expressions: [] }]);
+        setPages([{ id: nanoid(), name: "Page 1", expressions: [] }]);
         storeApi.getState().replaceState([], []);
         setActivePageIndex(0);
         pageCacheRef.current.clear();
@@ -108,7 +130,7 @@ function DrawioEditorInner({ filePath, isActive }: { filePath: string; isActive:
 
       const loadedPages = drawioToPages(xml);
       if (loadedPages.length === 0) {
-        setPages([{ id: nanoid(), name: 'Page 1', expressions: [] }]);
+        setPages([{ id: nanoid(), name: "Page 1", expressions: [] }]);
         storeApi.getState().replaceState([], []);
       } else {
         setPages(loadedPages);
@@ -124,22 +146,25 @@ function DrawioEditorInner({ filePath, isActive }: { filePath: string; isActive:
   }, [filePath, storeApi, loadPageIntoStore]);
 
   /** Switch to a different page. */
-  const switchPage = useCallback((targetIndex: number) => {
-    if (targetIndex === activePageIndex) return;
+  const switchPage = useCallback(
+    (targetIndex: number) => {
+      if (targetIndex === activePageIndex) return;
 
-    // Save current page state to cache
-    pageCacheRef.current.set(activePageIndex, snapshotStore());
+      // Save current page state to cache
+      pageCacheRef.current.set(activePageIndex, snapshotStore());
 
-    // Load target page from cache or from pages array
-    const cached = pageCacheRef.current.get(targetIndex);
-    if (cached) {
-      loadPageIntoStore(cached);
-    } else {
-      loadPageIntoStore(null, pages[targetIndex]?.expressions ?? []);
-    }
+      // Load target page from cache or from pages array
+      const cached = pageCacheRef.current.get(targetIndex);
+      if (cached) {
+        loadPageIntoStore(cached);
+      } else {
+        loadPageIntoStore(null, pages[targetIndex]?.expressions ?? []);
+      }
 
-    setActivePageIndex(targetIndex);
-  }, [activePageIndex, pages, snapshotStore, loadPageIntoStore]);
+      setActivePageIndex(targetIndex);
+    },
+    [activePageIndex, pages, snapshotStore, loadPageIntoStore],
+  );
 
   /** Add a new empty page. */
   const addPage = useCallback(() => {
@@ -160,7 +185,7 @@ function DrawioEditorInner({ filePath, isActive }: { filePath: string; isActive:
   // Initial load
   useEffect(() => {
     loadFromDisk();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Reload when tab becomes active if file changed on disk
@@ -219,7 +244,9 @@ function DrawioEditorInner({ filePath, isActive }: { filePath: string; isActive:
       const allPages = buildAllPages();
       const xml = pagesToDrawio(allPages);
       await invoke("file_write", { path: filePathRef.current, content: xml });
-      const mtime = await invoke<number>("file_mtime", { path: filePathRef.current });
+      const mtime = await invoke<number>("file_mtime", {
+        path: filePathRef.current,
+      });
       lastMtimeRef.current = mtime;
     } catch (err) {
       console.error("Failed to save .drawio:", err);
@@ -287,13 +314,18 @@ function DrawioEditorInner({ filePath, isActive }: { filePath: string; isActive:
         {pages.map((page, i) => (
           <button
             key={page.id}
-            className={`drawio-editor__page-tab ${i === activePageIndex ? 'drawio-editor__page-tab--active' : ''}`}
+            className={`drawio-editor__page-tab ${i === activePageIndex ? "drawio-editor__page-tab--active" : ""}`}
             onClick={() => switchPage(i)}
           >
             {page.name}
           </button>
         ))}
-        <button className="drawio-editor__page-tab drawio-editor__page-tab--add" onClick={addPage}>+</button>
+        <button
+          className="drawio-editor__page-tab drawio-editor__page-tab--add"
+          onClick={addPage}
+        >
+          +
+        </button>
       </div>
     </div>
   );

@@ -8,10 +8,10 @@
  * @module
  */
 
-import type { VisualExpression, KanbanData } from '../../../protocol';
-import type { RoughCanvas } from 'roughjs/bin/canvas.js';
-import { mapStyleToRoughOptions } from '../styleMapper';
-import { registerCompositeRenderer } from '../compositeRegistry';
+import type { VisualExpression, KanbanData } from "../../../protocol";
+import type { RoughCanvas } from "roughjs/bin/canvas.js";
+import { mapStyleToRoughOptions } from "../styleMapper";
+import { registerCompositeRenderer } from "../compositeRegistry";
 
 // ── Constants ────────────────────────────────────────────────
 
@@ -34,7 +34,7 @@ const CARD_GAP = 8;
 const COLUMN_GAP = 8;
 
 /** Default font family. */
-const FONT_FAMILY = 'sans-serif';
+const FONT_FAMILY = "sans-serif";
 
 /** Title font size. */
 const TITLE_FONT_SIZE = 16;
@@ -71,10 +71,14 @@ export function renderKanban(
 
   // ── Title ──────────────────────────────────────────────────
   ctx.font = `bold ${TITLE_FONT_SIZE}px ${FONT_FAMILY}`;
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
   ctx.fillStyle = expr.style.strokeColor;
-  ctx.fillText(data.title, originX + width / 2, originY + PADDING + TITLE_HEIGHT / 2);
+  ctx.fillText(
+    data.title,
+    originX + width / 2,
+    originY + PADDING + TITLE_HEIGHT / 2,
+  );
 
   // ── Empty board ────────────────────────────────────────────
   if (data.columns.length === 0) {
@@ -94,27 +98,43 @@ export function renderKanban(
 
     // Column header
     ctx.font = `bold ${HEADER_FONT_SIZE}px ${FONT_FAMILY}`;
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
     ctx.fillStyle = expr.style.strokeColor;
-    ctx.fillText(col.title, colX + colWidth / 2, contentTop + COLUMN_HEADER_HEIGHT / 2);
+    ctx.fillText(
+      col.title,
+      colX + colWidth / 2,
+      contentTop + COLUMN_HEADER_HEIGHT / 2,
+    );
 
     // Column separator line
     if (ci > 0) {
       const sepX = colX - COLUMN_GAP / 2;
-      const sepDrawable = rc.line(sepX, contentTop, sepX, originY + height - PADDING, roughOptions);
+      const sepDrawable = rc.line(
+        sepX,
+        contentTop,
+        sepX,
+        originY + height - PADDING,
+        roughOptions,
+      );
       rc.draw(sepDrawable);
     }
 
     // Cards
     let cardY = contentTop + COLUMN_HEADER_HEIGHT + CARD_GAP;
     for (const card of col.cards) {
-      const drawable = rc.rectangle(colX, cardY, colWidth, CARD_HEIGHT, roughOptions);
+      const drawable = rc.rectangle(
+        colX,
+        cardY,
+        colWidth,
+        CARD_HEIGHT,
+        roughOptions,
+      );
       rc.draw(drawable);
 
       ctx.font = `${CARD_FONT_SIZE}px ${FONT_FAMILY}`;
-      ctx.textAlign = 'left';
-      ctx.textBaseline = 'middle';
+      ctx.textAlign = "left";
+      ctx.textBaseline = "middle";
       ctx.fillStyle = expr.style.strokeColor;
       ctx.fillText(card.title, colX + CARD_PADDING, cardY + CARD_HEIGHT / 2);
 
@@ -127,4 +147,4 @@ export function renderKanban(
 
 // ── Self-registration ────────────────────────────────────────
 
-registerCompositeRenderer('kanban', renderKanban);
+registerCompositeRenderer("kanban", renderKanban);

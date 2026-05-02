@@ -173,7 +173,9 @@ describe("KeyManager", () => {
 
     expect(screen.getByTestId("key-delete-confirm")).toBeInTheDocument();
     expect(
-      screen.getByText("This will permanently delete the private key from disk."),
+      screen.getByText(
+        "This will permanently delete the private key from disk.",
+      ),
     ).toBeInTheDocument();
   });
 
@@ -187,9 +189,7 @@ describe("KeyManager", () => {
     fireEvent.click(screen.getByTestId("key-context-delete"));
     fireEvent.click(screen.getByTestId("key-delete-cancel"));
 
-    expect(
-      screen.queryByTestId("key-delete-confirm"),
-    ).not.toBeInTheDocument();
+    expect(screen.queryByTestId("key-delete-confirm")).not.toBeInTheDocument();
   });
 
   it("deletes key on confirm", async () => {
@@ -221,8 +221,6 @@ describe("KeyManager", () => {
       expect(screen.getByTestId("key-manager-error")).toBeInTheDocument();
     });
     fireEvent.click(screen.getByText("✕"));
-    expect(
-      screen.queryByTestId("key-manager-error"),
-    ).not.toBeInTheDocument();
+    expect(screen.queryByTestId("key-manager-error")).not.toBeInTheDocument();
   });
 });

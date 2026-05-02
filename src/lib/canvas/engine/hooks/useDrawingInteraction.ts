@@ -9,17 +9,17 @@
  * @module
  */
 
-import { useRef, useEffect, useCallback, useMemo } from 'react';
-import { useCanvasStoreApi } from '../store/canvasStore';
-import { screenToWorld } from '../camera';
-import { RectangleTool } from '../tools/RectangleTool';
-import { EllipseTool } from '../tools/EllipseTool';
-import { DiamondTool } from '../tools/DiamondTool';
-import { ArrowTool } from '../tools/ArrowTool';
-import { FreehandTool } from '../tools/FreehandTool';
-import { TextTool } from '../tools/TextTool';
-import { StickyNoteTool } from '../tools/StickyNoteTool';
-import type { ToolHandler, DrawPreview } from '../tools/BaseTool';
+import { useRef, useEffect, useCallback, useMemo } from "react";
+import { useCanvasStoreApi } from "../store/canvasStore";
+import { screenToWorld } from "../camera";
+import { RectangleTool } from "../tools/RectangleTool";
+import { EllipseTool } from "../tools/EllipseTool";
+import { DiamondTool } from "../tools/DiamondTool";
+import { ArrowTool } from "../tools/ArrowTool";
+import { FreehandTool } from "../tools/FreehandTool";
+import { TextTool } from "../tools/TextTool";
+import { StickyNoteTool } from "../tools/StickyNoteTool";
+import type { ToolHandler, DrawPreview } from "../tools/BaseTool";
 
 export interface DrawingInteraction {
   /** Current draw preview for the render loop, or null. */
@@ -51,7 +51,7 @@ export function useDrawingInteraction(
       arrow: new ArrowTool(storeApi),
       freehand: new FreehandTool(storeApi),
       text: textTool,
-      'sticky-note': new StickyNoteTool(storeApi),
+      "sticky-note": new StickyNoteTool(storeApi),
     } as Record<string, ToolHandler>;
   }, [storeApi]);
 
@@ -60,7 +60,7 @@ export function useDrawingInteraction(
   /** Get the handler for the currently active tool. */
   const getActiveHandler = useCallback((): ToolHandler | null => {
     const { activeTool } = storeApi.getState();
-    if (activeTool === 'select') return null;
+    if (activeTool === "select") return null;
     return toolHandlers[activeTool] ?? null;
   }, [toolHandlers, storeApi]);
 
@@ -99,7 +99,7 @@ export function useDrawingInteraction(
 
       if (handler) {
         handler.onPointerMove(world.x, world.y, e);
-      } else if (activeTool === 'arrow') {
+      } else if (activeTool === "arrow") {
         // Forward hover moves for snap preview even when not drawing
         const tool = toolHandlers[activeTool];
         if (tool) {
@@ -148,14 +148,14 @@ export function useDrawingInteraction(
     const canvas = canvasRef.current;
     if (!canvas) return;
 
-    canvas.addEventListener('pointerdown', handlePointerDown);
-    canvas.addEventListener('pointermove', handlePointerMove);
-    canvas.addEventListener('pointerup', handlePointerUp);
+    canvas.addEventListener("pointerdown", handlePointerDown);
+    canvas.addEventListener("pointermove", handlePointerMove);
+    canvas.addEventListener("pointerup", handlePointerUp);
 
     return () => {
-      canvas.removeEventListener('pointerdown', handlePointerDown);
-      canvas.removeEventListener('pointermove', handlePointerMove);
-      canvas.removeEventListener('pointerup', handlePointerUp);
+      canvas.removeEventListener("pointerdown", handlePointerDown);
+      canvas.removeEventListener("pointermove", handlePointerMove);
+      canvas.removeEventListener("pointerup", handlePointerUp);
     };
   }, [canvasRef, handlePointerDown, handlePointerMove, handlePointerUp]);
 

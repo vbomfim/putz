@@ -13,7 +13,7 @@
  * @module
  */
 
-import type { VisualExpression } from '../../protocol';
+import type { VisualExpression } from "../../protocol";
 
 /** Immutable snapshot of canvas content state. */
 export interface CanvasSnapshot {

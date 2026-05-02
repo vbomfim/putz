@@ -9,7 +9,7 @@
 
 /** A comment attached to a specific expression. */
 export interface CommentData {
-  kind: 'comment';
+  kind: "comment";
   text: string;
   /** ID of the expression this comment refers to. */
   targetExpressionId: string;
@@ -19,17 +19,17 @@ export interface CommentData {
 
 /** A callout pointing to a specific expression. */
 export interface CalloutData {
-  kind: 'callout';
+  kind: "callout";
   text: string;
   /** ID of the expression this callout points to. */
   targetExpressionId: string;
   /** Position of the callout relative to its target. */
-  position: 'top' | 'right' | 'bottom' | 'left';
+  position: "top" | "right" | "bottom" | "left";
 }
 
 /** A highlight spanning one or more expressions. */
 export interface HighlightData {
-  kind: 'highlight';
+  kind: "highlight";
   /** IDs of the expressions being highlighted. */
   targetExpressionIds: string[];
   /** Highlight color in hex format. */
@@ -38,7 +38,7 @@ export interface HighlightData {
 
 /** A standalone marker / label on the canvas. */
 export interface MarkerData {
-  kind: 'marker';
+  kind: "marker";
   label: string;
   /** Optional icon identifier. */
   icon?: string;

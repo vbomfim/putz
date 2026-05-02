@@ -7,7 +7,7 @@
  * @module
  */
 
-import type { StencilMeta } from '../../engine';
+import type { StencilMeta } from "../../engine";
 
 // ── Constants ──────────────────────────────────────────────
 
@@ -16,13 +16,13 @@ import type { StencilMeta } from '../../engine';
  * Imported/generated categories (drawio-*) appear after these, sorted alphabetically.
  */
 const PRIORITY_CATEGORIES: readonly string[] = [
-  'network',
-  'architecture',
-  'kubernetes',
-  'azure',
-  'azure-arm',
-  'generic-it',
-  'security',
+  "network",
+  "architecture",
+  "kubernetes",
+  "azure",
+  "azure-arm",
+  "generic-it",
+  "security",
 ];
 
 /** Maximum stencils to render initially before showing a "Show more" button. */
@@ -52,7 +52,10 @@ export function filterStencilsBySearch(
   const grouped = new Map<string, StencilMeta[]>();
 
   for (const meta of allMeta) {
-    if (normalizedQuery && !meta.label.toLowerCase().includes(normalizedQuery)) {
+    if (
+      normalizedQuery &&
+      !meta.label.toLowerCase().includes(normalizedQuery)
+    ) {
       continue;
     }
     const list = grouped.get(meta.category) ?? [];
@@ -134,13 +137,13 @@ export function getCategoryCounts(
 
 /** Map from kebab-case category IDs to human-readable display names. */
 const CATEGORY_DISPLAY_NAMES: Record<string, string> = {
-  architecture: 'Architecture',
-  azure: 'Azure',
-  'azure-arm': 'Azure ARM',
-  'generic-it': 'Generic IT',
-  kubernetes: 'Kubernetes',
-  network: 'Network',
-  security: 'Security',
+  architecture: "Architecture",
+  azure: "Azure",
+  "azure-arm": "Azure ARM",
+  "generic-it": "Generic IT",
+  kubernetes: "Kubernetes",
+  network: "Network",
+  security: "Security",
 };
 
 /**
@@ -151,8 +154,8 @@ export function getCategoryDisplayName(category: string): string {
   return (
     CATEGORY_DISPLAY_NAMES[category] ??
     category
-      .split('-')
+      .split("-")
       .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
-      .join(' ')
+      .join(" ")
   );
 }

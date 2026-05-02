@@ -14,7 +14,7 @@
  * @module
  */
 
-import type { PathSegment } from './routerTypes';
+import type { PathSegment } from "./routerTypes";
 
 /** Default stub length for ER connectors. */
 const DEFAULT_STUB_LENGTH = 20;
@@ -34,7 +34,7 @@ export function computeEntityRelationRoute(
 ): PathSegment[] {
   // Same point — degenerate
   if (start.x === end.x && start.y === end.y) {
-    return [{ type: 'line', x: end.x, y: end.y }];
+    return [{ type: "line", x: end.x, y: end.y }];
   }
 
   const stubLen = options?.jettySize ?? DEFAULT_STUB_LENGTH;
@@ -64,10 +64,10 @@ export function computeEntityRelationRoute(
 
   return [
     // Start stub (perpendicular exit)
-    { type: 'line', x: stubStart.x, y: stubStart.y },
+    { type: "line", x: stubStart.x, y: stubStart.y },
     // S-curve bezier from stub end to stub start of target
     {
-      type: 'bezier',
+      type: "bezier",
       cp1x,
       cp1y,
       cp2x,
@@ -76,7 +76,7 @@ export function computeEntityRelationRoute(
       y: stubEnd.y,
     },
     // End stub (perpendicular entry)
-    { type: 'line', x: end.x, y: end.y },
+    { type: "line", x: end.x, y: end.y },
   ];
 }
 
@@ -93,14 +93,22 @@ function resolveDirection(
 ): { x: number; y: number } {
   if (anchor) {
     switch (anchor) {
-      case 'right': return { x: 1, y: 0 };
-      case 'left': return { x: -1, y: 0 };
-      case 'top': return { x: 0, y: -1 };
-      case 'bottom': return { x: 0, y: 1 };
-      case 'top-right': return normalize(1, -1);
-      case 'top-left': return normalize(-1, -1);
-      case 'bottom-right': return normalize(1, 1);
-      case 'bottom-left': return normalize(-1, 1);
+      case "right":
+        return { x: 1, y: 0 };
+      case "left":
+        return { x: -1, y: 0 };
+      case "top":
+        return { x: 0, y: -1 };
+      case "bottom":
+        return { x: 0, y: 1 };
+      case "top-right":
+        return normalize(1, -1);
+      case "top-left":
+        return normalize(-1, -1);
+      case "bottom-right":
+        return normalize(1, 1);
+      case "bottom-left":
+        return normalize(-1, 1);
     }
   }
 

@@ -8,8 +8,8 @@
 
 // ── Schema types ───────────────────────────────────────────
 
-export type { AuthorInfo, ExpressionStyle } from './schema/metadata';
-export { DEFAULT_EXPRESSION_STYLE } from './schema/metadata';
+export type { AuthorInfo, ExpressionStyle } from "./schema/metadata";
+export { DEFAULT_EXPRESSION_STYLE } from "./schema/metadata";
 
 export type {
   RectangleData,
@@ -28,7 +28,7 @@ export type {
   StencilData,
   ContainerData,
   PrimitiveData,
-} from './schema/primitives';
+} from "./schema/primitives";
 
 export type {
   FlowNode,
@@ -59,7 +59,7 @@ export type {
   TableData,
   TableCell,
   CompositeData,
-} from './schema/composites';
+} from "./schema/composites";
 
 export type {
   CommentData,
@@ -67,16 +67,16 @@ export type {
   HighlightData,
   MarkerData,
   AnnotationData,
-} from './schema/annotations';
+} from "./schema/annotations";
 
 export type {
   ExpressionData,
   ExpressionKind,
   VisualExpression,
   Layer,
-} from './schema/expressions';
+} from "./schema/expressions";
 
-export { DEFAULT_LAYER_ID } from './schema/expressions';
+export { DEFAULT_LAYER_ID } from "./schema/expressions";
 
 export type {
   OperationType,
@@ -97,7 +97,7 @@ export type {
   QueryPayload,
   OperationPayload,
   ProtocolOperation,
-} from './schema/operations';
+} from "./schema/operations";
 
 // ── Zod validation schemas ─────────────────────────────────
 
@@ -153,7 +153,7 @@ export {
   operationPayloadSchema,
   protocolOperationSchema,
   withMaxDepth,
-} from './validation/schemas';
+} from "./validation/schemas";
 
 // ── Builders ───────────────────────────────────────────────
 
@@ -164,18 +164,18 @@ export {
   ReasoningChainBuilder,
   TextBuilder,
   StickyNoteBuilder,
-} from './builders/expressionBuilder';
+} from "./builders/expressionBuilder";
 
 // ── draw.io serializer ────────────────────────────────────
 
-export type { DrawioPage } from './drawio/serializer';
+export type { DrawioPage } from "./drawio/serializer";
 
 export {
   expressionsToDrawio,
   drawioToExpressions,
   drawioToPages,
   pagesToDrawio,
-} from './drawio/serializer';
+} from "./drawio/serializer";
 
 // ── draw.io stencil parser ───────────────────────────────
 
@@ -183,9 +183,6 @@ export type {
   ConnectionPoint,
   DrawioShape,
   DrawioStencilLibrary,
-} from './drawio/stencilParser';
+} from "./drawio/stencilParser";
 
-export {
-  shapeToSvg,
-  parseStencilLibrary,
-} from './drawio/stencilParser';
+export { shapeToSvg, parseStencilLibrary } from "./drawio/stencilParser";

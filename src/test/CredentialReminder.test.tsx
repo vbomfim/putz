@@ -112,7 +112,9 @@ describe("CredentialReminder", () => {
     render(<CredentialReminder />);
 
     await waitFor(() => {
-      expect(screen.getByTestId("credential-reminder-toggle")).toBeInTheDocument();
+      expect(
+        screen.getByTestId("credential-reminder-toggle"),
+      ).toBeInTheDocument();
     });
 
     fireEvent.click(screen.getByTestId("credential-reminder-toggle"));
@@ -127,7 +129,9 @@ describe("CredentialReminder", () => {
     render(<CredentialReminder />);
 
     await waitFor(() => {
-      expect(screen.getByTestId("credential-reminder-toggle")).toBeInTheDocument();
+      expect(
+        screen.getByTestId("credential-reminder-toggle"),
+      ).toBeInTheDocument();
     });
 
     // Expand
@@ -136,18 +140,20 @@ describe("CredentialReminder", () => {
 
     // Collapse
     fireEvent.click(screen.getByTestId("credential-reminder-toggle"));
-    expect(screen.queryByTestId("credential-reminder-list")).not.toBeInTheDocument();
+    expect(
+      screen.queryByTestId("credential-reminder-list"),
+    ).not.toBeInTheDocument();
   });
 
   it("calls onUpdateCredential when Update Now is clicked", async () => {
     mockVaultCheckExpiring.mockResolvedValue(sampleExpiring);
     const onUpdate = vi.fn();
-    render(
-      <CredentialReminder onUpdateCredential={onUpdate} />
-    );
+    render(<CredentialReminder onUpdateCredential={onUpdate} />);
 
     await waitFor(() => {
-      expect(screen.getByTestId("credential-reminder-toggle")).toBeInTheDocument();
+      expect(
+        screen.getByTestId("credential-reminder-toggle"),
+      ).toBeInTheDocument();
     });
 
     fireEvent.click(screen.getByTestId("credential-reminder-toggle"));
@@ -161,13 +167,15 @@ describe("CredentialReminder", () => {
     render(<CredentialReminder />);
 
     await waitFor(() => {
-      expect(screen.getByTestId("credential-reminder-toggle")).toBeInTheDocument();
+      expect(
+        screen.getByTestId("credential-reminder-toggle"),
+      ).toBeInTheDocument();
     });
 
     fireEvent.click(screen.getByTestId("credential-reminder-toggle"));
 
     expect(
-      screen.queryByTestId("credential-reminder-update-cred-1")
+      screen.queryByTestId("credential-reminder-update-cred-1"),
     ).not.toBeInTheDocument();
   });
 

@@ -7,23 +7,23 @@
  * @module
  */
 
-import { nanoid } from 'nanoid';
-import type { VisualExpression, ExpressionData } from '../../protocol';
-import type { ToolHandler, DrawPreview } from './BaseTool';
-import type { CanvasStoreApi } from '../store/canvasStore';
+import { nanoid } from "nanoid";
+import type { VisualExpression, ExpressionData } from "../../protocol";
+import type { ToolHandler, DrawPreview } from "./BaseTool";
+import type { CanvasStoreApi } from "../store/canvasStore";
 
 /** Minimum dimension (width or height) to create a shape. */
 const MIN_DIMENSION = 10;
 
 /** Human author for locally-drawn expressions. */
 const LOCAL_AUTHOR = {
-  type: 'human' as const,
-  id: 'local-user',
-  name: 'You',
+  type: "human" as const,
+  id: "local-user",
+  name: "You",
 };
 
 /** Shape kind for area-based tools. */
-export type AreaShapeKind = 'rectangle' | 'ellipse' | 'diamond';
+export type AreaShapeKind = "rectangle" | "ellipse" | "diamond";
 
 /**
  * Base class for area-based drawing tools.

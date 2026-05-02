@@ -12,12 +12,12 @@
  * @module
  */
 
-import type { VisualExpression, ReasoningChainData } from '../../../protocol';
-import type { RoughCanvas } from 'roughjs/bin/canvas.js';
-import type { Options } from 'roughjs/bin/core.js';
-import { mapStyleToRoughOptions } from '../styleMapper';
-import { renderArrowhead } from '../primitiveRenderer';
-import { registerCompositeRenderer } from '../compositeRegistry';
+import type { VisualExpression, ReasoningChainData } from "../../../protocol";
+import type { RoughCanvas } from "roughjs/bin/canvas.js";
+import type { Options } from "roughjs/bin/core.js";
+import { mapStyleToRoughOptions } from "../styleMapper";
+import { renderArrowhead } from "../primitiveRenderer";
+import { registerCompositeRenderer } from "../compositeRegistry";
 
 // ── Constants ────────────────────────────────────────────────
 
@@ -49,10 +49,10 @@ const CONTENT_FONT_SIZE = 12;
 const ANSWER_FONT_SIZE = 14;
 
 /** Default font family. */
-const DEFAULT_FONT_FAMILY = 'sans-serif';
+const DEFAULT_FONT_FAMILY = "sans-serif";
 
 /** Green tint for the final answer box. */
-const ANSWER_FILL_COLOR = '#e8f5e9';
+const ANSWER_FILL_COLOR = "#e8f5e9";
 
 /** Stroke width multiplier for the answer box (thicker). */
 const ANSWER_STROKE_MULTIPLIER = 2;
@@ -257,8 +257,8 @@ export function renderReasoningChain(
   rc.draw(qDrawable);
 
   ctx.font = `bold ${TITLE_FONT_SIZE}px ${DEFAULT_FONT_FAMILY}`;
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
   ctx.fillStyle = strokeColor;
   ctx.fillText(
     qc.text,
@@ -304,8 +304,8 @@ export function renderReasoningChain(
 
     // Step title: "Step N: title"
     ctx.font = `bold ${STEP_TITLE_FONT_SIZE}px ${DEFAULT_FONT_FAMILY}`;
-    ctx.textAlign = 'left';
-    ctx.textBaseline = 'top';
+    ctx.textAlign = "left";
+    ctx.textBaseline = "top";
     ctx.fillStyle = strokeColor;
     ctx.fillText(
       `Step ${sc.stepNumber}: ${sc.title}`,
@@ -315,11 +315,7 @@ export function renderReasoningChain(
 
     // Step content
     ctx.font = `${CONTENT_FONT_SIZE}px ${DEFAULT_FONT_FAMILY}`;
-    ctx.fillText(
-      sc.content,
-      originX + sc.x + 10,
-      originY + sc.y + 32,
-    );
+    ctx.fillText(sc.content, originX + sc.x + 10, originY + sc.y + 32);
 
     // Downward arrow to next card
     const nextCard = layout.stepCards[i + 1] ?? layout.answerCard;
@@ -353,8 +349,8 @@ export function renderReasoningChain(
     rc.draw(answerDrawable);
 
     ctx.font = `bold ${ANSWER_FONT_SIZE}px ${DEFAULT_FONT_FAMILY}`;
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
     ctx.fillStyle = strokeColor;
     ctx.fillText(
       `✓ ${ac.text}`,
@@ -371,4 +367,4 @@ export function renderReasoningChain(
 /**
  * Register the reasoning chain renderer on module load.
  */
-registerCompositeRenderer('reasoning-chain', renderReasoningChain);
+registerCompositeRenderer("reasoning-chain", renderReasoningChain);

@@ -84,13 +84,17 @@ export function ScriptEditor({
   const [isLoginScript, setIsLoginScript] = useState(
     script?.meta.isLoginScript ?? false,
   );
-  const [editorLanguage, setEditorLanguage] = useState<EditorLanguage>("javascript");
+  const [editorLanguage, setEditorLanguage] =
+    useState<EditorLanguage>("javascript");
   const [errors, setErrors] = useState<Record<string, string>>({});
   const logEndRef = useRef<HTMLDivElement>(null);
 
   // Auto-scroll log to bottom (scrollIntoView may not exist in jsdom)
   useEffect(() => {
-    if (logEndRef.current && typeof logEndRef.current.scrollIntoView === "function") {
+    if (
+      logEndRef.current &&
+      typeof logEndRef.current.scrollIntoView === "function"
+    ) {
       logEndRef.current.scrollIntoView({ behavior: "smooth" });
     }
   }, [logEntries]);

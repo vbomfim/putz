@@ -12,13 +12,17 @@
  * @module
  */
 
-import type { VisualExpression, FlowchartData, FlowNode } from '../../../protocol';
-import type { RoughCanvas } from 'roughjs/bin/canvas.js';
-import type { Options } from 'roughjs/bin/core.js';
-import dagre from '@dagrejs/dagre';
-import { mapStyleToRoughOptions } from '../styleMapper';
-import { renderArrowhead } from '../primitiveRenderer';
-import { registerCompositeRenderer } from '../compositeRegistry';
+import type {
+  VisualExpression,
+  FlowchartData,
+  FlowNode,
+} from "../../../protocol";
+import type { RoughCanvas } from "roughjs/bin/canvas.js";
+import type { Options } from "roughjs/bin/core.js";
+import dagre from "@dagrejs/dagre";
+import { mapStyleToRoughOptions } from "../styleMapper";
+import { renderArrowhead } from "../primitiveRenderer";
+import { registerCompositeRenderer } from "../compositeRegistry";
 
 // ── Constants ────────────────────────────────────────────────
 
@@ -38,7 +42,7 @@ const TITLE_HEIGHT = 30;
 const DEFAULT_FONT_SIZE = 14;
 
 /** Default font family. */
-const DEFAULT_FONT_FAMILY = 'sans-serif';
+const DEFAULT_FONT_FAMILY = "sans-serif";
 
 /** Title font size. */
 const TITLE_FONT_SIZE = 16;
@@ -67,9 +71,24 @@ interface CachedLayout {
   /** Hash of the data that produced this layout. */
   dataHash: string;
   /** Positioned nodes from dagre. */
-  nodes: Map<string, { x: number; y: number; width: number; height: number; label: string; shape: FlowNode['shape'] }>;
+  nodes: Map<
+    string,
+    {
+      x: number;
+      y: number;
+      width: number;
+      height: number;
+      label: string;
+      shape: FlowNode["shape"];
+    }
+  >;
   /** Edge routing points from dagre. */
-  edges: Array<{ from: string; to: string; points: Array<{ x: number; y: number }>; label?: string }>;
+  edges: Array<{
+    from: string;
+    to: string;
+    points: Array<{ x: number; y: number }>;
+    label?: string;
+  }>;
   /** Computed bounds (min/max). */
   bounds: { minX: number; minY: number; maxX: number; maxY: number };
 }
@@ -139,8 +158,18 @@ function computeLayout(data: FlowchartData): CachedLayout {
   dagre.layout(g);
 
   // Extract positioned nodes
-  const nodes = new Map<string, { x: number; y: number; width: number; height: number; label: string; shape: FlowNode['shape'] }>();
-  const nodeShapes = new Map(data.nodes.map(n => [n.id, n.shape]));
+  const nodes = new Map<
+    string,
+    {
+      x: number;
+      y: number;
+      width: number;
+      height: number;
+      label: string;
+      shape: FlowNode["shape"];
+    }
+  >();
+  const nodeShapes = new Map(data.nodes.map((n) => [n.id, n.shape]));
 
   for (const nodeId of g.nodes()) {
     const node = g.node(nodeId);
@@ -150,13 +179,13 @@ function computeLayout(data: FlowchartData): CachedLayout {
       y: node.y,
       width: node.width,
       height: node.height,
-      label: node.label ?? '',
-      shape: nodeShapes.get(nodeId) ?? 'rect',
+      label: node.label ?? "",
+      shape: nodeShapes.get(nodeId) ?? "rect",
     });
   }
 
   // Extract edge routing points
-  const edges: CachedLayout['edges'] = [];
+  const edges: CachedLayout["edges"] = [];
   for (const edgeObj of g.edges()) {
     const edge = g.edge(edgeObj);
     if (!edge) continue;
@@ -261,10 +290,10 @@ function renderDiamondNode(
   options: Options,
 ): void {
   const points: [number, number][] = [
-    [x, y - h / 2],     // top
-    [x + w / 2, y],     // right
-    [x, y + h / 2],     // bottom
-    [x - w / 2, y],     // left
+    [x, y - h / 2], // top
+    [x + w / 2, y], // right
+    [x, y + h / 2], // bottom
+    [x - w / 2, y], // left
   ];
   const drawable = rc.polygon(points, options);
   rc.draw(drawable);
@@ -304,10 +333,10 @@ function renderParallelogramNode(
 ): void {
   const skew = PARALLELOGRAM_SKEW;
   const points: [number, number][] = [
-    [x - w / 2 + skew, y - h / 2],  // top-left (skewed right)
-    [x + w / 2 + skew, y - h / 2],  // top-right (skewed right)
-    [x + w / 2 - skew, y + h / 2],  // bottom-right (skewed left)
-    [x - w / 2 - skew, y + h / 2],  // bottom-left (skewed left)
+    [x - w / 2 + skew, y - h / 2], // top-left (skewed right)
+    [x + w / 2 + skew, y - h / 2], // top-right (skewed right)
+    [x + w / 2 - skew, y + h / 2], // bottom-right (skewed left)
+    [x - w / 2 - skew, y + h / 2], // bottom-left (skewed left)
   ];
   const drawable = rc.polygon(points, options);
   rc.draw(drawable);
@@ -363,9 +392,9 @@ function renderNodeLabel(
   if (!label) return;
 
   ctx.font = `${DEFAULT_FONT_SIZE}px ${DEFAULT_FONT_FAMILY}`;
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  ctx.fillStyle = (options.stroke as string) ?? '#000000';
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillStyle = (options.stroke as string) ?? "#000000";
   ctx.fillText(label, cx, cy);
 }
 
@@ -384,7 +413,7 @@ function renderEdge(
   if (points.length < 2) return;
 
   // Draw edge line
-  const linePoints: [number, number][] = points.map(p => [p.x, p.y]);
+  const linePoints: [number, number][] = points.map((p) => [p.x, p.y]);
   const drawable = rc.linearPath(linePoints, options);
   rc.draw(drawable);
 
@@ -393,7 +422,7 @@ function renderEdge(
   const prev = points[points.length - 2]!;
   const angle = Math.atan2(last.y - prev.y, last.x - prev.x);
 
-  ctx.fillStyle = (options.stroke as string) ?? '#000000';
+  ctx.fillStyle = (options.stroke as string) ?? "#000000";
   renderArrowhead(ctx, last.x, last.y, angle, ARROWHEAD_SIZE);
 
   // Draw edge label at midpoint
@@ -402,9 +431,9 @@ function renderEdge(
     const midPoint = points[midIdx]!;
 
     ctx.font = `${EDGE_LABEL_FONT_SIZE}px ${DEFAULT_FONT_FAMILY}`;
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillStyle = (options.stroke as string) ?? '#000000';
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillStyle = (options.stroke as string) ?? "#000000";
     ctx.fillText(label, midPoint.x, midPoint.y - 10);
   }
 }
@@ -449,14 +478,18 @@ export function renderFlowchart(
 
   // ── Render title [AC9] ─────────────────────────────────────
   ctx.font = `bold ${TITLE_FONT_SIZE}px ${DEFAULT_FONT_FAMILY}`;
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
   ctx.fillStyle = expr.style.strokeColor;
-  ctx.fillText(data.title, originX + graphWidth / 2, originY + TITLE_HEIGHT / 2);
+  ctx.fillText(
+    data.title,
+    originX + graphWidth / 2,
+    originY + TITLE_HEIGHT / 2,
+  );
 
   // ── Render edges [AC8] ─────────────────────────────────────
   for (const edge of edges) {
-    const translatedPoints = edge.points.map(p => ({
+    const translatedPoints = edge.points.map((p) => ({
       x: p.x + offsetX,
       y: p.y + offsetY,
     }));
@@ -471,19 +504,28 @@ export function renderFlowchart(
     const nh = node.height;
 
     switch (node.shape) {
-      case 'rect':
+      case "rect":
         renderRectNode(ctx, rc, nx, ny, nw, nh, node.label, roughOptions);
         break;
-      case 'diamond':
+      case "diamond":
         renderDiamondNode(ctx, rc, nx, ny, nw, nh, node.label, roughOptions);
         break;
-      case 'ellipse':
+      case "ellipse":
         renderEllipseNode(ctx, rc, nx, ny, nw, nh, node.label, roughOptions);
         break;
-      case 'parallelogram':
-        renderParallelogramNode(ctx, rc, nx, ny, nw, nh, node.label, roughOptions);
+      case "parallelogram":
+        renderParallelogramNode(
+          ctx,
+          rc,
+          nx,
+          ny,
+          nw,
+          nh,
+          node.label,
+          roughOptions,
+        );
         break;
-      case 'cylinder':
+      case "cylinder":
         renderCylinderNode(ctx, rc, nx, ny, nw, nh, node.label, roughOptions);
         break;
       default:
@@ -504,4 +546,4 @@ export function renderFlowchart(
  * This ensures that importing this module is sufficient to make
  * the 'flowchart' kind renderable via the composite registry.
  */
-registerCompositeRenderer('flowchart', renderFlowchart);
+registerCompositeRenderer("flowchart", renderFlowchart);

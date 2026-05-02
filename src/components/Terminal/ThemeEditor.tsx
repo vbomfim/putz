@@ -79,9 +79,7 @@ export function ThemeEditor({
   const isValid = name.trim().length > 0;
 
   const colorGroups = useMemo(() => {
-    const terminal = THEME_COLOR_FIELDS.filter(
-      (f) => f.group === "terminal",
-    );
+    const terminal = THEME_COLOR_FIELDS.filter((f) => f.group === "terminal");
     const ansi = THEME_COLOR_FIELDS.filter((f) => f.group === "ansi");
     const ansiBright = THEME_COLOR_FIELDS.filter(
       (f) => f.group === "ansi-bright",

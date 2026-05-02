@@ -10,7 +10,7 @@
  * @module
  */
 
-import type { PathSegment } from './routerTypes';
+import type { PathSegment } from "./routerTypes";
 
 /**
  * Compute a smooth curved route between two points.
@@ -29,7 +29,7 @@ export function computeCurvedRoute(
 ): PathSegment[] {
   // Same point — degenerate segment
   if (start.x === end.x && start.y === end.y) {
-    return [{ type: 'line', x: end.x, y: end.y }];
+    return [{ type: "line", x: end.x, y: end.y }];
   }
 
   const dx = end.x - start.x;
@@ -49,7 +49,7 @@ export function computeCurvedRoute(
 
   return [
     {
-      type: 'bezier',
+      type: "bezier",
       cp1x,
       cp1y,
       cp2x,
@@ -73,14 +73,22 @@ function anchorToVector(
 ): { x: number; y: number } {
   if (anchor) {
     switch (anchor) {
-      case 'right': return { x: 1, y: 0 };
-      case 'left': return { x: -1, y: 0 };
-      case 'top': return { x: 0, y: -1 };
-      case 'bottom': return { x: 0, y: 1 };
-      case 'top-right': return normalize(1, -1);
-      case 'top-left': return normalize(-1, -1);
-      case 'bottom-right': return normalize(1, 1);
-      case 'bottom-left': return normalize(-1, 1);
+      case "right":
+        return { x: 1, y: 0 };
+      case "left":
+        return { x: -1, y: 0 };
+      case "top":
+        return { x: 0, y: -1 };
+      case "bottom":
+        return { x: 0, y: 1 };
+      case "top-right":
+        return normalize(1, -1);
+      case "top-left":
+        return normalize(-1, -1);
+      case "bottom-right":
+        return normalize(1, 1);
+      case "bottom-left":
+        return normalize(-1, 1);
     }
   }
 

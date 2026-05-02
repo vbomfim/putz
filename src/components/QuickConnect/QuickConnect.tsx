@@ -125,7 +125,10 @@ export function QuickConnect({
         </form>
 
         {preview && (
-          <div className="quickconnect-preview" data-testid="quickconnect-preview">
+          <div
+            className="quickconnect-preview"
+            data-testid="quickconnect-preview"
+          >
             <span className="quickconnect-preview-protocol">
               {preview.protocol.toUpperCase()}
             </span>
@@ -136,9 +139,7 @@ export function QuickConnect({
             )}
             <span className="quickconnect-preview-host">{preview.host}</span>
             {preview.port && (
-              <span className="quickconnect-preview-port">
-                :{preview.port}
-              </span>
+              <span className="quickconnect-preview-port">:{preview.port}</span>
             )}
           </div>
         )}

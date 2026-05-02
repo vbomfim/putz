@@ -146,10 +146,7 @@ export function SessionTree({
         case "ArrowLeft": {
           e.preventDefault();
           const leftNode = flatNodes[currentIndex];
-          if (
-            leftNode?.type === "folder" &&
-            expandedFolders.has(leftNode.id)
-          ) {
+          if (leftNode?.type === "folder" && expandedFolders.has(leftNode.id)) {
             toggleFolder(leftNode.id);
           }
           break;
@@ -237,9 +234,7 @@ export function SessionTree({
             }}
             onContextMenu={(e) => handleContextMenu(e, node.id, "folder")}
           >
-            <span className="session-tree-icon">
-              {isExpanded ? "▾" : "▸"}
-            </span>
+            <span className="session-tree-icon">{isExpanded ? "▾" : "▸"}</span>
             <span className="session-tree-folder-icon">📁</span>
             <span className="session-tree-label">
               {highlightMatch(node.name)}
@@ -275,9 +270,7 @@ export function SessionTree({
           <span className="session-tree-label">
             {highlightMatch(node.name)}
           </span>
-          {node.host && (
-            <span className="session-tree-host">{node.host}</span>
-          )}
+          {node.host && <span className="session-tree-host">{node.host}</span>}
         </div>
       </li>
     );

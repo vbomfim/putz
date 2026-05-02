@@ -7,7 +7,7 @@
  * @module
  */
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect } from "react";
 
 /**
  * Returns a debounced version of the input value.

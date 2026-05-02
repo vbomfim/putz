@@ -13,22 +13,22 @@
  * @module
  */
 
-import type { VisualExpression } from '../../protocol';
-import type { Camera } from '../types/index';
+import type { VisualExpression } from "../../protocol";
+import type { Camera } from "../types/index";
 import {
   isPointBasedKind,
   getPointHandlePositions,
   getJettyHandlePosition,
   getSegmentMidpointHandles,
   getSelfLoopHandlePosition,
-} from '../interaction/manipulationHelpers';
-import { isDraggingArrowEndpoint } from '../hooks/useManipulationInteraction';
+} from "../interaction/manipulationHelpers";
+import { isDraggingArrowEndpoint } from "../hooks/useManipulationInteraction";
 
 /** Selection highlight color. */
-const SELECTION_COLOR = '#4A90D9';
+const SELECTION_COLOR = "#4A90D9";
 
 /** Group bounding box color — subtle, lighter than selection. */
-const GROUP_BORDER_COLOR = '#aaaaaa';
+const GROUP_BORDER_COLOR = "#aaaaaa";
 
 /** Group bounding box dash pattern (wider dots for dotted look). */
 const GROUP_DASH_PATTERN = [3, 3];
@@ -120,7 +120,7 @@ function renderPointHandles(
 ): void {
   // Show endpoint handles for all arrows — even when fully bound.
   // Users need them to disconnect/rebind endpoints.
-  if (expr.data.kind === 'arrow') {
+  if (expr.data.kind === "arrow") {
     // handled below
   }
 
@@ -130,10 +130,12 @@ function renderPointHandles(
   // but data.points don't — skip handles to avoid stale positions
   const data = expr.data as { points?: [number, number][] };
   if (data.points && data.points.length > 0) {
-    const expectedMinX = Math.min(...data.points.map(p => p[0]));
-    const expectedMinY = Math.min(...data.points.map(p => p[1]));
-    if (Math.abs(expr.position.x - expectedMinX) > 0.5 ||
-        Math.abs(expr.position.y - expectedMinY) > 0.5) {
+    const expectedMinX = Math.min(...data.points.map((p) => p[0]));
+    const expectedMinY = Math.min(...data.points.map((p) => p[1]));
+    if (
+      Math.abs(expr.position.x - expectedMinX) > 0.5 ||
+      Math.abs(expr.position.y - expectedMinY) > 0.5
+    ) {
       // Position is offset from points — we're mid-drag, skip handles
       return;
     }
@@ -144,7 +146,7 @@ function renderPointHandles(
     ctx.arc(px, py, radius, 0, Math.PI * 2);
 
     // White fill
-    ctx.fillStyle = '#ffffff';
+    ctx.fillStyle = "#ffffff";
     ctx.fill();
 
     // Selection-colored border
@@ -155,7 +157,7 @@ function renderPointHandles(
 }
 
 /** Jetty handle accent color — distinct from white endpoint handles. */
-const JETTY_HANDLE_COLOR = '#4A90D9';
+const JETTY_HANDLE_COLOR = "#4A90D9";
 
 /**
  * Render a draggable jetty (stub length) handle on routed arrows.
@@ -190,7 +192,7 @@ function renderJettyHandle(
   ctx.fillRect(x - half, y - half, size, size);
 
   // White border for contrast
-  ctx.strokeStyle = '#ffffff';
+  ctx.strokeStyle = "#ffffff";
   ctx.lineWidth = 1.5 / camera.zoom;
   ctx.strokeRect(x - half, y - half, size, size);
 }
@@ -221,13 +223,13 @@ function renderSelfLoopHandle(
   ctx.fillStyle = JETTY_HANDLE_COLOR;
   ctx.fillRect(x - half, y - half, size, size);
 
-  ctx.strokeStyle = '#ffffff';
+  ctx.strokeStyle = "#ffffff";
   ctx.lineWidth = 1.5 / camera.zoom;
   ctx.strokeRect(x - half, y - half, size, size);
 }
 
 /** Segment midpoint handle fill color — subtle gray to distinguish from endpoints. */
-const SEGMENT_HANDLE_COLOR = '#6B7280';
+const SEGMENT_HANDLE_COLOR = "#6B7280";
 
 /**
  * Render square handles at the midpoint of each routed segment.
@@ -261,7 +263,7 @@ function renderSegmentMidpointHandles(
     ctx.fillRect(x - half, y - half, size, size);
 
     // White border for contrast
-    ctx.strokeStyle = '#ffffff';
+    ctx.strokeStyle = "#ffffff";
     ctx.lineWidth = 1.5 / camera.zoom;
     ctx.strokeRect(x - half, y - half, size, size);
   }
@@ -284,20 +286,20 @@ function renderBboxHandles(
 
   const handlePoints = [
     // Corners
-    { hx: x, hy: y },                             // top-left
-    { hx: x + width, hy: y },                     // top-right
-    { hx: x + width, hy: y + height },             // bottom-right
-    { hx: x, hy: y + height },                     // bottom-left
+    { hx: x, hy: y }, // top-left
+    { hx: x + width, hy: y }, // top-right
+    { hx: x + width, hy: y + height }, // bottom-right
+    { hx: x, hy: y + height }, // bottom-left
     // Edge midpoints
-    { hx: x + width / 2, hy: y },                 // top-mid
-    { hx: x + width, hy: y + height / 2 },         // right-mid
-    { hx: x + width / 2, hy: y + height },         // bottom-mid
-    { hx: x, hy: y + height / 2 },                 // left-mid
+    { hx: x + width / 2, hy: y }, // top-mid
+    { hx: x + width, hy: y + height / 2 }, // right-mid
+    { hx: x + width / 2, hy: y + height }, // bottom-mid
+    { hx: x, hy: y + height / 2 }, // left-mid
   ];
 
   for (const { hx, hy } of handlePoints) {
     // White fill
-    ctx.fillStyle = '#ffffff';
+    ctx.fillStyle = "#ffffff";
     ctx.fillRect(hx - halfHandle, hy - halfHandle, handleSize, handleSize);
 
     // Selection-colored border

@@ -9,10 +9,10 @@
  * @module
  */
 
-import { useRef, useState, useEffect, useCallback } from 'react';
-import { useCanvasStoreApi } from '../store/canvasStore';
-import { zoomAtPoint, MIN_ZOOM, MAX_ZOOM } from '../camera';
-import { isEditableTarget } from '../utils/isEditableTarget';
+import { useRef, useState, useEffect, useCallback } from "react";
+import { useCanvasStoreApi } from "../store/canvasStore";
+import { zoomAtPoint, MIN_ZOOM, MAX_ZOOM } from "../camera";
+import { isEditableTarget } from "../utils/isEditableTarget";
 
 /** Zoom sensitivity — how much one scroll "step" changes zoom. */
 const ZOOM_SENSITIVITY = 0.001;
@@ -32,7 +32,7 @@ export interface CanvasInteraction {
 export function useCanvasInteraction(): CanvasInteraction {
   const storeApi = useCanvasStoreApi();
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const [cursor, setCursor] = useState('default');
+  const [cursor, setCursor] = useState("default");
 
   // Mutable refs to avoid stale closures in event handlers
   const spaceHeldRef = useRef(false);
@@ -47,10 +47,10 @@ export function useCanvasInteraction(): CanvasInteraction {
     // Skip when user is typing in editable elements [S7-6]
     if (isEditableTarget(e.target)) return;
 
-    if (e.code === 'Space' && !e.repeat) {
+    if (e.code === "Space" && !e.repeat) {
       e.preventDefault();
       spaceHeldRef.current = true;
-      setCursor('grab');
+      setCursor("grab");
     }
   }, []);
 
@@ -58,10 +58,10 @@ export function useCanvasInteraction(): CanvasInteraction {
     // Skip when user is typing in editable elements [S7-6]
     if (isEditableTarget(e.target)) return;
 
-    if (e.code === 'Space') {
+    if (e.code === "Space") {
       spaceHeldRef.current = false;
       isPanningRef.current = false;
-      setCursor('default');
+      setCursor("default");
     }
   }, []);
 
@@ -69,85 +69,94 @@ export function useCanvasInteraction(): CanvasInteraction {
     if (spaceHeldRef.current) {
       isPanningRef.current = true;
       lastMouseRef.current = { x: e.clientX, y: e.clientY };
-      setCursor('grabbing');
+      setCursor("grabbing");
     } else if (e.button === 1 || e.button === 2) {
       // Middle-click or right-click drag pan
       e.preventDefault();
       isMiddlePanningRef.current = true;
       rightClickMovedRef.current = false;
       lastMouseRef.current = { x: e.clientX, y: e.clientY };
-      setCursor('grabbing');
+      setCursor("grabbing");
     }
   }, []);
 
-  const handleMouseMove = useCallback((e: MouseEvent) => {
-    if (!isPanningRef.current && !isMiddlePanningRef.current) return;
+  const handleMouseMove = useCallback(
+    (e: MouseEvent) => {
+      if (!isPanningRef.current && !isMiddlePanningRef.current) return;
 
-    const dx = e.clientX - lastMouseRef.current.x;
-    const dy = e.clientY - lastMouseRef.current.y;
-    lastMouseRef.current = { x: e.clientX, y: e.clientY };
+      const dx = e.clientX - lastMouseRef.current.x;
+      const dy = e.clientY - lastMouseRef.current.y;
+      lastMouseRef.current = { x: e.clientX, y: e.clientY };
 
-    if (isMiddlePanningRef.current && (Math.abs(dx) > 1 || Math.abs(dy) > 1)) {
-      rightClickMovedRef.current = true;
-    }
+      if (
+        isMiddlePanningRef.current &&
+        (Math.abs(dx) > 1 || Math.abs(dy) > 1)
+      ) {
+        rightClickMovedRef.current = true;
+      }
 
-    // [AC7] Divide pan delta by zoom for consistent speed
-    const { camera } = storeApi.getState();
-    storeApi.getState().setCamera({
-      x: camera.x - dx / camera.zoom,
-      y: camera.y - dy / camera.zoom,
-      zoom: camera.zoom,
-    });
-  }, [storeApi]);
+      // [AC7] Divide pan delta by zoom for consistent speed
+      const { camera } = storeApi.getState();
+      storeApi.getState().setCamera({
+        x: camera.x - dx / camera.zoom,
+        y: camera.y - dy / camera.zoom,
+        zoom: camera.zoom,
+      });
+    },
+    [storeApi],
+  );
 
   const handleMouseUp = useCallback(() => {
     if (isPanningRef.current) {
       isPanningRef.current = false;
-      setCursor(spaceHeldRef.current ? 'grab' : 'default');
+      setCursor(spaceHeldRef.current ? "grab" : "default");
     }
     if (isMiddlePanningRef.current) {
       // Right-click without drag → deselect tool + deselect objects
       if (!rightClickMovedRef.current) {
         const { activeTool } = storeApi.getState();
-        if (activeTool !== 'select') {
-          storeApi.getState().setActiveTool('select');
+        if (activeTool !== "select") {
+          storeApi.getState().setActiveTool("select");
         }
         storeApi.getState().setSelectedIds(new Set());
       }
       isMiddlePanningRef.current = false;
       rightClickMovedRef.current = false;
-      setCursor('default');
+      setCursor("default");
     }
   }, [storeApi]);
 
   // ── Zoom: scroll wheel [AC2] ─────────────────────────────
 
-  const handleWheel = useCallback((e: WheelEvent) => {
-    e.preventDefault();
+  const handleWheel = useCallback(
+    (e: WheelEvent) => {
+      e.preventDefault();
 
-    const { camera, setCamera } = storeApi.getState();
+      const { camera, setCamera } = storeApi.getState();
 
-    // Shift+scroll → horizontal pan instead of zoom
-    if (e.shiftKey) {
-      setCamera({
-        x: camera.x + e.deltaY / camera.zoom,
-        y: camera.y,
-        zoom: camera.zoom,
-      });
-      return;
-    }
+      // Shift+scroll → horizontal pan instead of zoom
+      if (e.shiftKey) {
+        setCamera({
+          x: camera.x + e.deltaY / camera.zoom,
+          y: camera.y,
+          zoom: camera.zoom,
+        });
+        return;
+      }
 
-    // Calculate new zoom level
-    const zoomDelta = -e.deltaY * ZOOM_SENSITIVITY;
-    const newZoom = Math.min(
-      MAX_ZOOM,
-      Math.max(MIN_ZOOM, camera.zoom * (1 + zoomDelta)),
-    );
+      // Calculate new zoom level
+      const zoomDelta = -e.deltaY * ZOOM_SENSITIVITY;
+      const newZoom = Math.min(
+        MAX_ZOOM,
+        Math.max(MIN_ZOOM, camera.zoom * (1 + zoomDelta)),
+      );
 
-    // Use zoomAtPoint so the world point under cursor stays fixed [AC3]
-    const newCamera = zoomAtPoint(camera, e.offsetX, e.offsetY, newZoom);
-    setCamera(newCamera);
-  }, [storeApi]);
+      // Use zoomAtPoint so the world point under cursor stays fixed [AC3]
+      const newCamera = zoomAtPoint(camera, e.offsetX, e.offsetY, newZoom);
+      setCamera(newCamera);
+    },
+    [storeApi],
+  );
 
   // ── Prevent context menu on canvas (right-click used for pan) ──
 
@@ -161,36 +170,43 @@ export function useCanvasInteraction(): CanvasInteraction {
     const canvas = canvasRef.current;
 
     // Key events go on window (canvas may not have focus)
-    window.addEventListener('keydown', handleKeyDown);
-    window.addEventListener('keyup', handleKeyUp);
+    window.addEventListener("keydown", handleKeyDown);
+    window.addEventListener("keyup", handleKeyUp);
 
     if (canvas) {
-      canvas.addEventListener('mousedown', handleMouseDown);
-      canvas.addEventListener('mousemove', handleMouseMove);
-      canvas.addEventListener('mouseup', handleMouseUp);
+      canvas.addEventListener("mousedown", handleMouseDown);
+      canvas.addEventListener("mousemove", handleMouseMove);
+      canvas.addEventListener("mouseup", handleMouseUp);
       // { passive: false } to prevent browser scroll
-      canvas.addEventListener('wheel', handleWheel, { passive: false });
+      canvas.addEventListener("wheel", handleWheel, { passive: false });
       // Suppress right-click context menu (right-click is used for pan)
-      canvas.addEventListener('contextmenu', preventContextMenu);
+      canvas.addEventListener("contextmenu", preventContextMenu);
     }
 
     // Also listen on window for mouseup (in case cursor leaves canvas)
-    window.addEventListener('mouseup', handleMouseUp);
+    window.addEventListener("mouseup", handleMouseUp);
 
     return () => {
-      window.removeEventListener('keydown', handleKeyDown);
-      window.removeEventListener('keyup', handleKeyUp);
-      window.removeEventListener('mouseup', handleMouseUp);
+      window.removeEventListener("keydown", handleKeyDown);
+      window.removeEventListener("keyup", handleKeyUp);
+      window.removeEventListener("mouseup", handleMouseUp);
 
       if (canvas) {
-        canvas.removeEventListener('mousedown', handleMouseDown);
-        canvas.removeEventListener('mousemove', handleMouseMove);
-        canvas.removeEventListener('mouseup', handleMouseUp);
-        canvas.removeEventListener('wheel', handleWheel);
-        canvas.removeEventListener('contextmenu', preventContextMenu);
+        canvas.removeEventListener("mousedown", handleMouseDown);
+        canvas.removeEventListener("mousemove", handleMouseMove);
+        canvas.removeEventListener("mouseup", handleMouseUp);
+        canvas.removeEventListener("wheel", handleWheel);
+        canvas.removeEventListener("contextmenu", preventContextMenu);
       }
     };
-  }, [handleKeyDown, handleKeyUp, handleMouseDown, handleMouseMove, handleMouseUp, handleWheel]);
+  }, [
+    handleKeyDown,
+    handleKeyUp,
+    handleMouseDown,
+    handleMouseMove,
+    handleMouseUp,
+    handleWheel,
+  ]);
 
   return { canvasRef, cursor };
 }

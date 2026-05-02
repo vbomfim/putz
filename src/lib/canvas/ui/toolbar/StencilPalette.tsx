@@ -19,18 +19,25 @@
  * @module
  */
 
-import { useState, useCallback, useEffect, useMemo, memo, type DragEvent } from 'react';
-import { nanoid } from 'nanoid';
-import { ChevronDown, ChevronRight, Loader2, Search, X } from 'lucide-react';
-import type { VisualExpression, ExpressionData } from '../../protocol';
-import { DEFAULT_EXPRESSION_STYLE } from '../../protocol';
+import {
+  useState,
+  useCallback,
+  useEffect,
+  useMemo,
+  memo,
+  type DragEvent,
+} from "react";
+import { nanoid } from "nanoid";
+import { ChevronDown, ChevronRight, Loader2, Search, X } from "lucide-react";
+import type { VisualExpression, ExpressionData } from "../../protocol";
+import { DEFAULT_EXPRESSION_STYLE } from "../../protocol";
 import {
   getCategoryStencils,
   getAllStencilMeta,
   svgToDataUri,
-} from '../../engine';
-import type { StencilEntry } from '../../engine';
-import { useDebouncedValue } from '../hooks/useDebouncedValue';
+} from "../../engine";
+import type { StencilEntry } from "../../engine";
+import { useDebouncedValue } from "../hooks/useDebouncedValue";
 import {
   filterStencilsBySearch,
   sortCategories,
@@ -38,7 +45,7 @@ import {
   getCategoryDisplayName,
   INITIAL_RENDER_LIMIT,
   SEARCH_DEBOUNCE_MS,
-} from './stencilPaletteUtils';
+} from "./stencilPaletteUtils";
 
 // ── Constants ──────────────────────────────────────────────
 
@@ -71,7 +78,7 @@ export interface StencilPaletteProps {
  */
 function createStencilExpression(entry: StencilEntry): VisualExpression {
   const data: ExpressionData = {
-    kind: 'stencil' as const,
+    kind: "stencil" as const,
     stencilId: entry.id,
     category: entry.category,
     label: entry.label,
@@ -79,13 +86,13 @@ function createStencilExpression(entry: StencilEntry): VisualExpression {
 
   return {
     id: nanoid(),
-    kind: 'stencil',
+    kind: "stencil",
     position: { x: 0, y: 0 },
     size: { ...entry.defaultSize },
     angle: 0,
     style: { ...DEFAULT_EXPRESSION_STYLE, fontSize: 10 },
     meta: {
-      author: { type: 'human', id: 'local-user', name: 'User' },
+      author: { type: "human", id: "local-user", name: "User" },
       createdAt: Date.now(),
       updatedAt: Date.now(),
       tags: [],
@@ -109,16 +116,16 @@ function createStencilExpression(entry: StencilEntry): VisualExpression {
  * lazily when a category is expanded or matched by search.
  */
 export function StencilPalette({ onInsert, isOpen }: StencilPaletteProps) {
-  const [searchInput, setSearchInput] = useState('');
+  const [searchInput, setSearchInput] = useState("");
   const debouncedQuery = useDebouncedValue(searchInput, SEARCH_DEBOUNCE_MS);
   const isSearching = debouncedQuery.trim().length > 0;
 
   const [collapsedCategories, setCollapsedCategories] = useState<Set<string>>(
     new Set(),
   );
-  const [loadedStencils, setLoadedStencils] = useState<Map<string, StencilEntry[]>>(
-    new Map(),
-  );
+  const [loadedStencils, setLoadedStencils] = useState<
+    Map<string, StencilEntry[]>
+  >(new Map());
   const [loadingCategories, setLoadingCategories] = useState<Set<string>>(
     new Set(),
   );
@@ -206,7 +213,7 @@ export function StencilPalette({ onInsert, isOpen }: StencilPaletteProps) {
     return () => {
       cancelled = true;
     };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, visibleCategories, isSearching, collapsedCategories]);
 
   const toggleCategory = useCallback((category: string) => {
@@ -244,18 +251,18 @@ export function StencilPalette({ onInsert, isOpen }: StencilPaletteProps) {
   const handleDragStart = useCallback(
     (event: DragEvent<HTMLDivElement>, entry: StencilEntry) => {
       event.dataTransfer.setData(
-        'application/x-infinicanvas-stencil',
+        "application/x-infinicanvas-stencil",
         entry.id,
       );
-      event.dataTransfer.effectAllowed = 'copy';
+      event.dataTransfer.effectAllowed = "copy";
 
       // Create offscreen drag preview from SVG
       const dragImg = new Image(40, 40);
       dragImg.src = svgToDataUri(entry.svgContent);
       document.body.appendChild(dragImg);
-      dragImg.style.position = 'absolute';
-      dragImg.style.top = '-9999px';
-      if (typeof event.dataTransfer.setDragImage === 'function') {
+      dragImg.style.position = "absolute";
+      dragImg.style.top = "-9999px";
+      if (typeof event.dataTransfer.setDragImage === "function") {
         event.dataTransfer.setDragImage(dragImg, 20, 20);
       }
       requestAnimationFrame(() => document.body.removeChild(dragImg));
@@ -264,7 +271,7 @@ export function StencilPalette({ onInsert, isOpen }: StencilPaletteProps) {
   );
 
   const handleClearSearch = useCallback(() => {
-    setSearchInput('');
+    setSearchInput("");
   }, []);
 
   if (!isOpen) {
@@ -277,33 +284,33 @@ export function StencilPalette({ onInsert, isOpen }: StencilPaletteProps) {
       role="navigation"
       aria-label="Stencil palette"
       style={{
-        position: 'absolute',
+        position: "absolute",
         left: 60,
-        top: '50%',
-        transform: 'translateY(-50%)',
+        top: "50%",
+        transform: "translateY(-50%)",
         width: PANEL_WIDTH,
-        maxHeight: '80vh',
-        overflowY: 'auto',
-        backgroundColor: 'var(--bg-toolbar, #ffffff)',
+        maxHeight: "80vh",
+        overflowY: "auto",
+        backgroundColor: "var(--bg-toolbar, #ffffff)",
         borderRadius: 10,
-        boxShadow: '0 4px 16px var(--shadow, rgba(0, 0, 0, 0.15))',
-        border: '1px solid var(--border, #e0e0e0)',
+        boxShadow: "0 4px 16px var(--shadow, rgba(0, 0, 0, 0.15))",
+        border: "1px solid var(--border, #e0e0e0)",
         padding: 8,
         zIndex: 20,
-        fontFamily: 'system-ui, -apple-system, sans-serif',
+        fontFamily: "system-ui, -apple-system, sans-serif",
       }}
     >
       {/* Search input */}
-      <div style={{ position: 'relative', marginBottom: 8 }}>
+      <div style={{ position: "relative", marginBottom: 8 }}>
         <Search
           size={14}
           style={{
-            position: 'absolute',
+            position: "absolute",
             left: 8,
-            top: '50%',
-            transform: 'translateY(-50%)',
-            color: '#999',
-            pointerEvents: 'none',
+            top: "50%",
+            transform: "translateY(-50%)",
+            color: "#999",
+            pointerEvents: "none",
           }}
         />
         <input
@@ -314,16 +321,16 @@ export function StencilPalette({ onInsert, isOpen }: StencilPaletteProps) {
           onChange={(e) => setSearchInput(e.target.value)}
           aria-label="Search stencils"
           style={{
-            width: '100%',
-            padding: '6px 28px 6px 28px',
-            border: '1px solid var(--border, #e0e0e0)',
+            width: "100%",
+            padding: "6px 28px 6px 28px",
+            border: "1px solid var(--border, #e0e0e0)",
             borderRadius: 6,
             fontSize: 12,
-            fontFamily: 'inherit',
-            backgroundColor: 'var(--bg-toolbar, #ffffff)',
-            color: 'var(--text-primary, #333333)',
-            outline: 'none',
-            boxSizing: 'border-box',
+            fontFamily: "inherit",
+            backgroundColor: "var(--bg-toolbar, #ffffff)",
+            color: "var(--text-primary, #333333)",
+            outline: "none",
+            boxSizing: "border-box",
           }}
         />
         {searchInput && (
@@ -333,17 +340,17 @@ export function StencilPalette({ onInsert, isOpen }: StencilPaletteProps) {
             aria-label="Clear search"
             onClick={handleClearSearch}
             style={{
-              position: 'absolute',
+              position: "absolute",
               right: 4,
-              top: '50%',
-              transform: 'translateY(-50%)',
-              background: 'none',
-              border: 'none',
-              cursor: 'pointer',
+              top: "50%",
+              transform: "translateY(-50%)",
+              background: "none",
+              border: "none",
+              cursor: "pointer",
               padding: 2,
-              color: '#999',
-              display: 'flex',
-              alignItems: 'center',
+              color: "#999",
+              display: "flex",
+              alignItems: "center",
             }}
           >
             <X size={12} />
@@ -356,10 +363,10 @@ export function StencilPalette({ onInsert, isOpen }: StencilPaletteProps) {
         <div
           data-testid="stencil-search-no-results"
           style={{
-            textAlign: 'center',
-            padding: '16px 0',
+            textAlign: "center",
+            padding: "16px 0",
             fontSize: 12,
-            color: '#999',
+            color: "#999",
           }}
         >
           No stencils found
@@ -378,9 +385,9 @@ export function StencilPalette({ onInsert, isOpen }: StencilPaletteProps) {
 
         // Filter loaded stencils by search matches
         const visibleStencils = stencils
-          ? (matchingStencilIds
-              ? stencils.filter((s) => matchingStencilIds.has(s.id))
-              : stencils)
+          ? matchingStencilIds
+            ? stencils.filter((s) => matchingStencilIds.has(s.id))
+            : stencils
           : undefined;
 
         // Apply "show more" limit (only when not searching)
@@ -407,27 +414,27 @@ export function StencilPalette({ onInsert, isOpen }: StencilPaletteProps) {
               aria-label={`${displayName} category`}
               onClick={() => toggleCategory(category)}
               style={{
-                display: 'flex',
-                alignItems: 'center',
+                display: "flex",
+                alignItems: "center",
                 gap: 4,
-                width: '100%',
-                padding: '6px 4px',
-                border: 'none',
+                width: "100%",
+                padding: "6px 4px",
+                border: "none",
                 borderRadius: 4,
-                cursor: 'pointer',
-                backgroundColor: 'transparent',
-                color: 'var(--text-primary, #333333)',
+                cursor: "pointer",
+                backgroundColor: "transparent",
+                color: "var(--text-primary, #333333)",
                 fontSize: 12,
                 fontWeight: 600,
-                fontFamily: 'inherit',
-                textAlign: 'left',
-                transition: 'background-color 0.1s',
+                fontFamily: "inherit",
+                textAlign: "left",
+                transition: "background-color 0.1s",
               }}
               onMouseEnter={(e) => {
-                e.currentTarget.style.backgroundColor = '#f0f4ff';
+                e.currentTarget.style.backgroundColor = "#f0f4ff";
               }}
               onMouseLeave={(e) => {
-                e.currentTarget.style.backgroundColor = 'transparent';
+                e.currentTarget.style.backgroundColor = "transparent";
               }}
             >
               <ChevronIcon size={14} />
@@ -435,9 +442,9 @@ export function StencilPalette({ onInsert, isOpen }: StencilPaletteProps) {
               <span
                 data-testid={`category-count-${category}`}
                 style={{
-                  marginLeft: 'auto',
+                  marginLeft: "auto",
                   fontSize: 10,
-                  color: '#999',
+                  color: "#999",
                   fontWeight: 400,
                 }}
               >
@@ -450,13 +457,16 @@ export function StencilPalette({ onInsert, isOpen }: StencilPaletteProps) {
               <div
                 data-testid={`category-loading-${category}`}
                 style={{
-                  display: 'flex',
-                  justifyContent: 'center',
-                  padding: '12px 0',
-                  color: '#999',
+                  display: "flex",
+                  justifyContent: "center",
+                  padding: "12px 0",
+                  color: "#999",
                 }}
               >
-                <Loader2 size={16} style={{ animation: 'spin 1s linear infinite' }} />
+                <Loader2
+                  size={16}
+                  style={{ animation: "spin 1s linear infinite" }}
+                />
               </div>
             )}
 
@@ -464,15 +474,15 @@ export function StencilPalette({ onInsert, isOpen }: StencilPaletteProps) {
               <div
                 style={{
                   maxHeight: 400,
-                  overflowY: 'auto',
+                  overflowY: "auto",
                 }}
               >
                 <div
                   style={{
-                    display: 'grid',
+                    display: "grid",
                     gridTemplateColumns: `repeat(${GRID_COLUMNS}, 1fr)`,
                     gap: 4,
-                    padding: '4px 0',
+                    padding: "4px 0",
                   }}
                 >
                   {renderedStencils.map((entry) => (
@@ -492,17 +502,17 @@ export function StencilPalette({ onInsert, isOpen }: StencilPaletteProps) {
                     data-testid={`show-more-${category}`}
                     onClick={() => toggleShowMore(category)}
                     style={{
-                      display: 'block',
-                      width: '100%',
-                      padding: '4px 0',
-                      border: 'none',
+                      display: "block",
+                      width: "100%",
+                      padding: "4px 0",
+                      border: "none",
                       borderRadius: 4,
-                      cursor: 'pointer',
-                      backgroundColor: 'transparent',
-                      color: '#4A90D9',
+                      cursor: "pointer",
+                      backgroundColor: "transparent",
+                      color: "#4A90D9",
                       fontSize: 11,
-                      fontFamily: 'inherit',
-                      textAlign: 'center',
+                      fontFamily: "inherit",
+                      textAlign: "center",
                     }}
                   >
                     Show {remainingCount} more…
@@ -514,17 +524,17 @@ export function StencilPalette({ onInsert, isOpen }: StencilPaletteProps) {
                     data-testid={`show-less-${category}`}
                     onClick={() => toggleShowMore(category)}
                     style={{
-                      display: 'block',
-                      width: '100%',
-                      padding: '4px 0',
-                      border: 'none',
+                      display: "block",
+                      width: "100%",
+                      padding: "4px 0",
+                      border: "none",
                       borderRadius: 4,
-                      cursor: 'pointer',
-                      backgroundColor: 'transparent',
-                      color: '#4A90D9',
+                      cursor: "pointer",
+                      backgroundColor: "transparent",
+                      color: "#4A90D9",
                       fontSize: 11,
-                      fontFamily: 'inherit',
-                      textAlign: 'center',
+                      fontFamily: "inherit",
+                      textAlign: "center",
                     }}
                   >
                     Show less
@@ -568,20 +578,20 @@ const StencilItem = memo(function StencilItem({
       onClick={() => onClick(entry)}
       onDragStart={(e) => onDragStart(e, entry)}
       style={{
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
         gap: 2,
         padding: 4,
         borderRadius: 6,
-        cursor: 'pointer',
-        transition: 'background-color 0.1s',
+        cursor: "pointer",
+        transition: "background-color 0.1s",
       }}
       onMouseEnter={(e) => {
-        e.currentTarget.style.backgroundColor = '#f0f4ff';
+        e.currentTarget.style.backgroundColor = "#f0f4ff";
       }}
       onMouseLeave={(e) => {
-        e.currentTarget.style.backgroundColor = 'transparent';
+        e.currentTarget.style.backgroundColor = "transparent";
       }}
     >
       {/* SVG thumbnail — trusted bundled content */}
@@ -590,9 +600,9 @@ const StencilItem = memo(function StencilItem({
         style={{
           width: THUMBNAIL_SIZE,
           height: THUMBNAIL_SIZE,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
         }}
       >
         <img
@@ -600,7 +610,7 @@ const StencilItem = memo(function StencilItem({
           alt={entry.label}
           width={THUMBNAIL_SIZE - 8}
           height={THUMBNAIL_SIZE - 8}
-          style={{ objectFit: 'contain', pointerEvents: 'none' }}
+          style={{ objectFit: "contain", pointerEvents: "none" }}
         />
       </div>
 
@@ -608,13 +618,13 @@ const StencilItem = memo(function StencilItem({
       <span
         style={{
           fontSize: 10,
-          color: 'var(--text-primary, #666)',
-          textAlign: 'center',
+          color: "var(--text-primary, #666)",
+          textAlign: "center",
           lineHeight: 1.2,
           maxWidth: THUMBNAIL_SIZE + 16,
-          overflow: 'hidden',
-          textOverflow: 'ellipsis',
-          whiteSpace: 'nowrap',
+          overflow: "hidden",
+          textOverflow: "ellipsis",
+          whiteSpace: "nowrap",
         }}
       >
         {entry.label}

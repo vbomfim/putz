@@ -94,9 +94,8 @@ describe("Bell CSS Animation", () => {
    * used to add/remove the class.
    */
   it("bell flash CSS class constant is defined", async () => {
-    const { BELL_FLASH_CLASS, BELL_FLASH_DURATION_MS } = await import(
-      "../components/Terminal/terminalPolish"
-    );
+    const { BELL_FLASH_CLASS, BELL_FLASH_DURATION_MS } =
+      await import("../components/Terminal/terminalPolish");
     expect(BELL_FLASH_CLASS).toBe("tab--bell-flash");
     expect(BELL_FLASH_DURATION_MS).toBe(300);
   });
@@ -106,9 +105,8 @@ describe("Bell CSS Animation", () => {
 
 describe("Reconnect on Wake Constants", () => {
   it("defines a reconnect grace period", async () => {
-    const { WAKE_RECONNECT_GRACE_MS } = await import(
-      "../components/Terminal/terminalPolish"
-    );
+    const { WAKE_RECONNECT_GRACE_MS } =
+      await import("../components/Terminal/terminalPolish");
     expect(WAKE_RECONNECT_GRACE_MS).toBeGreaterThan(0);
     expect(WAKE_RECONNECT_GRACE_MS).toBeLessThanOrEqual(5000);
   });

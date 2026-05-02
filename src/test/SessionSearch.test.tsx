@@ -60,7 +60,9 @@ describe("SessionSearch", () => {
     render(<SessionSearch onSearch={onSearch} />);
 
     // No clear button initially
-    expect(screen.queryByTestId("session-search-clear")).not.toBeInTheDocument();
+    expect(
+      screen.queryByTestId("session-search-clear"),
+    ).not.toBeInTheDocument();
 
     const input = screen.getByTestId("session-search-input");
     fireEvent.change(input, { target: { value: "query" } });

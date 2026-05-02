@@ -231,11 +231,15 @@ export const useTabStore = create<TabState>((set, get) => ({
   setFocusedPane: (sessionId: string) => {
     // Store focus both globally and on the tab that owns this session
     const { tabs } = get();
-    const ownerTab = tabs.find((t) => collectSessionIds(t.layout).includes(sessionId));
+    const ownerTab = tabs.find((t) =>
+      collectSessionIds(t.layout).includes(sessionId),
+    );
     set({
       focusedPaneSessionId: sessionId,
       tabs: ownerTab
-        ? tabs.map((t) => t.id === ownerTab.id ? { ...t, focusedSessionId: sessionId } : t)
+        ? tabs.map((t) =>
+            t.id === ownerTab.id ? { ...t, focusedSessionId: sessionId } : t,
+          )
         : tabs,
     });
   },
@@ -269,7 +273,9 @@ export const useTabStore = create<TabState>((set, get) => ({
 
     // Auto-focus the new terminal
     setTimeout(() => {
-      const el = document.querySelector(`[data-session-id="${sessionId}"] .xterm-helper-textarea`) as HTMLElement;
+      const el = document.querySelector(
+        `[data-session-id="${sessionId}"] .xterm-helper-textarea`,
+      ) as HTMLElement;
       el?.focus();
     }, 100);
   },
@@ -315,11 +321,14 @@ export const useTabStore = create<TabState>((set, get) => ({
     const tab = tabs.find((t) => t.id === id);
     if (tab) {
       // Use the tab's remembered focused pane, or fall back to first leaf
-      const sessionId = tab.focusedSessionId || getFirstLeafSessionId(tab.layout);
+      const sessionId =
+        tab.focusedSessionId || getFirstLeafSessionId(tab.layout);
       set({ activeTabId: id, focusedPaneSessionId: sessionId });
       // Auto-focus the terminal element after React renders
       setTimeout(() => {
-        const el = document.querySelector(`[data-session-id="${sessionId}"] .xterm-helper-textarea`) as HTMLElement;
+        const el = document.querySelector(
+          `[data-session-id="${sessionId}"] .xterm-helper-textarea`,
+        ) as HTMLElement;
         el?.focus();
       }, 50);
     }
@@ -480,14 +489,18 @@ export const useTabStore = create<TabState>((set, get) => ({
 
     set((state) => ({
       tabs: state.tabs.map((t) =>
-        t.id === tabId ? { ...t, layout: newLayout, focusedSessionId: newSessionId } : t,
+        t.id === tabId
+          ? { ...t, layout: newLayout, focusedSessionId: newSessionId }
+          : t,
       ),
       focusedPaneSessionId: newSessionId,
     }));
 
     // Auto-focus the new pane after React re-renders
     setTimeout(() => {
-      const el = document.querySelector(`[data-session-id="${newSessionId}"] .xterm-helper-textarea`) as HTMLElement;
+      const el = document.querySelector(
+        `[data-session-id="${newSessionId}"] .xterm-helper-textarea`,
+      ) as HTMLElement;
       el?.focus();
     }, 200);
   },
@@ -498,7 +511,8 @@ export const useTabStore = create<TabState>((set, get) => ({
     if (!activeTab) return;
 
     // Use the focused pane if available, otherwise fall back to first leaf
-    const targetSession = focusedPaneSessionId || getFirstLeafSessionId(activeTab.layout);
+    const targetSession =
+      focusedPaneSessionId || getFirstLeafSessionId(activeTab.layout);
     await splitPane(activeTabId, targetSession, direction);
   },
 

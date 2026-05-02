@@ -92,9 +92,7 @@ describe("SessionTree", () => {
   it("shows empty state when no nodes", () => {
     render(<SessionTree nodes={[]} {...defaultHandlers} />);
     expect(screen.getByTestId("session-tree-empty")).toBeInTheDocument();
-    expect(
-      screen.getByText("No saved sessions yet."),
-    ).toBeInTheDocument();
+    expect(screen.getByText("No saved sessions yet.")).toBeInTheDocument();
   });
 
   it("shows create button in empty state", () => {
@@ -114,9 +112,7 @@ describe("SessionTree", () => {
   });
 
   it("shows search empty state when searching", () => {
-    render(
-      <SessionTree nodes={[]} {...defaultHandlers} isSearching={true} />,
-    );
+    render(<SessionTree nodes={[]} {...defaultHandlers} isSearching={true} />);
     expect(
       screen.getByText("No sessions match your search."),
     ).toBeInTheDocument();

@@ -8,11 +8,11 @@
  * @module
  */
 
-import type { DrawPreview } from '../tools/BaseTool';
-import type { ShapeConnectionPoint } from '../connectors/connectionPoints';
+import type { DrawPreview } from "../tools/BaseTool";
+import type { ShapeConnectionPoint } from "../connectors/connectionPoints";
 
 /** Dashed stroke color for draw previews. */
-const PREVIEW_STROKE_COLOR = '#4A90D9';
+const PREVIEW_STROKE_COLOR = "#4A90D9";
 
 /** Dash pattern for draw previews. */
 const PREVIEW_DASH_PATTERN = [6, 4];
@@ -21,16 +21,16 @@ const PREVIEW_DASH_PATTERN = [6, 4];
 const PREVIEW_STROKE_WIDTH = 1.5;
 
 /** Preview fill color (very light blue). */
-const PREVIEW_FILL_COLOR = 'rgba(74, 144, 217, 0.08)';
+const PREVIEW_FILL_COLOR = "rgba(74, 144, 217, 0.08)";
 
 /** Connection point circle radius in screen pixels. */
 const CONNECTION_POINT_RADIUS = 6;
 
 /** Connection point idle fill color (light blue). */
-const CONNECTION_POINT_FILL = 'rgba(74, 144, 217, 0.3)';
+const CONNECTION_POINT_FILL = "rgba(74, 144, 217, 0.3)";
 
 /** Connection point border color. */
-const CONNECTION_POINT_STROKE = '#4A90D9';
+const CONNECTION_POINT_STROKE = "#4A90D9";
 
 /**
  * Render a draw preview on the canvas context.
@@ -51,25 +51,25 @@ export function renderDrawPreview(
   ctx.setLineDash(PREVIEW_DASH_PATTERN);
 
   switch (preview.kind) {
-    case 'rectangle':
+    case "rectangle":
       renderRectanglePreview(ctx, preview);
       break;
-    case 'ellipse':
+    case "ellipse":
       renderEllipsePreview(ctx, preview);
       break;
-    case 'diamond':
+    case "diamond":
       renderDiamondPreview(ctx, preview);
       break;
-    case 'line':
+    case "line":
       renderLinePreview(ctx, preview);
       break;
-    case 'arrow':
+    case "arrow":
       renderArrowPreview(ctx, preview);
       break;
-    case 'freehand':
+    case "freehand":
       renderFreehandPreview(ctx, preview);
       break;
-    case 'sticky-note':
+    case "sticky-note":
       renderStickyNotePreview(ctx, preview);
       break;
   }
@@ -82,10 +82,10 @@ export function renderDrawPreview(
     ctx.save();
     ctx.beginPath();
     ctx.arc(preview.snapPoint.x, preview.snapPoint.y, r, 0, Math.PI * 2);
-    ctx.fillStyle = '#4A90D9';
+    ctx.fillStyle = "#4A90D9";
     ctx.globalAlpha = 0.8;
     ctx.fill();
-    ctx.strokeStyle = '#ffffff';
+    ctx.strokeStyle = "#ffffff";
     ctx.lineWidth = 2 / zoom;
     ctx.setLineDash([]);
     ctx.stroke();
@@ -94,18 +94,29 @@ export function renderDrawPreview(
 
   // ── Connection points: show all points on the hovered shape ──
   if (preview.connectionPoints && preview.connectionPoints.length > 0) {
-    renderConnectionPoints(ctx, preview.connectionPoints, preview.snapPoint, zoom);
+    renderConnectionPoints(
+      ctx,
+      preview.connectionPoints,
+      preview.snapPoint,
+      zoom,
+    );
   }
 }
 
 /** Render rectangle preview as dashed outline with light fill. */
-function renderRectanglePreview(ctx: CanvasRenderingContext2D, p: DrawPreview): void {
+function renderRectanglePreview(
+  ctx: CanvasRenderingContext2D,
+  p: DrawPreview,
+): void {
   ctx.fillRect(p.x, p.y, p.width, p.height);
   ctx.strokeRect(p.x, p.y, p.width, p.height);
 }
 
 /** Render ellipse preview as dashed outline with light fill. */
-function renderEllipsePreview(ctx: CanvasRenderingContext2D, p: DrawPreview): void {
+function renderEllipsePreview(
+  ctx: CanvasRenderingContext2D,
+  p: DrawPreview,
+): void {
   const cx = p.x + p.width / 2;
   const cy = p.y + p.height / 2;
   const rx = p.width / 2;
@@ -118,7 +129,10 @@ function renderEllipsePreview(ctx: CanvasRenderingContext2D, p: DrawPreview): vo
 }
 
 /** Render diamond preview as dashed outline with light fill. */
-function renderDiamondPreview(ctx: CanvasRenderingContext2D, p: DrawPreview): void {
+function renderDiamondPreview(
+  ctx: CanvasRenderingContext2D,
+  p: DrawPreview,
+): void {
   const cx = p.x + p.width / 2;
   const cy = p.y + p.height / 2;
 
@@ -133,7 +147,10 @@ function renderDiamondPreview(ctx: CanvasRenderingContext2D, p: DrawPreview): vo
 }
 
 /** Render line preview as dashed line. */
-function renderLinePreview(ctx: CanvasRenderingContext2D, p: DrawPreview): void {
+function renderLinePreview(
+  ctx: CanvasRenderingContext2D,
+  p: DrawPreview,
+): void {
   if (!p.points || p.points.length < 2) return;
 
   ctx.beginPath();
@@ -146,7 +163,10 @@ function renderLinePreview(ctx: CanvasRenderingContext2D, p: DrawPreview): void 
 }
 
 /** Render arrow preview as dashed line with arrowhead. */
-function renderArrowPreview(ctx: CanvasRenderingContext2D, p: DrawPreview): void {
+function renderArrowPreview(
+  ctx: CanvasRenderingContext2D,
+  p: DrawPreview,
+): void {
   if (!p.points || p.points.length < 2) return;
 
   ctx.beginPath();
@@ -181,14 +201,17 @@ function renderArrowPreview(ctx: CanvasRenderingContext2D, p: DrawPreview): void
 }
 
 /** Render freehand preview as dashed polyline. */
-function renderFreehandPreview(ctx: CanvasRenderingContext2D, p: DrawPreview): void {
+function renderFreehandPreview(
+  ctx: CanvasRenderingContext2D,
+  p: DrawPreview,
+): void {
   if (!p.points || p.points.length < 2) return;
 
   ctx.setLineDash([]);
   ctx.strokeStyle = PREVIEW_STROKE_COLOR;
   ctx.lineWidth = 2;
-  ctx.lineJoin = 'round';
-  ctx.lineCap = 'round';
+  ctx.lineJoin = "round";
+  ctx.lineCap = "round";
 
   ctx.beginPath();
   const [first, ...rest] = p.points;
@@ -200,10 +223,13 @@ function renderFreehandPreview(ctx: CanvasRenderingContext2D, p: DrawPreview): v
 }
 
 /** Render sticky note preview as a warm-tinted rectangle. */
-function renderStickyNotePreview(ctx: CanvasRenderingContext2D, p: DrawPreview): void {
-  ctx.fillStyle = 'rgba(255, 224, 130, 0.3)';
+function renderStickyNotePreview(
+  ctx: CanvasRenderingContext2D,
+  p: DrawPreview,
+): void {
+  ctx.fillStyle = "rgba(255, 224, 130, 0.3)";
   ctx.fillRect(p.x, p.y, p.width, p.height);
-  ctx.strokeStyle = '#FFB300';
+  ctx.strokeStyle = "#FFB300";
   ctx.strokeRect(p.x, p.y, p.width, p.height);
 }
 
@@ -228,7 +254,11 @@ function renderConnectionPoints(
 
   for (const pt of points) {
     // Skip the snapped point — it has its own larger indicator
-    if (snapPoint && Math.abs(pt.x - snapPoint.x) < 0.5 && Math.abs(pt.y - snapPoint.y) < 0.5) {
+    if (
+      snapPoint &&
+      Math.abs(pt.x - snapPoint.x) < 0.5 &&
+      Math.abs(pt.y - snapPoint.y) < 0.5
+    ) {
       continue;
     }
 

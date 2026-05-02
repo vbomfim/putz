@@ -12,7 +12,7 @@
  * @module
  */
 
-import type { Camera, GridType } from '../types/index';
+import type { Camera, GridType } from "../types/index";
 
 /** Default base spacing in world units (used when gridSize not provided). */
 const DEFAULT_BASE_SPACING = 20;
@@ -21,13 +21,13 @@ const DEFAULT_BASE_SPACING = 20;
  * Default dot color — subtle gray. Used as fallback when
  * CSS variable --grid-dot is not available (e.g., in tests).
  */
-const DEFAULT_DOT_COLOR = '#e0e0e0';
+const DEFAULT_DOT_COLOR = "#e0e0e0";
 
 /**
  * Default line color — subtle gray. Used as fallback when
  * CSS variable --grid-line is not available (e.g., in tests).
  */
-const DEFAULT_LINE_COLOR = '#e0e0e0';
+const DEFAULT_LINE_COLOR = "#e0e0e0";
 
 /** Dot radius in world units. */
 const DOT_RADIUS = 1.5;
@@ -67,7 +67,7 @@ export function getGridSpacing(zoom: number, gridSize?: number): number {
 function getGridDotColor(): string {
   try {
     const value = getComputedStyle(document.documentElement)
-      .getPropertyValue('--grid-dot')
+      .getPropertyValue("--grid-dot")
       .trim();
     return value || DEFAULT_DOT_COLOR;
   } catch {
@@ -84,7 +84,7 @@ function getGridDotColor(): string {
 function getGridLineColor(): string {
   try {
     const value = getComputedStyle(document.documentElement)
-      .getPropertyValue('--grid-line')
+      .getPropertyValue("--grid-line")
       .trim();
     return value || DEFAULT_LINE_COLOR;
   } catch {
@@ -133,7 +133,12 @@ function renderDotGrid(
   gridSize?: number,
 ): void {
   const spacing = getGridSpacing(camera.zoom, gridSize);
-  const bounds = computeGridBounds(camera, viewportWidth, viewportHeight, spacing);
+  const bounds = computeGridBounds(
+    camera,
+    viewportWidth,
+    viewportHeight,
+    spacing,
+  );
 
   // Guard: bail out if too many elements would be drawn [CRITICAL]
   const cols = Math.ceil((bounds.endX - bounds.startX) / spacing) + 1;
@@ -171,7 +176,12 @@ function renderLineGrid(
   gridSize?: number,
 ): void {
   const spacing = getGridSpacing(camera.zoom, gridSize);
-  const bounds = computeGridBounds(camera, viewportWidth, viewportHeight, spacing);
+  const bounds = computeGridBounds(
+    camera,
+    viewportWidth,
+    viewportHeight,
+    spacing,
+  );
 
   // Guard: bail out if too many lines would be drawn [CRITICAL]
   const cols = Math.ceil((bounds.endX - bounds.startX) / spacing) + 1;
@@ -215,7 +225,7 @@ export function renderGrid(
 ): void {
   if (viewportWidth <= 0 || viewportHeight <= 0) return;
 
-  if (gridType === 'line') {
+  if (gridType === "line") {
     renderLineGrid(ctx, camera, viewportWidth, viewportHeight, gridSize);
   } else {
     renderDotGrid(ctx, camera, viewportWidth, viewportHeight, gridSize);

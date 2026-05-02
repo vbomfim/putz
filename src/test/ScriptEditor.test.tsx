@@ -27,7 +27,15 @@ let _mockMonacoValue = "";
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 let _mockMonacoOnChange: ((val: string) => void) | null = null;
 vi.mock("../components/Scripting/MonacoEditor", () => ({
-  MonacoEditor: ({ value, onChange, readOnly }: { value: string; onChange: (v: string) => void; readOnly?: boolean }) => {
+  MonacoEditor: ({
+    value,
+    onChange,
+    readOnly,
+  }: {
+    value: string;
+    onChange: (v: string) => void;
+    readOnly?: boolean;
+  }) => {
     _mockMonacoValue = value;
     _mockMonacoOnChange = onChange;
     return (
@@ -136,19 +144,27 @@ describe("ScriptEditor", () => {
     const script = createMockScript();
     render(<ScriptEditor script={script} onSave={mockOnSave} />);
 
-    const nameInput = screen.getByTestId("script-name-input") as HTMLInputElement;
+    const nameInput = screen.getByTestId(
+      "script-name-input",
+    ) as HTMLInputElement;
     expect(nameInput.value).toBe("Test Script");
 
-    const descInput = screen.getByTestId("script-description-input") as HTMLInputElement;
+    const descInput = screen.getByTestId(
+      "script-description-input",
+    ) as HTMLInputElement;
     expect(descInput.value).toBe("A test automation script");
 
-    const textarea = screen.getByTestId("script-content-textarea") as HTMLTextAreaElement;
+    const textarea = screen.getByTestId(
+      "script-content-textarea",
+    ) as HTMLTextAreaElement;
     expect(textarea.value).toBe('send("show version");\nlog("done");');
   });
 
   it("shows default template in create mode", () => {
     render(<ScriptEditor onSave={mockOnSave} />);
-    const textarea = screen.getByTestId("script-content-textarea") as HTMLTextAreaElement;
+    const textarea = screen.getByTestId(
+      "script-content-textarea",
+    ) as HTMLTextAreaElement;
     expect(textarea.value).toBe(DEFAULT_SCRIPT_CONTENT);
   });
 
@@ -183,7 +199,9 @@ describe("ScriptEditor", () => {
     fireEvent.change(nameInput, { target: { value: "a".repeat(101) } });
 
     fireEvent.click(screen.getByTestId("script-save-btn"));
-    expect(screen.getByText("Name must be 100 characters or fewer")).toBeInTheDocument();
+    expect(
+      screen.getByText("Name must be 100 characters or fewer"),
+    ).toBeInTheDocument();
     expect(mockOnSave).not.toHaveBeenCalled();
   });
 
@@ -357,8 +375,16 @@ describe("ScriptEditor", () => {
       <ScriptEditor
         onSave={mockOnSave}
         logEntries={[
-          { timestamp: "2024-01-01T00:00:00Z", level: "info", message: "Hello" },
-          { timestamp: "2024-01-01T00:00:01Z", level: "error", message: "Oops" },
+          {
+            timestamp: "2024-01-01T00:00:00Z",
+            level: "info",
+            message: "Hello",
+          },
+          {
+            timestamp: "2024-01-01T00:00:01Z",
+            level: "error",
+            message: "Oops",
+          },
         ]}
       />,
     );
@@ -397,9 +423,13 @@ describe("ScriptEditor", () => {
 
   it("disables inputs when saving", () => {
     render(<ScriptEditor onSave={mockOnSave} isSaving={true} />);
-    const nameInput = screen.getByTestId("script-name-input") as HTMLInputElement;
+    const nameInput = screen.getByTestId(
+      "script-name-input",
+    ) as HTMLInputElement;
     expect(nameInput.disabled).toBe(true);
-    const textarea = screen.getByTestId("script-content-textarea") as HTMLTextAreaElement;
+    const textarea = screen.getByTestId(
+      "script-content-textarea",
+    ) as HTMLTextAreaElement;
     expect(textarea.disabled).toBe(true);
   });
 });

@@ -48,7 +48,11 @@
 
 .radio--on .radio__power-panel {
   border-bottom-color: var(--bg-secondary);
-  background: linear-gradient(180deg, rgba(30, 30, 30, 0.8) 0%, rgba(20, 20, 20, 0.6) 100%);
+  background: linear-gradient(
+    180deg,
+    rgba(30, 30, 30, 0.8) 0%,
+    rgba(20, 20, 20, 0.6) 100%
+  );
 }
 
 /* ─── Power Switch (toggle) ──────────────────────────── */
@@ -73,7 +77,9 @@
 
 .radio__power-switch--on {
   border-color: #2a5a2a;
-  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.6), 0 0 4px rgba(0, 200, 0, 0.15);
+  box-shadow:
+    inset 0 1px 3px rgba(0, 0, 0, 0.6),
+    0 0 4px rgba(0, 200, 0, 0.15);
 }
 
 .radio__power-knob {
@@ -85,13 +91,17 @@
   border-radius: 50%;
   background: linear-gradient(180deg, #555, #333);
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
-  transition: left 0.2s ease, background 0.3s;
+  transition:
+    left 0.2s ease,
+    background 0.3s;
 }
 
 .radio__power-switch--on .radio__power-knob {
   left: 22px;
   background: linear-gradient(180deg, #4ade80, #22c55e);
-  box-shadow: 0 0 6px rgba(74, 222, 128, 0.5), 0 1px 2px rgba(0, 0, 0, 0.5);
+  box-shadow:
+    0 0 6px rgba(74, 222, 128, 0.5),
+    0 1px 2px rgba(0, 0, 0, 0.5);
 }
 
 /* ─── Power LED ──────────────────────────────────────── */
@@ -103,19 +113,32 @@
   background: #1a1a1a;
   border: 1px solid #2a2a2a;
   flex-shrink: 0;
-  transition: background 0.4s, box-shadow 0.4s;
+  transition:
+    background 0.4s,
+    box-shadow 0.4s;
 }
 
 .radio__power-led--on {
   background: #4ade80;
   border-color: #22c55e;
-  box-shadow: 0 0 4px rgba(74, 222, 128, 0.6), 0 0 12px rgba(74, 222, 128, 0.3);
+  box-shadow:
+    0 0 4px rgba(74, 222, 128, 0.6),
+    0 0 12px rgba(74, 222, 128, 0.3);
   animation: radio-led-pulse 2s ease-in-out infinite;
 }
 
 @keyframes radio-led-pulse {
-  0%, 100% { box-shadow: 0 0 4px rgba(74, 222, 128, 0.6), 0 0 12px rgba(74, 222, 128, 0.3); }
-  50% { box-shadow: 0 0 6px rgba(74, 222, 128, 0.8), 0 0 18px rgba(74, 222, 128, 0.5); }
+  0%,
+  100% {
+    box-shadow:
+      0 0 4px rgba(74, 222, 128, 0.6),
+      0 0 12px rgba(74, 222, 128, 0.3);
+  }
+  50% {
+    box-shadow:
+      0 0 6px rgba(74, 222, 128, 0.8),
+      0 0 18px rgba(74, 222, 128, 0.5);
+  }
 }
 
 /* ─── Power Label ────────────────────────────────────── */
@@ -234,7 +257,9 @@
   background: var(--bg-secondary);
   border: 1px solid transparent;
   cursor: pointer;
-  transition: border-color 0.15s, background 0.15s;
+  transition:
+    border-color 0.15s,
+    background 0.15s;
   gap: 4px;
 }
 

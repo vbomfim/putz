@@ -104,7 +104,16 @@ export function CredentialEditor({
       };
       onSave(input);
     },
-    [name, username, secret, credentialType, isEdit, credential, onSave, validate],
+    [
+      name,
+      username,
+      secret,
+      credentialType,
+      isEdit,
+      credential,
+      onSave,
+      validate,
+    ],
   );
 
   return (
@@ -213,7 +222,9 @@ export function CredentialEditor({
           <select
             id="credential-type"
             value={credentialType}
-            onChange={(e) => setCredentialType(e.target.value as CredentialType)}
+            onChange={(e) =>
+              setCredentialType(e.target.value as CredentialType)
+            }
             data-testid="credential-editor-type"
           >
             {CREDENTIAL_TYPES.map((t) => (

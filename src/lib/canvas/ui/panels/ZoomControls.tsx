@@ -11,16 +11,23 @@
  * @module
  */
 
-import { useCallback } from 'react';
+import { useCallback } from "react";
 import {
   useCanvasStore,
   useCanvasStoreApi,
   clampZoom,
   computeFitToContent,
   ZOOM_STEP,
-} from '../../engine';
-import { ZoomIn, ZoomOut, Maximize, Grid3x3, Magnet, FileText } from 'lucide-react';
-import type { VisualExpression } from '../../protocol';
+} from "../../engine";
+import {
+  ZoomIn,
+  ZoomOut,
+  Maximize,
+  Grid3x3,
+  Magnet,
+  FileText,
+} from "lucide-react";
+import type { VisualExpression } from "../../protocol";
 
 /** Button size in pixels. */
 const BUTTON_SIZE = 32;
@@ -86,17 +93,17 @@ export function ZoomControls() {
     <div
       data-testid="zoom-controls"
       style={{
-        position: 'absolute',
+        position: "absolute",
         bottom: 12,
         right: 12,
-        display: 'flex',
-        alignItems: 'center',
+        display: "flex",
+        alignItems: "center",
         gap: 2,
         padding: 4,
-        backgroundColor: 'var(--bg-toolbar, #ffffff)',
+        backgroundColor: "var(--bg-toolbar, #ffffff)",
         borderRadius: 10,
-        boxShadow: '0 2px 8px var(--shadow, rgba(0,0,0,0.12))',
-        border: '1px solid var(--border, #e0e0e0)',
+        boxShadow: "0 2px 8px var(--shadow, rgba(0,0,0,0.12))",
+        border: "1px solid var(--border, #e0e0e0)",
         zIndex: 20,
       }}
     >
@@ -116,12 +123,12 @@ export function ZoomControls() {
         data-testid="zoom-display"
         style={{
           minWidth: 48,
-          textAlign: 'center',
+          textAlign: "center",
           fontSize: 12,
           fontWeight: 500,
-          fontFamily: 'system-ui, -apple-system, sans-serif',
-          color: 'var(--text-primary, #333333)',
-          userSelect: 'none',
+          fontFamily: "system-ui, -apple-system, sans-serif",
+          color: "var(--text-primary, #333333)",
+          userSelect: "none",
         }}
       >
         {zoomPercent}%
@@ -153,14 +160,14 @@ export function ZoomControls() {
       <button
         type="button"
         data-testid="grid-toggle"
-        aria-label={gridVisible ? 'Hide grid' : 'Show grid'}
+        aria-label={gridVisible ? "Hide grid" : "Show grid"}
         title={gridVisible ? "Hide grid (Ctrl+')" : "Show grid (Ctrl+')"}
         onClick={handleToggleGrid}
         style={{
           ...buttonStyle,
           color: gridVisible
-            ? 'var(--accent, #4A90D9)'
-            : 'var(--text-primary, #333333)',
+            ? "var(--accent, #4A90D9)"
+            : "var(--text-primary, #333333)",
         }}
       >
         <Grid3x3 size={ICON_SIZE} />
@@ -170,15 +177,21 @@ export function ZoomControls() {
       <button
         type="button"
         data-testid="snap-toggle"
-        aria-label={snapEnabled ? 'Disable snap to grid' : 'Enable snap to grid'}
+        aria-label={
+          snapEnabled ? "Disable snap to grid" : "Enable snap to grid"
+        }
         aria-pressed={snapEnabled}
-        title={snapEnabled ? "Disable snap (Ctrl+Shift+')" : "Enable snap (Ctrl+Shift+')"}
+        title={
+          snapEnabled
+            ? "Disable snap (Ctrl+Shift+')"
+            : "Enable snap (Ctrl+Shift+')"
+        }
         onClick={handleToggleSnap}
         style={{
           ...buttonStyle,
           color: snapEnabled
-            ? 'var(--accent, #4A90D9)'
-            : 'var(--text-primary, #333333)',
+            ? "var(--accent, #4A90D9)"
+            : "var(--text-primary, #333333)",
         }}
       >
         <Magnet size={ICON_SIZE} />
@@ -188,15 +201,17 @@ export function ZoomControls() {
       <button
         type="button"
         data-testid="page-toggle"
-        aria-label={pageVisible ? 'Hide page boundaries' : 'Show page boundaries'}
+        aria-label={
+          pageVisible ? "Hide page boundaries" : "Show page boundaries"
+        }
         aria-pressed={pageVisible}
-        title={pageVisible ? 'Hide page boundaries' : 'Show page boundaries'}
+        title={pageVisible ? "Hide page boundaries" : "Show page boundaries"}
         onClick={handleTogglePage}
         style={{
           ...buttonStyle,
           color: pageVisible
-            ? 'var(--accent, #4A90D9)'
-            : 'var(--text-primary, #333333)',
+            ? "var(--accent, #4A90D9)"
+            : "var(--text-primary, #333333)",
         }}
       >
         <FileText size={ICON_SIZE} />
@@ -207,15 +222,15 @@ export function ZoomControls() {
 
 /** Shared button style for zoom controls. */
 const buttonStyle: React.CSSProperties = {
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'center',
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
   width: BUTTON_SIZE,
   height: BUTTON_SIZE,
-  border: 'none',
+  border: "none",
   borderRadius: 6,
-  cursor: 'pointer',
-  backgroundColor: 'transparent',
-  color: 'var(--text-primary, #333333)',
-  transition: 'background-color 0.15s',
+  cursor: "pointer",
+  backgroundColor: "transparent",
+  color: "var(--text-primary, #333333)",
+  transition: "background-color 0.15s",
 };

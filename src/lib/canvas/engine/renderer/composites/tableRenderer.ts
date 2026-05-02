@@ -7,20 +7,20 @@
  * @module
  */
 
-import type { VisualExpression, TableData, TableCell } from '../../../protocol';
-import type { RoughCanvas } from 'roughjs/bin/canvas.js';
-import { registerCompositeRenderer } from '../compositeRegistry';
+import type { VisualExpression, TableData, TableCell } from "../../../protocol";
+import type { RoughCanvas } from "roughjs/bin/canvas.js";
+import { registerCompositeRenderer } from "../compositeRegistry";
 
 // ── Constants ────────────────────────────────────────────────
 
 const PADDING = 8;
 const ROW_HEIGHT = 28;
-const FONT_FAMILY = 'system-ui, -apple-system, sans-serif';
+const FONT_FAMILY = "system-ui, -apple-system, sans-serif";
 const HEADER_FONT_SIZE = 12;
 const CELL_FONT_SIZE = 11;
 const CELL_PADDING = 8;
-const BORDER_COLOR = '#d0d0d0';
-const HEADER_BG = '#f5f5f5';
+const BORDER_COLOR = "#d0d0d0";
+const HEADER_BG = "#f5f5f5";
 const TITLE_FONT_SIZE = 13;
 
 const SWATCH_SIZE = 18;
@@ -28,20 +28,20 @@ const SWATCH_SIZE = 18;
 // ── Helpers ──────────────────────────────────────────────────
 
 function getCellText(cell: string | TableCell): string {
-  return typeof cell === 'string' ? cell : cell.text;
+  return typeof cell === "string" ? cell : cell.text;
 }
 
 function getCellBg(cell: string | TableCell): string | undefined {
-  return typeof cell === 'object' ? cell.backgroundColor : undefined;
+  return typeof cell === "object" ? cell.backgroundColor : undefined;
 }
 
 function getCellBorder(cell: string | TableCell): string | undefined {
-  return typeof cell === 'object' ? cell.borderColor : undefined;
+  return typeof cell === "object" ? cell.borderColor : undefined;
 }
 
 /** True if this cell is a color swatch (has color, no meaningful text). */
 function isSwatch(cell: string | TableCell): boolean {
-  if (typeof cell === 'string') return false;
+  if (typeof cell === "string") return false;
   return !!(cell.borderColor || cell.backgroundColor) && !cell.text.trim();
 }
 
@@ -63,7 +63,11 @@ export function renderTable(
     return;
   }
 
-  const colCount = Math.max(data.headers.length, ...data.rows.map(r => r.length), 1);
+  const colCount = Math.max(
+    data.headers.length,
+    ...data.rows.map((r) => r.length),
+    1,
+  );
   const tableWidth = width - PADDING * 2;
   const tableX = originX + PADDING;
   let currentY = originY + PADDING;
@@ -73,10 +77,12 @@ export function renderTable(
   const colWidths: number[] = [];
   let swatchColCount = 0;
   for (let ci = 0; ci < colCount; ci++) {
-    const allSwatch = data.rows.length > 0 && data.rows.every((row) => {
-      const cell = row[ci];
-      return cell !== undefined && isSwatch(cell);
-    });
+    const allSwatch =
+      data.rows.length > 0 &&
+      data.rows.every((row) => {
+        const cell = row[ci];
+        return cell !== undefined && isSwatch(cell);
+      });
     if (allSwatch) {
       colWidths.push(SWATCH_COL_WIDTH);
       swatchColCount++;
@@ -86,7 +92,10 @@ export function renderTable(
   }
   const remainingWidth = tableWidth - swatchColCount * SWATCH_COL_WIDTH;
   const normalColCount = colCount - swatchColCount;
-  const normalColWidth = normalColCount > 0 ? remainingWidth / normalColCount : tableWidth / colCount;
+  const normalColWidth =
+    normalColCount > 0
+      ? remainingWidth / normalColCount
+      : tableWidth / colCount;
   for (let ci = 0; ci < colCount; ci++) {
     if (colWidths[ci] === 0) colWidths[ci] = normalColWidth;
   }
@@ -108,10 +117,14 @@ export function renderTable(
     ctx.strokeRect(tableX, currentY, tableWidth, ROW_HEIGHT);
 
     ctx.font = `bold ${TITLE_FONT_SIZE}px ${FONT_FAMILY}`;
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillStyle = '#333333';
-    ctx.fillText(data.title, tableX + tableWidth / 2, currentY + ROW_HEIGHT / 2);
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillStyle = "#333333";
+    ctx.fillText(
+      data.title,
+      tableX + tableWidth / 2,
+      currentY + ROW_HEIGHT / 2,
+    );
     currentY += ROW_HEIGHT;
   }
 
@@ -122,15 +135,19 @@ export function renderTable(
     ctx.fillRect(tableX, currentY, tableWidth, ROW_HEIGHT);
 
     ctx.font = `bold ${HEADER_FONT_SIZE}px ${FONT_FAMILY}`;
-    ctx.textAlign = 'left';
-    ctx.textBaseline = 'middle';
-    ctx.fillStyle = '#333333';
+    ctx.textAlign = "left";
+    ctx.textBaseline = "middle";
+    ctx.fillStyle = "#333333";
 
     for (let ci = 0; ci < data.headers.length; ci++) {
       const cellX = colX(ci);
       ctx.strokeRect(cellX, currentY, colWidths[ci]!, ROW_HEIGHT);
-      ctx.fillStyle = '#333333';
-      ctx.fillText(data.headers[ci]!, cellX + CELL_PADDING, currentY + ROW_HEIGHT / 2);
+      ctx.fillStyle = "#333333";
+      ctx.fillText(
+        data.headers[ci]!,
+        cellX + CELL_PADDING,
+        currentY + ROW_HEIGHT / 2,
+      );
     }
     currentY += ROW_HEIGHT;
   }
@@ -149,7 +166,7 @@ export function renderTable(
         // Render a small colored square centered in the cell
         const sx = cellX + (colWidths[ci]! - SWATCH_SIZE) / 2;
         const sy = currentY + (ROW_HEIGHT - SWATCH_SIZE) / 2;
-        ctx.fillStyle = bg || '#ffffff';
+        ctx.fillStyle = bg || "#ffffff";
         ctx.fillRect(sx, sy, SWATCH_SIZE, SWATCH_SIZE);
         if (border) {
           ctx.save();
@@ -169,9 +186,9 @@ export function renderTable(
 
       const text = getCellText(cell);
       if (text) {
-        ctx.textAlign = 'left';
-        ctx.textBaseline = 'middle';
-        ctx.fillStyle = '#333333';
+        ctx.textAlign = "left";
+        ctx.textBaseline = "middle";
+        ctx.fillStyle = "#333333";
         ctx.fillText(text, cellX + CELL_PADDING, currentY + ROW_HEIGHT / 2);
       }
     }
@@ -187,4 +204,4 @@ export function renderTable(
 
 // ── Self-registration ────────────────────────────────────────
 
-registerCompositeRenderer('table', renderTable);
+registerCompositeRenderer("table", renderTable);

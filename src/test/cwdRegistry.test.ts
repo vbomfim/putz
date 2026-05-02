@@ -48,9 +48,7 @@ describe("parseCwdFromTitle", () => {
   });
 
   it("strips trailing slashes from Windows paths", () => {
-    expect(parseCwdFromTitle("PS C:\\Users\\john\\")).toBe(
-      "C:\\Users\\john",
-    );
+    expect(parseCwdFromTitle("PS C:\\Users\\john\\")).toBe("C:\\Users\\john");
   });
 });
 
@@ -111,7 +109,9 @@ import { parseCwdFromOsc7 } from "../components/Terminal/cwdRegistry";
 
 describe("parseCwdFromOsc7", () => {
   it("parses macOS Terminal/iTerm OSC 7 with hostname", () => {
-    expect(parseCwdFromOsc7("file://Mac.local/Users/foo/dev")).toBe("/Users/foo/dev");
+    expect(parseCwdFromOsc7("file://Mac.local/Users/foo/dev")).toBe(
+      "/Users/foo/dev",
+    );
   });
 
   it("parses OSC 7 with empty host (file:///path)", () => {

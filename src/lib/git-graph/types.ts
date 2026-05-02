@@ -32,12 +32,12 @@ export interface GitFileChange {
 }
 
 export type GitFileStatus =
-  | 'added'
-  | 'modified'
-  | 'deleted'
-  | 'renamed'
-  | 'copied'
-  | 'untracked';
+  | "added"
+  | "modified"
+  | "deleted"
+  | "renamed"
+  | "copied"
+  | "untracked";
 
 /** Working tree status summary. */
 export interface WorkingTreeStatus {
@@ -107,7 +107,6 @@ export interface ContextExport {
  * [CLEAN-ARCH] Domain types for the graph UI layer.
  */
 
-
 /** A node in the visual graph. */
 export interface GraphNode {
   readonly commit: GitCommit;
@@ -140,7 +139,9 @@ export interface GraphData {
   readonly edges: readonly GraphEdge[];
   readonly columns: number;
   /** Sync status for local branches with upstream tracking. */
-  readonly branchSync?: Readonly<Record<string, { ahead: number; behind: number; remote: string }>>;
+  readonly branchSync?: Readonly<
+    Record<string, { ahead: number; behind: number; remote: string }>
+  >;
   /** When true, graph is file-filtered — renderer shows a flat list. */
   readonly filtered?: boolean;
   /** Active worktrees: branch name → worktree folder path. */

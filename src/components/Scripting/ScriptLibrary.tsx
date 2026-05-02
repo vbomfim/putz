@@ -42,7 +42,10 @@ export function ScriptLibrary({
       } else {
         setDeleteConfirm(id);
         // Auto-reset after 3 seconds if not confirmed
-        setTimeout(() => setDeleteConfirm((prev) => (prev === id ? null : prev)), 3000);
+        setTimeout(
+          () => setDeleteConfirm((prev) => (prev === id ? null : prev)),
+          3000,
+        );
       }
     },
     [deleteConfirm, onDelete],
@@ -81,14 +84,21 @@ export function ScriptLibrary({
 
       {/* Loading */}
       {isLoading && (
-        <div className="script-library__loading" role="status" data-testid="script-library-loading">
+        <div
+          className="script-library__loading"
+          role="status"
+          data-testid="script-library-loading"
+        >
           Loading scripts…
         </div>
       )}
 
       {/* Empty state */}
       {!isLoading && scripts.length === 0 && (
-        <div className="script-library__empty" data-testid="script-library-empty">
+        <div
+          className="script-library__empty"
+          data-testid="script-library-empty"
+        >
           <p>No saved scripts</p>
           <p className="script-library__hint">
             Click <strong>+ New</strong> to create your first automation script.

@@ -186,7 +186,11 @@ export function ConfigDiff({ isOpen, onClose }: ConfigDiffProps) {
       </div>
 
       {hasComputed && (
-        <div className="config-diff__output" ref={diffRef} data-testid="config-diff-output">
+        <div
+          className="config-diff__output"
+          ref={diffRef}
+          data-testid="config-diff-output"
+        >
           <div className="config-diff__stats">
             <span className="config-diff__stat config-diff__stat--add">
               +{additions} addition{additions !== 1 ? "s" : ""}
@@ -197,7 +201,9 @@ export function ConfigDiff({ isOpen, onClose }: ConfigDiffProps) {
           </div>
           <div className="config-diff__lines">
             {diff.length === 0 ? (
-              <div className="config-diff__empty">Configurations are identical</div>
+              <div className="config-diff__empty">
+                Configurations are identical
+              </div>
             ) : (
               diff.map((line, index) => (
                 <div
@@ -212,9 +218,15 @@ export function ConfigDiff({ isOpen, onClose }: ConfigDiffProps) {
                     {line.newLineNumber ?? ""}
                   </span>
                   <span className="config-diff__line-prefix">
-                    {line.type === "add" ? "+" : line.type === "delete" ? "-" : " "}
+                    {line.type === "add"
+                      ? "+"
+                      : line.type === "delete"
+                        ? "-"
+                        : " "}
                   </span>
-                  <span className="config-diff__line-content">{line.content}</span>
+                  <span className="config-diff__line-content">
+                    {line.content}
+                  </span>
                 </div>
               ))
             )}

@@ -115,13 +115,9 @@ export function PingDashboard() {
 
               if (result.rttMs !== null) {
                 minMs =
-                  minMs === null
-                    ? result.rttMs
-                    : Math.min(minMs, result.rttMs);
+                  minMs === null ? result.rttMs : Math.min(minMs, result.rttMs);
                 maxMs =
-                  maxMs === null
-                    ? result.rttMs
-                    : Math.max(maxMs, result.rttMs);
+                  maxMs === null ? result.rttMs : Math.max(maxMs, result.rttMs);
                 // Running average
                 avgMs =
                   avgMs === null
@@ -270,7 +266,9 @@ export function PingDashboard() {
             min={1}
             max={1000}
             value={count}
-            onChange={(e) => setCount(Number(e.target.value) || DEFAULT_PING_COUNT)}
+            onChange={(e) =>
+              setCount(Number(e.target.value) || DEFAULT_PING_COUNT)
+            }
             disabled={isRunning}
             className="ping-option-input"
             data-testid="ping-count-input"
@@ -284,7 +282,9 @@ export function PingDashboard() {
             max={60}
             step={0.1}
             value={interval}
-            onChange={(e) => setInterval_(Number(e.target.value) || DEFAULT_PING_INTERVAL)}
+            onChange={(e) =>
+              setInterval_(Number(e.target.value) || DEFAULT_PING_INTERVAL)
+            }
             disabled={isRunning}
             className="ping-option-input"
             data-testid="ping-interval-input"

@@ -34,9 +34,7 @@ describe("SerialConfig", () => {
     onChange = defaultOnChange,
   ) {
     const values = { ...DEFAULT_SERIAL_CONFIG, ...overrides };
-    return render(
-      <SerialConfig values={values} onChange={onChange} />,
-    );
+    return render(<SerialConfig values={values} onChange={onChange} />);
   }
 
   /** Renders and waits for the initial port scan to complete. */
@@ -74,7 +72,9 @@ describe("SerialConfig", () => {
 
   it("shows default baud rate of 9600", async () => {
     await renderConfigAsync();
-    const select = screen.getByTestId("serial-baud-select") as HTMLSelectElement;
+    const select = screen.getByTestId(
+      "serial-baud-select",
+    ) as HTMLSelectElement;
     expect(select.value).toBe("9600");
   });
 
@@ -98,7 +98,9 @@ describe("SerialConfig", () => {
 
   it("shows default flow control of none", async () => {
     await renderConfigAsync();
-    const select = screen.getByTestId("serial-flow-control") as HTMLSelectElement;
+    const select = screen.getByTestId(
+      "serial-flow-control",
+    ) as HTMLSelectElement;
     expect(select.value).toBe("none");
   });
 

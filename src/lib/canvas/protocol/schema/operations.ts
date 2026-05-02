@@ -8,31 +8,31 @@
  * @module
  */
 
-import type { AuthorInfo, ExpressionStyle } from './metadata';
-import type { ExpressionData, ExpressionKind } from './expressions';
+import type { AuthorInfo, ExpressionStyle } from "./metadata";
+import type { ExpressionData, ExpressionKind } from "./expressions";
 
 /** All supported operation types. */
 export type OperationType =
-  | 'create'
-  | 'update'
-  | 'delete'
-  | 'move'
-  | 'transform'
-  | 'group'
-  | 'ungroup'
-  | 'annotate'
-  | 'morph'
-  | 'lock'
-  | 'unlock'
-  | 'style'
-  | 'reorder'
-  | 'snapshot'
-  | 'query';
+  | "create"
+  | "update"
+  | "delete"
+  | "move"
+  | "transform"
+  | "group"
+  | "ungroup"
+  | "annotate"
+  | "morph"
+  | "lock"
+  | "unlock"
+  | "style"
+  | "reorder"
+  | "snapshot"
+  | "query";
 
 // ── Operation Payloads ─────────────────────────────────────
 
 export interface CreatePayload {
-  type: 'create';
+  type: "create";
   expressionId: string;
   kind: ExpressionKind;
   position: { x: number; y: number };
@@ -45,7 +45,7 @@ export interface CreatePayload {
 }
 
 export interface UpdatePayload {
-  type: 'update';
+  type: "update";
   expressionId: string;
   /** Changed fields — only includes fields that were actually modified. */
   changes: {
@@ -58,19 +58,19 @@ export interface UpdatePayload {
 }
 
 export interface DeletePayload {
-  type: 'delete';
+  type: "delete";
   expressionIds: string[];
 }
 
 export interface MovePayload {
-  type: 'move';
+  type: "move";
   expressionId: string;
   from: { x: number; y: number };
   to: { x: number; y: number };
 }
 
 export interface TransformPayload {
-  type: 'transform';
+  type: "transform";
   expressionId: string;
   angle?: number;
   scale?: { x: number; y: number };
@@ -78,25 +78,25 @@ export interface TransformPayload {
 }
 
 export interface GroupPayload {
-  type: 'group';
+  type: "group";
   expressionIds: string[];
   groupId: string;
 }
 
 export interface UngroupPayload {
-  type: 'ungroup';
+  type: "ungroup";
   groupId: string;
 }
 
 export interface AnnotatePayload {
-  type: 'annotate';
+  type: "annotate";
   targetExpressionId: string;
   annotationId: string;
-  annotationKind: 'comment' | 'callout' | 'highlight' | 'marker';
+  annotationKind: "comment" | "callout" | "highlight" | "marker";
 }
 
 export interface MorphPayload {
-  type: 'morph';
+  type: "morph";
   expressionId: string;
   fromKind: ExpressionKind;
   toKind: ExpressionKind;
@@ -104,30 +104,30 @@ export interface MorphPayload {
 }
 
 export interface LockPayload {
-  type: 'lock';
+  type: "lock";
   expressionIds: string[];
 }
 
 export interface UnlockPayload {
-  type: 'unlock';
+  type: "unlock";
   expressionIds: string[];
 }
 
 export interface StylePayload {
-  type: 'style';
+  type: "style";
   expressionIds: string[];
   style: Partial<ExpressionStyle>;
 }
 
 export interface ReorderPayload {
-  type: 'reorder';
+  type: "reorder";
   expressionId: string;
   /** New z-index or layer order position. */
   newIndex: number;
 }
 
 export interface SnapshotPayload {
-  type: 'snapshot';
+  type: "snapshot";
   /** Label for this snapshot. */
   label: string;
   /** IDs of expressions included in the snapshot (empty = all). */
@@ -135,7 +135,7 @@ export interface SnapshotPayload {
 }
 
 export interface QueryPayload {
-  type: 'query';
+  type: "query";
   /** Filter kind. */
   kind?: ExpressionKind;
   /** Filter by tags. */

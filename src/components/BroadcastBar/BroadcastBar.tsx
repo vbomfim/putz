@@ -63,10 +63,7 @@ export function BroadcastBar() {
         </span>
       </div>
 
-      <div
-        className="broadcast-bar__targets"
-        data-testid="broadcast-targets"
-      >
+      <div className="broadcast-bar__targets" data-testid="broadcast-targets">
         {otherTabs.map((tab) => (
           <label
             key={tab.id}
@@ -76,14 +73,10 @@ export function BroadcastBar() {
             <input
               type="checkbox"
               checked={targetTabIds.has(tab.id)}
-              onChange={(e) =>
-                handleCheckboxChange(tab.id, e.target.checked)
-              }
+              onChange={(e) => handleCheckboxChange(tab.id, e.target.checked)}
               aria-label={`Broadcast to ${tab.title}`}
             />
-            <span className="broadcast-bar__target-title">
-              {tab.title}
-            </span>
+            <span className="broadcast-bar__target-title">{tab.title}</span>
           </label>
         ))}
       </div>
@@ -98,9 +91,7 @@ export function BroadcastBar() {
         Stop
       </button>
 
-      <span className="broadcast-bar__shortcut">
-        Ctrl+Shift+A
-      </span>
+      <span className="broadcast-bar__shortcut">Ctrl+Shift+A</span>
     </div>
   );
 }

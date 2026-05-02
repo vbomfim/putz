@@ -74,7 +74,17 @@ function PaneSlot({ regionId }: { regionId: string }) {
       observer.disconnect();
     };
   }, [regionId]);
-  return <div ref={ref} style={{ width: "100%", height: "100%", overflow: "hidden", position: "relative" }} />;
+  return (
+    <div
+      ref={ref}
+      style={{
+        width: "100%",
+        height: "100%",
+        overflow: "hidden",
+        position: "relative",
+      }}
+    />
+  );
 }
 
 // ─── LayoutTree ──────────────────────────────────────────────────────
@@ -114,7 +124,9 @@ export function RegionContainer() {
 
   // Force re-render when portal targets are created (first mount of new regions)
   const [, bump] = useState(0);
-  useEffect(() => { bump((n) => n + 1); }, [activeRegions]);
+  useEffect(() => {
+    bump((n) => n + 1);
+  }, [activeRegions]);
 
   return (
     <>
@@ -122,7 +134,9 @@ export function RegionContainer() {
         const isActive = ws.id === activeWorkspaceId;
         const layout = isActive ? activeLayout : ws.savedLayout?.layout;
         const regions = isActive ? activeRegions : ws.savedLayout?.regions;
-        const focused = isActive ? activeFocusedRegionId : (ws.savedLayout?.focusedRegionId || "");
+        const focused = isActive
+          ? activeFocusedRegionId
+          : ws.savedLayout?.focusedRegionId || "";
 
         if (!layout || !regions) return null;
 

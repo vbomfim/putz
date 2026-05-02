@@ -123,15 +123,12 @@ export function CredentialManager({
   const CONTEXT_MENU_HEIGHT = 80;
 
   /** Handles right-click context menu with viewport clamping. */
-  const handleContextMenu = useCallback(
-    (e: React.MouseEvent, id: string) => {
-      e.preventDefault();
-      const x = Math.min(e.clientX, window.innerWidth - CONTEXT_MENU_WIDTH);
-      const y = Math.min(e.clientY, window.innerHeight - CONTEXT_MENU_HEIGHT);
-      setContextMenu({ x, y, id });
-    },
-    [],
-  );
+  const handleContextMenu = useCallback((e: React.MouseEvent, id: string) => {
+    e.preventDefault();
+    const x = Math.min(e.clientX, window.innerWidth - CONTEXT_MENU_WIDTH);
+    const y = Math.min(e.clientY, window.innerHeight - CONTEXT_MENU_HEIGHT);
+    setContextMenu({ x, y, id });
+  }, []);
 
   /** Closes context menu on click outside. */
   useEffect(() => {
@@ -151,9 +148,7 @@ export function CredentialManager({
     }
   };
 
-  const deletingCredential = credentials.find(
-    (c) => c.id === deleteConfirmId,
-  );
+  const deletingCredential = credentials.find((c) => c.id === deleteConfirmId);
 
   return (
     <div className="credential-manager" data-testid="credential-manager">
@@ -183,7 +178,10 @@ export function CredentialManager({
 
       {/* Loading state */}
       {isLoading && (
-        <div className="credential-manager-loading" data-testid="credential-manager-loading">
+        <div
+          className="credential-manager-loading"
+          data-testid="credential-manager-loading"
+        >
           Loading…
         </div>
       )}
@@ -195,10 +193,7 @@ export function CredentialManager({
           data-testid="credential-manager-empty"
         >
           <p>No credentials stored.</p>
-          <button
-            className="credential-manager-empty-btn"
-            onClick={handleAdd}
-          >
+          <button className="credential-manager-empty-btn" onClick={handleAdd}>
             Add Credential
           </button>
         </div>
@@ -217,9 +212,7 @@ export function CredentialManager({
               data-testid={`credential-item-${cred.id}`}
               onContextMenu={(e) => handleContextMenu(e, cred.id)}
               onClick={
-                selectionMode && onSelect
-                  ? () => onSelect(cred.id)
-                  : undefined
+                selectionMode && onSelect ? () => onSelect(cred.id) : undefined
               }
               onDoubleClick={() => handleEdit(cred.id)}
             >

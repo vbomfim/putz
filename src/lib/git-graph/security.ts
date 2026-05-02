@@ -6,11 +6,11 @@
 /** Escape HTML special characters to prevent XSS. */
 export function escapeHtml(str: string): string {
   return str
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
 }
 
 /** Escape a string for use in an HTML attribute value. */
@@ -23,6 +23,13 @@ export function escapeAttr(str: string): string {
  * Only allows known status values; defaults to 'modified'.
  */
 export function sanitizeStatusClass(status: string): string {
-  const allowed = ['added', 'modified', 'deleted', 'renamed', 'copied', 'untracked'];
-  return allowed.includes(status) ? status : 'modified';
+  const allowed = [
+    "added",
+    "modified",
+    "deleted",
+    "renamed",
+    "copied",
+    "untracked",
+  ];
+  return allowed.includes(status) ? status : "modified";
 }

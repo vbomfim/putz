@@ -6,11 +6,11 @@
  * @module
  */
 
-export { computeLayout } from './computeLayout';
-export { computeTreeLayout } from './treeLayout';
-export { computeForceLayout } from './forceLayout';
-export { computeGridLayout } from './gridLayout';
-export { extractEdges } from './edges';
+export { computeLayout } from "./computeLayout";
+export { computeTreeLayout } from "./treeLayout";
+export { computeForceLayout } from "./forceLayout";
+export { computeGridLayout } from "./gridLayout";
+export { extractEdges } from "./edges";
 export type {
   LayoutAlgorithm,
   LayoutDirection,
@@ -20,9 +20,9 @@ export type {
   ForceLayoutOptions,
   GridLayoutOptions,
   LayoutEdge,
-} from './types';
+} from "./types";
 export {
   DEFAULT_SPACING,
   DEFAULT_FORCE_ITERATIONS,
   DEFAULT_GRID_COLUMNS,
-} from './types';
+} from "./types";

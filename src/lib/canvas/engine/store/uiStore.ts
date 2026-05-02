@@ -7,13 +7,13 @@
  * @module
  */
 
-import { create } from 'zustand';
+import { create } from "zustand";
 
 /** Supported theme values. */
-export type Theme = 'light' | 'dark';
+export type Theme = "light" | "dark";
 
 /** localStorage key for theme persistence. */
-export const THEME_STORAGE_KEY = 'infinicanvas:theme';
+export const THEME_STORAGE_KEY = "infinicanvas:theme";
 
 /** UI preferences state shape. */
 export interface UiState {
@@ -38,7 +38,7 @@ export interface UiActions {
  * can respond to the current theme via `:root[data-theme="..."]`.
  */
 export function applyThemeToDocument(theme: Theme): void {
-  document.documentElement.setAttribute('data-theme', theme);
+  document.documentElement.setAttribute("data-theme", theme);
 }
 
 /**
@@ -62,18 +62,18 @@ function persistTheme(theme: Theme): void {
 function readPersistedTheme(): Theme {
   try {
     const stored = localStorage.getItem(THEME_STORAGE_KEY);
-    if (stored === 'dark' || stored === 'light') {
+    if (stored === "dark" || stored === "light") {
       return stored;
     }
   } catch {
     // localStorage unavailable
   }
-  return 'light';
+  return "light";
 }
 
 /** Zustand store for UI preferences (theme, etc.). */
 export const useUiStore = create<UiState & UiActions>()((set, get) => ({
-  theme: 'light',
+  theme: "light",
 
   setTheme: (theme: Theme) => {
     set({ theme });
@@ -81,7 +81,7 @@ export const useUiStore = create<UiState & UiActions>()((set, get) => ({
   },
 
   toggleTheme: () => {
-    const next = get().theme === 'light' ? 'dark' : 'light';
+    const next = get().theme === "light" ? "dark" : "light";
     set({ theme: next });
     persistTheme(next);
   },

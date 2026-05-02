@@ -8,16 +8,16 @@
  * @module
  */
 
-import { nanoid } from 'nanoid';
-import type { VisualExpression, ArrowBinding, ArrowData } from '../../protocol';
-import type { ToolHandler, DrawPreview } from './BaseTool';
-import type { CanvasStoreApi } from '../store/canvasStore';
-import { findSnapPoint } from '../interaction/connectorHelpers';
+import { nanoid } from "nanoid";
+import type { VisualExpression, ArrowBinding, ArrowData } from "../../protocol";
+import type { ToolHandler, DrawPreview } from "./BaseTool";
+import type { CanvasStoreApi } from "../store/canvasStore";
+import { findSnapPoint } from "../interaction/connectorHelpers";
 import {
   getConnectionPoints,
   findNearestConnectionPoint,
   type ShapeConnectionPoint,
-} from '../connectors/connectionPoints';
+} from "../connectors/connectionPoints";
 
 /** Minimum arrow length in world units. */
 const MIN_ARROW_LENGTH = 5;
@@ -27,9 +27,9 @@ const SNAP_DISTANCE = 15;
 
 /** Human author for locally-drawn expressions. */
 const LOCAL_AUTHOR = {
-  type: 'human' as const,
-  id: 'local-user',
-  name: 'You',
+  type: "human" as const,
+  id: "local-user",
+  name: "You",
 };
 
 /** Tool handler for drawing arrows on the canvas. */
@@ -43,7 +43,8 @@ export class ArrowTool implements ToolHandler {
   private startBinding: ArrowBinding | undefined = undefined;
   private currentSnapPoint: { x: number; y: number } | undefined = undefined;
   private currentSnapTargetId: string | undefined = undefined;
-  private currentConnectionPoints: ShapeConnectionPoint[] | undefined = undefined;
+  private currentConnectionPoints: ShapeConnectionPoint[] | undefined =
+    undefined;
 
   constructor(store: CanvasStoreApi) {
     this.store = store;
@@ -61,7 +62,7 @@ export class ArrowTool implements ToolHandler {
     if (snap) {
       this.startBinding = {
         expressionId: snap.targetId,
-        anchor: snap.anchor as ArrowBinding['anchor'],
+        anchor: snap.anchor as ArrowBinding["anchor"],
         ratio: snap.ratio,
       };
       this.startX = snap.point.x;
@@ -109,7 +110,7 @@ export class ArrowTool implements ToolHandler {
     if (snap) {
       endBinding = {
         expressionId: snap.targetId,
-        anchor: snap.anchor as ArrowBinding['anchor'],
+        anchor: snap.anchor as ArrowBinding["anchor"],
         ratio: snap.ratio,
       };
       this.endX = snap.point.x;
@@ -133,7 +134,7 @@ export class ArrowTool implements ToolHandler {
 
     const expression: VisualExpression = {
       id,
-      kind: 'arrow',
+      kind: "arrow",
       position,
       size,
       angle: 0,
@@ -151,12 +152,15 @@ export class ArrowTool implements ToolHandler {
       data: (() => {
         const { defaultArrowStyle } = this.store.getState();
         const d: ArrowData = {
-          kind: 'arrow',
+          kind: "arrow",
           points,
           startArrowhead: defaultArrowStyle.startArrowhead,
           endArrowhead: defaultArrowStyle.endArrowhead,
         };
-        if (defaultArrowStyle.routing && defaultArrowStyle.routing !== 'straight') {
+        if (
+          defaultArrowStyle.routing &&
+          defaultArrowStyle.routing !== "straight"
+        ) {
           d.routing = defaultArrowStyle.routing;
         }
         if (this.startBinding) d.startBinding = this.startBinding;
@@ -182,8 +186,11 @@ export class ArrowTool implements ToolHandler {
     if (!this.isDrawing) {
       if (this.currentSnapPoint) {
         return {
-          kind: 'arrow',
-          x: 0, y: 0, width: 0, height: 0,
+          kind: "arrow",
+          x: 0,
+          y: 0,
+          width: 0,
+          height: 0,
           points: [],
           snapPoint: this.currentSnapPoint,
           snapTargetId: this.currentSnapTargetId,
@@ -201,7 +208,7 @@ export class ArrowTool implements ToolHandler {
     const { position, size } = computeBoundingBox(points);
 
     return {
-      kind: 'arrow',
+      kind: "arrow",
       x: position.x,
       y: position.y,
       width: size.width,
@@ -235,12 +242,25 @@ export class ArrowTool implements ToolHandler {
   private findNearestSnap(
     worldX: number,
     worldY: number,
-  ): { point: { x: number; y: number }; anchor: string; targetId: string; ratio: number; connectionPoints: ShapeConnectionPoint[] } | null {
+  ): {
+    point: { x: number; y: number };
+    anchor: string;
+    targetId: string;
+    ratio: number;
+    connectionPoints: ShapeConnectionPoint[];
+  } | null {
     const { expressions, camera } = this.store.getState();
     // Scale snap distance: at zoom > 1, shrink so snapping feels precise;
     // at zoom ≤ 1, keep at constant ~15 screen pixels. [Bug #5]
     const snapDist = SNAP_DISTANCE / Math.max(camera.zoom, 1);
-    let best: { point: { x: number; y: number }; anchor: string; targetId: string; dist: number; ratio: number; connectionPoints: ShapeConnectionPoint[] } | null = null;
+    let best: {
+      point: { x: number; y: number };
+      anchor: string;
+      targetId: string;
+      dist: number;
+      ratio: number;
+      connectionPoints: ShapeConnectionPoint[];
+    } | null = null;
 
     for (const [id, expr] of Object.entries(expressions)) {
       // Try new connection point system first (includes corners)
@@ -277,7 +297,15 @@ export class ArrowTool implements ToolHandler {
       }
     }
 
-    return best ? { point: best.point, anchor: best.anchor, targetId: best.targetId, ratio: best.ratio, connectionPoints: best.connectionPoints } : null;
+    return best
+      ? {
+          point: best.point,
+          anchor: best.anchor,
+          targetId: best.targetId,
+          ratio: best.ratio,
+          connectionPoints: best.connectionPoints,
+        }
+      : null;
   }
 }
 

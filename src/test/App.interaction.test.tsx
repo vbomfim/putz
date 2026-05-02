@@ -42,7 +42,19 @@ describe("App — User Interaction Flow (Tabbed UI)", () => {
   beforeEach(() => {
     mockInvoke.mockReset().mockResolvedValue(undefined);
     mockListen.mockReset().mockResolvedValue(vi.fn());
-    useLayoutStore.setState({ layout: { type: "region", regionId: "region-1" }, regions: { "region-1": { id: "region-1", tabs: [], activeTabId: "", tabPosition: "top" } }, focusedRegionId: "region-1", tabCounter: 0 });
+    useLayoutStore.setState({
+      layout: { type: "region", regionId: "region-1" },
+      regions: {
+        "region-1": {
+          id: "region-1",
+          tabs: [],
+          activeTabId: "",
+          tabPosition: "top",
+        },
+      },
+      focusedRegionId: "region-1",
+      tabCounter: 0,
+    });
   });
 
   /**

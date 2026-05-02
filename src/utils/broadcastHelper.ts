@@ -29,10 +29,7 @@ import { useBroadcastStore, collectSessionIds } from "../stores/broadcastStore";
  * @param sourceSessionId - The session ID that originated the input
  * @param data - The encoded byte data to broadcast
  */
-export function broadcastWrite(
-  sourceSessionId: string,
-  data: number[],
-): void {
+export function broadcastWrite(sourceSessionId: string, data: number[]): void {
   const broadcastState = useBroadcastStore.getState();
 
   // 1. Early exit if broadcast is not active
@@ -53,7 +50,8 @@ export function broadcastWrite(
   const sourcePaneSessions = collectSessionIds(sourceTab.layout);
   for (const siblingSessionId of sourcePaneSessions) {
     if (siblingSessionId === sourceSessionId) continue;
-    const command = sourceTab.status === "connected" ? "connection_write" : "pty_write";
+    const command =
+      sourceTab.status === "connected" ? "connection_write" : "pty_write";
     invoke(command, { sessionId: siblingSessionId, data }).catch(() => {});
   }
 

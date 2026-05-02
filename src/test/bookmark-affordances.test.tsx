@@ -322,9 +322,7 @@ describe("Toast", () => {
   });
 
   it("replaces previous toast when new message arrives", () => {
-    const { rerender } = render(
-      <Toast message={{ key: 1, text: "First" }} />,
-    );
+    const { rerender } = render(<Toast message={{ key: 1, text: "First" }} />);
     expect(screen.getByText("First")).toBeTruthy();
 
     rerender(<Toast message={{ key: 2, text: "Second" }} />);
@@ -400,7 +398,9 @@ describe("isBookmarkActionAvailable", () => {
   }
 
   it("returns false for settings tab", () => {
-    expect(isBookmarkActionAvailable(makeTab({ type: "settings" }))).toBe(false);
+    expect(isBookmarkActionAvailable(makeTab({ type: "settings" }))).toBe(
+      false,
+    );
   });
 
   it("returns false for vault tab", () => {
@@ -412,7 +412,9 @@ describe("isBookmarkActionAvailable", () => {
   });
 
   it("returns false for templates tab", () => {
-    expect(isBookmarkActionAvailable(makeTab({ type: "templates" }))).toBe(false);
+    expect(isBookmarkActionAvailable(makeTab({ type: "templates" }))).toBe(
+      false,
+    );
   });
 
   it("returns false for diff tab", () => {
@@ -425,25 +427,33 @@ describe("isBookmarkActionAvailable", () => {
 
   it("returns true for editor tab with editorFilePath", () => {
     expect(
-      isBookmarkActionAvailable(makeTab({ type: "editor", editorFilePath: "/a/b.ts" })),
+      isBookmarkActionAvailable(
+        makeTab({ type: "editor", editorFilePath: "/a/b.ts" }),
+      ),
     ).toBe(true);
   });
 
   it("returns false for editor tab without editorFilePath", () => {
     expect(
-      isBookmarkActionAvailable(makeTab({ type: "editor", editorFilePath: undefined })),
+      isBookmarkActionAvailable(
+        makeTab({ type: "editor", editorFilePath: undefined }),
+      ),
     ).toBe(false);
   });
 
   it("returns true for CSV tab with editorFilePath", () => {
     expect(
-      isBookmarkActionAvailable(makeTab({ type: "csv", editorFilePath: "/data.csv" })),
+      isBookmarkActionAvailable(
+        makeTab({ type: "csv", editorFilePath: "/data.csv" }),
+      ),
     ).toBe(true);
   });
 
   it("returns true for markdown tab with editorFilePath", () => {
     expect(
-      isBookmarkActionAvailable(makeTab({ type: "markdown", editorFilePath: "/doc.md" })),
+      isBookmarkActionAvailable(
+        makeTab({ type: "markdown", editorFilePath: "/doc.md" }),
+      ),
     ).toBe(true);
   });
 
@@ -474,7 +484,9 @@ function BookmarkTestHarness() {
     (path: string, type: "file" | "folder") => {
       const name = path.split("/").pop() ?? path;
       const bookmarks = useBookmarksStore.getState().bookmarks;
-      const alreadyExists = bookmarks.some((b: { path: string }) => b.path === path);
+      const alreadyExists = bookmarks.some(
+        (b: { path: string }) => b.path === path,
+      );
       if (alreadyExists) {
         showToast(`Already bookmarked: ${name}`);
         return;
@@ -747,13 +759,21 @@ describe("Toast key remount for screen readers", () => {
   it("remounts the live region element when key changes (duplicate text)", () => {
     // Render Toast with key=1, capture the DOM node
     const { rerender } = render(
-      <Toast key={1} message={{ key: 1, text: "Bookmarked" }} duration={5000} />,
+      <Toast
+        key={1}
+        message={{ key: 1, text: "Bookmarked" }}
+        duration={5000}
+      />,
     );
     const node1 = screen.getByTestId("toast");
 
     // Re-render with a new key but the SAME text — React should remount
     rerender(
-      <Toast key={2} message={{ key: 2, text: "Bookmarked" }} duration={5000} />,
+      <Toast
+        key={2}
+        message={{ key: 2, text: "Bookmarked" }}
+        duration={5000}
+      />,
     );
     const node2 = screen.getByTestId("toast");
 

@@ -363,7 +363,9 @@
   cursor: pointer;
   border-radius: 4px;
   padding: 0;
-  transition: background-color 0.1s, color 0.1s;
+  transition:
+    background-color 0.1s,
+    color 0.1s;
 }
 
 .region-tabbar__action:hover {

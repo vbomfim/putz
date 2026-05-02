@@ -13,7 +13,13 @@ import type {
   TemplateWithContent,
   TemplateVariable,
 } from "./types";
-import { templateList, templateGet, templateCreate, templateDelete, templateExecute } from "./templateApi";
+import {
+  templateList,
+  templateGet,
+  templateCreate,
+  templateDelete,
+  templateExecute,
+} from "./templateApi";
 import "./Templates.css";
 
 /** Props for the TemplatePanel component. */
@@ -29,9 +35,14 @@ interface TemplatePanelProps {
 /** View states within the template panel. */
 type PanelView = "list" | "edit" | "execute";
 
-export function TemplatePanel({ isOpen, onClose, onSendToTerminal }: TemplatePanelProps) {
+export function TemplatePanel({
+  isOpen,
+  onClose,
+  onSendToTerminal,
+}: TemplatePanelProps) {
   const [templates, setTemplates] = useState<TemplateMeta[]>([]);
-  const [selectedTemplate, setSelectedTemplate] = useState<TemplateWithContent | null>(null);
+  const [selectedTemplate, setSelectedTemplate] =
+    useState<TemplateWithContent | null>(null);
   const [view, setView] = useState<PanelView>("list");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -42,7 +53,9 @@ export function TemplatePanel({ isOpen, onClose, onSendToTerminal }: TemplatePan
   const [editContent, setEditContent] = useState("");
 
   // Variable values for execution
-  const [variableValues, setVariableValues] = useState<Record<string, string>>({});
+  const [variableValues, setVariableValues] = useState<Record<string, string>>(
+    {},
+  );
 
   /** Loads the template list from the backend. */
   const loadTemplates = useCallback(async () => {
@@ -158,12 +171,9 @@ export function TemplatePanel({ isOpen, onClose, onSendToTerminal }: TemplatePan
   }, [selectedTemplate, variableValues, onSendToTerminal, onClose]);
 
   /** Updates a variable value. */
-  const handleVariableChange = useCallback(
-    (name: string, value: string) => {
-      setVariableValues((prev) => ({ ...prev, [name]: value }));
-    },
-    [],
-  );
+  const handleVariableChange = useCallback((name: string, value: string) => {
+    setVariableValues((prev) => ({ ...prev, [name]: value }));
+  }, []);
 
   /** Navigates back to the list view. */
   const handleBack = useCallback(() => {
@@ -209,7 +219,7 @@ export function TemplatePanel({ isOpen, onClose, onSendToTerminal }: TemplatePan
             ? "Command Templates"
             : view === "edit"
               ? "New Template"
-              : selectedTemplate?.meta.name ?? "Execute Template"}
+              : (selectedTemplate?.meta.name ?? "Execute Template")}
         </h2>
         <div className="template-panel__controls">
           {view === "list" && (
@@ -235,7 +245,10 @@ export function TemplatePanel({ isOpen, onClose, onSendToTerminal }: TemplatePan
       </div>
 
       {error && (
-        <div className="template-panel__error" data-testid="template-panel-error">
+        <div
+          className="template-panel__error"
+          data-testid="template-panel-error"
+        >
           {error}
         </div>
       )}
@@ -263,11 +276,17 @@ export function TemplatePanel({ isOpen, onClose, onSendToTerminal }: TemplatePan
                 data-testid={`template-item-${tmpl.id}`}
               >
                 <span className="template-panel__item-name">
-                  {tmpl.isBuiltin && <span className="template-panel__builtin-badge">Built-in</span>}
+                  {tmpl.isBuiltin && (
+                    <span className="template-panel__builtin-badge">
+                      Built-in
+                    </span>
+                  )}
                   {tmpl.name}
                 </span>
                 {tmpl.description && (
-                  <span className="template-panel__item-desc">{tmpl.description}</span>
+                  <span className="template-panel__item-desc">
+                    {tmpl.description}
+                  </span>
                 )}
               </button>
               {!tmpl.isBuiltin && (
@@ -315,7 +334,9 @@ export function TemplatePanel({ isOpen, onClose, onSendToTerminal }: TemplatePan
               className="template-panel__textarea"
               value={editContent}
               onChange={(e) => setEditContent(e.target.value)}
-              placeholder={"enable\nconfigure terminal\nhostname {{hostname}}\n!"}
+              placeholder={
+                "enable\nconfigure terminal\nhostname {{hostname}}\n!"
+              }
               spellCheck={false}
               data-testid="template-edit-content"
             />
@@ -343,9 +364,14 @@ export function TemplatePanel({ isOpen, onClose, onSendToTerminal }: TemplatePan
 
       {/* ── Execute View ───────────────────────────────────── */}
       {view === "execute" && selectedTemplate && (
-        <div className="template-panel__execute" data-testid="template-panel-execute">
+        <div
+          className="template-panel__execute"
+          data-testid="template-panel-execute"
+        >
           {selectedTemplate.meta.description && (
-            <p className="template-panel__desc">{selectedTemplate.meta.description}</p>
+            <p className="template-panel__desc">
+              {selectedTemplate.meta.description}
+            </p>
           )}
 
           <div className="template-panel__preview">
@@ -356,7 +382,10 @@ export function TemplatePanel({ isOpen, onClose, onSendToTerminal }: TemplatePan
           </div>
 
           {selectedTemplate.variables.length > 0 && (
-            <div className="template-panel__variables" data-testid="template-variables">
+            <div
+              className="template-panel__variables"
+              data-testid="template-variables"
+            >
               <label>Variables</label>
               {selectedTemplate.variables.map((variable) => (
                 <div key={variable.name} className="template-panel__variable">

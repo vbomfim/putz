@@ -37,6 +37,6 @@ export interface ImportKeyInput {
 
 /** Human-readable labels for key algorithms. */
 export const KEY_ALGORITHM_LABELS: Record<KeyAlgorithm, string> = {
-  "ed25519": "Ed25519",
+  ed25519: "Ed25519",
   "rsa-4096": "RSA-4096",
 };

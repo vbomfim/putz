@@ -168,7 +168,13 @@ describe("Vault type contracts", () => {
   // ─── IPC command name contracts ────────────────────────────
 
   it("IPC command names use snake_case", () => {
-    const commands = ["vault_list", "vault_get", "vault_set", "vault_delete", "vault_check_expiring"];
+    const commands = [
+      "vault_list",
+      "vault_get",
+      "vault_set",
+      "vault_delete",
+      "vault_check_expiring",
+    ];
     commands.forEach((cmd) => {
       expect(cmd).toMatch(/^[a-z_]+$/);
     });

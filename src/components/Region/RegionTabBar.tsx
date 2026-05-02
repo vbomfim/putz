@@ -11,7 +11,10 @@
  */
 import { useState, useCallback, useRef, useEffect } from "react";
 import { useLayoutStore, MAX_TITLE_LENGTH } from "../../stores/layoutStore";
-import { isBookmarkActionAvailable, handleAddBookmarkFromTab } from "../../utils/bookmarkHelpers";
+import {
+  isBookmarkActionAvailable,
+  handleAddBookmarkFromTab,
+} from "../../utils/bookmarkHelpers";
 import type { RegionTab, TabPosition } from "../../types";
 
 // ─── Global drag state (pointer-based, not HTML5 DnD) ─────────────
@@ -157,7 +160,9 @@ function RegionTab({
         // Find the drop target — look for a region tab bar under the pointer
         activeDrag.ghost?.remove();
         const target = document.elementFromPoint(e.clientX, e.clientY);
-        const tabBar = target?.closest("[data-region-tabbar]") as HTMLElement | null;
+        const tabBar = target?.closest(
+          "[data-region-tabbar]",
+        ) as HTMLElement | null;
         const dropTab = target?.closest("[data-tab-id]") as HTMLElement | null;
 
         if (tabBar) {
@@ -172,7 +177,14 @@ function RegionTab({
               insertIndex = toRegion.tabs.findIndex((t) => t.id === dropTabId);
             }
           }
-          useLayoutStore.getState().moveTab(activeDrag.regionId, activeDrag.tabId, toRegionId, insertIndex);
+          useLayoutStore
+            .getState()
+            .moveTab(
+              activeDrag.regionId,
+              activeDrag.tabId,
+              toRegionId,
+              insertIndex,
+            );
         }
         activeDrag = null;
       }
@@ -275,21 +287,18 @@ export function RegionTabBar({
     };
   }, [contextMenu]);
 
-  const handleContextMenu = useCallback(
-    (e: React.MouseEvent) => {
-      e.preventDefault();
-      const tabEl = (e.target as HTMLElement).closest("[data-tab-id]");
-      if (!tabEl) return;
-      const tabId = tabEl.getAttribute("data-tab-id");
-      if (!tabId) return;
-      const menuWidth = 180;
-      const menuHeight = 120;
-      const x = Math.min(e.clientX, window.innerWidth - menuWidth);
-      const y = Math.min(e.clientY, window.innerHeight - menuHeight);
-      setContextMenu({ x, y, tabId });
-    },
-    [],
-  );
+  const handleContextMenu = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    const tabEl = (e.target as HTMLElement).closest("[data-tab-id]");
+    if (!tabEl) return;
+    const tabId = tabEl.getAttribute("data-tab-id");
+    if (!tabId) return;
+    const menuWidth = 180;
+    const menuHeight = 120;
+    const x = Math.min(e.clientX, window.innerWidth - menuWidth);
+    const y = Math.min(e.clientY, window.innerHeight - menuHeight);
+    setContextMenu({ x, y, tabId });
+  }, []);
 
   const handleContextAction = useCallback(
     (action: string) => {
@@ -403,7 +412,10 @@ export function RegionTabBar({
         </button>
         <button
           className="region-tabbar__action"
-          onClick={() => { setFocusedRegion(regionId); addEditorTab(regionId); }}
+          onClick={() => {
+            setFocusedRegion(regionId);
+            addEditorTab(regionId);
+          }}
           aria-label="New Editor"
           type="button"
           title="New Editor Tab"
@@ -419,8 +431,12 @@ export function RegionTabBar({
             if (activeTab?.type === "terminal" && activeTab.sessionId) {
               try {
                 const { invoke } = await import("@tauri-apps/api/core");
-                cwd = await invoke<string>("pty_cwd", { sessionId: activeTab.sessionId });
-              } catch { /* fallback */ }
+                cwd = await invoke<string>("pty_cwd", {
+                  sessionId: activeTab.sessionId,
+                });
+              } catch {
+                /* fallback */
+              }
             }
             addSearchTab(regionId, cwd);
           }}
@@ -432,7 +448,10 @@ export function RegionTabBar({
         </button>
         <button
           className="region-tabbar__action"
-          onClick={() => { setFocusedRegion(regionId); splitRegion("vertical"); }}
+          onClick={() => {
+            setFocusedRegion(regionId);
+            splitRegion("vertical");
+          }}
           aria-label="Split Vertical"
           type="button"
           title="Split Vertical"
@@ -441,7 +460,10 @@ export function RegionTabBar({
         </button>
         <button
           className="region-tabbar__action"
-          onClick={() => { setFocusedRegion(regionId); splitRegion("horizontal"); }}
+          onClick={() => {
+            setFocusedRegion(regionId);
+            splitRegion("horizontal");
+          }}
           aria-label="Split Horizontal"
           type="button"
           title="Split Horizontal"
@@ -474,16 +496,36 @@ export function RegionTabBar({
             Close Others
           </button>
           <div className="region-tabbar__context-separator" />
-          <button className="region-tabbar__context-item" onClick={() => handleContextAction("splitRight")} role="menuitem" type="button">
+          <button
+            className="region-tabbar__context-item"
+            onClick={() => handleContextAction("splitRight")}
+            role="menuitem"
+            type="button"
+          >
             Split Right ◫
           </button>
-          <button className="region-tabbar__context-item" onClick={() => handleContextAction("splitLeft")} role="menuitem" type="button">
+          <button
+            className="region-tabbar__context-item"
+            onClick={() => handleContextAction("splitLeft")}
+            role="menuitem"
+            type="button"
+          >
             Split Left ◫
           </button>
-          <button className="region-tabbar__context-item" onClick={() => handleContextAction("splitDown")} role="menuitem" type="button">
+          <button
+            className="region-tabbar__context-item"
+            onClick={() => handleContextAction("splitDown")}
+            role="menuitem"
+            type="button"
+          >
             Split Down ⬒
           </button>
-          <button className="region-tabbar__context-item" onClick={() => handleContextAction("splitUp")} role="menuitem" type="button">
+          <button
+            className="region-tabbar__context-item"
+            onClick={() => handleContextAction("splitUp")}
+            role="menuitem"
+            type="button"
+          >
             Split Up ⬒
           </button>
           <div className="region-tabbar__context-separator" />
@@ -495,9 +537,10 @@ export function RegionTabBar({
             const ctxTab = tabs.find((t) => t.id === contextMenu.tabId);
             if (!ctxTab) return null;
             if (!isBookmarkActionAvailable(ctxTab)) return null;
-            const label = ctxTab.type === "terminal"
-              ? "⭐ Bookmark current folder"
-              : "⭐ Bookmark this file";
+            const label =
+              ctxTab.type === "terminal"
+                ? "⭐ Bookmark current folder"
+                : "⭐ Bookmark this file";
             return (
               <>
                 <div className="region-tabbar__context-separator" />

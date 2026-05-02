@@ -17,7 +17,12 @@ vi.mock("../components/Vault/vaultApi", () => ({
 }));
 
 // Import after mock
-import { vaultList, vaultGet, vaultSet, vaultDelete } from "../components/Vault/vaultApi";
+import {
+  vaultList,
+  vaultGet,
+  vaultSet,
+  vaultDelete,
+} from "../components/Vault/vaultApi";
 
 const mockVaultList = vi.mocked(vaultList);
 const mockVaultGet = vi.mocked(vaultGet);
@@ -55,7 +60,9 @@ describe("CredentialManager", () => {
   it("shows loading state initially", () => {
     mockVaultList.mockImplementation(() => new Promise(() => {})); // never resolves
     render(<CredentialManager />);
-    expect(screen.getByTestId("credential-manager-loading")).toBeInTheDocument();
+    expect(
+      screen.getByTestId("credential-manager-loading"),
+    ).toBeInTheDocument();
   });
 
   // ─── Empty state ─────────────────────────────────────────
@@ -65,7 +72,9 @@ describe("CredentialManager", () => {
     render(<CredentialManager />);
 
     await waitFor(() => {
-      expect(screen.getByTestId("credential-manager-empty")).toBeInTheDocument();
+      expect(
+        screen.getByTestId("credential-manager-empty"),
+      ).toBeInTheDocument();
     });
   });
 
@@ -242,14 +251,8 @@ describe("CredentialManager", () => {
     await user.click(screen.getByTestId("credential-manager-add"));
 
     // Fill form
-    await user.type(
-      screen.getByTestId("credential-editor-name"),
-      "New Cred",
-    );
-    await user.type(
-      screen.getByTestId("credential-editor-username"),
-      "admin",
-    );
+    await user.type(screen.getByTestId("credential-editor-name"), "New Cred");
+    await user.type(screen.getByTestId("credential-editor-username"), "admin");
     await user.type(
       screen.getByTestId("credential-editor-secret"),
       "mypassword",
@@ -282,7 +285,9 @@ describe("CredentialManager", () => {
     render(<CredentialManager />);
 
     await waitFor(() => {
-      expect(screen.getByTestId("credential-manager-error")).toBeInTheDocument();
+      expect(
+        screen.getByTestId("credential-manager-error"),
+      ).toBeInTheDocument();
     });
 
     expect(screen.getByText("Keyring unavailable")).toBeInTheDocument();
@@ -323,6 +328,9 @@ describe("CredentialManager", () => {
     const overlay = screen.getByTestId("credential-delete-confirm");
     expect(overlay).toHaveAttribute("role", "alertdialog");
     expect(overlay).toHaveAttribute("aria-modal", "true");
-    expect(overlay).toHaveAttribute("aria-labelledby", "credential-delete-title");
+    expect(overlay).toHaveAttribute(
+      "aria-labelledby",
+      "credential-delete-title",
+    );
   });
 });

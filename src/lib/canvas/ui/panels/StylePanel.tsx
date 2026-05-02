@@ -13,66 +13,66 @@
  * @module
  */
 
-import { useCanvasStore } from '../../engine';
-import { DEFAULT_EXPRESSION_STYLE } from '../../protocol';
-import type { ExpressionStyle } from '../../protocol';
+import { useCanvasStore } from "../../engine";
+import { DEFAULT_EXPRESSION_STYLE } from "../../protocol";
+import type { ExpressionStyle } from "../../protocol";
 
 // ── Color palette ──────────────────────────────────────────
 
 /** Preset color palette — 8 expressive colors. */
 const COLOR_PALETTE = [
-  '#1e1e1e', // Black
-  '#e03131', // Red
-  '#1971c2', // Blue
-  '#2f9e44', // Green
-  '#f59f00', // Yellow
-  '#e8590c', // Orange
-  '#9c36b5', // Purple
-  '#868e96', // Gray
-  '#ffffff', // White
+  "#1e1e1e", // Black
+  "#e03131", // Red
+  "#1971c2", // Blue
+  "#2f9e44", // Green
+  "#f59f00", // Yellow
+  "#e8590c", // Orange
+  "#9c36b5", // Purple
+  "#868e96", // Gray
+  "#ffffff", // White
 ] as const;
 
 /** Stroke width presets. */
 const STROKE_WIDTHS = [
-  { value: 1, label: 'Thin' },
-  { value: 2, label: 'Normal' },
-  { value: 4, label: 'Thick' },
+  { value: 1, label: "Thin" },
+  { value: 2, label: "Normal" },
+  { value: 4, label: "Thick" },
 ] as const;
 
 /** Fill style options. */
 const FILL_STYLES = [
-  { value: 'none', label: 'None' },
-  { value: 'solid', label: 'Solid' },
-  { value: 'hachure', label: 'Hachure' },
-  { value: 'cross-hatch', label: 'Cross-hatch' },
+  { value: "none", label: "None" },
+  { value: "solid", label: "Solid" },
+  { value: "hachure", label: "Hachure" },
+  { value: "cross-hatch", label: "Cross-hatch" },
 ] as const;
 
 /** Stroke style options. */
 const STROKE_STYLES = [
-  { value: 'solid', label: 'Solid' },
-  { value: 'dashed', label: 'Dashed' },
-  { value: 'dotted', label: 'Dotted' },
+  { value: "solid", label: "Solid" },
+  { value: "dashed", label: "Dashed" },
+  { value: "dotted", label: "Dotted" },
 ] as const;
 
 // ── Inline style constants ─────────────────────────────────
 
 const PANEL_STYLE: React.CSSProperties = {
-  position: 'absolute',
+  position: "absolute",
   right: 12,
-  top: '50%',
-  transform: 'translateY(-50%)',
-  display: 'flex',
-  flexDirection: 'column',
+  top: "50%",
+  transform: "translateY(-50%)",
+  display: "flex",
+  flexDirection: "column",
   gap: 12,
   padding: 12,
-  backgroundColor: '#ffffff',
+  backgroundColor: "#ffffff",
   borderRadius: 10,
-  boxShadow: '0 2px 8px rgba(0, 0, 0, 0.12)',
-  border: '1px solid #e0e0e0',
+  boxShadow: "0 2px 8px rgba(0, 0, 0, 0.12)",
+  border: "1px solid #e0e0e0",
   zIndex: 20,
   width: 200,
-  maxHeight: '80vh',
-  overflowY: 'auto',
+  maxHeight: "80vh",
+  overflowY: "auto",
   fontSize: 12,
 };
 
@@ -80,26 +80,26 @@ const SECTION_LABEL_STYLE: React.CSSProperties = {
   margin: 0,
   fontSize: 11,
   fontWeight: 600,
-  color: '#555555',
-  textTransform: 'uppercase',
-  letterSpacing: '0.5px',
+  color: "#555555",
+  textTransform: "uppercase",
+  letterSpacing: "0.5px",
 };
 
 const SWATCH_GRID_STYLE: React.CSSProperties = {
-  display: 'flex',
-  flexWrap: 'wrap',
+  display: "flex",
+  flexWrap: "wrap",
   gap: 4,
 };
 
 const RADIO_GROUP_STYLE: React.CSSProperties = {
-  display: 'flex',
+  display: "flex",
   gap: 4,
-  flexWrap: 'wrap',
+  flexWrap: "wrap",
 };
 
 const SLIDER_STYLE: React.CSSProperties = {
-  width: '100%',
-  cursor: 'pointer',
+  width: "100%",
+  cursor: "pointer",
 };
 
 /** Swatch button base style. */
@@ -112,15 +112,15 @@ function swatchStyle(
     width: 20,
     height: 20,
     borderRadius: 4,
-    border: isActive ? '2px solid #4A90D9' : '1px solid #cccccc',
-    cursor: 'pointer',
-    backgroundColor: isTransparent ? 'transparent' : color,
+    border: isActive ? "2px solid #4A90D9" : "1px solid #cccccc",
+    cursor: "pointer",
+    backgroundColor: isTransparent ? "transparent" : color,
     backgroundImage: isTransparent
-      ? 'repeating-conic-gradient(#ddd 0% 25%, transparent 0% 50%)'
+      ? "repeating-conic-gradient(#ddd 0% 25%, transparent 0% 50%)"
       : undefined,
-    backgroundSize: isTransparent ? '8px 8px' : undefined,
+    backgroundSize: isTransparent ? "8px 8px" : undefined,
     padding: 0,
-    outline: isActive ? '1px solid #4A90D9' : 'none',
+    outline: isActive ? "1px solid #4A90D9" : "none",
     outlineOffset: 1,
   };
 }
@@ -128,14 +128,14 @@ function swatchStyle(
 /** Radio button label style. */
 function radioLabelStyle(isActive: boolean): React.CSSProperties {
   return {
-    display: 'flex',
-    alignItems: 'center',
+    display: "flex",
+    alignItems: "center",
     gap: 4,
-    padding: '3px 8px',
+    padding: "3px 8px",
     borderRadius: 4,
-    border: '1px solid #cccccc',
-    cursor: 'pointer',
-    backgroundColor: isActive ? '#e7f0fd' : 'transparent',
+    border: "1px solid #cccccc",
+    cursor: "pointer",
+    backgroundColor: isActive ? "#e7f0fd" : "transparent",
     fontSize: 11,
   };
 }
@@ -152,13 +152,14 @@ export function StylePanel() {
   const setLastUsedStyle = useCanvasStore((s) => s.setLastUsedStyle);
 
   // Drawing mode: tool active + nothing selected → show lastUsedStyle
-  const isDrawingMode = selectedIds.size === 0 && activeTool !== 'select';
+  const isDrawingMode = selectedIds.size === 0 && activeTool !== "select";
 
   // Hide when Select tool active and nothing selected
-  if (selectedIds.size === 0 && activeTool === 'select') return null;
+  if (selectedIds.size === 0 && activeTool === "select") return null;
 
   // Get the style of the first selected expression as reference
-  const firstSelectedId = selectedIds.size > 0 ? [...selectedIds][0]! : undefined;
+  const firstSelectedId =
+    selectedIds.size > 0 ? [...selectedIds][0]! : undefined;
   const firstExpr = firstSelectedId ? expressions[firstSelectedId] : undefined;
 
   // In selection mode, bail if expression not found
@@ -181,7 +182,12 @@ export function StylePanel() {
   }
 
   return (
-    <div data-testid="style-panel" style={PANEL_STYLE} role="region" aria-label="Style panel">
+    <div
+      data-testid="style-panel"
+      style={PANEL_STYLE}
+      role="region"
+      aria-label="Style panel"
+    >
       {/* ── Stroke Color ── */}
       <Section label="Stroke">
         <div style={SWATCH_GRID_STYLE}>
@@ -205,7 +211,13 @@ export function StylePanel() {
           value={currentStyle.strokeColor}
           aria-label="Custom stroke color"
           onChange={(e) => applyStyle({ strokeColor: e.target.value })}
-          style={{ width: '100%', height: 24, border: 'none', cursor: 'pointer', marginTop: 4 }}
+          style={{
+            width: "100%",
+            height: 24,
+            border: "none",
+            cursor: "pointer",
+            marginTop: 4,
+          }}
         />
       </Section>
 
@@ -219,9 +231,13 @@ export function StylePanel() {
             data-color="transparent"
             title="Transparent"
             aria-label="Fill color transparent"
-            aria-pressed={currentStyle.backgroundColor === 'transparent'}
-            style={swatchStyle('transparent', currentStyle.backgroundColor === 'transparent', true)}
-            onClick={() => applyStyle({ backgroundColor: 'transparent' })}
+            aria-pressed={currentStyle.backgroundColor === "transparent"}
+            style={swatchStyle(
+              "transparent",
+              currentStyle.backgroundColor === "transparent",
+              true,
+            )}
+            onClick={() => applyStyle({ backgroundColor: "transparent" })}
           />
           {COLOR_PALETTE.map((color) => (
             <button
@@ -240,10 +256,20 @@ export function StylePanel() {
         <input
           type="color"
           data-testid="fill-color-input"
-          value={currentStyle.backgroundColor === 'transparent' ? '#ffffff' : currentStyle.backgroundColor}
+          value={
+            currentStyle.backgroundColor === "transparent"
+              ? "#ffffff"
+              : currentStyle.backgroundColor
+          }
           aria-label="Custom fill color"
           onChange={(e) => applyStyle({ backgroundColor: e.target.value })}
-          style={{ width: '100%', height: 24, border: 'none', cursor: 'pointer', marginTop: 4 }}
+          style={{
+            width: "100%",
+            height: 24,
+            border: "none",
+            cursor: "pointer",
+            marginTop: 4,
+          }}
         />
       </Section>
 
@@ -251,14 +277,17 @@ export function StylePanel() {
       <Section label="Stroke width">
         <div style={RADIO_GROUP_STYLE}>
           {STROKE_WIDTHS.map(({ value, label }) => (
-            <label key={value} style={radioLabelStyle(currentStyle.strokeWidth === value)}>
+            <label
+              key={value}
+              style={radioLabelStyle(currentStyle.strokeWidth === value)}
+            >
               <input
                 type="radio"
                 name="strokeWidth"
                 value={value}
                 checked={currentStyle.strokeWidth === value}
                 onChange={() => applyStyle({ strokeWidth: value })}
-                style={{ display: 'none' }}
+                style={{ display: "none" }}
               />
               {label}
             </label>
@@ -270,14 +299,23 @@ export function StylePanel() {
       <Section label="Stroke style">
         <div style={RADIO_GROUP_STYLE}>
           {STROKE_STYLES.map(({ value, label }) => (
-            <label key={value} style={radioLabelStyle((currentStyle.strokeStyle ?? 'solid') === value)}>
+            <label
+              key={value}
+              style={radioLabelStyle(
+                (currentStyle.strokeStyle ?? "solid") === value,
+              )}
+            >
               <input
                 type="radio"
                 name="strokeStyle"
                 value={value}
-                checked={(currentStyle.strokeStyle ?? 'solid') === value}
-                onChange={() => applyStyle({ strokeStyle: value as ExpressionStyle['strokeStyle'] })}
-                style={{ display: 'none' }}
+                checked={(currentStyle.strokeStyle ?? "solid") === value}
+                onChange={() =>
+                  applyStyle({
+                    strokeStyle: value as ExpressionStyle["strokeStyle"],
+                  })
+                }
+                style={{ display: "none" }}
               />
               {label}
             </label>
@@ -289,14 +327,21 @@ export function StylePanel() {
       <Section label="Fill style">
         <div style={RADIO_GROUP_STYLE}>
           {FILL_STYLES.map(({ value, label }) => (
-            <label key={value} style={radioLabelStyle(currentStyle.fillStyle === value)}>
+            <label
+              key={value}
+              style={radioLabelStyle(currentStyle.fillStyle === value)}
+            >
               <input
                 type="radio"
                 name="fillStyle"
                 value={value}
                 checked={currentStyle.fillStyle === value}
-                onChange={() => applyStyle({ fillStyle: value as ExpressionStyle['fillStyle'] })}
-                style={{ display: 'none' }}
+                onChange={() =>
+                  applyStyle({
+                    fillStyle: value as ExpressionStyle["fillStyle"],
+                  })
+                }
+                style={{ display: "none" }}
               />
               {label}
             </label>
@@ -314,7 +359,9 @@ export function StylePanel() {
           step={0.5}
           value={currentStyle.roughness}
           aria-label="Roughness"
-          onChange={(e) => applyStyle({ roughness: parseFloat(e.target.value) })}
+          onChange={(e) =>
+            applyStyle({ roughness: parseFloat(e.target.value) })
+          }
           style={SLIDER_STYLE}
         />
       </Section>
@@ -339,9 +386,18 @@ export function StylePanel() {
         <select
           value={currentStyle.fontFamily}
           onChange={(e) => applyStyle({ fontFamily: e.target.value })}
-          style={{ width: '100%', padding: '4px', borderRadius: 4, border: '1px solid var(--border, #ccc)', backgroundColor: 'var(--bg-panel, #fff)', color: 'var(--text-primary, #333)' }}
+          style={{
+            width: "100%",
+            padding: "4px",
+            borderRadius: 4,
+            border: "1px solid var(--border, #ccc)",
+            backgroundColor: "var(--bg-panel, #fff)",
+            color: "var(--text-primary, #333)",
+          }}
         >
-          <option value="Architects Daughter, cursive">✏️ Architects Daughter</option>
+          <option value="Architects Daughter, cursive">
+            ✏️ Architects Daughter
+          </option>
           <option value="Caveat, cursive">✏️ Caveat</option>
           <option value="Patrick Hand, cursive">✏️ Patrick Hand</option>
           <option value="Kalam, cursive">✏️ Kalam</option>
@@ -371,7 +427,13 @@ export function StylePanel() {
 // ── Internal sub-components ────────────────────────────────
 
 /** Section wrapper with label. */
-function Section({ label, children }: { label: string; children: React.ReactNode }) {
+function Section({
+  label,
+  children,
+}: {
+  label: string;
+  children: React.ReactNode;
+}) {
   return (
     <div>
       <p style={SECTION_LABEL_STYLE}>{label}</p>

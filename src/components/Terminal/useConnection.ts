@@ -181,13 +181,19 @@ export function useConnection({
       e.preventDefault();
       if (disposed || !activeConnectionId) return;
       const connId = activeConnectionId;
-      navigator.clipboard.readText().then((text) => {
-        if (!text || disposed) return;
-        terminal.paste(text);
-        const bytes = new TextEncoder().encode(text);
-        const base64 = btoa(String.fromCharCode(...bytes));
-        invoke("connection_write", { connectionId: connId, data: base64 }).catch(() => {});
-      }).catch(() => {});
+      navigator.clipboard
+        .readText()
+        .then((text) => {
+          if (!text || disposed) return;
+          terminal.paste(text);
+          const bytes = new TextEncoder().encode(text);
+          const base64 = btoa(String.fromCharCode(...bytes));
+          invoke("connection_write", {
+            connectionId: connId,
+            data: base64,
+          }).catch(() => {});
+        })
+        .catch(() => {});
     };
     container.addEventListener("contextmenu", handleContextMenu);
 
@@ -206,21 +212,35 @@ export function useConnection({
       if (event.ctrlKey && event.shiftKey && event.key === "V") {
         if (!activeConnectionId) return false;
         const connId = activeConnectionId;
-        navigator.clipboard.readText().then((text) => {
-          if (!text || disposed) return;
-          terminal.paste(text);
-          const bytes = new TextEncoder().encode(text);
-          const base64 = btoa(String.fromCharCode(...bytes));
-          invoke("connection_write", { connectionId: connId, data: base64 }).catch(() => {});
-        }).catch(() => {});
+        navigator.clipboard
+          .readText()
+          .then((text) => {
+            if (!text || disposed) return;
+            terminal.paste(text);
+            const bytes = new TextEncoder().encode(text);
+            const base64 = btoa(String.fromCharCode(...bytes));
+            invoke("connection_write", {
+              connectionId: connId,
+              data: base64,
+            }).catch(() => {});
+          })
+          .catch(() => {});
         return false;
       }
 
       // Fix 7: Ctrl+= / Ctrl+Plus — increase font size
-      if (event.ctrlKey && !event.shiftKey && (event.key === "=" || event.key === "+")) {
+      if (
+        event.ctrlKey &&
+        !event.shiftKey &&
+        (event.key === "=" || event.key === "+")
+      ) {
         const current = terminal.options.fontSize ?? FONT_SIZE_DEFAULT;
         terminal.options.fontSize = clampFontSize(current + 1);
-        try { fitAddon.fit(); } catch { /* ignore */ }
+        try {
+          fitAddon.fit();
+        } catch {
+          /* ignore */
+        }
         return false;
       }
 
@@ -228,14 +248,22 @@ export function useConnection({
       if (event.ctrlKey && !event.shiftKey && event.key === "-") {
         const current = terminal.options.fontSize ?? FONT_SIZE_DEFAULT;
         terminal.options.fontSize = clampFontSize(current - 1);
-        try { fitAddon.fit(); } catch { /* ignore */ }
+        try {
+          fitAddon.fit();
+        } catch {
+          /* ignore */
+        }
         return false;
       }
 
       // Fix 7: Ctrl+0 — reset font size
       if (event.ctrlKey && !event.shiftKey && event.key === "0") {
         terminal.options.fontSize = FONT_SIZE_DEFAULT;
-        try { fitAddon.fit(); } catch { /* ignore */ }
+        try {
+          fitAddon.fit();
+        } catch {
+          /* ignore */
+        }
         return false;
       }
 
@@ -319,10 +347,9 @@ export function useConnection({
 
             if (newStatus === "disconnected" || newStatus === "error") {
               const msg =
-                message ?? (newStatus === "error" ? "Connection error" : "Disconnected");
-              terminal.write(
-                `\r\n\x1b[90m[${msg}]\x1b[0m\r\n`,
-              );
+                message ??
+                (newStatus === "error" ? "Connection error" : "Disconnected");
+              terminal.write(`\r\n\x1b[90m[${msg}]\x1b[0m\r\n`);
             }
           },
         );
@@ -386,8 +413,7 @@ export function useConnection({
         }
       } catch (err: unknown) {
         if (!disposed) {
-          const message =
-            err instanceof Error ? err.message : String(err);
+          const message = err instanceof Error ? err.message : String(err);
           setError(`Connection failed: ${message}`);
           setStatus("error");
           setStatusMessage(message);

@@ -40,7 +40,9 @@ export function HistoryTab() {
         input: { query: q, limit: 200 },
       });
       setResults(entries);
-    } catch { /* ignore */ }
+    } catch {
+      /* ignore */
+    }
     setLoading(false);
   }, []);
 
@@ -52,20 +54,29 @@ export function HistoryTab() {
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(() => doSearch(query), 200);
-    return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+    };
   }, [query, doSearch]);
 
-  const sendToTerminal = useCallback((command: string) => {
-    const state = useLayoutStore.getState();
-    const sessionId = state.getActiveSessionId();
-    if (!sessionId) { showToast("No active terminal"); return; }
-    const region = state.getFocusedRegion();
-    const activeTab = region?.tabs.find((t) => t.id === region.activeTabId);
-    const bytes = Array.from(new TextEncoder().encode(command));
-    const ipcCommand = activeTab?.status === "connected" ? "connection_write" : "pty_write";
-    invoke(ipcCommand, { sessionId, data: bytes }).catch(() => {});
-    showToast("Sent to terminal");
-  }, [showToast]);
+  const sendToTerminal = useCallback(
+    (command: string) => {
+      const state = useLayoutStore.getState();
+      const sessionId = state.getActiveSessionId();
+      if (!sessionId) {
+        showToast("No active terminal");
+        return;
+      }
+      const region = state.getFocusedRegion();
+      const activeTab = region?.tabs.find((t) => t.id === region.activeTabId);
+      const bytes = Array.from(new TextEncoder().encode(command));
+      const ipcCommand =
+        activeTab?.status === "connected" ? "connection_write" : "pty_write";
+      invoke(ipcCommand, { sessionId, data: bytes }).catch(() => {});
+      showToast("Sent to terminal");
+    },
+    [showToast],
+  );
 
   const handleClear = useCallback(async () => {
     try {
@@ -77,18 +88,23 @@ export function HistoryTab() {
     }
   }, [showToast]);
 
-  const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
-    if (e.key === "Enter" && results.length > 0) {
-      sendToTerminal(results[0].command);
-    }
-  }, [results, sendToTerminal]);
+  const handleKeyDown = useCallback(
+    (e: React.KeyboardEvent) => {
+      if (e.key === "Enter" && results.length > 0) {
+        sendToTerminal(results[0].command);
+      }
+    },
+    [results, sendToTerminal],
+  );
 
   return (
     <div className="vault-tab">
       {toast && <div className="vault-tab__toast">{toast}</div>}
 
       <div className="vault-tab__header">
-        <span style={{ fontSize: 12, fontWeight: 600, whiteSpace: "nowrap" }}>📜 History</span>
+        <span style={{ fontSize: 12, fontWeight: 600, whiteSpace: "nowrap" }}>
+          📜 History
+        </span>
         <input
           ref={searchRef}
           className="vault-tab__filter"
@@ -101,7 +117,12 @@ export function HistoryTab() {
         />
         <button
           className="vault-tab__add-btn"
-          style={{ background: "transparent", border: "1px solid var(--hover-bg)", color: "var(--text-secondary)", fontSize: 11 }}
+          style={{
+            background: "transparent",
+            border: "1px solid var(--hover-bg)",
+            color: "var(--text-secondary)",
+            fontSize: 11,
+          }}
           onClick={handleClear}
           title="Clear all history"
         >
@@ -121,17 +142,30 @@ export function HistoryTab() {
             style={{ cursor: "pointer" }}
           >
             <div className="vault-tab__item-info" style={{ flex: 1 }}>
-              <span className="vault-tab__item-name" style={{ fontFamily: "monospace" }}>
+              <span
+                className="vault-tab__item-name"
+                style={{ fontFamily: "monospace" }}
+              >
                 {entry.command}
               </span>
             </div>
-            <div style={{ display: "flex", gap: 4, alignItems: "center", flexShrink: 0 }}>
+            <div
+              style={{
+                display: "flex",
+                gap: 4,
+                alignItems: "center",
+                flexShrink: 0,
+              }}
+            >
               {entry.host && (
                 <span className="vault-tab__item-badge">{entry.host}</span>
               )}
               <span style={{ fontSize: 10, color: "var(--text-secondary)" }}>
                 {new Date(entry.timestamp).toLocaleString(undefined, {
-                  month: "short", day: "numeric", hour: "2-digit", minute: "2-digit",
+                  month: "short",
+                  day: "numeric",
+                  hour: "2-digit",
+                  minute: "2-digit",
                 })}
               </span>
             </div>

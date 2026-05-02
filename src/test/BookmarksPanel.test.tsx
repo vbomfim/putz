@@ -21,7 +21,9 @@ const mockAddFolder = vi.fn();
 const mockRemoveFolder = vi.fn();
 const mockRenameFolder = vi.fn();
 const mockReorderFolder = vi.fn();
-const mockExportBookmarks = vi.fn().mockReturnValue('{"bookmarks":[],"folders":[]}');
+const mockExportBookmarks = vi
+  .fn()
+  .mockReturnValue('{"bookmarks":[],"folders":[]}');
 const mockImportBookmarks = vi.fn();
 
 interface MockBookmark {
@@ -81,7 +83,8 @@ vi.mock("../stores/bookmarksStore", () => ({
 
 // Mock sanitize
 vi.mock("../utils/sanitize", () => ({
-  stripBidiControls: (s: string) => s.replace(/[\u200E\u200F\u061C\u2066-\u2069\u202A-\u202E]/g, ""),
+  stripBidiControls: (s: string) =>
+    s.replace(/[\u200E\u200F\u061C\u2066-\u2069\u202A-\u202E]/g, ""),
 }));
 
 // ─── Import component after mocks ───────────────────────────────────
@@ -353,7 +356,9 @@ describe("BookmarksPanel", () => {
 
     render(<BookmarksPanel onClose={noop} />);
 
-    const bookmarkEl = screen.getByText("root-file.ts").closest("[data-bookmark-id]")!;
+    const bookmarkEl = screen
+      .getByText("root-file.ts")
+      .closest("[data-bookmark-id]")!;
     const folderEl = screen.getByText("Work").closest("[data-folder-id]")!;
 
     // Start drag on bookmark
@@ -382,7 +387,9 @@ describe("BookmarksPanel", () => {
 
     render(<BookmarksPanel onClose={noop} />);
 
-    const bookmarkEl = screen.getByText("child.ts").closest("[data-bookmark-id]")!;
+    const bookmarkEl = screen
+      .getByText("child.ts")
+      .closest("[data-bookmark-id]")!;
     const rootArea = screen.getByTestId("bookmarks-panel-root-drop");
 
     // Start drag
@@ -403,7 +410,9 @@ describe("BookmarksPanel", () => {
     render(<BookmarksPanel onClose={noop} />);
 
     const folderRow = screen.getByText("Work").closest("[data-folder-id]")!;
-    const deleteBtn = within(folderRow).getByRole("button", { name: /delete/i });
+    const deleteBtn = within(folderRow).getByRole("button", {
+      name: /delete/i,
+    });
     await userEvent.click(deleteBtn);
 
     expect(mockRemoveFolder).toHaveBeenCalledWith("folder-1");
@@ -437,7 +446,9 @@ describe("BookmarksPanel", () => {
     render(<BookmarksPanel onClose={noop} />);
 
     const firstEl = screen.getByText("first.ts").closest("[data-bookmark-id]")!;
-    const secondEl = screen.getByText("second.ts").closest("[data-bookmark-id]")!;
+    const secondEl = screen
+      .getByText("second.ts")
+      .closest("[data-bookmark-id]")!;
 
     // Drag first after second — set drop target to second
     fireEvent.pointerDown(firstEl, { clientX: 10, clientY: 10, button: 0 });
@@ -533,7 +544,9 @@ describe("BookmarksPanel", () => {
   it("Import button reads file and calls importBookmarks", async () => {
     render(<BookmarksPanel onClose={noop} />);
 
-    const fileInput = screen.getByTestId("bookmarks-import-input") as HTMLInputElement;
+    const fileInput = screen.getByTestId(
+      "bookmarks-import-input",
+    ) as HTMLInputElement;
     const validJson = '{"bookmarks":[],"folders":[]}';
     const file = new File([validJson], "bookmarks.json", {
       type: "application/json",
@@ -556,7 +569,9 @@ describe("BookmarksPanel", () => {
 
     render(<BookmarksPanel onClose={noop} />);
 
-    const fileInput = screen.getByTestId("bookmarks-import-input") as HTMLInputElement;
+    const fileInput = screen.getByTestId(
+      "bookmarks-import-input",
+    ) as HTMLInputElement;
     const file = new File(["not-json!!!"], "bad.json", {
       type: "application/json",
     });
@@ -689,7 +704,9 @@ describe("BookmarksPanel", () => {
     mockBookmarks = [makeBookmark({ id: "bm-1", name: "config.ts" })];
     render(<BookmarksPanel onClose={noop} />);
 
-    const bookmarkEl = screen.getByText("config.ts").closest("[data-bookmark-id]")!;
+    const bookmarkEl = screen
+      .getByText("config.ts")
+      .closest("[data-bookmark-id]")!;
 
     fireEvent.pointerDown(bookmarkEl, { clientX: 10, clientY: 10, button: 0 });
     setDropTarget(bookmarkEl);
@@ -701,18 +718,22 @@ describe("BookmarksPanel", () => {
   });
 
   it("empty folder still renders with delete button", () => {
-    mockFolders = [makeFolder({ id: "folder-1", name: "Empty Folder", sortIndex: 0 })];
+    mockFolders = [
+      makeFolder({ id: "folder-1", name: "Empty Folder", sortIndex: 0 }),
+    ];
     render(<BookmarksPanel onClose={noop} />);
 
     expect(screen.getByText("Empty Folder")).toBeInTheDocument();
-    const folderRow = screen.getByText("Empty Folder").closest("[data-folder-id]")!;
-    expect(within(folderRow).getByRole("button", { name: /delete/i })).toBeInTheDocument();
+    const folderRow = screen
+      .getByText("Empty Folder")
+      .closest("[data-folder-id]")!;
+    expect(
+      within(folderRow).getByRole("button", { name: /delete/i }),
+    ).toBeInTheDocument();
   });
 
   it("bidi-stripped names render correctly", () => {
-    mockBookmarks = [
-      makeBookmark({ id: "bm-1", name: "safe\u200Ename.ts" }),
-    ];
+    mockBookmarks = [makeBookmark({ id: "bm-1", name: "safe\u200Ename.ts" })];
     render(<BookmarksPanel onClose={noop} />);
     // The bidi character should be stripped
     expect(screen.getByText("safename.ts")).toBeInTheDocument();
@@ -743,8 +764,18 @@ describe("BookmarksPanel", () => {
 
   it("root items have aria-level=1, folder children have aria-level=2", () => {
     mockBookmarks = [
-      makeBookmark({ id: "bm-1", name: "root.ts", sortIndex: 0, folderId: null }),
-      makeBookmark({ id: "bm-2", name: "child.ts", sortIndex: 0, folderId: "folder-1" }),
+      makeBookmark({
+        id: "bm-1",
+        name: "root.ts",
+        sortIndex: 0,
+        folderId: null,
+      }),
+      makeBookmark({
+        id: "bm-2",
+        name: "child.ts",
+        sortIndex: 0,
+        folderId: "folder-1",
+      }),
     ];
     mockFolders = [makeFolder({ id: "folder-1", name: "Work", sortIndex: 1 })];
 
@@ -753,7 +784,9 @@ describe("BookmarksPanel", () => {
     const rootItem = screen.getByText("root.ts").closest("[role='treeitem']")!;
     expect(rootItem).toHaveAttribute("aria-level", "1");
 
-    const childItem = screen.getByText("child.ts").closest("[role='treeitem']")!;
+    const childItem = screen
+      .getByText("child.ts")
+      .closest("[role='treeitem']")!;
     expect(childItem).toHaveAttribute("aria-level", "2");
   });
 
@@ -767,7 +800,9 @@ describe("BookmarksPanel", () => {
 
     render(<BookmarksPanel onClose={noop} />);
 
-    const bookmarkEl = screen.getByText("root-file.ts").closest("[data-bookmark-id]")!;
+    const bookmarkEl = screen
+      .getByText("root-file.ts")
+      .closest("[data-bookmark-id]")!;
     const folderEl = screen.getByText("Work").closest("[data-folder-id]")!;
 
     // All three events in the SAME synchronous tick — no `await act` in between
@@ -787,7 +822,9 @@ describe("BookmarksPanel", () => {
 
     render(<BookmarksPanel onClose={noop} />);
 
-    const bookmarkEl = screen.getByText("root-file.ts").closest("[data-bookmark-id]")!;
+    const bookmarkEl = screen
+      .getByText("root-file.ts")
+      .closest("[data-bookmark-id]")!;
     const folderEl = screen.getByText("Work").closest("[data-folder-id]")!;
 
     // Start drag
@@ -812,17 +849,23 @@ describe("BookmarksPanel", () => {
   it("H2: overlapping imports — first onload is ignored when second starts", async () => {
     render(<BookmarksPanel onClose={noop} />);
 
-    const fileInput = screen.getByTestId("bookmarks-import-input") as HTMLInputElement;
+    const fileInput = screen.getByTestId(
+      "bookmarks-import-input",
+    ) as HTMLInputElement;
 
     // Capture FileReader instances by intercepting readAsText
-    const readers: { onload: (() => void) | null; result: string | null }[] = [];
+    const readers: { onload: (() => void) | null; result: string | null }[] =
+      [];
     const OriginalFileReader = globalThis.FileReader;
     const mockFileReaderCtor = vi.fn().mockImplementation(() => {
       const instance = {
         onload: null as (() => void) | null,
         onerror: null as (() => void) | null,
         result: null as string | null,
-        readAsText: vi.fn().mockImplementation(function (this: typeof instance, file: File) {
+        readAsText: vi.fn().mockImplementation(function (
+          this: typeof instance,
+          file: File,
+        ) {
           // Read file content synchronously for test purposes
           const reader = new OriginalFileReader();
           reader.onload = () => {
@@ -838,8 +881,16 @@ describe("BookmarksPanel", () => {
     globalThis.FileReader = mockFileReaderCtor as unknown as typeof FileReader;
 
     try {
-      const fileA = new File(['{"bookmarks":[{"id":"a"}],"folders":[]}'], "a.json", { type: "application/json" });
-      const fileB = new File(['{"bookmarks":[{"id":"b"}],"folders":[]}'], "b.json", { type: "application/json" });
+      const fileA = new File(
+        ['{"bookmarks":[{"id":"a"}],"folders":[]}'],
+        "a.json",
+        { type: "application/json" },
+      );
+      const fileB = new File(
+        ['{"bookmarks":[{"id":"b"}],"folders":[]}'],
+        "b.json",
+        { type: "application/json" },
+      );
 
       // Start import A
       fireEvent.change(fileInput, { target: { files: [fileA] } });
@@ -867,18 +918,26 @@ describe("BookmarksPanel", () => {
   it("H2: close during import — onload after unmount does NOT call importBookmarks", async () => {
     const { unmount } = render(<BookmarksPanel onClose={noop} />);
 
-    const fileInput = screen.getByTestId("bookmarks-import-input") as HTMLInputElement;
+    const fileInput = screen.getByTestId(
+      "bookmarks-import-input",
+    ) as HTMLInputElement;
 
-    const readers: { onload: (() => void) | null; result: string | null }[] = [];
+    const readers: { onload: (() => void) | null; result: string | null }[] =
+      [];
     const OriginalFileReader = globalThis.FileReader;
     const mockFileReaderCtor = vi.fn().mockImplementation(() => {
       const instance = {
         onload: null as (() => void) | null,
         onerror: null as (() => void) | null,
         result: null as string | null,
-        readAsText: vi.fn().mockImplementation(function (this: typeof instance, file: File) {
+        readAsText: vi.fn().mockImplementation(function (
+          this: typeof instance,
+          file: File,
+        ) {
           const reader = new OriginalFileReader();
-          reader.onload = () => { this.result = reader.result as string; };
+          reader.onload = () => {
+            this.result = reader.result as string;
+          };
           reader.readAsText(file);
           readers.push(this);
         }),
@@ -888,7 +947,9 @@ describe("BookmarksPanel", () => {
     globalThis.FileReader = mockFileReaderCtor as unknown as typeof FileReader;
 
     try {
-      const file = new File(['{"bookmarks":[],"folders":[]}'], "test.json", { type: "application/json" });
+      const file = new File(['{"bookmarks":[],"folders":[]}'], "test.json", {
+        type: "application/json",
+      });
       fireEvent.change(fileInput, { target: { files: [file] } });
 
       await new Promise((r) => setTimeout(r, 50));
@@ -916,7 +977,9 @@ describe("BookmarksPanel", () => {
 
     render(<BookmarksPanel onClose={noop} />);
 
-    const bookmarkEl = screen.getByText("root-file.ts").closest("[data-bookmark-id]")!;
+    const bookmarkEl = screen
+      .getByText("root-file.ts")
+      .closest("[data-bookmark-id]")!;
     const folderEl = screen.getByText("Work").closest("[data-folder-id]")!;
 
     // Start drag

@@ -171,7 +171,9 @@ export function MacArpViewer() {
 
       {mode && filteredMac.length === 0 && filteredArp.length === 0 && (
         <div className="macarp-no-results" data-testid="macarp-no-results">
-          {search ? "No entries match your search." : "No entries parsed. Check the output format."}
+          {search
+            ? "No entries match your search."
+            : "No entries parsed. Check the output format."}
         </div>
       )}
     </div>

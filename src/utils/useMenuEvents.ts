@@ -86,7 +86,25 @@ export function useMenuEvents(): void {
             multiple: false,
             filters: [
               { name: "Diagrams", extensions: ["drawio"] },
-              { name: "Text Files", extensions: ["txt", "json", "yaml", "yml", "toml", "xml", "csv", "tsv", "md", "markdown", "cfg", "conf", "ini", "log"] },
+              {
+                name: "Text Files",
+                extensions: [
+                  "txt",
+                  "json",
+                  "yaml",
+                  "yml",
+                  "toml",
+                  "xml",
+                  "csv",
+                  "tsv",
+                  "md",
+                  "markdown",
+                  "cfg",
+                  "conf",
+                  "ini",
+                  "log",
+                ],
+              },
               { name: "All Files", extensions: ["*"] },
             ],
           }).then((selected) => {
@@ -96,21 +114,28 @@ export function useMenuEvents(): void {
           });
           break;
         case "menu-close-tab": {
-          const ls2 = useLayoutStore.getState(); const r2 = ls2.regions[ls2.focusedRegionId]; if (r2 && r2.activeTabId) closeTab(r2.id, r2.activeTabId);
-          const ls = useLayoutStore.getState(); const r = ls.regions[ls.focusedRegionId]; if (r && r.activeTabId) closeTab(r.id, r.activeTabId);
+          const ls2 = useLayoutStore.getState();
+          const r2 = ls2.regions[ls2.focusedRegionId];
+          if (r2 && r2.activeTabId) closeTab(r2.id, r2.activeTabId);
+          const ls = useLayoutStore.getState();
+          const r = ls.regions[ls.focusedRegionId];
+          if (r && r.activeTabId) closeTab(r.id, r.activeTabId);
           break;
         }
         case "menu-close-all-tabs":
-          
           break;
         case "menu-exit":
           // Close the main window — Tauri shuts down when the last window closes.
           // The on_window_event close-requested handler in lib.rs runs first
           // and tears down PTY sessions cleanly.
-          getCurrentWindow().close().catch(() => {
-            // Fallback: ask the app to exit if window.close fails for any reason
-            import("@tauri-apps/plugin-process").then((m) => m.exit(0)).catch(() => {});
-          });
+          getCurrentWindow()
+            .close()
+            .catch(() => {
+              // Fallback: ask the app to exit if window.close fails for any reason
+              import("@tauri-apps/plugin-process")
+                .then((m) => m.exit(0))
+                .catch(() => {});
+            });
           break;
 
         // ─── Edit ──────────────────────────────────────────
@@ -141,7 +166,6 @@ export function useMenuEvents(): void {
           // Placeholder — future highlighting toggle
           break;
         case "menu-toggle-broadcast": {
-          ;
           toggleBroadcast(
             Object.keys(useLayoutStore.getState().regions),
             useLayoutStore.getState().focusedRegionId,
@@ -211,11 +235,13 @@ export function useMenuEvents(): void {
           const ls = useLayoutStore.getState();
           const r = ls.regions[ls.focusedRegionId];
           if (r) {
-            const t = r.tabs.find(tab => tab.id === r.activeTabId);
+            const t = r.tabs.find((tab) => tab.id === r.activeTabId);
             if (t && t.type === "terminal") {
               import("@tauri-apps/api/core").then(({ invoke }) => {
                 invoke<string>("pty_cwd", { sessionId: t.sessionId })
-                  .then((cwd) => useLayoutStore.getState().addGitGraphTab(undefined, cwd))
+                  .then((cwd) =>
+                    useLayoutStore.getState().addGitGraphTab(undefined, cwd),
+                  )
                   .catch(() => {});
               });
             }
@@ -229,7 +255,6 @@ export function useMenuEvents(): void {
 
         case "menu-start-logging":
         case "menu-stop-logging":
-          
           break;
 
         // ─── Window ────────────────────────────────────────
@@ -255,11 +280,9 @@ export function useMenuEvents(): void {
       addTerminalTab,
       addEditorTab,
       closeTab,
-      
+
       splitRegion,
-      
-      
-      
+
       toggleBroadcast,
       toggleShortcutsPanel,
       nextTab,
@@ -274,7 +297,10 @@ export function useMenuEvents(): void {
     listen<MenuEventPayload>("menu-event", (event) => {
       handleMenuEvent(event.payload.id);
     }).then((fn) => {
-      if (cancelled) { fn(); return; }
+      if (cancelled) {
+        fn();
+        return;
+      }
       unlisten = fn;
     });
 

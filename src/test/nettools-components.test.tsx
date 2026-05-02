@@ -155,7 +155,9 @@ GigabitEthernet0/1     unassigned      YES unset  administratively down down`;
   it("shows no results for garbage input", () => {
     render(<InterfaceStatus />);
     const textarea = screen.getByTestId("intf-textarea");
-    fireEvent.change(textarea, { target: { value: "some random text\nwith no structure" } });
+    fireEvent.change(textarea, {
+      target: { value: "some random text\nwith no structure" },
+    });
     fireEvent.click(screen.getByTestId("intf-parse-btn"));
 
     // Should not show table since vendor is "unknown" and parse returns []
@@ -233,7 +235,9 @@ Vlan    Mac Address       Type        Ports
     fireEvent.change(searchInput, { target: { value: "VMware" } });
 
     // Should show only VMware entry
-    const rows = screen.getByTestId("macarp-table").querySelectorAll("tbody tr");
+    const rows = screen
+      .getByTestId("macarp-table")
+      .querySelectorAll("tbody tr");
     expect(rows).toHaveLength(1);
   });
 

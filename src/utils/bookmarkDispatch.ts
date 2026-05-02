@@ -46,13 +46,15 @@ function sanitizeForDisplay(text: string): string {
  * Escapes: `\` → `\\`, `"` → `\"`, `$` → `\$`, `` ` `` → `` \` ``
  */
 export function escapeShellPath(path: string): string {
-  return path
-    // eslint-disable-next-line no-control-regex -- intentional: strip C0 control chars + DEL
-    .replace(/[\x00-\x1f\x7f]/g, "")  // strip control chars (defense-in-depth)
-    .replace(/\\/g, "\\\\")   // backslash first
-    .replace(/"/g, '\\"')     // double quote
-    .replace(/\$/g, "\\$")    // dollar sign
-    .replace(/`/g, "\\`");    // backtick
+  return (
+    path
+      // eslint-disable-next-line no-control-regex -- intentional: strip C0 control chars + DEL
+      .replace(/[\x00-\x1f\x7f]/g, "") // strip control chars (defense-in-depth)
+      .replace(/\\/g, "\\\\") // backslash first
+      .replace(/"/g, '\\"') // double quote
+      .replace(/\$/g, "\\$") // dollar sign
+      .replace(/`/g, "\\`")
+  ); // backtick
 }
 
 /**
@@ -127,9 +129,7 @@ function getFocusedTerminalSessionId(): string | null {
 async function dispatchFolderBookmark(bookmark: BookmarkItem): Promise<void> {
   const sessionId = getFocusedTerminalSessionId();
   if (!sessionId) {
-    showBookmarkWarning(
-      "No terminal focused — switch to a terminal tab first",
-    );
+    showBookmarkWarning("No terminal focused — switch to a terminal tab first");
     return;
   }
 
@@ -146,7 +146,11 @@ async function dispatchFolderBookmark(bookmark: BookmarkItem): Promise<void> {
 
   try {
     // Fire CWD update immediately — we already know the destination.
-    window.dispatchEvent(new CustomEvent("putz-cwd-change", { detail: { sessionId, cwd: bookmark.path } }));
+    window.dispatchEvent(
+      new CustomEvent("putz-cwd-change", {
+        detail: { sessionId, cwd: bookmark.path },
+      }),
+    );
     await invoke("pty_write", { sessionId, data });
   } catch {
     showBookmarkWarning("Failed to send command to terminal");

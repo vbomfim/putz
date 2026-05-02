@@ -50,7 +50,9 @@ const mockStoreActions = {
 
 vi.mock("../stores/layoutStore", () => ({
   useLayoutStore: Object.assign(
-    vi.fn((selector: (state: unknown) => unknown) => selector(mockStoreActions)),
+    vi.fn((selector: (state: unknown) => unknown) =>
+      selector(mockStoreActions),
+    ),
     { getState: () => mockStoreActions },
   ),
   MAX_TITLE_LENGTH: 100,
@@ -148,7 +150,11 @@ describe("RegionTabBar context menu bookmark item [F5]", () => {
   });
 
   it("does NOT show bookmark item for settings tab", () => {
-    const tab = makeTab({ id: "t-settings", type: "settings", title: "Settings" });
+    const tab = makeTab({
+      id: "t-settings",
+      type: "settings",
+      title: "Settings",
+    });
     mockIsBookmarkActionAvailable.mockReturnValue(false);
 
     renderTabBar([tab]);

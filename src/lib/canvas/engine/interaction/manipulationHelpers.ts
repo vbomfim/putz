@@ -8,15 +8,18 @@
  * @module
  */
 
-import type { VisualExpression, ArrowData } from '../../protocol';
-import type { Camera } from '../types/index';
-import { computeOrthogonalRoute, computeSelfLoopPath } from '../connectors/orthogonalRouter';
-import { resolveBindings } from './connectorHelpers';
+import type { VisualExpression, ArrowData } from "../../protocol";
+import type { Camera } from "../types/index";
+import {
+  computeOrthogonalRoute,
+  computeSelfLoopPath,
+} from "../connectors/orthogonalRouter";
+import { resolveBindings } from "./connectorHelpers";
 
 // ── Point-based kind guard ─────────────────────────────────────
 
 /** Expression kinds that use `data.points` for geometry. */
-export type PointBasedKind = 'line' | 'arrow' | 'freehand';
+export type PointBasedKind = "line" | "arrow" | "freehand";
 
 /**
  * Check if an expression kind uses point-based geometry.
@@ -25,13 +28,13 @@ export type PointBasedKind = 'line' | 'arrow' | 'freehand';
  * `data.points` rather than using `position`/`size` alone. [CLEAN-CODE]
  */
 export function isPointBasedKind(kind: string): kind is PointBasedKind {
-  return kind === 'line' || kind === 'arrow' || kind === 'freehand';
+  return kind === "line" || kind === "arrow" || kind === "freehand";
 }
 
 // ── Handle types ──────────────────────────────────────────────
 
 /** The 8 resize handle positions (4 corners + 4 edge midpoints). */
-export type HandleType = 'nw' | 'n' | 'ne' | 'e' | 'se' | 's' | 'sw' | 'w';
+export type HandleType = "nw" | "n" | "ne" | "e" | "se" | "s" | "sw" | "w";
 
 /** Result of detecting a handle at a given point. */
 export interface HandleHit {
@@ -54,7 +57,7 @@ export interface PointHandleHit {
 export interface JettyHandleHit {
   expressionId: string;
   /** Which end of the arrow this handle is near. */
-  end: 'start' | 'end';
+  end: "start" | "end";
   /** World position of the handle. */
   position: { x: number; y: number };
   /** Unit direction vector of the stub (away from shape). */
@@ -67,7 +70,7 @@ export interface JettyHandleHit {
    *
    * [CLEAN-CODE] Explicit orientation avoids inferring it from direction.
    */
-  segmentOrientation: 'horizontal' | 'vertical';
+  segmentOrientation: "horizontal" | "vertical";
   /**
    * Whether dragging this handle adjusts `midpointOffset` (Z-shape)
    * or `jettySize` (self-loop / non-Z-shape).
@@ -92,17 +95,17 @@ export interface SegmentHandleHit {
   /** World position of the handle. */
   position: { x: number; y: number };
   /** Orientation of the segment. */
-  segmentOrientation: 'horizontal' | 'vertical';
+  segmentOrientation: "horizontal" | "vertical";
 }
 
 /** Result of detecting what the pointer is hovering over. */
 export type PointerTarget =
-  | { kind: 'handle'; handle: HandleHit }
-  | { kind: 'point-handle'; handle: PointHandleHit }
-  | { kind: 'jetty-handle'; handle: JettyHandleHit }
-  | { kind: 'segment-handle'; handle: SegmentHandleHit }
-  | { kind: 'body'; expressionId: string }
-  | { kind: 'none' };
+  | { kind: "handle"; handle: HandleHit }
+  | { kind: "point-handle"; handle: PointHandleHit }
+  | { kind: "jetty-handle"; handle: JettyHandleHit }
+  | { kind: "segment-handle"; handle: SegmentHandleHit }
+  | { kind: "body"; expressionId: string }
+  | { kind: "none" };
 
 /** Tolerance in screen pixels for handle detection. */
 const HANDLE_TOLERANCE_PX = 8;
@@ -125,14 +128,14 @@ export function getHandlePositions(
   const { width, height } = expr.size;
 
   return [
-    { x, y, type: 'nw' },
-    { x: x + width, y, type: 'ne' },
-    { x: x + width, y: y + height, type: 'se' },
-    { x, y: y + height, type: 'sw' },
-    { x: x + width / 2, y, type: 'n' },
-    { x: x + width, y: y + height / 2, type: 'e' },
-    { x: x + width / 2, y: y + height, type: 's' },
-    { x, y: y + height / 2, type: 'w' },
+    { x, y, type: "nw" },
+    { x: x + width, y, type: "ne" },
+    { x: x + width, y: y + height, type: "se" },
+    { x, y: y + height, type: "sw" },
+    { x: x + width / 2, y, type: "n" },
+    { x: x + width, y: y + height / 2, type: "e" },
+    { x: x + width / 2, y: y + height, type: "s" },
+    { x, y: y + height / 2, type: "w" },
   ];
 }
 
@@ -188,12 +191,14 @@ export function getPointHandlePositions(
 ): Array<{ x: number; y: number; pointIndex: number }> {
   if (!isPointBasedKind(expr.data.kind)) return [];
 
-  const data = expr.data as { points: [number, number][] | [number, number, number][] };
+  const data = expr.data as {
+    points: [number, number][] | [number, number, number][];
+  };
   const { points } = data;
 
   if (points.length === 0) return [];
 
-  if (expr.data.kind === 'freehand') {
+  if (expr.data.kind === "freehand") {
     // Freehand: first and last point only
     const first = points[0]!;
     const last = points[points.length - 1]!;
@@ -250,10 +255,10 @@ const DEFAULT_JETTY_SIZE = 20;
  * 'curved' removed — curved routes have no stubs. [Bug #6]
  * 'elbow' removed — now an alias for orthogonal (already in the set). */
 const JETTY_ROUTING_MODES = new Set([
-  'orthogonal',
-  'entityRelation',
-  'isometric',
-  'orthogonalCurved',
+  "orthogonal",
+  "entityRelation",
+  "isometric",
+  "orthogonalCurved",
 ]);
 
 /**
@@ -270,21 +275,21 @@ function resolveExitDirection(
   end: { x: number; y: number },
 ): { x: number; y: number } {
   switch (anchor) {
-    case 'right':
+    case "right":
       return { x: 1, y: 0 };
-    case 'left':
+    case "left":
       return { x: -1, y: 0 };
-    case 'bottom':
+    case "bottom":
       return { x: 0, y: 1 };
-    case 'top':
+    case "top":
       return { x: 0, y: -1 };
-    case 'top-right':
+    case "top-right":
       return { x: 1, y: 0 };
-    case 'bottom-right':
+    case "bottom-right":
       return { x: 1, y: 0 };
-    case 'top-left':
+    case "top-left":
       return { x: -1, y: 0 };
-    case 'bottom-left':
+    case "bottom-left":
       return { x: -1, y: 0 };
     default: {
       // Infer from delta — pick the dominant axis
@@ -317,13 +322,13 @@ function resolveExitDirection(
 export function getJettyHandlePosition(
   expr: VisualExpression,
 ): JettyHandleHit | null {
-  if (expr.data.kind !== 'arrow') return null;
+  if (expr.data.kind !== "arrow") return null;
 
   const data = expr.data as {
-    kind: 'arrow';
+    kind: "arrow";
     points: [number, number][];
     routing?: string;
-    jettySize?: number | 'auto';
+    jettySize?: number | "auto";
     midpointOffset?: number;
     startBinding?: { expressionId: string; anchor: string };
     endBinding?: { expressionId: string; anchor: string };
@@ -339,7 +344,7 @@ export function getJettyHandlePosition(
   };
 
   const jettySize =
-    typeof data.jettySize === 'number' ? data.jettySize : DEFAULT_JETTY_SIZE;
+    typeof data.jettySize === "number" ? data.jettySize : DEFAULT_JETTY_SIZE;
 
   const startAnchor = data.startBinding?.anchor;
   const endAnchor = data.endBinding?.anchor;
@@ -374,7 +379,7 @@ export function getJettyHandlePosition(
         const midX = exitStubEnd + (entryStubEnd - exitStubEnd) * t;
         return {
           expressionId: expr.id,
-          end: 'start',
+          end: "start",
           position: {
             x: midX,
             y: (startPt.y + endPt.y) / 2,
@@ -382,7 +387,7 @@ export function getJettyHandlePosition(
           // Drag direction is horizontal (moves the vertical bar left/right)
           direction: { x: 1, y: 0 },
           // Middle segment runs vertically
-          segmentOrientation: 'vertical',
+          segmentOrientation: "vertical",
           adjustsMidpoint: true,
         };
       }
@@ -391,7 +396,7 @@ export function getJettyHandlePosition(
       const midY = exitStubEnd + (entryStubEnd - exitStubEnd) * t;
       return {
         expressionId: expr.id,
-        end: 'start',
+        end: "start",
         position: {
           x: (startPt.x + endPt.x) / 2,
           y: midY,
@@ -399,7 +404,7 @@ export function getJettyHandlePosition(
         // Drag direction is vertical (moves the horizontal bar up/down)
         direction: { x: 0, y: 1 },
         // Middle segment runs horizontally
-        segmentOrientation: 'horizontal',
+        segmentOrientation: "horizontal",
         adjustsMidpoint: true,
       };
     }
@@ -407,10 +412,11 @@ export function getJettyHandlePosition(
 
   // Non-Z-shape (L-shape, C-shape, etc.) → fallback to exit stub midpoint
   // Exit stub orientation: horizontal if exitDir.x != 0, vertical if exitDir.y != 0
-  const stubOrientation: 'horizontal' | 'vertical' = exitDir.x !== 0 ? 'horizontal' : 'vertical';
+  const stubOrientation: "horizontal" | "vertical" =
+    exitDir.x !== 0 ? "horizontal" : "vertical";
   return {
     expressionId: expr.id,
-    end: 'start',
+    end: "start",
     position: {
       x: startPt.x + exitDir.x * (jettySize / 2),
       y: startPt.y + exitDir.y * (jettySize / 2),
@@ -477,11 +483,11 @@ export function detectJettyHandle(
 
 /** Routing modes that produce orthogonal self-loops with a drag handle. */
 const SELF_LOOP_HANDLE_ROUTING = new Set([
-  'orthogonal',
-  'elbow',
-  'orthogonalCurved',
-  'entityRelation',
-  'isometric',
+  "orthogonal",
+  "elbow",
+  "orthogonalCurved",
+  "entityRelation",
+  "isometric",
 ]);
 
 /**
@@ -502,13 +508,14 @@ export function getSelfLoopHandlePosition(
   expr: VisualExpression,
   expressions: Record<string, VisualExpression>,
 ): JettyHandleHit | null {
-  if (expr.data.kind !== 'arrow') return null;
+  if (expr.data.kind !== "arrow") return null;
 
   const data = expr.data as ArrowData;
 
   // Must be a self-loop (both ends bound to the same shape)
   if (!data.startBinding || !data.endBinding) return null;
-  if (data.startBinding.expressionId !== data.endBinding.expressionId) return null;
+  if (data.startBinding.expressionId !== data.endBinding.expressionId)
+    return null;
 
   // Only orthogonal-family routing produces a right-angle loop
   if (!data.routing || !SELF_LOOP_HANDLE_ROUTING.has(data.routing)) return null;
@@ -519,7 +526,7 @@ export function getSelfLoopHandlePosition(
 
   const start = data.points[0]!;
   const end = data.points[data.points.length - 1]!;
-  const jetty = typeof data.jettySize === 'number' ? data.jettySize : 30;
+  const jetty = typeof data.jettySize === "number" ? data.jettySize : 30;
 
   const path = computeSelfLoopPath(start, end, data.routing, target, jetty);
   if (path.isCurved || path.points.length < 4) return null;
@@ -546,10 +553,10 @@ export function getSelfLoopHandlePosition(
 
   return {
     expressionId: expr.id,
-    end: 'start',
+    end: "start",
     position: { x: midX, y: midY },
     direction,
-    segmentOrientation: isHoriz ? 'horizontal' : 'vertical',
+    segmentOrientation: isHoriz ? "horizontal" : "vertical",
     adjustsMidpoint: false,
   };
 }
@@ -558,8 +565,8 @@ export function getSelfLoopHandlePosition(
 
 /** Routing modes that produce orthogonal segments with draggable midpoints. */
 const SEGMENT_HANDLE_ROUTING_MODES = new Set([
-  'orthogonal',
-  'orthogonalCurved',
+  "orthogonal",
+  "orthogonalCurved",
 ]);
 
 /**
@@ -579,16 +586,20 @@ export function getSegmentMidpointHandles(
   expr: VisualExpression,
   expressions: Record<string, VisualExpression>,
 ): SegmentHandleHit[] {
-  if (expr.data.kind !== 'arrow') return [];
+  if (expr.data.kind !== "arrow") return [];
 
   const data = expr.data as ArrowData;
-  if (!data.routing || !SEGMENT_HANDLE_ROUTING_MODES.has(data.routing)) return [];
+  if (!data.routing || !SEGMENT_HANDLE_ROUTING_MODES.has(data.routing))
+    return [];
   if (data.points.length < 2) return [];
 
   // Self-loops use computeSelfLoopPath, not computeOrthogonalRoute —
   // skip segment handles (the self-loop gets ONE handle via getSelfLoopHandlePosition)
-  if (data.startBinding && data.endBinding &&
-      data.startBinding.expressionId === data.endBinding.expressionId) {
+  if (
+    data.startBinding &&
+    data.endBinding &&
+    data.startBinding.expressionId === data.endBinding.expressionId
+  ) {
     return [];
   }
 
@@ -597,7 +608,10 @@ export function getSegmentMidpointHandles(
   if (points.length < 2) return [];
 
   const startPt = { x: points[0]![0], y: points[0]![1] };
-  const endPt = { x: points[points.length - 1]![0], y: points[points.length - 1]![1] };
+  const endPt = {
+    x: points[points.length - 1]![0],
+    y: points[points.length - 1]![1],
+  };
 
   // Resolve shape bounds for the router
   const startBoundExpr = data.startBinding
@@ -613,20 +627,24 @@ export function getSegmentMidpointHandles(
     endPt,
     data.startBinding?.anchor,
     data.endBinding?.anchor,
-    startBoundExpr ? {
-      x: startBoundExpr.position.x,
-      y: startBoundExpr.position.y,
-      width: startBoundExpr.size.width,
-      height: startBoundExpr.size.height,
-    } : undefined,
-    endBoundExpr ? {
-      x: endBoundExpr.position.x,
-      y: endBoundExpr.position.y,
-      width: endBoundExpr.size.width,
-      height: endBoundExpr.size.height,
-    } : undefined,
-    typeof data.jettySize === 'number' ? data.jettySize : undefined,
-    typeof data.midpointOffset === 'number' ? data.midpointOffset : undefined,
+    startBoundExpr
+      ? {
+          x: startBoundExpr.position.x,
+          y: startBoundExpr.position.y,
+          width: startBoundExpr.size.width,
+          height: startBoundExpr.size.height,
+        }
+      : undefined,
+    endBoundExpr
+      ? {
+          x: endBoundExpr.position.x,
+          y: endBoundExpr.position.y,
+          width: endBoundExpr.size.width,
+          height: endBoundExpr.size.height,
+        }
+      : undefined,
+    typeof data.jettySize === "number" ? data.jettySize : undefined,
+    typeof data.midpointOffset === "number" ? data.midpointOffset : undefined,
     data.waypoints,
   );
 
@@ -648,10 +666,10 @@ export function getSegmentMidpointHandles(
 
     const isHoriz = Math.abs(y1 - y2) < 0.01 && Math.abs(x1 - x2) >= 0.01;
     const isVert = Math.abs(x1 - x2) < 0.01 && Math.abs(y1 - y2) >= 0.01;
-    const orientation: 'horizontal' | 'vertical' | null = isHoriz
-      ? 'horizontal'
+    const orientation: "horizontal" | "vertical" | null = isHoriz
+      ? "horizontal"
       : isVert
-        ? 'vertical'
+        ? "vertical"
         : null;
     if (!orientation) continue;
 
@@ -715,27 +733,42 @@ export function detectPointerTarget(
   camera: Camera,
 ): PointerTarget {
   // Check point handles first (for line/arrow/freehand)
-  const pointHandle = detectPointHandle(worldPoint, expressions, selectedIds, camera);
+  const pointHandle = detectPointHandle(
+    worldPoint,
+    expressions,
+    selectedIds,
+    camera,
+  );
   if (pointHandle) {
-    return { kind: 'point-handle', handle: pointHandle };
+    return { kind: "point-handle", handle: pointHandle };
   }
 
   // Check jetty handles (for routed arrows with exit stubs)
-  const jettyHandle = detectJettyHandle(worldPoint, expressions, selectedIds, camera);
+  const jettyHandle = detectJettyHandle(
+    worldPoint,
+    expressions,
+    selectedIds,
+    camera,
+  );
   if (jettyHandle) {
-    return { kind: 'jetty-handle', handle: jettyHandle };
+    return { kind: "jetty-handle", handle: jettyHandle };
   }
 
   // Check segment midpoint handles (for routed arrows)
-  const segHandle = detectSegmentHandle(worldPoint, expressions, selectedIds, camera);
+  const segHandle = detectSegmentHandle(
+    worldPoint,
+    expressions,
+    selectedIds,
+    camera,
+  );
   if (segHandle) {
-    return { kind: 'segment-handle', handle: segHandle };
+    return { kind: "segment-handle", handle: segHandle };
   }
 
   // Check bbox handles (only for non-point-based shapes)
   const handle = detectHandle(worldPoint, expressions, selectedIds, camera);
   if (handle) {
-    return { kind: 'handle', handle };
+    return { kind: "handle", handle };
   }
 
   // Check shape bodies (only selected shapes can be moved)
@@ -752,49 +785,49 @@ export function detectPointerTarget(
       worldPoint.y >= y &&
       worldPoint.y <= y + height
     ) {
-      return { kind: 'body', expressionId: id };
+      return { kind: "body", expressionId: id };
     }
   }
 
-  return { kind: 'none' };
+  return { kind: "none" };
 }
 
 // ── Cursor mapping ────────────────────────────────────────────
 
 /** Map a handle type to its CSS cursor value. */
 const HANDLE_CURSORS: Record<HandleType, string> = {
-  nw: 'nwse-resize',
-  se: 'nwse-resize',
-  ne: 'nesw-resize',
-  sw: 'nesw-resize',
-  n: 'ns-resize',
-  s: 'ns-resize',
-  e: 'ew-resize',
-  w: 'ew-resize',
+  nw: "nwse-resize",
+  se: "nwse-resize",
+  ne: "nesw-resize",
+  sw: "nesw-resize",
+  n: "ns-resize",
+  s: "ns-resize",
+  e: "ew-resize",
+  w: "ew-resize",
 };
 
 /** Get the appropriate CSS cursor for a pointer target. */
 export function getCursorForTarget(target: PointerTarget): string {
   switch (target.kind) {
-    case 'handle':
+    case "handle":
       return HANDLE_CURSORS[target.handle.type];
-    case 'point-handle':
-      return 'crosshair';
-    case 'jetty-handle': {
+    case "point-handle":
+      return "crosshair";
+    case "jetty-handle": {
       // Cursor is perpendicular to the segment: horizontal segment → ns-resize,
       // vertical segment → ew-resize
       const { segmentOrientation } = target.handle;
-      return segmentOrientation === 'horizontal' ? 'ns-resize' : 'ew-resize';
+      return segmentOrientation === "horizontal" ? "ns-resize" : "ew-resize";
     }
-    case 'segment-handle': {
+    case "segment-handle": {
       // Same cursor logic as jetty-handle: perpendicular to segment
       const { segmentOrientation: so } = target.handle;
-      return so === 'horizontal' ? 'ns-resize' : 'ew-resize';
+      return so === "horizontal" ? "ns-resize" : "ew-resize";
     }
-    case 'body':
-      return 'move';
-    case 'none':
-      return 'default';
+    case "body":
+      return "move";
+    case "none":
+      return "default";
   }
 }
 
@@ -823,7 +856,15 @@ interface ResizeResult {
  * Minimum size is enforced at MIN_SIZE × MIN_SIZE world units. [AC5]
  */
 export function computeResize(input: ResizeInput): ResizeResult {
-  const { handleType, deltaX, deltaY, originalPosition, originalSize, shiftKey, ctrlKey } = input;
+  const {
+    handleType,
+    deltaX,
+    deltaY,
+    originalPosition,
+    originalSize,
+    shiftKey,
+    ctrlKey,
+  } = input;
 
   let newX = originalPosition.x;
   let newY = originalPosition.y;
@@ -832,39 +873,39 @@ export function computeResize(input: ResizeInput): ResizeResult {
 
   switch (handleType) {
     // ── Corner handles: resize both dimensions ──
-    case 'se':
+    case "se":
       newWidth = originalSize.width + deltaX;
       newHeight = originalSize.height + deltaY;
       break;
-    case 'nw':
+    case "nw":
       newWidth = originalSize.width - deltaX;
       newHeight = originalSize.height - deltaY;
       newX = originalPosition.x + deltaX;
       newY = originalPosition.y + deltaY;
       break;
-    case 'ne':
+    case "ne":
       newWidth = originalSize.width + deltaX;
       newHeight = originalSize.height - deltaY;
       newY = originalPosition.y + deltaY;
       break;
-    case 'sw':
+    case "sw":
       newWidth = originalSize.width - deltaX;
       newHeight = originalSize.height + deltaY;
       newX = originalPosition.x + deltaX;
       break;
 
     // ── Edge handles: resize one dimension only ──
-    case 'e':
+    case "e":
       newWidth = originalSize.width + deltaX;
       break;
-    case 'w':
+    case "w":
       newWidth = originalSize.width - deltaX;
       newX = originalPosition.x + deltaX;
       break;
-    case 's':
+    case "s":
       newHeight = originalSize.height + deltaY;
       break;
-    case 'n':
+    case "n":
       newHeight = originalSize.height - deltaY;
       newY = originalPosition.y + deltaY;
       break;
@@ -883,12 +924,12 @@ export function computeResize(input: ResizeInput): ResizeResult {
     }
 
     // Re-adjust position for handles that move the origin
-    if (handleType === 'nw') {
+    if (handleType === "nw") {
       newX = originalPosition.x + originalSize.width - newWidth;
       newY = originalPosition.y + originalSize.height - newHeight;
-    } else if (handleType === 'ne') {
+    } else if (handleType === "ne") {
       newY = originalPosition.y + originalSize.height - newHeight;
-    } else if (handleType === 'sw') {
+    } else if (handleType === "sw") {
       newX = originalPosition.x + originalSize.width - newWidth;
     }
     // 'se' doesn't move the origin
@@ -901,12 +942,12 @@ export function computeResize(input: ResizeInput): ResizeResult {
     newHeight = maxDim;
 
     // Re-adjust position for handles that move the origin
-    if (handleType === 'nw') {
+    if (handleType === "nw") {
       newX = originalPosition.x + originalSize.width - newWidth;
       newY = originalPosition.y + originalSize.height - newHeight;
-    } else if (handleType === 'ne') {
+    } else if (handleType === "ne") {
       newY = originalPosition.y + originalSize.height - newHeight;
-    } else if (handleType === 'sw') {
+    } else if (handleType === "sw") {
       newX = originalPosition.x + originalSize.width - newWidth;
     }
   }
@@ -914,13 +955,13 @@ export function computeResize(input: ResizeInput): ResizeResult {
   // ── Enforce minimum size [AC5] ──
   if (newWidth < MIN_SIZE) {
     // Adjust position back if this handle moves the origin
-    if (handleType === 'nw' || handleType === 'sw' || handleType === 'w') {
+    if (handleType === "nw" || handleType === "sw" || handleType === "w") {
       newX = originalPosition.x + originalSize.width - MIN_SIZE;
     }
     newWidth = MIN_SIZE;
   }
   if (newHeight < MIN_SIZE) {
-    if (handleType === 'nw' || handleType === 'ne' || handleType === 'n') {
+    if (handleType === "nw" || handleType === "ne" || handleType === "n") {
       newY = originalPosition.y + originalSize.height - MIN_SIZE;
     }
     newHeight = MIN_SIZE;
@@ -934,7 +975,7 @@ export function computeResize(input: ResizeInput): ResizeResult {
 
 /** Check if a handle is a corner handle (resizes both dimensions). */
 function isCornerHandle(type: HandleType): boolean {
-  return type === 'nw' || type === 'ne' || type === 'se' || type === 'sw';
+  return type === "nw" || type === "ne" || type === "se" || type === "sw";
 }
 
 // ── Point drag computation ────────────────────────────────────

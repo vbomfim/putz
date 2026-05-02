@@ -62,7 +62,9 @@
   z-index: 15;
 }
 
-.drawio-editor__page-bar::-webkit-scrollbar { display: none; }
+.drawio-editor__page-bar::-webkit-scrollbar {
+  display: none;
+}
 
 .drawio-editor__page-tab {
   padding: 4px 12px;

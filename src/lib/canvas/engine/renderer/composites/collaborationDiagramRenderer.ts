@@ -9,11 +9,15 @@
  * @module
  */
 
-import type { VisualExpression, CollaborationDiagramData, CollabObject } from '../../../protocol';
-import type { RoughCanvas } from 'roughjs/bin/canvas.js';
-import { mapStyleToRoughOptions } from '../styleMapper';
-import { renderArrowhead } from '../primitiveRenderer';
-import { registerCompositeRenderer } from '../compositeRegistry';
+import type {
+  VisualExpression,
+  CollaborationDiagramData,
+  CollabObject,
+} from "../../../protocol";
+import type { RoughCanvas } from "roughjs/bin/canvas.js";
+import { mapStyleToRoughOptions } from "../styleMapper";
+import { renderArrowhead } from "../primitiveRenderer";
+import { registerCompositeRenderer } from "../compositeRegistry";
 
 // ── Constants ────────────────────────────────────────────────
 
@@ -30,7 +34,7 @@ const OBJECT_WIDTH = 100;
 const OBJECT_HEIGHT = 40;
 
 /** Default font family. */
-const FONT_FAMILY = 'sans-serif';
+const FONT_FAMILY = "sans-serif";
 
 /** Title font size. */
 const TITLE_FONT_SIZE = 16;
@@ -65,7 +69,9 @@ function layoutObjects(
 ): PositionedObject[] {
   if (objects.length === 0) return [];
   if (objects.length === 1) {
-    return [{ id: objects[0]!.id, name: objects[0]!.name, cx: centerX, cy: centerY }];
+    return [
+      { id: objects[0]!.id, name: objects[0]!.name, cx: centerX, cy: centerY },
+    ];
   }
 
   return objects.map((obj, i) => {
@@ -102,10 +108,14 @@ export function renderCollaborationDiagram(
 
   // ── Title ──────────────────────────────────────────────────
   ctx.font = `bold ${TITLE_FONT_SIZE}px ${FONT_FAMILY}`;
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
   ctx.fillStyle = expr.style.strokeColor;
-  ctx.fillText(data.title, originX + width / 2, originY + PADDING + TITLE_HEIGHT / 2);
+  ctx.fillText(
+    data.title,
+    originX + width / 2,
+    originY + PADDING + TITLE_HEIGHT / 2,
+  );
 
   // ── Empty diagram ──────────────────────────────────────────
   if (data.objects.length === 0) {
@@ -121,8 +131,14 @@ export function renderCollaborationDiagram(
   const radiusX = (width - PADDING * 2 - OBJECT_WIDTH) / 2;
   const radiusY = (contentHeight - OBJECT_HEIGHT) / 2;
 
-  const positioned = layoutObjects(data.objects, centerX, centerY, radiusX, radiusY);
-  const posMap = new Map(positioned.map(p => [p.id, p]));
+  const positioned = layoutObjects(
+    data.objects,
+    centerX,
+    centerY,
+    radiusX,
+    radiusY,
+  );
+  const posMap = new Map(positioned.map((p) => [p.id, p]));
 
   // ── Render links ───────────────────────────────────────────
   for (const link of data.links) {
@@ -131,27 +147,39 @@ export function renderCollaborationDiagram(
     if (!fromObj || !toObj) continue;
 
     // Draw line
-    const lineDrawable = rc.line(fromObj.cx, fromObj.cy, toObj.cx, toObj.cy, roughOptions);
+    const lineDrawable = rc.line(
+      fromObj.cx,
+      fromObj.cy,
+      toObj.cx,
+      toObj.cy,
+      roughOptions,
+    );
     rc.draw(lineDrawable);
 
     // Arrowhead at target
     const angle = Math.atan2(toObj.cy - fromObj.cy, toObj.cx - fromObj.cx);
-    ctx.fillStyle = (roughOptions.stroke as string) ?? '#000000';
+    ctx.fillStyle = (roughOptions.stroke as string) ?? "#000000";
     renderArrowhead(ctx, toObj.cx, toObj.cy, angle, ARROWHEAD_SIZE);
 
     // Bidirectional: arrowhead at source too
-    if (link.direction === 'bidirectional') {
+    if (link.direction === "bidirectional") {
       const reverseAngle = angle + Math.PI;
-      renderArrowhead(ctx, fromObj.cx, fromObj.cy, reverseAngle, ARROWHEAD_SIZE);
+      renderArrowhead(
+        ctx,
+        fromObj.cx,
+        fromObj.cy,
+        reverseAngle,
+        ARROWHEAD_SIZE,
+      );
     }
 
     // Link label at midpoint
     const midX = (fromObj.cx + toObj.cx) / 2;
     const midY = (fromObj.cy + toObj.cy) / 2;
     ctx.font = `${LINK_LABEL_FONT_SIZE}px ${FONT_FAMILY}`;
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'bottom';
-    ctx.fillStyle = (roughOptions.stroke as string) ?? '#000000';
+    ctx.textAlign = "center";
+    ctx.textBaseline = "bottom";
+    ctx.fillStyle = (roughOptions.stroke as string) ?? "#000000";
     ctx.fillText(link.label, midX, midY - 4);
   }
 
@@ -160,13 +188,19 @@ export function renderCollaborationDiagram(
     const rx = obj.cx - OBJECT_WIDTH / 2;
     const ry = obj.cy - OBJECT_HEIGHT / 2;
 
-    const drawable = rc.rectangle(rx, ry, OBJECT_WIDTH, OBJECT_HEIGHT, roughOptions);
+    const drawable = rc.rectangle(
+      rx,
+      ry,
+      OBJECT_WIDTH,
+      OBJECT_HEIGHT,
+      roughOptions,
+    );
     rc.draw(drawable);
 
     ctx.font = `${OBJECT_FONT_SIZE}px ${FONT_FAMILY}`;
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillStyle = (roughOptions.stroke as string) ?? '#000000';
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillStyle = (roughOptions.stroke as string) ?? "#000000";
     ctx.fillText(obj.name, obj.cx, obj.cy);
   }
 
@@ -175,4 +209,4 @@ export function renderCollaborationDiagram(
 
 // ── Self-registration ────────────────────────────────────────
 
-registerCompositeRenderer('collaboration-diagram', renderCollaborationDiagram);
+registerCompositeRenderer("collaboration-diagram", renderCollaborationDiagram);

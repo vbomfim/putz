@@ -8,10 +8,10 @@
  * @module
  */
 
-import type { VisualExpression, WireframeData } from '../../../protocol';
-import type { RoughCanvas } from 'roughjs/bin/canvas.js';
-import { mapStyleToRoughOptions } from '../styleMapper';
-import { registerCompositeRenderer } from '../compositeRegistry';
+import type { VisualExpression, WireframeData } from "../../../protocol";
+import type { RoughCanvas } from "roughjs/bin/canvas.js";
+import { mapStyleToRoughOptions } from "../styleMapper";
+import { registerCompositeRenderer } from "../compositeRegistry";
 
 // ── Constants ────────────────────────────────────────────────
 
@@ -22,7 +22,7 @@ const PADDING = 12;
 const TITLE_HEIGHT = 28;
 
 /** Default font family. */
-const FONT_FAMILY = 'sans-serif';
+const FONT_FAMILY = "sans-serif";
 
 /** Title font size. */
 const TITLE_FONT_SIZE = 16;
@@ -56,10 +56,14 @@ export function renderWireframe(
 
   // ── Title ──────────────────────────────────────────────────
   ctx.font = `bold ${TITLE_FONT_SIZE}px ${FONT_FAMILY}`;
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
   ctx.fillStyle = expr.style.strokeColor;
-  ctx.fillText(data.title, originX + width / 2, originY + PADDING + TITLE_HEIGHT / 2);
+  ctx.fillText(
+    data.title,
+    originX + width / 2,
+    originY + PADDING + TITLE_HEIGHT / 2,
+  );
 
   // ── Empty wireframe ────────────────────────────────────────
   if (data.components.length === 0) {
@@ -76,21 +80,27 @@ export function renderWireframe(
     const cy = contentOffsetY + comp.y;
 
     // Component rectangle
-    const drawable = rc.rectangle(cx, cy, comp.width, comp.height, roughOptions);
+    const drawable = rc.rectangle(
+      cx,
+      cy,
+      comp.width,
+      comp.height,
+      roughOptions,
+    );
     rc.draw(drawable);
 
     // Type badge (top-left inside rectangle)
     const typeLabel = `[${comp.type}]`;
     ctx.font = `${TYPE_FONT_SIZE}px ${FONT_FAMILY}`;
-    ctx.textAlign = 'left';
-    ctx.textBaseline = 'top';
-    ctx.fillStyle = '#888888';
+    ctx.textAlign = "left";
+    ctx.textBaseline = "top";
+    ctx.fillStyle = "#888888";
     ctx.fillText(typeLabel, cx + 4, cy + 3);
 
     // Component label (centered)
     ctx.font = `${LABEL_FONT_SIZE}px ${FONT_FAMILY}`;
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
     ctx.fillStyle = expr.style.strokeColor;
     ctx.fillText(comp.label, cx + comp.width / 2, cy + comp.height / 2);
   }
@@ -100,4 +110,4 @@ export function renderWireframe(
 
 // ── Self-registration ────────────────────────────────────────
 
-registerCompositeRenderer('wireframe', renderWireframe);
+registerCompositeRenderer("wireframe", renderWireframe);

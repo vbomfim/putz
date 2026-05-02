@@ -11,10 +11,10 @@
  * @module
  */
 
-import type { VisualExpression, ArrowData } from '../../protocol';
-import type { PathSegment } from '../connectors/routerTypes';
-import { getRouter } from '../connectors/routerRegistry';
-import { computeSelfLoopPath } from '../connectors/orthogonalRouter';
+import type { VisualExpression, ArrowData } from "../../protocol";
+import type { PathSegment } from "../connectors/routerTypes";
+import { getRouter } from "../connectors/routerRegistry";
+import { computeSelfLoopPath } from "../connectors/orthogonalRouter";
 
 /** A 2D point in world coordinates. */
 export interface WorldPoint {
@@ -240,20 +240,29 @@ export function distanceToPathSegments(
   for (const seg of segments) {
     let d: number;
 
-    if (seg.type === 'bezier') {
+    if (seg.type === "bezier") {
       d = distanceToBezier(
-        px, py,
-        curX, curY,
-        seg.cp1x, seg.cp1y,
-        seg.cp2x, seg.cp2y,
-        seg.x, seg.y,
+        px,
+        py,
+        curX,
+        curY,
+        seg.cp1x,
+        seg.cp1y,
+        seg.cp2x,
+        seg.cp2y,
+        seg.x,
+        seg.y,
       );
-    } else if (seg.type === 'quadratic') {
+    } else if (seg.type === "quadratic") {
       d = distanceToQuadraticBezier(
-        px, py,
-        curX, curY,
-        seg.cpx, seg.cpy,
-        seg.x, seg.y,
+        px,
+        py,
+        curX,
+        curY,
+        seg.cpx,
+        seg.cpy,
+        seg.x,
+        seg.y,
       );
     } else {
       // 'line' and 'arc' — treat as straight segment to endpoint
@@ -279,7 +288,7 @@ export function hitTestLine(
   expression: VisualExpression,
   tolerance: number,
 ): boolean {
-  if (expression.data.kind !== 'line') return false;
+  if (expression.data.kind !== "line") return false;
   const { points } = expression.data;
 
   if (points.length < 2) return false;
@@ -289,7 +298,9 @@ export function hitTestLine(
   for (let i = 0; i < points.length - 1; i++) {
     const [ax, ay] = points[i]!;
     const [bx, by] = points[i + 1]!;
-    if (distanceToSegment(point.x, point.y, ax, ay, bx, by) <= effectiveTolerance) {
+    if (
+      distanceToSegment(point.x, point.y, ax, ay, bx, by) <= effectiveTolerance
+    ) {
       return true;
     }
   }
@@ -314,7 +325,7 @@ export function hitTestArrow(
   tolerance: number,
   expressions?: Record<string, VisualExpression>,
 ): boolean {
-  if (expression.data.kind !== 'arrow') return false;
+  if (expression.data.kind !== "arrow") return false;
   const data = expression.data as ArrowData;
   const { points } = data;
 
@@ -326,31 +337,49 @@ export function hitTestArrow(
   // ── Self-loop detection: both ends bound to the same shape ──
   // Must be checked BEFORE the router — self-loops use computeSelfLoopPath
   // instead of the general-purpose router for path computation.
-  const isSelfLoop = data.startBinding && data.endBinding &&
+  const isSelfLoop =
+    data.startBinding &&
+    data.endBinding &&
     data.startBinding.expressionId === data.endBinding.expressionId;
 
   if (isSelfLoop) {
     const target = expressions?.[data.startBinding!.expressionId];
-    const jetty = typeof data.jettySize === 'number' ? data.jettySize : 30;
+    const jetty = typeof data.jettySize === "number" ? data.jettySize : 30;
     const path = computeSelfLoopPath(
-      points[0]!, points[points.length - 1]!, data.routing, target, jetty,
+      points[0]!,
+      points[points.length - 1]!,
+      data.routing,
+      target,
+      jetty,
     );
 
     if (path.isCurved) {
       // For bezier self-loops: test against the straight line start→end
       // (approximate — matches existing fallback behavior)
-      return distanceToSegment(point.x, point.y,
-        points[0]![0], points[0]![1],
-        points[points.length - 1]![0], points[points.length - 1]![1],
-      ) <= effectiveTolerance;
+      return (
+        distanceToSegment(
+          point.x,
+          point.y,
+          points[0]![0],
+          points[0]![1],
+          points[points.length - 1]![0],
+          points[points.length - 1]![1],
+        ) <= effectiveTolerance
+      );
     }
 
     // For orthogonal self-loops: test against each segment in the path
     for (let i = 0; i < path.points.length - 1; i++) {
-      if (distanceToSegment(point.x, point.y,
-        path.points[i]![0], path.points[i]![1],
-        path.points[i + 1]![0], path.points[i + 1]![1],
-      ) <= effectiveTolerance) {
+      if (
+        distanceToSegment(
+          point.x,
+          point.y,
+          path.points[i]![0],
+          path.points[i]![1],
+          path.points[i + 1]![0],
+          path.points[i + 1]![1],
+        ) <= effectiveTolerance
+      ) {
         return true;
       }
     }
@@ -358,9 +387,10 @@ export function hitTestArrow(
   }
 
   // Try routing-aware hit testing for non-straight arrows
-  const routingMode = data.routing === 'orthogonal' && data.curved
-    ? 'orthogonalCurved' as const
-    : data.routing;
+  const routingMode =
+    data.routing === "orthogonal" && data.curved
+      ? ("orthogonalCurved" as const)
+      : data.routing;
   const router = getRouter(routingMode);
 
   if (router && points.length === 2) {
@@ -369,12 +399,14 @@ export function hitTestArrow(
 
     // Resolve shape bounds for routed path computation (bug #3 fix).
     // Without bounds, the hit-test path may differ from the rendered path.
-    const startBoundExpr = expressions && data.startBinding
-      ? expressions[data.startBinding.expressionId]
-      : undefined;
-    const endBoundExpr = expressions && data.endBinding
-      ? expressions[data.endBinding.expressionId]
-      : undefined;
+    const startBoundExpr =
+      expressions && data.startBinding
+        ? expressions[data.startBinding.expressionId]
+        : undefined;
+    const endBoundExpr =
+      expressions && data.endBinding
+        ? expressions[data.endBinding.expressionId]
+        : undefined;
 
     const pathSegments = router(
       start,
@@ -382,30 +414,38 @@ export function hitTestArrow(
       data.startBinding?.anchor,
       data.endBinding?.anchor,
       {
-        jettySize: typeof data.jettySize === 'number' ? data.jettySize : undefined,
-        midpointOffset: typeof data.midpointOffset === 'number'
-          ? data.midpointOffset
-          : undefined,
+        jettySize:
+          typeof data.jettySize === "number" ? data.jettySize : undefined,
+        midpointOffset:
+          typeof data.midpointOffset === "number"
+            ? data.midpointOffset
+            : undefined,
         waypoints: data.waypoints,
-        startBounds: startBoundExpr ? {
-          x: startBoundExpr.position.x,
-          y: startBoundExpr.position.y,
-          width: startBoundExpr.size.width,
-          height: startBoundExpr.size.height,
-        } : undefined,
-        endBounds: endBoundExpr ? {
-          x: endBoundExpr.position.x,
-          y: endBoundExpr.position.y,
-          width: endBoundExpr.size.width,
-          height: endBoundExpr.size.height,
-        } : undefined,
+        startBounds: startBoundExpr
+          ? {
+              x: startBoundExpr.position.x,
+              y: startBoundExpr.position.y,
+              width: startBoundExpr.size.width,
+              height: startBoundExpr.size.height,
+            }
+          : undefined,
+        endBounds: endBoundExpr
+          ? {
+              x: endBoundExpr.position.x,
+              y: endBoundExpr.position.y,
+              width: endBoundExpr.size.width,
+              height: endBoundExpr.size.height,
+            }
+          : undefined,
       },
     );
 
     if (pathSegments.length > 0) {
       const dist = distanceToPathSegments(
-        point.x, point.y,
-        start.x, start.y,
+        point.x,
+        point.y,
+        start.x,
+        start.y,
         pathSegments,
       );
       return dist <= effectiveTolerance;
@@ -416,7 +456,9 @@ export function hitTestArrow(
   for (let i = 0; i < points.length - 1; i++) {
     const [ax, ay] = points[i]!;
     const [bx, by] = points[i + 1]!;
-    if (distanceToSegment(point.x, point.y, ax, ay, bx, by) <= effectiveTolerance) {
+    if (
+      distanceToSegment(point.x, point.y, ax, ay, bx, by) <= effectiveTolerance
+    ) {
       return true;
     }
   }
@@ -435,7 +477,7 @@ export function hitTestFreehand(
   expression: VisualExpression,
   tolerance: number,
 ): boolean {
-  if (expression.data.kind !== 'freehand') return false;
+  if (expression.data.kind !== "freehand") return false;
   const { points } = expression.data;
 
   if (points.length < 2) return false;
@@ -537,25 +579,25 @@ export function hitTestExpression(
   expressions?: Record<string, VisualExpression>,
 ): boolean {
   switch (expression.kind) {
-    case 'rectangle':
+    case "rectangle":
       return hitTestRectangle(point, expression, tolerance);
-    case 'ellipse':
+    case "ellipse":
       return hitTestEllipse(point, expression, tolerance);
-    case 'diamond':
+    case "diamond":
       return hitTestDiamond(point, expression, tolerance);
-    case 'line':
+    case "line":
       return hitTestLine(point, expression, tolerance);
-    case 'arrow':
+    case "arrow":
       return hitTestArrow(point, expression, tolerance, expressions);
-    case 'freehand':
+    case "freehand":
       return hitTestFreehand(point, expression, tolerance);
-    case 'text':
+    case "text":
       return hitTestText(point, expression);
-    case 'sticky-note':
+    case "sticky-note":
       return hitTestStickyNote(point, expression);
-    case 'image':
+    case "image":
       return hitTestImage(point, expression);
-    case 'stencil':
+    case "stencil":
       return hitTestStencil(point, expression);
     default:
       // Composite and unknown kinds: fall back to bounding-box hit test

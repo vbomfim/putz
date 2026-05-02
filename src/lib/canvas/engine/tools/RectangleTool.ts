@@ -6,12 +6,12 @@
  * @module
  */
 
-import { AreaShapeTool } from './AreaShapeTool';
-import type { CanvasStoreApi } from '../store/canvasStore';
+import { AreaShapeTool } from "./AreaShapeTool";
+import type { CanvasStoreApi } from "../store/canvasStore";
 
 /** Tool handler for drawing rectangles on the canvas. */
 export class RectangleTool extends AreaShapeTool {
   constructor(store: CanvasStoreApi) {
-    super('rectangle', store);
+    super("rectangle", store);
   }
 }

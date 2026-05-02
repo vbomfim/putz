@@ -35,10 +35,14 @@ interface CountryEntry {
 
 /** Fetch country list sorted by station count. */
 async function fetchCountries(): Promise<CountryEntry[]> {
-  const res = await fetch(`${API_BASE}/countries?order=stationcount&reverse=true`);
+  const res = await fetch(
+    `${API_BASE}/countries?order=stationcount&reverse=true`,
+  );
   if (!res.ok) return [];
   const data: CountryEntry[] = await res.json();
-  return data.filter((c) => c.stationcount >= 20).sort((a, b) => a.name.localeCompare(b.name));
+  return data
+    .filter((c) => c.stationcount >= 20)
+    .sort((a, b) => a.name.localeCompare(b.name));
 }
 
 const PAGE_SIZE = 50;
@@ -51,7 +55,13 @@ async function fetchStations(
 ): Promise<RadioStation[]> {
   let url: string;
   if (search) {
-    const params = new URLSearchParams({ name: search, limit: String(PAGE_SIZE), offset: String(offset), order: "clickcount", reverse: "true" });
+    const params = new URLSearchParams({
+      name: search,
+      limit: String(PAGE_SIZE),
+      offset: String(offset),
+      order: "clickcount",
+      reverse: "true",
+    });
     if (country) params.set("country", country);
     url = `${API_BASE}/stations/search?${params}`;
   } else if (country) {
@@ -74,7 +84,9 @@ function loadFavorites(): Map<string, RadioStation> {
     if (!raw) return new Map();
     const arr: RadioStation[] = JSON.parse(raw);
     return new Map(arr.map((s) => [s.stationuuid, s]));
-  } catch { return new Map(); }
+  } catch {
+    return new Map();
+  }
 }
 
 function saveFavorites(favs: Map<string, RadioStation>): void {
@@ -85,7 +97,8 @@ export function Radio() {
   const [poweredOn, setPoweredOn] = useState(true);
   const [stations, setStations] = useState<RadioStation[]>([]);
   const [countries, setCountries] = useState<CountryEntry[]>([]);
-  const [favorites, setFavorites] = useState<Map<string, RadioStation>>(loadFavorites);
+  const [favorites, setFavorites] =
+    useState<Map<string, RadioStation>>(loadFavorites);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(true);
@@ -140,7 +153,9 @@ export function Radio() {
       if (country === "⭐ Favorites") {
         const favList = [...next.values()];
         const filtered = search
-          ? favList.filter((s) => s.name.toLowerCase().includes(search.toLowerCase()))
+          ? favList.filter((s) =>
+              s.name.toLowerCase().includes(search.toLowerCase()),
+            )
           : favList;
         setStations(filtered);
       }
@@ -159,36 +174,33 @@ export function Radio() {
   const favoritesRef = useRef(favorites);
   favoritesRef.current = favorites;
 
-  const loadStations = useCallback(
-    async (c: string, q: string) => {
-      // Favorites: load from local storage
-      if (c === "⭐ Favorites") {
-        const favList = [...favoritesRef.current.values()];
-        const filtered = q
-          ? favList.filter((s) => s.name.toLowerCase().includes(q.toLowerCase()))
-          : favList;
-        setStations(filtered);
-        setHasMore(false);
-        setLoading(false);
-        return;
-      }
-      setLoading(true);
-      setError(null);
-      setHasMore(true);
-      try {
-        const data = await fetchStations(c, q, 0);
-        setStations(data);
-        setHasMore(data.length >= PAGE_SIZE);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "Failed to load stations");
-        setStations([]);
-        setHasMore(false);
-      } finally {
-        setLoading(false);
-      }
-    },
-    [],
-  );
+  const loadStations = useCallback(async (c: string, q: string) => {
+    // Favorites: load from local storage
+    if (c === "⭐ Favorites") {
+      const favList = [...favoritesRef.current.values()];
+      const filtered = q
+        ? favList.filter((s) => s.name.toLowerCase().includes(q.toLowerCase()))
+        : favList;
+      setStations(filtered);
+      setHasMore(false);
+      setLoading(false);
+      return;
+    }
+    setLoading(true);
+    setError(null);
+    setHasMore(true);
+    try {
+      const data = await fetchStations(c, q, 0);
+      setStations(data);
+      setHasMore(data.length >= PAGE_SIZE);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to load stations");
+      setStations([]);
+      setHasMore(false);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   const loadMore = useCallback(async () => {
     if (loadingMore || !hasMore) return;
@@ -197,7 +209,9 @@ export function Radio() {
       const data = await fetchStations(country, search, stations.length);
       setStations((prev) => [...prev, ...data]);
       setHasMore(data.length >= PAGE_SIZE);
-    } catch { /* ignore */ }
+    } catch {
+      /* ignore */
+    }
     setLoadingMore(false);
   }, [country, search, stations.length, loadingMore, hasMore]);
 
@@ -225,7 +239,11 @@ export function Radio() {
         audioRef.current.src = "";
         audioRef.current = null;
       }
-      window.dispatchEvent(new CustomEvent("putz-radio-change", { detail: { name: "", playing: false } }));
+      window.dispatchEvent(
+        new CustomEvent("putz-radio-change", {
+          detail: { name: "", playing: false },
+        }),
+      );
     };
   }, []);
 
@@ -268,7 +286,8 @@ export function Radio() {
       if (srcCard) {
         const ghost = document.createElement("div");
         ghost.className = "radio__drag-ghost";
-        ghost.textContent = srcCard.querySelector(".radio__card-name")?.textContent || "";
+        ghost.textContent =
+          srcCard.querySelector(".radio__card-name")?.textContent || "";
         ghost.style.width = srcCard.offsetWidth + "px";
         document.body.appendChild(ghost);
         ghostRef.current = ghost;
@@ -311,7 +330,12 @@ export function Radio() {
       (c as HTMLElement).style.opacity = "";
     });
 
-    if (isDragging.current && dragSrcIdx.current >= 0 && dropIdx >= 0 && dragSrcIdx.current !== dropIdx) {
+    if (
+      isDragging.current &&
+      dragSrcIdx.current >= 0 &&
+      dropIdx >= 0 &&
+      dragSrcIdx.current !== dropIdx
+    ) {
       const fromIdx = dragSrcIdx.current;
       const toIdx = dropIdx;
       setStations((prev) => {
@@ -320,7 +344,9 @@ export function Radio() {
         reordered.splice(toIdx, 0, moved!);
         const newFavs = new Map<string, RadioStation>();
         reordered.forEach((s) => newFavs.set(s.stationuuid, s));
-        favorites.forEach((s, id) => { if (!newFavs.has(id)) newFavs.set(id, s); });
+        favorites.forEach((s, id) => {
+          if (!newFavs.has(id)) newFavs.set(id, s);
+        });
         saveFavorites(newFavs);
         setFavorites(newFavs);
         return reordered;
@@ -331,7 +357,9 @@ export function Radio() {
     setDropIdx(-1);
   }, [dropIdx, favorites]);
 
-  const handleListPointerUp = useCallback(() => { finishDrag(); }, [finishDrag]);
+  const handleListPointerUp = useCallback(() => {
+    finishDrag();
+  }, [finishDrag]);
 
   const errorHandlerRef = useRef<(() => void) | null>(null);
 
@@ -339,7 +367,10 @@ export function Radio() {
     (station: RadioStation) => {
       if (audioRef.current) {
         if (errorHandlerRef.current) {
-          audioRef.current.removeEventListener("error", errorHandlerRef.current);
+          audioRef.current.removeEventListener(
+            "error",
+            errorHandlerRef.current,
+          );
         }
         audioRef.current.pause();
         audioRef.current.src = "";
@@ -372,7 +403,11 @@ export function Radio() {
       playingStationRef.current = station;
       setPaused(false);
       setError(null);
-      window.dispatchEvent(new CustomEvent("putz-radio-change", { detail: { name: station.name, playing: true } }));
+      window.dispatchEvent(
+        new CustomEvent("putz-radio-change", {
+          detail: { name: station.name, playing: true },
+        }),
+      );
     },
     [volume],
   );
@@ -398,7 +433,11 @@ export function Radio() {
     setPlayingName("");
     playingStationRef.current = null;
     setPaused(false);
-    window.dispatchEvent(new CustomEvent("putz-radio-change", { detail: { name: "", playing: false } }));
+    window.dispatchEvent(
+      new CustomEvent("putz-radio-change", {
+        detail: { name: "", playing: false },
+      }),
+    );
   };
 
   const handleVolumeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -428,7 +467,9 @@ export function Radio() {
         >
           <span className="radio__power-knob" />
         </button>
-        <span className={`radio__power-led ${poweredOn ? "radio__power-led--on" : ""}`} />
+        <span
+          className={`radio__power-led ${poweredOn ? "radio__power-led--on" : ""}`}
+        />
         <span className="radio__power-label">PUTZ STEREO</span>
       </div>
 
@@ -440,195 +481,245 @@ export function Radio() {
 
       {poweredOn && (
         <>
-      {/* ─── Toolbar ──────────────────────────────── */}
-      <div className="radio__toolbar">
-        <select
-          value={country}
-          onChange={(e) => setCountry(e.target.value)}
-          aria-label="Country"
-        >
-          <option value="⭐ Favorites">⭐ Favorites ({favorites.size})</option>
-          <option value="">🌍 All Countries</option>
-          {countries.map((c) => (
-            <option key={c.name} value={c.name}>
-              {c.name} ({c.stationcount})
-            </option>
-          ))}
-        </select>
+          {/* ─── Toolbar ──────────────────────────────── */}
+          <div className="radio__toolbar">
+            <select
+              value={country}
+              onChange={(e) => setCountry(e.target.value)}
+              aria-label="Country"
+            >
+              <option value="⭐ Favorites">
+                ⭐ Favorites ({favorites.size})
+              </option>
+              <option value="">🌍 All Countries</option>
+              {countries.map((c) => (
+                <option key={c.name} value={c.name}>
+                  {c.name} ({c.stationcount})
+                </option>
+              ))}
+            </select>
 
-        <select
-          value={minBitrate}
-          onChange={(e) => setMinBitrate(Number(e.target.value))}
-          aria-label="Quality"
-        >
-          <option value={0}>Any quality</option>
-          <option value={64}>≥ 64 kbps</option>
-          <option value={128}>≥ 128 kbps (Good)</option>
-          <option value={192}>≥ 192 kbps (High)</option>
-          <option value={256}>≥ 256 kbps (Very High)</option>
-          <option value={320}>≥ 320 kbps (Best)</option>
-        </select>
+            <select
+              value={minBitrate}
+              onChange={(e) => setMinBitrate(Number(e.target.value))}
+              aria-label="Quality"
+            >
+              <option value={0}>Any quality</option>
+              <option value={64}>≥ 64 kbps</option>
+              <option value={128}>≥ 128 kbps (Good)</option>
+              <option value={192}>≥ 192 kbps (High)</option>
+              <option value={256}>≥ 256 kbps (Very High)</option>
+              <option value={320}>≥ 320 kbps (Best)</option>
+            </select>
 
-        <input
-          type="text"
-          placeholder="Search stations…"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          onKeyDown={handleKeyDown}
-          aria-label="Search"
-        />
+            <input
+              type="text"
+              placeholder="Search stations…"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              onKeyDown={handleKeyDown}
+              aria-label="Search"
+            />
 
-        <button type="button" onClick={handleSearch}>
-          Search
-        </button>
-
-        <button
-          type="button"
-          className="radio__toolbar-add"
-          onClick={() => setShowAddForm((v) => !v)}
-          title="Add custom station"
-        >
-          ➕
-        </button>
-      </div>
-
-      {/* ─── Add Custom Station Form ─────────────── */}
-      {showAddForm && (
-        <div className="radio__add-form">
-          <input
-            type="text"
-            placeholder="Station name"
-            value={addName}
-            onChange={(e) => setAddName(e.target.value)}
-            aria-label="Station name"
-          />
-          <input
-            type="text"
-            placeholder="Stream URL (e.g. https://…/stream)"
-            value={addUrl}
-            onChange={(e) => setAddUrl(e.target.value)}
-            onKeyDown={(e) => { if (e.key === "Enter") addCustomStation(); }}
-            aria-label="Stream URL"
-          />
-          <button type="button" onClick={addCustomStation} disabled={!addName.trim() || !addUrl.trim()}>
-            Add to Favorites
-          </button>
-          <button type="button" className="radio__add-form-cancel" onClick={() => setShowAddForm(false)}>
-            ✕
-          </button>
-        </div>
-      )}
-
-      {/* ─── Error ────────────────────────────────── */}
-      {error && (
-        <div className="radio__error">
-          <span>{error}</span>
-          <button className="radio__error-close" onClick={() => setError(null)} title="Dismiss">✕</button>
-        </div>
-      )}
-
-      {/* ─── Station list ─────────────────────────── */}
-      {loading ? (
-        <div className="radio__loading">Loading stations…</div>
-      ) : stations.length === 0 ? (
-        <div className="radio__empty">No stations found</div>
-      ) : (() => {
-        const filtered = minBitrate > 0
-          ? stations.filter((s) => s.bitrate >= minBitrate)
-          : stations;
-        return filtered.length === 0 ? (
-          <div className="radio__empty">No stations at this quality level</div>
-        ) : (
-        <div
-          className={`radio__list ${isFavView ? "radio__list--reorderable" : ""}`}
-          onScroll={(e) => {
-            const el = e.currentTarget;
-            if (el.scrollTop + el.clientHeight >= el.scrollHeight - 100) {
-              loadMore();
-            }
-          }}
-          onPointerMove={isFavView ? handleListPointerMove : undefined}
-          onPointerUp={isFavView ? handleListPointerUp : undefined}
-          onPointerLeave={isFavView ? handleListPointerUp : undefined}
-        >
-          {filtered.map((station, idx) => (
-            <React.Fragment key={station.stationuuid}>
-              {isFavView && dropIdx === idx && dragSrcIdx.current > idx && (
-                <div className="radio__drop-indicator" />
-              )}
-              <StationCard
-                station={station}
-                isPlaying={playingId === station.stationuuid}
-                isFavorite={favorites.has(station.stationuuid)}
-                dataIdx={isFavView ? idx : undefined}
-                onPlay={play}
-                onToggleFavorite={toggleFavorite}
-                onPointerDown={isFavView ? handlePointerDown(idx) : undefined}
-              />
-              {isFavView && dropIdx === idx && dragSrcIdx.current < idx && (
-                <div className="radio__drop-indicator" />
-              )}
-            </React.Fragment>
-          ))}
-          {hasMore && (
-            <button className="radio__load-more" onClick={loadMore} disabled={loadingMore}>
-              {loadingMore ? "Loading…" : `Load more (${stations.length} loaded)`}
+            <button type="button" onClick={handleSearch}>
+              Search
             </button>
-          )}
-        </div>
-        );
-      })()}
 
-      {/* ─── Player bar ───────────────────────────── */}
-      {playingName && (
-        <div className="radio__player">
-          <span className="radio__player-icon">📻</span>
-          <span className="radio__player-name">{playingName}</span>
-          {playingStationRef.current && (
             <button
               type="button"
-              className={`radio__card-fav ${favorites.has(playingStationRef.current.stationuuid) ? "radio__card-fav--active" : ""}`}
-              onClick={() => { if (playingStationRef.current) toggleFavorite(playingStationRef.current); }}
-              title={favorites.has(playingStationRef.current.stationuuid) ? "Remove from favorites" : "Add to favorites"}
+              className="radio__toolbar-add"
+              onClick={() => setShowAddForm((v) => !v)}
+              title="Add custom station"
             >
-              {favorites.has(playingStationRef.current.stationuuid) ? "★" : "☆"}
+              ➕
             </button>
-          )}
-
-          <button
-            type="button"
-            className="radio__player-btn"
-            onClick={togglePause}
-            title={paused ? "Resume" : "Pause"}
-          >
-            {paused ? "▶" : "⏸"}
-          </button>
-
-          <button
-            type="button"
-            className="radio__player-btn"
-            onClick={stop}
-            title="Stop"
-          >
-            ⏹
-          </button>
-
-          <div className="radio__player-volume">
-            <span>🔊</span>
-            <input
-              type="range"
-              min={0}
-              max={100}
-              value={volume}
-              onChange={handleVolumeChange}
-              aria-label="Volume"
-            />
           </div>
-          {playingStationRef.current && playingStationRef.current.bitrate > 0 && (
-            <span className="radio__player-bitrate">{playingStationRef.current.bitrate}kbps</span>
+
+          {/* ─── Add Custom Station Form ─────────────── */}
+          {showAddForm && (
+            <div className="radio__add-form">
+              <input
+                type="text"
+                placeholder="Station name"
+                value={addName}
+                onChange={(e) => setAddName(e.target.value)}
+                aria-label="Station name"
+              />
+              <input
+                type="text"
+                placeholder="Stream URL (e.g. https://…/stream)"
+                value={addUrl}
+                onChange={(e) => setAddUrl(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") addCustomStation();
+                }}
+                aria-label="Stream URL"
+              />
+              <button
+                type="button"
+                onClick={addCustomStation}
+                disabled={!addName.trim() || !addUrl.trim()}
+              >
+                Add to Favorites
+              </button>
+              <button
+                type="button"
+                className="radio__add-form-cancel"
+                onClick={() => setShowAddForm(false)}
+              >
+                ✕
+              </button>
+            </div>
           )}
-        </div>
-      )}
+
+          {/* ─── Error ────────────────────────────────── */}
+          {error && (
+            <div className="radio__error">
+              <span>{error}</span>
+              <button
+                className="radio__error-close"
+                onClick={() => setError(null)}
+                title="Dismiss"
+              >
+                ✕
+              </button>
+            </div>
+          )}
+
+          {/* ─── Station list ─────────────────────────── */}
+          {loading ? (
+            <div className="radio__loading">Loading stations…</div>
+          ) : stations.length === 0 ? (
+            <div className="radio__empty">No stations found</div>
+          ) : (
+            (() => {
+              const filtered =
+                minBitrate > 0
+                  ? stations.filter((s) => s.bitrate >= minBitrate)
+                  : stations;
+              return filtered.length === 0 ? (
+                <div className="radio__empty">
+                  No stations at this quality level
+                </div>
+              ) : (
+                <div
+                  className={`radio__list ${isFavView ? "radio__list--reorderable" : ""}`}
+                  onScroll={(e) => {
+                    const el = e.currentTarget;
+                    if (
+                      el.scrollTop + el.clientHeight >=
+                      el.scrollHeight - 100
+                    ) {
+                      loadMore();
+                    }
+                  }}
+                  onPointerMove={isFavView ? handleListPointerMove : undefined}
+                  onPointerUp={isFavView ? handleListPointerUp : undefined}
+                  onPointerLeave={isFavView ? handleListPointerUp : undefined}
+                >
+                  {filtered.map((station, idx) => (
+                    <React.Fragment key={station.stationuuid}>
+                      {isFavView &&
+                        dropIdx === idx &&
+                        dragSrcIdx.current > idx && (
+                          <div className="radio__drop-indicator" />
+                        )}
+                      <StationCard
+                        station={station}
+                        isPlaying={playingId === station.stationuuid}
+                        isFavorite={favorites.has(station.stationuuid)}
+                        dataIdx={isFavView ? idx : undefined}
+                        onPlay={play}
+                        onToggleFavorite={toggleFavorite}
+                        onPointerDown={
+                          isFavView ? handlePointerDown(idx) : undefined
+                        }
+                      />
+                      {isFavView &&
+                        dropIdx === idx &&
+                        dragSrcIdx.current < idx && (
+                          <div className="radio__drop-indicator" />
+                        )}
+                    </React.Fragment>
+                  ))}
+                  {hasMore && (
+                    <button
+                      className="radio__load-more"
+                      onClick={loadMore}
+                      disabled={loadingMore}
+                    >
+                      {loadingMore
+                        ? "Loading…"
+                        : `Load more (${stations.length} loaded)`}
+                    </button>
+                  )}
+                </div>
+              );
+            })()
+          )}
+
+          {/* ─── Player bar ───────────────────────────── */}
+          {playingName && (
+            <div className="radio__player">
+              <span className="radio__player-icon">📻</span>
+              <span className="radio__player-name">{playingName}</span>
+              {playingStationRef.current && (
+                <button
+                  type="button"
+                  className={`radio__card-fav ${favorites.has(playingStationRef.current.stationuuid) ? "radio__card-fav--active" : ""}`}
+                  onClick={() => {
+                    if (playingStationRef.current)
+                      toggleFavorite(playingStationRef.current);
+                  }}
+                  title={
+                    favorites.has(playingStationRef.current.stationuuid)
+                      ? "Remove from favorites"
+                      : "Add to favorites"
+                  }
+                >
+                  {favorites.has(playingStationRef.current.stationuuid)
+                    ? "★"
+                    : "☆"}
+                </button>
+              )}
+
+              <button
+                type="button"
+                className="radio__player-btn"
+                onClick={togglePause}
+                title={paused ? "Resume" : "Pause"}
+              >
+                {paused ? "▶" : "⏸"}
+              </button>
+
+              <button
+                type="button"
+                className="radio__player-btn"
+                onClick={stop}
+                title="Stop"
+              >
+                ⏹
+              </button>
+
+              <div className="radio__player-volume">
+                <span>🔊</span>
+                <input
+                  type="range"
+                  min={0}
+                  max={100}
+                  value={volume}
+                  onChange={handleVolumeChange}
+                  aria-label="Volume"
+                />
+              </div>
+              {playingStationRef.current &&
+                playingStationRef.current.bitrate > 0 && (
+                  <span className="radio__player-bitrate">
+                    {playingStationRef.current.bitrate}kbps
+                  </span>
+                )}
+            </div>
+          )}
         </>
       )}
     </div>
@@ -647,7 +738,15 @@ interface StationCardProps {
   onPointerDown?: (e: React.PointerEvent) => void;
 }
 
-function StationCard({ station, isPlaying, isFavorite, dataIdx, onPlay, onToggleFavorite, onPointerDown }: StationCardProps) {
+function StationCard({
+  station,
+  isPlaying,
+  isFavorite,
+  dataIdx,
+  onPlay,
+  onToggleFavorite,
+  onPointerDown,
+}: StationCardProps) {
   const [imgError, setImgError] = useState(false);
 
   const codec = station.codec || "";
@@ -660,7 +759,9 @@ function StationCard({ station, isPlaying, isFavorite, dataIdx, onPlay, onToggle
       onClick={() => onPlay(station)}
       role="button"
       tabIndex={0}
-      onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") onPlay(station); }}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") onPlay(station);
+      }}
       onPointerDown={onPointerDown}
       data-idx={dataIdx}
     >
@@ -682,7 +783,10 @@ function StationCard({ station, isPlaying, isFavorite, dataIdx, onPlay, onToggle
         <button
           type="button"
           className={`radio__card-fav ${isFavorite ? "radio__card-fav--active" : ""}`}
-          onClick={(e) => { e.stopPropagation(); onToggleFavorite(station); }}
+          onClick={(e) => {
+            e.stopPropagation();
+            onToggleFavorite(station);
+          }}
           title={isFavorite ? "Remove from favorites" : "Add to favorites"}
         >
           {isFavorite ? "★" : "☆"}

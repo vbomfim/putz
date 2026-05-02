@@ -325,7 +325,9 @@ describe("bookmarksStore", () => {
       useBookmarksStore.getState().addFolder("F1");
       const folderId = useBookmarksStore.getState().folders[0].id;
       // Add some existing bookmarks to the folder
-      useBookmarksStore.getState().addBookmark("/existing.ts", "file", folderId);
+      useBookmarksStore
+        .getState()
+        .addBookmark("/existing.ts", "file", folderId);
       // Add a root bookmark and move it in
       useBookmarksStore.getState().addBookmark("/newcomer.ts", "file");
       const bmId = useBookmarksStore
@@ -737,7 +739,9 @@ describe("bookmarksStore", () => {
       useBookmarksStore.getState().addFolder("F1");
       const folderId = useBookmarksStore.getState().folders[0].id;
       useBookmarksStore.getState().addBookmark("/root.ts", "file");
-      useBookmarksStore.getState().addBookmark("/in-folder.ts", "file", folderId);
+      useBookmarksStore
+        .getState()
+        .addBookmark("/in-folder.ts", "file", folderId);
 
       const items = useBookmarksStore.getState().getRootItems();
       // Root items = 1 folder + 1 root bookmark = 2
@@ -853,18 +857,14 @@ describe("bookmarksStore", () => {
     it("exported JSON contains bookmarks and folders", () => {
       useBookmarksStore.getState().addBookmark("/a.ts", "file");
       useBookmarksStore.getState().addFolder("F1");
-      const parsed = JSON.parse(
-        useBookmarksStore.getState().exportBookmarks(),
-      );
+      const parsed = JSON.parse(useBookmarksStore.getState().exportBookmarks());
       expect(parsed.bookmarks).toHaveLength(1);
       expect(parsed.folders).toHaveLength(1);
     });
 
     it("exported JSON preserves all bookmark fields", () => {
       useBookmarksStore.getState().addBookmark("/a.ts", "file");
-      const parsed = JSON.parse(
-        useBookmarksStore.getState().exportBookmarks(),
-      );
+      const parsed = JSON.parse(useBookmarksStore.getState().exportBookmarks());
       const bm = parsed.bookmarks[0];
       expect(bm.id).toBeTruthy();
       expect(bm.path).toBe("/a.ts");
@@ -893,9 +893,7 @@ describe("bookmarksStore", () => {
         ],
         folders: [],
       };
-      useBookmarksStore
-        .getState()
-        .importBookmarks(JSON.stringify(importData));
+      useBookmarksStore.getState().importBookmarks(JSON.stringify(importData));
       const { bookmarks } = useBookmarksStore.getState();
       expect(bookmarks).toHaveLength(1);
       expect(bookmarks[0].path).toBe("/imported.ts");
@@ -948,9 +946,7 @@ describe("bookmarksStore", () => {
     it("persists imported data to localStorage", () => {
       localStorageMock.setItem.mockClear();
       const importData = { bookmarks: [], folders: [] };
-      useBookmarksStore
-        .getState()
-        .importBookmarks(JSON.stringify(importData));
+      useBookmarksStore.getState().importBookmarks(JSON.stringify(importData));
       expect(localStorageMock.setItem).toHaveBeenCalledWith(
         "putz-bookmarks",
         expect.any(String),
@@ -964,7 +960,9 @@ describe("bookmarksStore", () => {
 
   describe("basename — Windows paths (B1)", () => {
     it("extracts basename from Windows path", () => {
-      useBookmarksStore.getState().addBookmark("C:\\Users\\me\\file.ts", "file");
+      useBookmarksStore
+        .getState()
+        .addBookmark("C:\\Users\\me\\file.ts", "file");
       expect(useBookmarksStore.getState().bookmarks[0].name).toBe("file.ts");
     });
 
@@ -981,9 +979,7 @@ describe("bookmarksStore", () => {
     });
 
     it("handles Windows trailing backslash", () => {
-      useBookmarksStore
-        .getState()
-        .addBookmark("C:\\Users\\me\\", "folder");
+      useBookmarksStore.getState().addBookmark("C:\\Users\\me\\", "folder");
       expect(useBookmarksStore.getState().bookmarks[0].name).toBe("me");
     });
   });
@@ -1243,30 +1239,22 @@ describe("bookmarksStore", () => {
 
   describe("path control-character sanitization (B6)", () => {
     it("rejects path with null byte (\\x00)", () => {
-      useBookmarksStore
-        .getState()
-        .addBookmark("/tmp\x00malicious", "file");
+      useBookmarksStore.getState().addBookmark("/tmp\x00malicious", "file");
       expect(useBookmarksStore.getState().bookmarks).toHaveLength(0);
     });
 
     it("rejects path with newline (\\n)", () => {
-      useBookmarksStore
-        .getState()
-        .addBookmark("/tmp\nrm -rf /", "file");
+      useBookmarksStore.getState().addBookmark("/tmp\nrm -rf /", "file");
       expect(useBookmarksStore.getState().bookmarks).toHaveLength(0);
     });
 
     it("rejects path with carriage return (\\r)", () => {
-      useBookmarksStore
-        .getState()
-        .addBookmark("/tmp\r/malicious", "file");
+      useBookmarksStore.getState().addBookmark("/tmp\r/malicious", "file");
       expect(useBookmarksStore.getState().bookmarks).toHaveLength(0);
     });
 
     it("rejects path with escape character (\\x1B)", () => {
-      useBookmarksStore
-        .getState()
-        .addBookmark("/tmp\x1B[31m/red", "file");
+      useBookmarksStore.getState().addBookmark("/tmp\x1B[31m/red", "file");
       expect(useBookmarksStore.getState().bookmarks).toHaveLength(0);
     });
 
@@ -1393,7 +1381,7 @@ describe("bookmarksStore", () => {
   describe("root sortIndex — combined namespace (C1)", () => {
     it("reorderBookmark past folder at root — no sortIndex collisions", () => {
       useBookmarksStore.getState().addBookmark("/first.ts", "file"); // 0
-      useBookmarksStore.getState().addFolder("Middle");             // 1
+      useBookmarksStore.getState().addFolder("Middle"); // 1
       useBookmarksStore.getState().addBookmark("/last.ts", "file"); // 2
 
       const lastId = useBookmarksStore
@@ -1402,16 +1390,20 @@ describe("bookmarksStore", () => {
       // Move /last.ts from position 2 → position 1 (between /first.ts and Middle)
       useBookmarksStore.getState().reorderBookmark(lastId, 1);
       const items = useBookmarksStore.getState().getRootItems();
-      expect(items.map((i) => i.name)).toEqual(["first.ts", "last.ts", "Middle"]);
+      expect(items.map((i) => i.name)).toEqual([
+        "first.ts",
+        "last.ts",
+        "Middle",
+      ]);
       // All sortIndices unique
       const indices = items.map((i) => i.sortIndex);
       expect(new Set(indices).size).toBe(3);
     });
 
     it("reorderFolder past bookmark at root — no sortIndex collisions", () => {
-      useBookmarksStore.getState().addFolder("F1");                  // 0
-      useBookmarksStore.getState().addBookmark("/mid.ts", "file");   // 1
-      useBookmarksStore.getState().addFolder("F2");                  // 2
+      useBookmarksStore.getState().addFolder("F1"); // 0
+      useBookmarksStore.getState().addBookmark("/mid.ts", "file"); // 1
+      useBookmarksStore.getState().addFolder("F2"); // 2
 
       const f1Id = useBookmarksStore
         .getState()
@@ -1425,9 +1417,9 @@ describe("bookmarksStore", () => {
     });
 
     it("moveBookmark to specific root position — interleaves with folders", () => {
-      useBookmarksStore.getState().addBookmark("/root.ts", "file");  // 0
-      useBookmarksStore.getState().addFolder("F1");                  // 1
-      useBookmarksStore.getState().addFolder("F2");                  // 2
+      useBookmarksStore.getState().addBookmark("/root.ts", "file"); // 0
+      useBookmarksStore.getState().addFolder("F1"); // 1
+      useBookmarksStore.getState().addFolder("F2"); // 2
 
       const f1Id = useBookmarksStore
         .getState()
@@ -1441,17 +1433,22 @@ describe("bookmarksStore", () => {
       // Move /inside.ts to root at index 1 (between /root.ts and F1)
       useBookmarksStore.getState().moveBookmark(insideId, null, 1);
       const items = useBookmarksStore.getState().getRootItems();
-      expect(items.map((i) => i.name)).toEqual(["root.ts", "inside.ts", "F1", "F2"]);
+      expect(items.map((i) => i.name)).toEqual([
+        "root.ts",
+        "inside.ts",
+        "F1",
+        "F2",
+      ]);
       const indices = items.map((i) => i.sortIndex);
       expect(new Set(indices).size).toBe(4);
     });
 
     it("all root sortIndices are unique after multiple mixed operations", () => {
       // Build: 2 bookmarks, 2 folders interleaved
-      useBookmarksStore.getState().addBookmark("/a.ts", "file");     // 0
-      useBookmarksStore.getState().addFolder("F1");                  // 1
-      useBookmarksStore.getState().addBookmark("/b.ts", "file");     // 2
-      useBookmarksStore.getState().addFolder("F2");                  // 3
+      useBookmarksStore.getState().addBookmark("/a.ts", "file"); // 0
+      useBookmarksStore.getState().addFolder("F1"); // 1
+      useBookmarksStore.getState().addBookmark("/b.ts", "file"); // 2
+      useBookmarksStore.getState().addFolder("F2"); // 3
 
       // Reorder /b.ts to front
       const bId = useBookmarksStore
@@ -1514,9 +1511,7 @@ describe("bookmarksStore", () => {
         ],
         folders: [],
       };
-      useBookmarksStore
-        .getState()
-        .importBookmarks(JSON.stringify(data));
+      useBookmarksStore.getState().importBookmarks(JSON.stringify(data));
       const stored = useBookmarksStore.getState().bookmarks[0];
       expect(stored.path).toBe("/clean/path");
     });
@@ -1538,9 +1533,7 @@ describe("bookmarksStore", () => {
       };
       // Tab (\t) in the middle is a control char → rejected
       expect(() =>
-        useBookmarksStore
-          .getState()
-          .importBookmarks(JSON.stringify(data)),
+        useBookmarksStore.getState().importBookmarks(JSON.stringify(data)),
       ).toThrow(/invalid path/i);
     });
 
@@ -1559,9 +1552,7 @@ describe("bookmarksStore", () => {
         ],
         folders: [],
       };
-      useBookmarksStore
-        .getState()
-        .importBookmarks(JSON.stringify(data));
+      useBookmarksStore.getState().importBookmarks(JSON.stringify(data));
       const stored = useBookmarksStore.getState().bookmarks[0];
       // sanitizePath trims, so stored path has no leading/trailing spaces
       expect(stored.path).toBe("/spaced/path");
@@ -1592,9 +1583,8 @@ describe("bookmarksStore", () => {
 
       // Re-import the store to trigger loadPersistedBookmarks
       vi.resetModules();
-      const { useBookmarksStore: freshStore } = await import(
-        "../stores/bookmarksStore"
-      );
+      const { useBookmarksStore: freshStore } =
+        await import("../stores/bookmarksStore");
 
       expect(freshStore.getState().bookmarks.length).toBeLessThanOrEqual(1000);
       expect(warnSpy).toHaveBeenCalledWith(
@@ -1618,9 +1608,8 @@ describe("bookmarksStore", () => {
       const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
 
       vi.resetModules();
-      const { useBookmarksStore: freshStore } = await import(
-        "../stores/bookmarksStore"
-      );
+      const { useBookmarksStore: freshStore } =
+        await import("../stores/bookmarksStore");
 
       expect(freshStore.getState().folders.length).toBeLessThanOrEqual(100);
       expect(warnSpy).toHaveBeenCalledWith(

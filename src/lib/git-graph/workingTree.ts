@@ -4,8 +4,8 @@
  * [SECURITY] All file paths and statuses are escaped before HTML insertion.
  */
 
-import type { WorkingTreeStatus } from './types';
-import { escapeHtml, sanitizeStatusClass } from './security';
+import type { WorkingTreeStatus } from "./types";
+import { escapeHtml, sanitizeStatusClass } from "./security";
 
 /**
  * Render the working tree status overlay.
@@ -20,7 +20,7 @@ export function renderWorkingTree(
   filesEl: HTMLElement,
 ): void {
   if (!wt) {
-    overlayEl.style.display = 'none';
+    overlayEl.style.display = "none";
     return;
   }
 
@@ -30,79 +30,100 @@ export function renderWorkingTree(
   const total = stagedCount + unstagedCount + untrackedCount;
 
   if (total === 0) {
-    overlayEl.className = 'working-tree-overlay clean';
-    overlayEl.style.display = 'flex';
+    overlayEl.className = "working-tree-overlay clean";
+    overlayEl.style.display = "flex";
     overlayEl.innerHTML =
       '<span class="wt-label">Working Tree</span> ' +
-      '<span>Clean \u2014 no uncommitted changes</span>';
-    filesEl.classList.remove('visible');
+      "<span>Clean \u2014 no uncommitted changes</span>";
+    filesEl.classList.remove("visible");
     return;
   }
 
-  overlayEl.className = 'working-tree-overlay';
-  overlayEl.style.display = 'flex';
+  overlayEl.className = "working-tree-overlay";
+  overlayEl.style.display = "flex";
 
   const parts = ['<span class="wt-label">Working Tree</span>'];
   if (stagedCount > 0) {
     parts.push(
       '<span class="wt-badge staged">\u25CF <span class="count">' +
-      stagedCount + '</span> staged</span>',
+        stagedCount +
+        "</span> staged</span>",
     );
   }
   if (unstagedCount > 0) {
     parts.push(
       '<span class="wt-badge unstaged">\u25CF <span class="count">' +
-      unstagedCount + '</span> unstaged</span>',
+        unstagedCount +
+        "</span> unstaged</span>",
     );
   }
   if (untrackedCount > 0) {
     parts.push(
       '<span class="wt-badge untracked">\u25CF <span class="count">' +
-      untrackedCount + '</span> untracked</span>',
+        untrackedCount +
+        "</span> untracked</span>",
     );
   }
-  parts.push('<button class="wt-toggle" id="wt-toggle-btn">details \u25BE</button>');
-  overlayEl.innerHTML = parts.join('');
+  parts.push(
+    '<button class="wt-toggle" id="wt-toggle-btn">details \u25BE</button>',
+  );
+  overlayEl.innerHTML = parts.join("");
 
   // Build file detail sections
   const fileLines: string[] = [];
   if (stagedCount > 0) {
-    fileLines.push('<div class="wt-detail"><strong>Staged:</strong><ul class="wt-detail-list">');
+    fileLines.push(
+      '<div class="wt-detail"><strong>Staged:</strong><ul class="wt-detail-list">',
+    );
     wt.staged.forEach((f) => {
       fileLines.push(
-        '<li><span class="status ' + sanitizeStatusClass(f.status) + '">' +
-        escapeHtml(f.status) + '</span> ' + escapeHtml(f.path) + '</li>',
+        '<li><span class="status ' +
+          sanitizeStatusClass(f.status) +
+          '">' +
+          escapeHtml(f.status) +
+          "</span> " +
+          escapeHtml(f.path) +
+          "</li>",
       );
     });
-    fileLines.push('</ul></div>');
+    fileLines.push("</ul></div>");
   }
   if (unstagedCount > 0) {
-    fileLines.push('<div class="wt-detail"><strong>Unstaged:</strong><ul class="wt-detail-list">');
+    fileLines.push(
+      '<div class="wt-detail"><strong>Unstaged:</strong><ul class="wt-detail-list">',
+    );
     wt.unstaged.forEach((f) => {
       fileLines.push(
-        '<li><span class="status ' + sanitizeStatusClass(f.status) + '">' +
-        escapeHtml(f.status) + '</span> ' + escapeHtml(f.path) + '</li>',
+        '<li><span class="status ' +
+          sanitizeStatusClass(f.status) +
+          '">' +
+          escapeHtml(f.status) +
+          "</span> " +
+          escapeHtml(f.path) +
+          "</li>",
       );
     });
-    fileLines.push('</ul></div>');
+    fileLines.push("</ul></div>");
   }
   if (untrackedCount > 0) {
-    fileLines.push('<div class="wt-detail"><strong>Untracked:</strong><ul class="wt-detail-list">');
+    fileLines.push(
+      '<div class="wt-detail"><strong>Untracked:</strong><ul class="wt-detail-list">',
+    );
     wt.untracked.forEach((p) => {
-      fileLines.push('<li>' + escapeHtml(p) + '</li>');
+      fileLines.push("<li>" + escapeHtml(p) + "</li>");
     });
-    fileLines.push('</ul></div>');
+    fileLines.push("</ul></div>");
   }
-  filesEl.innerHTML = fileLines.join('');
+  filesEl.innerHTML = fileLines.join("");
 
   // Wire up toggle button
-  const toggleBtn = document.getElementById('wt-toggle-btn');
+  const toggleBtn = document.getElementById("wt-toggle-btn");
   if (toggleBtn) {
-    toggleBtn.addEventListener('click', function (this: HTMLElement) {
-      filesEl.classList.toggle('visible');
-      this.textContent = filesEl.classList.contains('visible')
-        ? 'details \u25B4'
-        : 'details \u25BE';
+    toggleBtn.addEventListener("click", function (this: HTMLElement) {
+      filesEl.classList.toggle("visible");
+      this.textContent = filesEl.classList.contains("visible")
+        ? "details \u25B4"
+        : "details \u25BE";
     });
   }
 }

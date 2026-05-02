@@ -29,15 +29,26 @@ describe("computeLineDiff", () => {
   it("returns all deletions when new text is empty", () => {
     const result = computeLineDiff("line1\nline2", "");
     expect(result).toEqual([
-      { type: "delete", content: "line1", oldLineNumber: 1, newLineNumber: null },
-      { type: "delete", content: "line2", oldLineNumber: 2, newLineNumber: null },
+      {
+        type: "delete",
+        content: "line1",
+        oldLineNumber: 1,
+        newLineNumber: null,
+      },
+      {
+        type: "delete",
+        content: "line2",
+        oldLineNumber: 2,
+        newLineNumber: null,
+      },
     ]);
   });
 
   // ── Identical texts ────────────────────────────────────────
 
   it("returns all equal lines for identical texts", () => {
-    const text = "hostname R1\ninterface Gi0/0\n ip address 10.0.0.1 255.255.255.0";
+    const text =
+      "hostname R1\ninterface Gi0/0\n ip address 10.0.0.1 255.255.255.0";
     const result = computeLineDiff(text, text);
     expect(result).toHaveLength(3);
     result.forEach((line) => expect(line.type).toBe("equal"));
@@ -94,32 +105,52 @@ describe("computeLineDiff", () => {
   // ── Mixed changes ──────────────────────────────────────────
 
   it("handles multiple additions, deletions, and equals", () => {
-    const oldText = "hostname R1\ninterface Gi0/0\n ip address 10.0.0.1 255.255.255.0\n!";
-    const newText = "hostname R1\ninterface Gi0/0\n ip address 10.0.0.2 255.255.255.0\n no shutdown\n!";
+    const oldText =
+      "hostname R1\ninterface Gi0/0\n ip address 10.0.0.1 255.255.255.0\n!";
+    const newText =
+      "hostname R1\ninterface Gi0/0\n ip address 10.0.0.2 255.255.255.0\n no shutdown\n!";
     const result = computeLineDiff(oldText, newText);
 
     // hostname R1 — equal
     expect(result[0]).toEqual({
-      type: "equal", content: "hostname R1", oldLineNumber: 1, newLineNumber: 1,
+      type: "equal",
+      content: "hostname R1",
+      oldLineNumber: 1,
+      newLineNumber: 1,
     });
     // interface Gi0/0 — equal
     expect(result[1]).toEqual({
-      type: "equal", content: "interface Gi0/0", oldLineNumber: 2, newLineNumber: 2,
+      type: "equal",
+      content: "interface Gi0/0",
+      oldLineNumber: 2,
+      newLineNumber: 2,
     });
     // ip address changed — delete old, add new
     expect(result[2]).toEqual({
-      type: "delete", content: " ip address 10.0.0.1 255.255.255.0", oldLineNumber: 3, newLineNumber: null,
+      type: "delete",
+      content: " ip address 10.0.0.1 255.255.255.0",
+      oldLineNumber: 3,
+      newLineNumber: null,
     });
     expect(result[3]).toEqual({
-      type: "add", content: " ip address 10.0.0.2 255.255.255.0", oldLineNumber: null, newLineNumber: 3,
+      type: "add",
+      content: " ip address 10.0.0.2 255.255.255.0",
+      oldLineNumber: null,
+      newLineNumber: 3,
     });
     // no shutdown — added
     expect(result[4]).toEqual({
-      type: "add", content: " no shutdown", oldLineNumber: null, newLineNumber: 4,
+      type: "add",
+      content: " no shutdown",
+      oldLineNumber: null,
+      newLineNumber: 4,
     });
     // ! — equal
     expect(result[5]).toEqual({
-      type: "equal", content: "!", oldLineNumber: 4, newLineNumber: 5,
+      type: "equal",
+      content: "!",
+      oldLineNumber: 4,
+      newLineNumber: 5,
     });
   });
 
@@ -136,7 +167,9 @@ describe("computeLineDiff", () => {
   it("handles trailing newlines correctly", () => {
     const result = computeLineDiff("a\n", "a\n");
     // "a\n" splits to ["a", ""] — the empty trailing line should be handled
-    expect(result.filter((l) => l.type === "equal").length).toBeGreaterThanOrEqual(1);
+    expect(
+      result.filter((l) => l.type === "equal").length,
+    ).toBeGreaterThanOrEqual(1);
   });
 
   it("handles completely different texts", () => {
@@ -150,7 +183,9 @@ describe("computeLineDiff", () => {
   it("handles large inputs without error", () => {
     const lines = Array.from({ length: 500 }, (_, i) => `line ${i}`);
     const oldText = lines.join("\n");
-    const newText = lines.map((l, i) => (i === 250 ? "CHANGED LINE" : l)).join("\n");
+    const newText = lines
+      .map((l, i) => (i === 250 ? "CHANGED LINE" : l))
+      .join("\n");
     const result = computeLineDiff(oldText, newText);
     expect(result.length).toBeGreaterThan(0);
     const changes = result.filter((l) => l.type !== "equal");
@@ -165,30 +200,60 @@ describe("exportDiffAsText", () => {
 
   it("formats additions with + prefix", () => {
     const diff: DiffLine[] = [
-      { type: "add", content: "new line", oldLineNumber: null, newLineNumber: 1 },
+      {
+        type: "add",
+        content: "new line",
+        oldLineNumber: null,
+        newLineNumber: 1,
+      },
     ];
     expect(exportDiffAsText(diff)).toBe("+ new line");
   });
 
   it("formats deletions with - prefix", () => {
     const diff: DiffLine[] = [
-      { type: "delete", content: "old line", oldLineNumber: 1, newLineNumber: null },
+      {
+        type: "delete",
+        content: "old line",
+        oldLineNumber: 1,
+        newLineNumber: null,
+      },
     ];
     expect(exportDiffAsText(diff)).toBe("- old line");
   });
 
   it("formats equal lines with space prefix", () => {
     const diff: DiffLine[] = [
-      { type: "equal", content: "unchanged", oldLineNumber: 1, newLineNumber: 1 },
+      {
+        type: "equal",
+        content: "unchanged",
+        oldLineNumber: 1,
+        newLineNumber: 1,
+      },
     ];
     expect(exportDiffAsText(diff)).toBe("  unchanged");
   });
 
   it("formats a mixed diff correctly", () => {
     const diff: DiffLine[] = [
-      { type: "equal", content: "hostname R1", oldLineNumber: 1, newLineNumber: 1 },
-      { type: "delete", content: "old config", oldLineNumber: 2, newLineNumber: null },
-      { type: "add", content: "new config", oldLineNumber: null, newLineNumber: 2 },
+      {
+        type: "equal",
+        content: "hostname R1",
+        oldLineNumber: 1,
+        newLineNumber: 1,
+      },
+      {
+        type: "delete",
+        content: "old config",
+        oldLineNumber: 2,
+        newLineNumber: null,
+      },
+      {
+        type: "add",
+        content: "new config",
+        oldLineNumber: null,
+        newLineNumber: 2,
+      },
     ];
     const expected = "  hostname R1\n- old config\n+ new config";
     expect(exportDiffAsText(diff)).toBe(expected);

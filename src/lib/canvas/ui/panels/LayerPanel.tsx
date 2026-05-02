@@ -13,18 +13,10 @@
  * @module
  */
 
-import { useState, useCallback, useRef, useEffect } from 'react';
-import { useCanvasStore, useCanvasStoreApi } from '../../engine';
-import type { Layer } from '../../protocol';
-import {
-  Plus,
-  Eye,
-  EyeOff,
-  Lock,
-  Unlock,
-  Trash2,
-  Layers,
-} from 'lucide-react';
+import { useState, useCallback, useRef, useEffect } from "react";
+import { useCanvasStore, useCanvasStoreApi } from "../../engine";
+import type { Layer } from "../../protocol";
+import { Plus, Eye, EyeOff, Lock, Unlock, Trash2, Layers } from "lucide-react";
 
 // ── Constants ──────────────────────────────────────────────
 
@@ -62,25 +54,40 @@ export function LayerPanel({ isOpen }: LayerPanelProps) {
     storeApi.getState().addLayer();
   }, [storeApi]);
 
-  const handleSetActive = useCallback((layerId: string) => {
-    storeApi.getState().setActiveLayer(layerId);
-  }, [storeApi]);
+  const handleSetActive = useCallback(
+    (layerId: string) => {
+      storeApi.getState().setActiveLayer(layerId);
+    },
+    [storeApi],
+  );
 
-  const handleToggleVisibility = useCallback((layerId: string) => {
-    storeApi.getState().toggleLayerVisibility(layerId);
-  }, [storeApi]);
+  const handleToggleVisibility = useCallback(
+    (layerId: string) => {
+      storeApi.getState().toggleLayerVisibility(layerId);
+    },
+    [storeApi],
+  );
 
-  const handleToggleLock = useCallback((layerId: string) => {
-    storeApi.getState().toggleLayerLock(layerId);
-  }, [storeApi]);
+  const handleToggleLock = useCallback(
+    (layerId: string) => {
+      storeApi.getState().toggleLayerLock(layerId);
+    },
+    [storeApi],
+  );
 
-  const handleRemove = useCallback((layerId: string) => {
-    storeApi.getState().removeLayer(layerId);
-  }, [storeApi]);
+  const handleRemove = useCallback(
+    (layerId: string) => {
+      storeApi.getState().removeLayer(layerId);
+    },
+    [storeApi],
+  );
 
-  const handleRename = useCallback((layerId: string, name: string) => {
-    storeApi.getState().renameLayer(layerId, name);
-  }, [storeApi]);
+  const handleRename = useCallback(
+    (layerId: string, name: string) => {
+      storeApi.getState().renameLayer(layerId, name);
+    },
+    [storeApi],
+  );
 
   if (!isOpen) return null;
 
@@ -93,39 +100,39 @@ export function LayerPanel({ isOpen }: LayerPanelProps) {
       role="navigation"
       aria-label="Layers"
       style={{
-        position: 'absolute',
+        position: "absolute",
         right: 12,
-        top: '50%',
-        transform: 'translateY(-50%)',
+        top: "50%",
+        transform: "translateY(-50%)",
         width: PANEL_WIDTH,
-        maxHeight: '60vh',
-        display: 'flex',
-        flexDirection: 'column',
-        backgroundColor: 'var(--bg-toolbar, #ffffff)',
+        maxHeight: "60vh",
+        display: "flex",
+        flexDirection: "column",
+        backgroundColor: "var(--bg-toolbar, #ffffff)",
         borderRadius: 10,
-        boxShadow: '0 4px 16px var(--shadow, rgba(0, 0, 0, 0.15))',
-        border: '1px solid var(--border, #e0e0e0)',
+        boxShadow: "0 4px 16px var(--shadow, rgba(0, 0, 0, 0.15))",
+        border: "1px solid var(--border, #e0e0e0)",
         zIndex: 20,
-        fontFamily: 'system-ui, -apple-system, sans-serif',
+        fontFamily: "system-ui, -apple-system, sans-serif",
       }}
     >
       {/* Header */}
       <div
         style={{
-          display: 'flex',
-          alignItems: 'center',
+          display: "flex",
+          alignItems: "center",
           gap: 6,
-          padding: '8px 10px',
-          borderBottom: '1px solid var(--border, #e0e0e0)',
+          padding: "8px 10px",
+          borderBottom: "1px solid var(--border, #e0e0e0)",
           flexShrink: 0,
         }}
       >
-        <Layers size={14} style={{ color: 'var(--text-primary, #333)' }} />
+        <Layers size={14} style={{ color: "var(--text-primary, #333)" }} />
         <span
           style={{
             fontSize: 12,
             fontWeight: 600,
-            color: 'var(--text-primary, #333333)',
+            color: "var(--text-primary, #333333)",
             flex: 1,
           }}
         >
@@ -134,7 +141,7 @@ export function LayerPanel({ isOpen }: LayerPanelProps) {
         <span
           style={{
             fontSize: 10,
-            color: '#999',
+            color: "#999",
             fontWeight: 400,
           }}
         >
@@ -146,8 +153,8 @@ export function LayerPanel({ isOpen }: LayerPanelProps) {
       <div
         style={{
           flex: 1,
-          overflowY: 'auto',
-          padding: '4px 6px',
+          overflowY: "auto",
+          padding: "4px 6px",
         }}
       >
         {sortedLayers.map((layer) => (
@@ -155,7 +162,7 @@ export function LayerPanel({ isOpen }: LayerPanelProps) {
             key={layer.id}
             layer={layer}
             isActive={layer.id === activeLayerId}
-            isDefault={layer.id === 'default'}
+            isDefault={layer.id === "default"}
             onSetActive={handleSetActive}
             onToggleVisibility={handleToggleVisibility}
             onToggleLock={handleToggleLock}
@@ -168,11 +175,11 @@ export function LayerPanel({ isOpen }: LayerPanelProps) {
       {/* Bottom controls */}
       <div
         style={{
-          display: 'flex',
-          alignItems: 'center',
+          display: "flex",
+          alignItems: "center",
           gap: 2,
-          padding: '6px 6px',
-          borderTop: '1px solid var(--border, #e0e0e0)',
+          padding: "6px 6px",
+          borderTop: "1px solid var(--border, #e0e0e0)",
           flexShrink: 0,
         }}
       >
@@ -232,11 +239,14 @@ function LayerItem({
     }
   }, [isEditing]);
 
-  const handleLabelClick = useCallback((e: React.MouseEvent) => {
-    e.stopPropagation();
-    setEditValue(layer.name);
-    setIsEditing(true);
-  }, [layer.name]);
+  const handleLabelClick = useCallback(
+    (e: React.MouseEvent) => {
+      e.stopPropagation();
+      setEditValue(layer.name);
+      setIsEditing(true);
+    },
+    [layer.name],
+  );
 
   const commitRename = useCallback(() => {
     const trimmed = editValue.trim();
@@ -248,9 +258,9 @@ function LayerItem({
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
-      if (e.key === 'Enter') {
+      if (e.key === "Enter") {
         commitRename();
-      } else if (e.key === 'Escape') {
+      } else if (e.key === "Escape") {
         setIsEditing(false);
       }
       e.stopPropagation();
@@ -263,28 +273,26 @@ function LayerItem({
       data-testid={`layer-item-${layer.id}`}
       onClick={() => onSetActive(layer.id)}
       style={{
-        display: 'flex',
-        alignItems: 'center',
+        display: "flex",
+        alignItems: "center",
         gap: 4,
-        padding: '5px 6px',
+        padding: "5px 6px",
         borderRadius: 6,
-        cursor: 'pointer',
-        borderLeft: isActive ? '3px solid #4A90D9' : '3px solid transparent',
-        backgroundColor: isActive
-          ? 'rgba(74, 144, 217, 0.08)'
-          : 'transparent',
+        cursor: "pointer",
+        borderLeft: isActive ? "3px solid #4A90D9" : "3px solid transparent",
+        backgroundColor: isActive ? "rgba(74, 144, 217, 0.08)" : "transparent",
         opacity: layer.visible ? 1 : 0.5,
-        transition: 'background-color 0.1s, opacity 0.15s',
+        transition: "background-color 0.1s, opacity 0.15s",
         marginBottom: 2,
       }}
       onMouseEnter={(e) => {
         if (!isActive) {
-          e.currentTarget.style.backgroundColor = 'rgba(0, 0, 0, 0.04)';
+          e.currentTarget.style.backgroundColor = "rgba(0, 0, 0, 0.04)";
         }
       }}
       onMouseLeave={(e) => {
         if (!isActive) {
-          e.currentTarget.style.backgroundColor = 'transparent';
+          e.currentTarget.style.backgroundColor = "transparent";
         }
       }}
     >
@@ -292,8 +300,8 @@ function LayerItem({
       <button
         type="button"
         data-testid={`layer-visibility-${layer.id}`}
-        aria-label={layer.visible ? 'Hide layer' : 'Show layer'}
-        title={layer.visible ? 'Hide layer' : 'Show layer'}
+        aria-label={layer.visible ? "Hide layer" : "Show layer"}
+        title={layer.visible ? "Hide layer" : "Show layer"}
         onClick={(e) => {
           e.stopPropagation();
           onToggleVisibility(layer.id);
@@ -307,8 +315,8 @@ function LayerItem({
       <button
         type="button"
         data-testid={`layer-lock-${layer.id}`}
-        aria-label={layer.locked ? 'Unlock layer' : 'Lock layer'}
-        title={layer.locked ? 'Unlock layer' : 'Lock layer'}
+        aria-label={layer.locked ? "Unlock layer" : "Lock layer"}
+        title={layer.locked ? "Unlock layer" : "Lock layer"}
         onClick={(e) => {
           e.stopPropagation();
           onToggleLock(layer.id);
@@ -331,13 +339,13 @@ function LayerItem({
           style={{
             flex: 1,
             fontSize: 11,
-            fontFamily: 'inherit',
-            padding: '2px 4px',
-            border: '1px solid #4A90D9',
+            fontFamily: "inherit",
+            padding: "2px 4px",
+            border: "1px solid #4A90D9",
             borderRadius: 3,
-            outline: 'none',
-            backgroundColor: 'var(--bg-toolbar, #ffffff)',
-            color: 'var(--text-primary, #333333)',
+            outline: "none",
+            backgroundColor: "var(--bg-toolbar, #ffffff)",
+            color: "var(--text-primary, #333333)",
             minWidth: 0,
           }}
         />
@@ -349,11 +357,11 @@ function LayerItem({
           style={{
             flex: 1,
             fontSize: 11,
-            color: 'var(--text-primary, #333333)',
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-            whiteSpace: 'nowrap',
-            cursor: 'text',
+            color: "var(--text-primary, #333333)",
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            whiteSpace: "nowrap",
+            cursor: "text",
           }}
         >
           {layer.name}
@@ -371,26 +379,26 @@ function LayerItem({
             onRemove(layer.id);
           }}
           style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
             width: 22,
             height: 22,
-            border: 'none',
+            border: "none",
             borderRadius: 4,
-            cursor: 'pointer',
-            backgroundColor: 'transparent',
-            color: '#999',
-            transition: 'color 0.1s, background-color 0.1s',
+            cursor: "pointer",
+            backgroundColor: "transparent",
+            color: "#999",
+            transition: "color 0.1s, background-color 0.1s",
             flexShrink: 0,
           }}
           onMouseEnter={(e) => {
-            e.currentTarget.style.color = '#e03131';
-            e.currentTarget.style.backgroundColor = 'rgba(224, 49, 49, 0.08)';
+            e.currentTarget.style.color = "#e03131";
+            e.currentTarget.style.backgroundColor = "rgba(224, 49, 49, 0.08)";
           }}
           onMouseLeave={(e) => {
-            e.currentTarget.style.color = '#999';
-            e.currentTarget.style.backgroundColor = 'transparent';
+            e.currentTarget.style.color = "#999";
+            e.currentTarget.style.backgroundColor = "transparent";
           }}
         >
           <Trash2 size={12} />
@@ -402,32 +410,32 @@ function LayerItem({
 
 /** Shared style for bottom control buttons. */
 const controlButtonStyle: React.CSSProperties = {
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'center',
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
   width: BUTTON_SIZE,
   height: BUTTON_SIZE,
-  border: 'none',
+  border: "none",
   borderRadius: 6,
-  cursor: 'pointer',
-  backgroundColor: 'transparent',
-  color: 'var(--text-primary, #333333)',
-  transition: 'background-color 0.15s',
+  cursor: "pointer",
+  backgroundColor: "transparent",
+  color: "var(--text-primary, #333333)",
+  transition: "background-color 0.15s",
 };
 
 /** Shared style for icon toggle buttons. */
 const iconButtonStyle: React.CSSProperties = {
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'center',
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
   width: 20,
   height: 20,
-  border: 'none',
+  border: "none",
   borderRadius: 3,
-  cursor: 'pointer',
-  backgroundColor: 'transparent',
-  color: '#999',
-  transition: 'color 0.1s',
+  cursor: "pointer",
+  backgroundColor: "transparent",
+  color: "#999",
+  transition: "color 0.1s",
   flexShrink: 0,
   padding: 0,
 };

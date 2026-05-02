@@ -11,8 +11,8 @@
  * @module
  */
 
-import type { VisualExpression } from '../protocol';
-import type { Camera } from './types/index';
+import type { VisualExpression } from "../protocol";
+import type { Camera } from "./types/index";
 
 /** User-facing zoom bounds for zoom controls. */
 export const MIN_ZOOM = 0.001;
@@ -189,8 +189,8 @@ export function computeFitToContent(
   // Camera offset so center maps to viewport center
   // screen_center = (center - camera) * zoom → camera = center - screen_center / zoom
   return {
-    x: centerX - (viewportWidth / 2) / zoom,
-    y: centerY - (viewportHeight / 2) / zoom,
+    x: centerX - viewportWidth / 2 / zoom,
+    y: centerY - viewportHeight / 2 / zoom,
     zoom,
   };
 }

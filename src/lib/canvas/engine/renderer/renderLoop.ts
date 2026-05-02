@@ -7,22 +7,22 @@
  * @module
  */
 
-import type { VisualExpression } from '../../protocol';
-import { DEFAULT_LAYER_ID } from '../../protocol';
-import type { RoughCanvas } from 'roughjs/bin/canvas.js';
-import type { Camera, GridType } from '../types/index';
-import type { DrawPreview } from '../tools/BaseTool';
-import { applyTransform } from '../camera';
-import { renderGrid } from './gridRenderer';
-import { renderPages } from './pageRenderer';
-import { renderExpressions } from './primitiveRenderer';
-import { renderSelection } from './selectionRenderer';
-import { renderDrawPreview } from './drawPreviewRenderer';
-import * as dragSnapState from '../hooks/useManipulationInteraction';
+import type { VisualExpression } from "../../protocol";
+import { DEFAULT_LAYER_ID } from "../../protocol";
+import type { RoughCanvas } from "roughjs/bin/canvas.js";
+import type { Camera, GridType } from "../types/index";
+import type { DrawPreview } from "../tools/BaseTool";
+import { applyTransform } from "../camera";
+import { renderGrid } from "./gridRenderer";
+import { renderPages } from "./pageRenderer";
+import { renderExpressions } from "./primitiveRenderer";
+import { renderSelection } from "./selectionRenderer";
+import { renderDrawPreview } from "./drawPreviewRenderer";
+import * as dragSnapState from "../hooks/useManipulationInteraction";
 
 /** Marquee overlay visual styles (matches useSelectionInteraction constants). */
-const MARQUEE_STROKE_COLOR = '#4A90D9';
-const MARQUEE_FILL_COLOR = 'rgba(74, 144, 217, 0.1)';
+const MARQUEE_STROKE_COLOR = "#4A90D9";
+const MARQUEE_FILL_COLOR = "rgba(74, 144, 217, 0.1)";
 const MARQUEE_DASH_PATTERN: readonly number[] = [6, 3];
 
 export interface RenderLoop {
@@ -51,7 +51,10 @@ export interface LayerProvider {
   /** Set of layer IDs whose expressions should be rendered. */
   getVisibleLayerIds(): Set<string>;
   /** Get expression order sorted by layer order, then by position in expressionOrder. */
-  getLayerSortedOrder(expressionOrder: string[], expressions: Record<string, VisualExpression>): string[];
+  getLayerSortedOrder(
+    expressionOrder: string[],
+    expressions: Record<string, VisualExpression>,
+  ): string[];
 }
 
 /** Callback that returns the current draw preview for rendering. */
@@ -146,7 +149,7 @@ export function createRenderLoop(
 
     // 3. Render grid (in world coordinates)
     if (!gridProvider || gridProvider.getGridVisible()) {
-      const gridType = gridProvider?.getGridType() ?? 'dot';
+      const gridType = gridProvider?.getGridType() ?? "dot";
       const gridSize = gridProvider?.getGridSize() ?? 20;
       renderGrid(ctx, camera, width, height, gridType, gridSize);
     }
@@ -204,10 +207,10 @@ export function createRenderLoop(
       ctx.save();
       ctx.beginPath();
       ctx.arc(sp.x, sp.y, 10 / camera.zoom, 0, Math.PI * 2);
-      ctx.fillStyle = '#4A90D9';
+      ctx.fillStyle = "#4A90D9";
       ctx.globalAlpha = 0.8;
       ctx.fill();
-      ctx.strokeStyle = '#ffffff';
+      ctx.strokeStyle = "#ffffff";
       ctx.lineWidth = 2 / camera.zoom;
       ctx.setLineDash([]);
       ctx.stroke();
@@ -237,16 +240,22 @@ export function createRenderLoop(
     }
 
     // Check for global screenshot request (from gateway connection)
-    const globalReq = (window as unknown as Record<string, unknown>).__infinicanvas_screenshot as
-      { requestId: string; respond: (img: string, w: number, h: number) => void } | undefined;
+    const globalReq = (window as unknown as Record<string, unknown>)
+      .__infinicanvas_screenshot as
+      | {
+          requestId: string;
+          respond: (img: string, w: number, h: number) => void;
+        }
+      | undefined;
     if (globalReq) {
-      (window as unknown as Record<string, unknown>).__infinicanvas_screenshot = undefined;
+      (window as unknown as Record<string, unknown>).__infinicanvas_screenshot =
+        undefined;
       try {
         const canvasEl = ctx.canvas;
-        const imageBase64 = canvasEl.toDataURL('image/png');
+        const imageBase64 = canvasEl.toDataURL("image/png");
         globalReq.respond(imageBase64, canvasEl.width, canvasEl.height);
       } catch {
-        globalReq.respond('', 0, 0);
+        globalReq.respond("", 0, 0);
       }
     }
 

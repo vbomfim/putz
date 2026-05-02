@@ -145,7 +145,9 @@ function setupPathExistence(existingPaths: string[]): void {
         if (existingPaths.includes(path)) {
           return Promise.resolve(1700000000000);
         }
-        return Promise.reject(new Error(`Failed to stat ${path}: No such file`));
+        return Promise.reject(
+          new Error(`Failed to stat ${path}: No such file`),
+        );
       }
       // pty_write, pty_spawn, etc. — resolve by default
       return Promise.resolve();
@@ -243,11 +245,15 @@ describe("bookmarkDispatch", () => {
     // ── M-Sec1: control character stripping (defense-in-depth) ──────
 
     it("M-Sec1: strips newline from input", () => {
-      expect(escapeShellPath("/path/with\ninjection")).toBe("/path/withinjection");
+      expect(escapeShellPath("/path/with\ninjection")).toBe(
+        "/path/withinjection",
+      );
     });
 
     it("M-Sec1: strips carriage return from input", () => {
-      expect(escapeShellPath("/path/with\rinjection")).toBe("/path/withinjection");
+      expect(escapeShellPath("/path/with\rinjection")).toBe(
+        "/path/withinjection",
+      );
     });
 
     it("M-Sec1: strips null byte from input", () => {
@@ -371,7 +377,9 @@ describe("bookmarkDispatch", () => {
       let resolveExists!: (value: number) => void;
       mockInvoke.mockImplementation((command: string) => {
         if (command === "file_mtime") {
-          return new Promise((resolve) => { resolveExists = resolve; });
+          return new Promise((resolve) => {
+            resolveExists = resolve;
+          });
         }
         return Promise.resolve();
       });
@@ -478,13 +486,19 @@ describe("bookmarkDispatch", () => {
 
     it("AC6: escapes dollar signs in folder path", async () => {
       const path = "/Users/me/path/with$dollar";
-      const bookmark = makeBookmark({ name: "with$dollar", path, type: "folder" });
+      const bookmark = makeBookmark({
+        name: "with$dollar",
+        path,
+        type: "folder",
+      });
       setupPathExistence([path]);
       addTerminalTabToStore("pty-1");
 
       await dispatchBookmarkClick(bookmark);
 
-      const expectedBytes = encodeToBytes('cd "/Users/me/path/with\\$dollar"\n');
+      const expectedBytes = encodeToBytes(
+        'cd "/Users/me/path/with\\$dollar"\n',
+      );
       expect(mockInvoke).toHaveBeenCalledWith("pty_write", {
         sessionId: "pty-1",
         data: expectedBytes,
@@ -493,7 +507,11 @@ describe("bookmarkDispatch", () => {
 
     it("AC6: escapes double quotes in folder path", async () => {
       const path = '/Users/me/path/with"quote';
-      const bookmark = makeBookmark({ name: 'with"quote', path, type: "folder" });
+      const bookmark = makeBookmark({
+        name: 'with"quote',
+        path,
+        type: "folder",
+      });
       setupPathExistence([path]);
       addTerminalTabToStore("pty-2");
 
@@ -508,7 +526,11 @@ describe("bookmarkDispatch", () => {
 
     it("AC6: escapes backticks in folder path", async () => {
       const path = "/Users/me/path/with`tick";
-      const bookmark = makeBookmark({ name: "with`tick", path, type: "folder" });
+      const bookmark = makeBookmark({
+        name: "with`tick",
+        path,
+        type: "folder",
+      });
       setupPathExistence([path]);
       addTerminalTabToStore("pty-3");
 
@@ -523,7 +545,11 @@ describe("bookmarkDispatch", () => {
 
     it("AC6: escapes backslashes in folder path", async () => {
       const path = "/Users/me/path/with\\back";
-      const bookmark = makeBookmark({ name: "with\\back", path, type: "folder" });
+      const bookmark = makeBookmark({
+        name: "with\\back",
+        path,
+        type: "folder",
+      });
       setupPathExistence([path]);
       addTerminalTabToStore("pty-4");
 
@@ -539,14 +565,20 @@ describe("bookmarkDispatch", () => {
     it("AC6: escapes backslash-then-dollar correctly (ordering proof)", async () => {
       // Path contains literal \$ — backslash must be escaped FIRST
       const path = "/Users/me/path/with\\$both";
-      const bookmark = makeBookmark({ name: "with\\$both", path, type: "folder" });
+      const bookmark = makeBookmark({
+        name: "with\\$both",
+        path,
+        type: "folder",
+      });
       setupPathExistence([path]);
       addTerminalTabToStore("pty-5");
 
       await dispatchBookmarkClick(bookmark);
 
       // \\ escaped → \\\\, then $ escaped → \$, combined: \\\\\\$
-      const expectedBytes = encodeToBytes('cd "/Users/me/path/with\\\\\\$both"\n');
+      const expectedBytes = encodeToBytes(
+        'cd "/Users/me/path/with\\\\\\$both"\n',
+      );
       expect(mockInvoke).toHaveBeenCalledWith("pty_write", {
         sessionId: "pty-5",
         data: expectedBytes,
@@ -565,7 +597,9 @@ describe("bookmarkDispatch", () => {
       let resolveExists!: (value: number) => void;
       mockInvoke.mockImplementation((command: string) => {
         if (command === "file_mtime") {
-          return new Promise((resolve) => { resolveExists = resolve; });
+          return new Promise((resolve) => {
+            resolveExists = resolve;
+          });
         }
         return Promise.resolve();
       });
@@ -581,13 +615,15 @@ describe("bookmarkDispatch", () => {
           ...state.regions,
           [newRegionId]: {
             id: newRegionId,
-            tabs: [{
-              id: "tab-pty-T2",
-              title: "Terminal 2",
-              type: "terminal" as const,
-              sessionId: "pty-T2",
-              status: "local" as const,
-            }],
+            tabs: [
+              {
+                id: "tab-pty-T2",
+                title: "Terminal 2",
+                type: "terminal" as const,
+                sessionId: "pty-T2",
+                status: "local" as const,
+              },
+            ],
             activeTabId: "tab-pty-T2",
             tabPosition: "top" as const,
           },
@@ -702,13 +738,12 @@ describe("bookmarkDispatch", () => {
       });
       addTerminalTabToStore("pty-fail");
 
-      mockInvoke.mockImplementation(
-        (command: string) => {
-          if (command === "file_mtime") return Promise.resolve(1700000000000);
-          if (command === "pty_write") return Promise.reject(new Error("IPC error"));
-          return Promise.resolve();
-        },
-      );
+      mockInvoke.mockImplementation((command: string) => {
+        if (command === "file_mtime") return Promise.resolve(1700000000000);
+        if (command === "pty_write")
+          return Promise.reject(new Error("IPC error"));
+        return Promise.resolve();
+      });
 
       await dispatchBookmarkClick(bookmark);
 
@@ -721,7 +756,11 @@ describe("bookmarkDispatch", () => {
   // ─── Parameterized shell escaping byte tests ───────────────────────
 
   describe("shell escaping — exact byte verification", () => {
-    const cases: Array<{ label: string; inputPath: string; expectedCmd: string }> = [
+    const cases: Array<{
+      label: string;
+      inputPath: string;
+      expectedCmd: string;
+    }> = [
       {
         label: "clean path",
         inputPath: "/clean/path",

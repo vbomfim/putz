@@ -5,7 +5,8 @@
   min-height: 0;
   background: var(--bg-primary, #1e1e2e);
   color: var(--text-primary, #cdd6f4);
-  font-family: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', 'Menlo', monospace;
+  font-family:
+    "JetBrains Mono", "Fira Code", "Cascadia Code", "Menlo", monospace;
   font-size: 13px;
   position: relative;
 }
@@ -327,7 +328,7 @@
 }
 
 .csv-tab__td--col-selected:not(.csv-tab__td--rownum) {
-  background: rgba(137, 180, 250, 0.10);
+  background: rgba(137, 180, 250, 0.1);
 }
 
 .csv-tab__row:hover .csv-tab__td--col-selected:not(.csv-tab__td--frozen) {

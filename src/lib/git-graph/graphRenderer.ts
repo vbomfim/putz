@@ -10,8 +10,8 @@
  * a separate content column, with gutter hit areas preserving row interactions.
  */
 
-import type { GraphData, GraphEdge } from './types';
-import { escapeHtml, escapeAttr } from './security';
+import type { GraphData, GraphEdge } from "./types";
+import { escapeHtml, escapeAttr } from "./security";
 
 /** Width of each graph lane column in pixels. */
 const LANE_WIDTH = 24;
@@ -32,7 +32,7 @@ const LABEL_FONT_SIZE = 11;
 /** Maximum characters before truncating a lane label. */
 const LABEL_MAX_CHARS = 22;
 /** SVG namespace. */
-const SVG_NS = 'http://www.w3.org/2000/svg';
+const SVG_NS = "http://www.w3.org/2000/svg";
 
 /** Guard the renderer against malformed runtime payloads. */
 function isFiniteColumn(column: number): boolean {
@@ -58,17 +58,20 @@ export function computeGutterWidth(graph: GraphData): number {
   let maxCol = 0;
   let hasLabels = false;
   for (const node of graph.nodes) {
-    if (isFiniteColumn(node.column) && node.column > maxCol) maxCol = node.column;
+    if (isFiniteColumn(node.column) && node.column > maxCol)
+      maxCol = node.column;
     if (node.branches.length > 0 || node.tags.length > 0) hasLabels = true;
   }
   for (const edge of graph.edges) {
-    if (isFiniteColumn(edge.column) && edge.column > maxCol) maxCol = edge.column;
+    if (isFiniteColumn(edge.column) && edge.column > maxCol)
+      maxCol = edge.column;
   }
   // [ROBUSTNESS] Treat non-finite/negative reported counts as absent so stale
   // extension/webview payloads cannot poison the shared gutter contract with NaN.
-  const reportedColumns = Number.isFinite(graph.columns) && graph.columns > 0
-    ? Math.floor(graph.columns)
-    : 0;
+  const reportedColumns =
+    Number.isFinite(graph.columns) && graph.columns > 0
+      ? Math.floor(graph.columns)
+      : 0;
   // Ensure we cover at least as many columns as graph.columns claims
   const effectiveColumns = Math.max(maxCol + 1, reportedColumns);
   // Rightmost painted pixel: center of last lane + largest radius + half stroke
@@ -76,7 +79,10 @@ export function computeGutterWidth(graph: GraphData): number {
   const rightmostExtent = rightmostCenter + HEAD_RADIUS + MAX_STROKE_WIDTH / 2;
   // Use full lane grid when it already covers the geometry (typical case),
   // otherwise expand to cover the actual extent.
-  const laneWidth = Math.max(effectiveColumns * LANE_WIDTH, Math.ceil(rightmostExtent));
+  const laneWidth = Math.max(
+    effectiveColumns * LANE_WIDTH,
+    Math.ceil(rightmostExtent),
+  );
   // Reserve extra space for branch/tag labels when refs exist.
   return hasLabels ? laneWidth + LABEL_AREA_WIDTH : laneWidth;
 }
@@ -89,7 +95,10 @@ export function buildEdgeLookup(
   edges: readonly GraphEdge[],
   hashToIndex: Record<string, number>,
 ): Record<number, Array<{ edge: GraphEdge; fromIdx: number; toIdx: number }>> {
-  const columnEdges: Record<number, Array<{ edge: GraphEdge; fromIdx: number; toIdx: number }>> = {};
+  const columnEdges: Record<
+    number,
+    Array<{ edge: GraphEdge; fromIdx: number; toIdx: number }>
+  > = {};
   for (const edge of edges) {
     if (!isFiniteColumn(edge.column)) continue;
     if (!columnEdges[edge.column]) {
@@ -119,21 +128,22 @@ export function buildSvgOverlay(
   const svgHeight = graph.nodes.length * ROW_HEIGHT;
 
   // Detect high contrast theme for stronger SVG visuals
-  const isHighContrast = document.body.classList.contains('vscode-high-contrast')
-    || document.body.classList.contains('vscode-high-contrast-light');
+  const isHighContrast =
+    document.body.classList.contains("vscode-high-contrast") ||
+    document.body.classList.contains("vscode-high-contrast-light");
 
-  const svg = document.createElementNS(SVG_NS, 'svg');
-  svg.setAttribute('class', 'graph-svg-overlay');
-  svg.setAttribute('width', String(svgWidth));
-  svg.setAttribute('height', String(svgHeight));
-  svg.setAttribute('viewBox', `0 0 ${svgWidth} ${svgHeight}`);
-  svg.setAttribute('aria-hidden', 'true');
+  const svg = document.createElementNS(SVG_NS, "svg");
+  svg.setAttribute("class", "graph-svg-overlay");
+  svg.setAttribute("width", String(svgWidth));
+  svg.setAttribute("height", String(svgHeight));
+  svg.setAttribute("viewBox", `0 0 ${svgWidth} ${svgHeight}`);
+  svg.setAttribute("aria-hidden", "true");
   // [FIX] SVG 2 defaults overflow to 'visible' — explicitly clip to prevent
   // lane lines and node circles from bleeding into the commit-text area.
   // Belt-and-suspenders: set both SVG attribute and CSS property because some
   // webview renderers only honour one of the two.
-  svg.setAttribute('overflow', 'hidden');
-  svg.style.overflow = 'hidden';
+  svg.setAttribute("overflow", "hidden");
+  svg.style.overflow = "hidden";
   svg.style.width = `${svgWidth}px`;
   svg.style.maxWidth = `${svgWidth}px`;
 
@@ -143,7 +153,8 @@ export function buildSvgOverlay(
   // Compute rightmost lane center for label positioning
   let maxLaneCol = 0;
   for (const node of graph.nodes) {
-    if (isFiniteColumn(node.column) && node.column > maxLaneCol) maxLaneCol = node.column;
+    if (isFiniteColumn(node.column) && node.column > maxLaneCol)
+      maxLaneCol = node.column;
   }
   const maxLaneX = colToX(maxLaneCol);
 
@@ -165,24 +176,26 @@ export function buildSvgOverlay(
       const toX = colToX(col);
       const toY = rowToY(entry.toIdx);
 
-      const path = document.createElementNS(SVG_NS, 'path');
-      path.setAttribute('fill', 'none');
-      path.setAttribute('stroke', entry.edge.color);
-      path.setAttribute('stroke-width', isHighContrast ? '3' : '2');
+      const path = document.createElementNS(SVG_NS, "path");
+      path.setAttribute("fill", "none");
+      path.setAttribute("stroke", entry.edge.color);
+      path.setAttribute("stroke-width", isHighContrast ? "3" : "2");
 
       if (fromX === toX) {
         // Straight vertical line
-        path.setAttribute('d', `M ${fromX} ${fromY} L ${toX} ${toY}`);
+        path.setAttribute("d", `M ${fromX} ${fromY} L ${toX} ${toY}`);
       } else {
         // Bezier curve for merge/fork edges
         const midY = (fromY + toY) / 2;
-        path.setAttribute('d',
-          `M ${fromX} ${fromY} C ${fromX} ${midY}, ${toX} ${midY}, ${toX} ${toY}`);
+        path.setAttribute(
+          "d",
+          `M ${fromX} ${fromY} C ${fromX} ${midY}, ${toX} ${midY}, ${toX} ${toY}`,
+        );
       }
 
       if (entry.edge.isMergeEdge) {
-        path.setAttribute('stroke-dasharray', '4 2');
-        path.setAttribute('opacity', '0.7');
+        path.setAttribute("stroke-dasharray", "4 2");
+        path.setAttribute("opacity", "0.7");
       }
 
       svg.appendChild(path);
@@ -191,7 +204,10 @@ export function buildSvgOverlay(
 
   // Draw nodes on top of edges, with tooltips
   // Track label positions for local↔remote link lines
-  const branchLabelPositions = new Map<string, { x: number; y: number; color: string }>();
+  const branchLabelPositions = new Map<
+    string,
+    { x: number; y: number; color: string }
+  >();
   for (let ni = 0; ni < graph.nodes.length; ni++) {
     const node = graph.nodes[ni];
     if (!isFiniteColumn(node.column)) continue;
@@ -200,40 +216,43 @@ export function buildSvgOverlay(
 
     // Build tooltip text: branch/tag names + commit subject
     const tipParts: string[] = [];
-    for (const b of node.branches) tipParts.push(b.isRemote ? `⛅ ${b.name}` : `⎇ ${b.name}`);
+    for (const b of node.branches)
+      tipParts.push(b.isRemote ? `⛅ ${b.name}` : `⎇ ${b.name}`);
     for (const t of node.tags) tipParts.push(`🏷 ${t}`);
     tipParts.push(node.commit.subject);
-    const tooltipText = tipParts.join('\n');
+    const tooltipText = tipParts.join("\n");
 
     // Node fill: solid in high contrast, semi-transparent normally
-    const nodeFill = isHighContrast ? node.color : node.color + '40';
-    const edgeWidth = isHighContrast ? '3' : '2';
-    const headWidth = isHighContrast ? '4' : '3';
+    const nodeFill = isHighContrast ? node.color : node.color + "40";
+    const edgeWidth = isHighContrast ? "3" : "2";
+    const headWidth = isHighContrast ? "4" : "3";
 
     if (node.isMerge) {
       // Merge node: diamond shape
-      const diamond = document.createElementNS(SVG_NS, 'polygon');
+      const diamond = document.createElementNS(SVG_NS, "polygon");
       const r = MERGE_RADIUS;
-      diamond.setAttribute('points',
-        `${cx},${cy - r} ${cx + r},${cy} ${cx},${cy + r} ${cx - r},${cy}`);
-      diamond.setAttribute('fill', nodeFill);
-      diamond.setAttribute('stroke', node.color);
-      diamond.setAttribute('stroke-width', edgeWidth);
-      const title = document.createElementNS(SVG_NS, 'title');
+      diamond.setAttribute(
+        "points",
+        `${cx},${cy - r} ${cx + r},${cy} ${cx},${cy + r} ${cx - r},${cy}`,
+      );
+      diamond.setAttribute("fill", nodeFill);
+      diamond.setAttribute("stroke", node.color);
+      diamond.setAttribute("stroke-width", edgeWidth);
+      const title = document.createElementNS(SVG_NS, "title");
       title.textContent = tooltipText;
       diamond.appendChild(title);
       svg.appendChild(diamond);
     } else {
       // Regular node: circle
-      const circle = document.createElementNS(SVG_NS, 'circle');
+      const circle = document.createElementNS(SVG_NS, "circle");
       const r = node.isHead ? HEAD_RADIUS : NODE_RADIUS;
-      circle.setAttribute('cx', String(cx));
-      circle.setAttribute('cy', String(cy));
-      circle.setAttribute('r', String(r));
-      circle.setAttribute('fill', nodeFill);
-      circle.setAttribute('stroke', node.color);
-      circle.setAttribute('stroke-width', node.isHead ? headWidth : edgeWidth);
-      const title = document.createElementNS(SVG_NS, 'title');
+      circle.setAttribute("cx", String(cx));
+      circle.setAttribute("cy", String(cy));
+      circle.setAttribute("r", String(r));
+      circle.setAttribute("fill", nodeFill);
+      circle.setAttribute("stroke", node.color);
+      circle.setAttribute("stroke-width", node.isHead ? headWidth : edgeWidth);
+      const title = document.createElementNS(SVG_NS, "title");
       title.textContent = tooltipText;
       circle.appendChild(title);
       svg.appendChild(circle);
@@ -248,26 +267,28 @@ export function buildSvgOverlay(
       const isCurrentBranch = node.isHead && branch && !branch.isRemote;
 
       // Build display text with sync indicators
-      let displayLabel = rawLabel.length > LABEL_MAX_CHARS
-        ? rawLabel.slice(0, LABEL_MAX_CHARS - 1) + '…'
-        : rawLabel;
+      let displayLabel =
+        rawLabel.length > LABEL_MAX_CHARS
+          ? rawLabel.slice(0, LABEL_MAX_CHARS - 1) + "…"
+          : rawLabel;
 
       // Add sync suffix for local branches
       if (branch && !branch.isRemote) {
         const sync = branchSync[branch.name];
         if (sync) {
-          if (sync.ahead > 0 && sync.behind > 0) displayLabel += ` ↑${sync.ahead}↓${sync.behind}`;
+          if (sync.ahead > 0 && sync.behind > 0)
+            displayLabel += ` ↑${sync.ahead}↓${sync.behind}`;
           else if (sync.ahead > 0) displayLabel += ` ↑${sync.ahead}`;
           else if (sync.behind > 0) displayLabel += ` ↓${sync.behind}`;
-          else displayLabel += ' ✓';
+          else displayLabel += " ✓";
         }
       }
-      if (isCurrentBranch) displayLabel += ' ★';
+      if (isCurrentBranch) displayLabel += " ★";
 
       // Mark worktree branches with robot icon
       const worktrees = graph.worktrees ?? {};
       const isWorktree = branch && !branch.isRemote && worktrees[branch.name];
-      if (isWorktree) displayLabel = '🤖 ' + displayLabel;
+      if (isWorktree) displayLabel = "🤖 " + displayLabel;
 
       // Position label to the right of the rightmost lane
       const labelX = maxLaneX + HEAD_RADIUS + MAX_STROKE_WIDTH + 24;
@@ -275,7 +296,11 @@ export function buildSvgOverlay(
 
       // Track label position for local↔remote link lines
       for (const b of node.branches) {
-        branchLabelPositions.set(b.name, { x: labelX, y: labelY, color: node.color });
+        branchLabelPositions.set(b.name, {
+          x: labelX,
+          y: labelY,
+          color: node.color,
+        });
       }
 
       // Approximate text width (~6.6px per char at 11px font)
@@ -283,36 +308,39 @@ export function buildSvgOverlay(
       const pillHeight = 18;
 
       // Background pill — dashed border for remote, thicker for current branch
-      const pill = document.createElementNS(SVG_NS, 'rect');
-      pill.setAttribute('x', String(labelX));
-      pill.setAttribute('y', String(labelY - pillHeight / 2));
-      pill.setAttribute('width', String(textWidth));
-      pill.setAttribute('height', String(pillHeight));
-      pill.setAttribute('rx', '4');
-      pill.setAttribute('fill', node.color + '30');
+      const pill = document.createElementNS(SVG_NS, "rect");
+      pill.setAttribute("x", String(labelX));
+      pill.setAttribute("y", String(labelY - pillHeight / 2));
+      pill.setAttribute("width", String(textWidth));
+      pill.setAttribute("height", String(pillHeight));
+      pill.setAttribute("rx", "4");
+      pill.setAttribute("fill", node.color + "30");
       if (isCurrentBranch) {
-        pill.setAttribute('stroke', '#007acc');
-        pill.setAttribute('stroke-width', '1.5');
+        pill.setAttribute("stroke", "#007acc");
+        pill.setAttribute("stroke-width", "1.5");
       } else if (isRemoteLabel) {
-        pill.setAttribute('stroke', node.color);
-        pill.setAttribute('stroke-width', '1');
-        pill.setAttribute('stroke-dasharray', '3 2');
-        pill.setAttribute('opacity', '0.8');
+        pill.setAttribute("stroke", node.color);
+        pill.setAttribute("stroke-width", "1");
+        pill.setAttribute("stroke-dasharray", "3 2");
+        pill.setAttribute("opacity", "0.8");
       } else {
-        pill.setAttribute('stroke', node.color);
-        pill.setAttribute('stroke-width', '1');
+        pill.setAttribute("stroke", node.color);
+        pill.setAttribute("stroke-width", "1");
       }
       svg.appendChild(pill);
 
       // Label text
-      const text = document.createElementNS(SVG_NS, 'text');
-      text.setAttribute('x', String(labelX + 5));
-      text.setAttribute('y', String(labelY));
-      text.setAttribute('font-size', String(LABEL_FONT_SIZE));
-      text.setAttribute('fill', node.color);
-      text.setAttribute('dominant-baseline', 'central');
-      text.setAttribute('font-family', 'var(--vscode-editor-font-family, monospace)');
-      if (isCurrentBranch) text.setAttribute('font-weight', '700');
+      const text = document.createElementNS(SVG_NS, "text");
+      text.setAttribute("x", String(labelX + 5));
+      text.setAttribute("y", String(labelY));
+      text.setAttribute("font-size", String(LABEL_FONT_SIZE));
+      text.setAttribute("fill", node.color);
+      text.setAttribute("dominant-baseline", "central");
+      text.setAttribute(
+        "font-family",
+        "var(--vscode-editor-font-family, monospace)",
+      );
+      if (isCurrentBranch) text.setAttribute("font-weight", "700");
       text.textContent = displayLabel;
       svg.appendChild(text);
     }
@@ -342,8 +370,8 @@ export function buildSvgOverlay(
   for (let pi = 0; pi < syncPairs.length; pi++) {
     const { localPos, remotePos } = syncPairs[pi];
     const color = localPos.color;
-    const strokeWidth = isHighContrast ? '2' : '1';
-    const opacity = isHighContrast ? '1' : '0.7';
+    const strokeWidth = isHighContrast ? "2" : "1";
+    const opacity = isHighContrast ? "1" : "0.7";
 
     // Determine top/bottom positions
     const topPos = localPos.y <= remotePos.y ? localPos : remotePos;
@@ -355,28 +383,29 @@ export function buildSvgOverlay(
     const linkX = localPos.x - LINK_BASE_OFFSET - pi * LINK_STEP;
 
     // 90° elbow path: horizontal left from top label → vertical down → horizontal right to bottom label
-    const path = document.createElementNS(SVG_NS, 'path');
-    path.setAttribute('d',
-      `M ${topPos.x} ${topY}` +          // start at top label left edge
-      ` H ${linkX}` +                     // horizontal left to elbow column
-      ` V ${bottomY}` +                   // vertical down
-      ` H ${bottomPos.x}`                // horizontal right to bottom label
+    const path = document.createElementNS(SVG_NS, "path");
+    path.setAttribute(
+      "d",
+      `M ${topPos.x} ${topY}` + // start at top label left edge
+        ` H ${linkX}` + // horizontal left to elbow column
+        ` V ${bottomY}` + // vertical down
+        ` H ${bottomPos.x}`, // horizontal right to bottom label
     );
-    path.setAttribute('fill', 'none');
-    path.setAttribute('stroke', color);
-    path.setAttribute('stroke-width', strokeWidth);
-    path.setAttribute('stroke-dasharray', '3 2');
-    path.setAttribute('opacity', opacity);
+    path.setAttribute("fill", "none");
+    path.setAttribute("stroke", color);
+    path.setAttribute("stroke-width", strokeWidth);
+    path.setAttribute("stroke-dasharray", "3 2");
+    path.setAttribute("opacity", opacity);
     svg.appendChild(path);
 
     // Small dots at each endpoint
     for (const pos of [localPos, remotePos]) {
-      const dot = document.createElementNS(SVG_NS, 'circle');
-      dot.setAttribute('cx', String(pos.x));
-      dot.setAttribute('cy', String(pos.y));
-      dot.setAttribute('r', '2');
-      dot.setAttribute('fill', color);
-      dot.setAttribute('opacity', opacity);
+      const dot = document.createElementNS(SVG_NS, "circle");
+      dot.setAttribute("cx", String(pos.x));
+      dot.setAttribute("cy", String(pos.y));
+      dot.setAttribute("r", "2");
+      dot.setAttribute("fill", color);
+      dot.setAttribute("opacity", opacity);
       svg.appendChild(dot);
     }
   }
@@ -390,19 +419,21 @@ function buildGutterHitAreas(graph: GraphData): string {
   for (const node of graph.nodes) {
     // Build tooltip for hover: branch/tag names + subject
     const tipParts: string[] = [];
-    for (const b of node.branches) tipParts.push(b.isRemote ? '⛅ ' + b.name : '⎇ ' + b.name);
-    for (const t of node.tags) tipParts.push('🏷 ' + t);
+    for (const b of node.branches)
+      tipParts.push(b.isRemote ? "⛅ " + b.name : "⎇ " + b.name);
+    for (const t of node.tags) tipParts.push("🏷 " + t);
     tipParts.push(node.commit.subject);
-    const tooltip = escapeAttr(tipParts.join('\n'));
+    const tooltip = escapeAttr(tipParts.join("\n"));
 
     hitAreas.push(
       '<div class="graph-gutter-hit-area" data-hash="' +
-      escapeAttr(node.commit.hash) +
-      '" title="' + tooltip +
-      '"></div>',
+        escapeAttr(node.commit.hash) +
+        '" title="' +
+        tooltip +
+        '"></div>',
     );
   }
-  return hitAreas.join('');
+  return hitAreas.join("");
 }
 
 /**
@@ -414,19 +445,21 @@ function attachCommitInteractions(
   onCommitClick: (hash: string) => void,
   onCommitContextMenu?: (hash: string, x: number, y: number) => void,
 ): void {
-  container.querySelectorAll('.commit-row, .graph-gutter-hit-area').forEach((target) => {
-    const hash = target.getAttribute('data-hash');
-    if (!hash) return;
+  container
+    .querySelectorAll(".commit-row, .graph-gutter-hit-area")
+    .forEach((target) => {
+      const hash = target.getAttribute("data-hash");
+      if (!hash) return;
 
-    target.addEventListener('click', () => onCommitClick(hash));
-    if (onCommitContextMenu) {
-      target.addEventListener('contextmenu', (e) => {
-        e.preventDefault();
-        const mouseEvent = e as MouseEvent;
-        onCommitContextMenu(hash, mouseEvent.clientX, mouseEvent.clientY);
-      });
-    }
-  });
+      target.addEventListener("click", () => onCommitClick(hash));
+      if (onCommitContextMenu) {
+        target.addEventListener("contextmenu", (e) => {
+          e.preventDefault();
+          const mouseEvent = e as MouseEvent;
+          onCommitContextMenu(hash, mouseEvent.clientX, mouseEvent.clientY);
+        });
+      }
+    });
 }
 
 /** Convert a column index to an X pixel coordinate (center of lane). */
@@ -511,11 +544,19 @@ export function renderGraph(
     // mode the gutter is gone so they become visible.
     if (node.branches.length > 0) {
       for (const branch of node.branches) {
-        const badgeClass = branch.isRemote ? 'branch-badge remote-badge inline-branch-badge' : 'branch-badge inline-branch-badge';
+        const badgeClass = branch.isRemote
+          ? "branch-badge remote-badge inline-branch-badge"
+          : "branch-badge inline-branch-badge";
         badges.push(
-          '<span class="' + badgeClass + '" data-branch-name="' + escapeAttr(branch.name) +
-          '" data-branch-remote="' + (branch.isRemote ? 'true' : 'false') + '">' +
-          escapeHtml(branch.name) + '</span>',
+          '<span class="' +
+            badgeClass +
+            '" data-branch-name="' +
+            escapeAttr(branch.name) +
+            '" data-branch-remote="' +
+            (branch.isRemote ? "true" : "false") +
+            '">' +
+            escapeHtml(branch.name) +
+            "</span>",
         );
       }
     } else {
@@ -523,43 +564,71 @@ export function renderGraph(
       const inherited = commitBranch.get(node.commit.hash);
       if (inherited) {
         const badgeClass = inherited.isRemote
-          ? 'branch-badge remote-badge inline-branch-badge'
-          : 'branch-badge inline-branch-badge';
+          ? "branch-badge remote-badge inline-branch-badge"
+          : "branch-badge inline-branch-badge";
         badges.push(
-          '<span class="' + badgeClass + '" data-branch-name="' + escapeAttr(inherited.name) +
-          '" data-branch-remote="' + (inherited.isRemote ? 'true' : 'false') + '">' +
-          escapeHtml(inherited.name) + '</span>',
+          '<span class="' +
+            badgeClass +
+            '" data-branch-name="' +
+            escapeAttr(inherited.name) +
+            '" data-branch-remote="' +
+            (inherited.isRemote ? "true" : "false") +
+            '">' +
+            escapeHtml(inherited.name) +
+            "</span>",
         );
       }
     }
     for (const tag of node.tags) {
-      badges.push('<span class="tag-badge" data-tag-name="' + escapeAttr(tag) + '">' + escapeHtml(tag) + '</span>');
+      badges.push(
+        '<span class="tag-badge" data-tag-name="' +
+          escapeAttr(tag) +
+          '">' +
+          escapeHtml(tag) +
+          "</span>",
+      );
     }
 
     // Build data attribute for branch context menu (works even when badges are hidden)
     const branchSync = graph.branchSync ?? {};
     const worktrees = graph.worktrees ?? {};
-    let branchDataAttr = '';
+    let branchDataAttr = "";
     if (node.branches.length > 0) {
       const b = node.branches[0];
       const sync = !b.isRemote ? branchSync[b.name] : undefined;
       const wtPath = !b.isRemote ? worktrees[b.name] : undefined;
-      branchDataAttr = '" data-branch-name="' + escapeAttr(b.name) +
-        '" data-branch-remote="' + (b.isRemote ? 'true' : 'false') +
-        (sync ? '" data-sync-ahead="' + sync.ahead + '" data-sync-behind="' + sync.behind : '') +
-        (wtPath ? '" data-worktree-path="' + escapeAttr(wtPath) : '');
+      branchDataAttr =
+        '" data-branch-name="' +
+        escapeAttr(b.name) +
+        '" data-branch-remote="' +
+        (b.isRemote ? "true" : "false") +
+        (sync
+          ? '" data-sync-ahead="' +
+            sync.ahead +
+            '" data-sync-behind="' +
+            sync.behind
+          : "") +
+        (wtPath ? '" data-worktree-path="' + escapeAttr(wtPath) : "");
     }
 
     html.push(
-      '<div class="commit-row" data-hash="' + escapeAttr(node.commit.hash) +
-      (node.isHead ? '" data-head="true' : '') +
-      branchDataAttr + '">' +
-      '<div class="commit-info">' +
-      '<span class="commit-hash">' + escapeHtml(node.commit.abbreviatedHash) + '</span>' +
-      badges.join('') +
-      '<span class="commit-subject">' + escapeHtml(node.commit.subject) + '</span>' +
-      '<span class="commit-author">' + escapeHtml(node.commit.authorName) + '</span>' +
-      '</div></div>',
+      '<div class="commit-row" data-hash="' +
+        escapeAttr(node.commit.hash) +
+        (node.isHead ? '" data-head="true' : "") +
+        branchDataAttr +
+        '">' +
+        '<div class="commit-info">' +
+        '<span class="commit-hash">' +
+        escapeHtml(node.commit.abbreviatedHash) +
+        "</span>" +
+        badges.join("") +
+        '<span class="commit-subject">' +
+        escapeHtml(node.commit.subject) +
+        "</span>" +
+        '<span class="commit-author">' +
+        escapeHtml(node.commit.authorName) +
+        "</span>" +
+        "</div></div>",
     );
   }
 
@@ -567,8 +636,10 @@ export function renderGraph(
   if (graph.filtered) {
     container.innerHTML =
       '<div class="graph-filtered-list">' +
-      '<div class="graph-rows">' + html.join('') + '</div>' +
-      '</div>';
+      '<div class="graph-rows">' +
+      html.join("") +
+      "</div>" +
+      "</div>";
 
     attachCommitInteractions(container, onCommitClick, onCommitContextMenu);
     return;
@@ -588,17 +659,25 @@ export function renderGraph(
   container.innerHTML =
     '<div class="graph-viewport">' +
     '<div class="graph-gutter-clip">' +
-    '<div class="graph-gutter-hit-areas">' + gutterHitAreas + '</div>' +
-    '</div>' +
-    '<div class="graph-rows">' + html.join('') + '</div>' +
-    '</div>';
+    '<div class="graph-gutter-hit-areas">' +
+    gutterHitAreas +
+    "</div>" +
+    "</div>" +
+    '<div class="graph-rows">' +
+    html.join("") +
+    "</div>" +
+    "</div>";
 
   // Apply gutter sizing via CSSOM (CSP-safe).
-  const viewport = container.querySelector('.graph-viewport') as HTMLElement | null;
-  const gutterClip = container.querySelector('.graph-gutter-clip') as HTMLElement | null;
+  const viewport = container.querySelector(
+    ".graph-viewport",
+  ) as HTMLElement | null;
+  const gutterClip = container.querySelector(
+    ".graph-gutter-clip",
+  ) as HTMLElement | null;
   if (viewport) {
-    viewport.style.setProperty('--graph-gutter-width', gutterWidthStyle);
-    viewport.style.gridTemplateColumns = gutterWidthStyle + ' minmax(0, 1fr)';
+    viewport.style.setProperty("--graph-gutter-width", gutterWidthStyle);
+    viewport.style.gridTemplateColumns = gutterWidthStyle + " minmax(0, 1fr)";
   }
   if (gutterClip) {
     gutterClip.style.width = gutterWidthStyle;
@@ -610,8 +689,8 @@ export function renderGraph(
   attachCommitInteractions(container, onCommitClick, onCommitContextMenu);
 
   // Wire pull buttons for branches that are behind their remote
-  container.querySelectorAll('.sync-pull-btn').forEach((btn) => {
-    btn.addEventListener('click', (e) => {
+  container.querySelectorAll(".sync-pull-btn").forEach((btn) => {
+    btn.addEventListener("click", (e) => {
       e.stopPropagation(); // Don't trigger commit row click
     });
   });
@@ -620,14 +699,24 @@ export function renderGraph(
 /**
  * Highlight a commit row by hash and deselect all others.
  */
-export function highlightCommit(
-  hash: string,
-  container: HTMLElement,
-): void {
-  container.querySelectorAll('.commit-row, .graph-gutter-hit-area').forEach((target) => {
-    target.classList.toggle('selected', target.getAttribute('data-hash') === hash);
-  });
+export function highlightCommit(hash: string, container: HTMLElement): void {
+  container
+    .querySelectorAll(".commit-row, .graph-gutter-hit-area")
+    .forEach((target) => {
+      target.classList.toggle(
+        "selected",
+        target.getAttribute("data-hash") === hash,
+      );
+    });
 }
 
 // Re-export constants for testing
-export { LANE_WIDTH, ROW_HEIGHT, NODE_RADIUS, HEAD_RADIUS, MERGE_RADIUS, MAX_STROKE_WIDTH, LABEL_AREA_WIDTH };
+export {
+  LANE_WIDTH,
+  ROW_HEIGHT,
+  NODE_RADIUS,
+  HEAD_RADIUS,
+  MERGE_RADIUS,
+  MAX_STROKE_WIDTH,
+  LABEL_AREA_WIDTH,
+};

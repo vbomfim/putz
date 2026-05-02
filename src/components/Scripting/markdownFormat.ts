@@ -45,7 +45,10 @@ function isSeparatorRow(row: ParsedRow): boolean {
   return row.cells.every((c) => /^:?-{1,}:?$/.test(c));
 }
 
-function alignFromSeparator(cell: string): { align: Align; explicitLeft: boolean } {
+function alignFromSeparator(cell: string): {
+  align: Align;
+  explicitLeft: boolean;
+} {
   const left = cell.startsWith(":");
   const right = cell.endsWith(":");
   if (left && right) return { align: "center", explicitLeft: true };
@@ -94,7 +97,12 @@ export function formatMarkdownTables(input: string): string {
     const header = parseRow(line);
     const sep = i + 1 < lines.length ? parseRow(lines[i + 1]) : null;
 
-    if (header && sep && isSeparatorRow(sep) && header.cells.length === sep.cells.length) {
+    if (
+      header &&
+      sep &&
+      isSeparatorRow(sep) &&
+      header.cells.length === sep.cells.length
+    ) {
       // Collect body rows
       const rows: ParsedRow[] = [header];
       const sepInfo = sep.cells.map(alignFromSeparator);
@@ -115,7 +123,9 @@ export function formatMarkdownTables(input: string): string {
       });
 
       // Header
-      out.push(`${indent}| ${header.cells.map((c, k) => pad(c, widths[k], aligns[k])).join(" | ")} |`);
+      out.push(
+        `${indent}| ${header.cells.map((c, k) => pad(c, widths[k], aligns[k])).join(" | ")} |`,
+      );
       // Separator (respect alignment markers — preserve explicit left colon)
       out.push(
         `${indent}| ${sepInfo

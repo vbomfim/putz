@@ -10,8 +10,8 @@
  * @module
  */
 
-import type { ToolType } from '../types/index';
-import type { ShapeConnectionPoint } from '../connectors/connectionPoints';
+import type { ToolType } from "../types/index";
+import type { ShapeConnectionPoint } from "../connectors/connectionPoints";
 
 /**
  * Transient draw preview state rendered during active tool drag.
@@ -21,7 +21,14 @@ import type { ShapeConnectionPoint } from '../connectors/connectionPoints';
  */
 export interface DrawPreview {
   /** The kind of shape being previewed. */
-  kind: 'rectangle' | 'ellipse' | 'diamond' | 'line' | 'arrow' | 'freehand' | 'sticky-note';
+  kind:
+    | "rectangle"
+    | "ellipse"
+    | "diamond"
+    | "line"
+    | "arrow"
+    | "freehand"
+    | "sticky-note";
   /** World-space x coordinate. */
   x: number;
   /** World-space y coordinate. */
@@ -78,6 +85,6 @@ export function createToolHandlerRegistry(): ToolHandlerRegistry {
     arrow: undefined,
     freehand: undefined,
     text: undefined,
-    'sticky-note': undefined,
+    "sticky-note": undefined,
   };
 }

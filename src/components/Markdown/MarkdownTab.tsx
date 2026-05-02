@@ -36,7 +36,13 @@ export function MarkdownTab({ filePath, regionId, tabId }: MarkdownTabProps) {
         const text = await invoke<string>("file_read", { path: filePath });
         if (cancelled) return;
         setContent(text);
-        try { lastMtimeRef.current = await invoke<number>("file_mtime", { path: filePath }); } catch { /* no-op */ }
+        try {
+          lastMtimeRef.current = await invoke<number>("file_mtime", {
+            path: filePath,
+          });
+        } catch {
+          /* no-op */
+        }
         const name = filePath.split("/").pop() || filePath;
         renameTab(regionId, tabId, `📖 ${name}`);
       } catch (err: unknown) {
@@ -46,7 +52,9 @@ export function MarkdownTab({ filePath, regionId, tabId }: MarkdownTabProps) {
       setIsLoading(false);
     };
     load();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [filePath, regionId, tabId, renameTab]);
 
   // Poll for changes
@@ -60,7 +68,9 @@ export function MarkdownTab({ filePath, regionId, tabId }: MarkdownTabProps) {
           setContent(text);
           lastMtimeRef.current = mtime;
         }
-      } catch { /* no-op */ }
+      } catch {
+        /* no-op */
+      }
     }, 2000);
     return () => clearInterval(interval);
   }, [filePath]);
@@ -70,18 +80,32 @@ export function MarkdownTab({ filePath, regionId, tabId }: MarkdownTabProps) {
   }, [addEditorTab, filePath]);
 
   if (isLoading) {
-    return <div className="markdown-tab"><div className="markdown-tab__loading">Loading…</div></div>;
+    return (
+      <div className="markdown-tab">
+        <div className="markdown-tab__loading">Loading…</div>
+      </div>
+    );
   }
 
   if (error) {
-    return <div className="markdown-tab"><div className="markdown-tab__error">{error}</div></div>;
+    return (
+      <div className="markdown-tab">
+        <div className="markdown-tab__error">{error}</div>
+      </div>
+    );
   }
 
   return (
     <div className="markdown-tab">
       <div className="markdown-tab__toolbar">
-        <span className="markdown-tab__filepath">{filePath.split("/").pop()}</span>
-        <button className="markdown-tab__edit-btn" onClick={handleEdit} title="Open in editor">
+        <span className="markdown-tab__filepath">
+          {filePath.split("/").pop()}
+        </span>
+        <button
+          className="markdown-tab__edit-btn"
+          onClick={handleEdit}
+          title="Open in editor"
+        >
           ✏️ Edit
         </button>
       </div>

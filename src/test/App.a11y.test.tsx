@@ -46,7 +46,12 @@ describe("App — Accessibility", () => {
     useLayoutStore.setState({
       layout: { type: "region", regionId },
       regions: {
-        [regionId]: { id: regionId, tabs: [], activeTabId: "", tabPosition: "top" },
+        [regionId]: {
+          id: regionId,
+          tabs: [],
+          activeTabId: "",
+          tabPosition: "top",
+        },
       },
       focusedRegionId: regionId,
       tabCounter: 0,

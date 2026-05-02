@@ -42,7 +42,10 @@
   font-size: 14px;
   font-weight: bold;
   color: white;
-  transition: border-radius 0.2s, box-shadow 0.2s, opacity 0.15s;
+  transition:
+    border-radius 0.2s,
+    box-shadow 0.2s,
+    opacity 0.15s;
   opacity: 0.7;
   padding: 0;
 }
@@ -78,7 +81,10 @@
   align-items: center;
   justify-content: center;
   margin-top: 4px;
-  transition: border-color 0.2s, color 0.2s, border-radius 0.2s;
+  transition:
+    border-color 0.2s,
+    color 0.2s,
+    border-radius 0.2s;
   padding: 0;
 }
 
@@ -153,7 +159,9 @@
   border-radius: 50%;
   border: 2px solid transparent;
   cursor: pointer;
-  transition: border-color 0.15s, transform 0.1s;
+  transition:
+    border-color 0.15s,
+    transform 0.1s;
   padding: 0;
 }
 

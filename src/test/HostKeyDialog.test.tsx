@@ -84,9 +84,7 @@ describe("HostKeyDialog", () => {
         onReject={onReject}
       />,
     );
-    expect(
-      screen.getByText(newHostKey.fingerprint),
-    ).toBeInTheDocument();
+    expect(screen.getByText(newHostKey.fingerprint)).toBeInTheDocument();
   });
 
   it("displays the key type", () => {
@@ -151,9 +149,7 @@ describe("HostKeyDialog", () => {
         onReject={onReject}
       />,
     );
-    expect(
-      screen.getByText(/HOST KEY CHANGED/i),
-    ).toBeInTheDocument();
+    expect(screen.getByText(/HOST KEY CHANGED/i)).toBeInTheDocument();
   });
 
   it("shows MITM warning text for changed key", () => {
@@ -165,9 +161,7 @@ describe("HostKeyDialog", () => {
         onReject={onReject}
       />,
     );
-    expect(
-      screen.getByText(/man-in-the-middle/i),
-    ).toBeInTheDocument();
+    expect(screen.getByText(/man-in-the-middle/i)).toBeInTheDocument();
   });
 
   it("shows expected fingerprint for changed key", () => {
@@ -193,8 +187,6 @@ describe("HostKeyDialog", () => {
         onReject={onReject}
       />,
     );
-    expect(
-      screen.getByText(changedHostKey.fingerprint),
-    ).toBeInTheDocument();
+    expect(screen.getByText(changedHostKey.fingerprint)).toBeInTheDocument();
   });
 });

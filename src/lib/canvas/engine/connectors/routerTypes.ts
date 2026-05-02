@@ -17,9 +17,9 @@
  * - `arc` — arc corner, rendered with `arcTo()`
  */
 export type PathSegment =
-  | { type: 'line'; x: number; y: number }
+  | { type: "line"; x: number; y: number }
   | {
-      type: 'bezier';
+      type: "bezier";
       cp1x: number;
       cp1y: number;
       cp2x: number;
@@ -27,8 +27,8 @@ export type PathSegment =
       x: number;
       y: number;
     }
-  | { type: 'quadratic'; cpx: number; cpy: number; x: number; y: number }
-  | { type: 'arc'; rx: number; ry: number; x: number; y: number };
+  | { type: "quadratic"; cpx: number; cpy: number; x: number; y: number }
+  | { type: "arc"; rx: number; ry: number; x: number; y: number };
 
 /** Options passed to router functions. */
 export interface RouterOptions {

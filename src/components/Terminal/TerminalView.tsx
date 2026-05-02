@@ -19,7 +19,10 @@ import { useCallback, useState } from "react";
 import { useTerminal } from "./useTerminal";
 import { useSearch } from "./useSearch";
 import { SearchBar } from "./SearchBar";
-import { TerminalBackground, type BackgroundEffect } from "./TerminalBackground";
+import {
+  TerminalBackground,
+  type BackgroundEffect,
+} from "./TerminalBackground";
 import { ChangeWindowWarning } from "../Compliance/ChangeWindowWarning";
 import { BELL_FLASH_CLASS, BELL_FLASH_DURATION_MS } from "./terminalPolish";
 import { useSettingsStore } from "../../stores/settingsStore";
@@ -67,36 +70,51 @@ export function TerminalView({
   onExit,
 }: TerminalViewProps) {
   const [hostname, setHostname] = useState("");
-  const backgroundEffect = useSettingsStore((s) => s.backgroundEffect) as BackgroundEffect;
+  const backgroundEffect = useSettingsStore(
+    (s) => s.backgroundEffect,
+  ) as BackgroundEffect;
   const backgroundOpacity = useSettingsStore((s) => s.backgroundOpacity);
   const backgroundColorMode = useSettingsStore((s) => s.backgroundColorMode);
-  const backgroundCustomColor = useSettingsStore((s) => s.backgroundCustomColor);
+  const backgroundCustomColor = useSettingsStore(
+    (s) => s.backgroundCustomColor,
+  );
   const backgroundSpeed = useSettingsStore((s) => s.backgroundSpeed);
-  const backgroundSize = useSettingsStore((s) => s.backgroundSize) as "small" | "medium" | "large";
+  const backgroundSize = useSettingsStore((s) => s.backgroundSize) as
+    | "small"
+    | "medium"
+    | "large";
   const termColors = useThemeStore((s) => s.activeColors);
-  const fgColor = (termColors as Record<string, string> | null)?.foreground || "#cdd6f4";
+  const fgColor =
+    (termColors as Record<string, string> | null)?.foreground || "#cdd6f4";
 
   // Resolve the animation color based on mode
-  const effectColor = backgroundColorMode === "custom" ? backgroundCustomColor
-    : backgroundColorMode === "rainbow" ? "rainbow"
-    : backgroundColorMode === "multicolor" ? "multicolor"
-    : fgColor;
+  const effectColor =
+    backgroundColorMode === "custom"
+      ? backgroundCustomColor
+      : backgroundColorMode === "rainbow"
+        ? "rainbow"
+        : backgroundColorMode === "multicolor"
+          ? "multicolor"
+          : fgColor;
 
   // Extract hostname only from SSH sessions (title contains user@remote-host)
   // Local shells show "user@local-machine" which we skip
-  const handleTitleChangeWithHostname = useCallback((title: string) => {
-    onTitleChange?.(title);
-    // Only show watermark for SSH: look for user@host where host differs from local machine
-    const atMatch = title.match(/@([^:@\s]+)/);
-    if (atMatch) {
-      const host = atMatch[1];
-      // Skip local machine names (set by the local shell)
-      // SSH sessions typically set the title to the remote hostname
-      // We detect SSH by checking if the tab status is "connected"
-      // For now, just store it — the title changes to the remote host on SSH
-      setHostname(host);
-    }
-  }, [onTitleChange]);
+  const handleTitleChangeWithHostname = useCallback(
+    (title: string) => {
+      onTitleChange?.(title);
+      // Only show watermark for SSH: look for user@host where host differs from local machine
+      const atMatch = title.match(/@([^:@\s]+)/);
+      if (atMatch) {
+        const host = atMatch[1];
+        // Skip local machine names (set by the local shell)
+        // SSH sessions typically set the title to the remote hostname
+        // We detect SSH by checking if the tab status is "connected"
+        // For now, just store it — the title changes to the remote host on SSH
+        setHostname(host);
+      }
+    },
+    [onTitleChange],
+  );
   // Fix 3: Visual bell — briefly flash the terminal wrapper
   const handleBell = useCallback(() => {
     // Flash the tab element if available, otherwise flash the terminal wrapper
@@ -105,7 +123,10 @@ export function TerminalView({
       const tabEl = document.querySelector(`[data-tab-id="${targetId}"]`);
       if (tabEl) {
         tabEl.classList.add(BELL_FLASH_CLASS);
-        setTimeout(() => tabEl.classList.remove(BELL_FLASH_CLASS), BELL_FLASH_DURATION_MS);
+        setTimeout(
+          () => tabEl.classList.remove(BELL_FLASH_CLASS),
+          BELL_FLASH_DURATION_MS,
+        );
         return;
       }
     }
@@ -113,7 +134,10 @@ export function TerminalView({
     const wrapper = document.querySelector(`[data-session-id="${sessionId}"]`);
     if (wrapper) {
       wrapper.classList.add(BELL_FLASH_CLASS);
-      setTimeout(() => wrapper.classList.remove(BELL_FLASH_CLASS), BELL_FLASH_DURATION_MS);
+      setTimeout(
+        () => wrapper.classList.remove(BELL_FLASH_CLASS),
+        BELL_FLASH_DURATION_MS,
+      );
     }
   }, [tabElementId, sessionId]);
 
@@ -127,23 +151,20 @@ export function TerminalView({
     changeWindowWarning,
     onChangeWindowProceed,
     onChangeWindowCancel,
-  } =
-    useTerminal({
-      sessionId,
-      onTitleChange: handleTitleChangeWithHostname,
-      onExit,
-      highlightSetId,
-      onBell: handleBell,
-      changeWindowEnabled,
-    });
+  } = useTerminal({
+    sessionId,
+    onTitleChange: handleTitleChangeWithHostname,
+    onExit,
+    highlightSetId,
+    onBell: handleBell,
+    changeWindowEnabled,
+  });
 
   const search = useSearch({ terminal: terminalInstance });
 
   // Use external search state if provided, otherwise internal
   const searchOpen =
-    externalSearchOpen !== undefined
-      ? externalSearchOpen
-      : search.isSearchOpen;
+    externalSearchOpen !== undefined ? externalSearchOpen : search.isSearchOpen;
 
   const handleSearchClose = () => {
     search.closeSearch();

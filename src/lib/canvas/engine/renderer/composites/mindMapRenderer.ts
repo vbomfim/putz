@@ -13,10 +13,14 @@
  * @module
  */
 
-import type { VisualExpression, MindMapData, MindMapBranch } from '../../../protocol';
-import type { RoughCanvas } from 'roughjs/bin/canvas.js';
-import { mapStyleToRoughOptions } from '../styleMapper';
-import { registerCompositeRenderer } from '../compositeRegistry';
+import type {
+  VisualExpression,
+  MindMapData,
+  MindMapBranch,
+} from "../../../protocol";
+import type { RoughCanvas } from "roughjs/bin/canvas.js";
+import { mapStyleToRoughOptions } from "../styleMapper";
+import { registerCompositeRenderer } from "../compositeRegistry";
 
 // ── Constants ────────────────────────────────────────────────
 
@@ -47,7 +51,7 @@ const NODE_FONT_SIZE = 13;
 const TRUNCATION_FONT_SIZE = 12;
 
 /** Default font family. */
-const DEFAULT_FONT_FAMILY = 'sans-serif';
+const DEFAULT_FONT_FAMILY = "sans-serif";
 
 /** Padding around the diagram. */
 const DIAGRAM_PADDING = 30;
@@ -223,9 +227,10 @@ export function computeMindMapLayout(data: MindMapData): MindMapLayout {
   const connections: MindMapConnection[] = [];
 
   // Count total leaves for vertical space allocation
-  const totalLeaves = data.branches.length > 0
-    ? data.branches.reduce((sum, b) => sum + countLeaves(b, 1), 0)
-    : 1;
+  const totalLeaves =
+    data.branches.length > 0
+      ? data.branches.reduce((sum, b) => sum + countLeaves(b, 1), 0)
+      : 1;
 
   const totalSlotHeight = totalLeaves * SIBLING_SPACING;
 
@@ -235,7 +240,7 @@ export function computeMindMapLayout(data: MindMapData): MindMapLayout {
 
   // Add central topic as the root node (depth 0)
   nodes.push({
-    id: '__center__',
+    id: "__center__",
     label: data.centralTopic,
     x: centerX + CENTER_WIDTH / 2,
     y: centerY,
@@ -349,32 +354,48 @@ export function renderMindMap(
 
     if (node.depth === 0) {
       // Central topic: bold rounded rectangle
-      const drawable = rc.rectangle(nx, ny, node.width, node.height, roughOptions);
+      const drawable = rc.rectangle(
+        nx,
+        ny,
+        node.width,
+        node.height,
+        roughOptions,
+      );
       rc.draw(drawable);
 
       ctx.font = `bold ${CENTER_FONT_SIZE}px ${DEFAULT_FONT_FAMILY}`;
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
       ctx.fillStyle = strokeColor;
       ctx.fillText(node.label, originX + node.x, originY + node.y);
     } else {
       // Branch node
-      const drawable = rc.rectangle(nx, ny, node.width, node.height, roughOptions);
+      const drawable = rc.rectangle(
+        nx,
+        ny,
+        node.width,
+        node.height,
+        roughOptions,
+      );
       rc.draw(drawable);
 
       ctx.font = `${NODE_FONT_SIZE}px ${DEFAULT_FONT_FAMILY}`;
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
       ctx.fillStyle = strokeColor;
       ctx.fillText(node.label, originX + node.x, originY + node.y);
 
       // Truncation indicator: draw "…" to the right of truncated nodes
       if (node.truncated) {
         ctx.font = `${TRUNCATION_FONT_SIZE}px ${DEFAULT_FONT_FAMILY}`;
-        ctx.textAlign = 'left';
-        ctx.textBaseline = 'middle';
+        ctx.textAlign = "left";
+        ctx.textBaseline = "middle";
         ctx.fillStyle = strokeColor;
-        ctx.fillText('…', originX + node.x + node.width / 2 + 8, originY + node.y);
+        ctx.fillText(
+          "…",
+          originX + node.x + node.width / 2 + 8,
+          originY + node.y,
+        );
       }
     }
   }
@@ -387,4 +408,4 @@ export function renderMindMap(
 /**
  * Register the mind map renderer on module load.
  */
-registerCompositeRenderer('mind-map', renderMindMap);
+registerCompositeRenderer("mind-map", renderMindMap);

@@ -51,7 +51,10 @@ export function AuthPromptDialog({
           SSH Authentication
         </h2>
         <p className="terminal-dialog-text">
-          Enter password for <strong>{authPrompt.username}@{host}</strong>
+          Enter password for{" "}
+          <strong>
+            {authPrompt.username}@{host}
+          </strong>
         </p>
 
         <form onSubmit={handleSubmit}>

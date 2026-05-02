@@ -4,4 +4,9 @@
  * @module Ping
  */
 export { PingDashboard } from "./PingDashboard";
-export type { PingRequest, PingResult, PingSummary, PingTargetStats } from "./types";
+export type {
+  PingRequest,
+  PingResult,
+  PingSummary,
+  PingTargetStats,
+} from "./types";

@@ -8,19 +8,19 @@
  * @module
  */
 
-import { nanoid } from 'nanoid';
-import type { VisualExpression } from '../../protocol';
-import type { ToolHandler, DrawPreview } from './BaseTool';
-import type { CanvasStoreApi } from '../store/canvasStore';
+import { nanoid } from "nanoid";
+import type { VisualExpression } from "../../protocol";
+import type { ToolHandler, DrawPreview } from "./BaseTool";
+import type { CanvasStoreApi } from "../store/canvasStore";
 
 /** Minimum number of points to create a freehand stroke. */
 const MIN_POINTS = 2;
 
 /** Human author for locally-drawn expressions. */
 const LOCAL_AUTHOR = {
-  type: 'human' as const,
-  id: 'local-user',
-  name: 'You',
+  type: "human" as const,
+  id: "local-user",
+  name: "You",
 };
 
 /** Tool handler for freehand/pen drawing on the canvas. */
@@ -60,7 +60,7 @@ export class FreehandTool implements ToolHandler {
 
     const expression: VisualExpression = {
       id,
-      kind: 'freehand',
+      kind: "freehand",
       position,
       size,
       angle: 0,
@@ -75,7 +75,7 @@ export class FreehandTool implements ToolHandler {
         tags: [],
         locked: false,
       },
-      data: { kind: 'freehand', points: [...this.points] },
+      data: { kind: "freehand", points: [...this.points] },
     };
 
     const store = this.store.getState();
@@ -98,7 +98,7 @@ export class FreehandTool implements ToolHandler {
     const points2D: [number, number][] = this.points.map(([x, y]) => [x, y]);
 
     return {
-      kind: 'freehand',
+      kind: "freehand",
       x: position.x,
       y: position.y,
       width: size.width,

@@ -110,17 +110,21 @@ async function pasteToTerminal(
  * `CurrentDirectory` in the PEB — so reading it via NtQueryInformationProcess
  * can return a stale value (usually the user's home directory).
  */
-function scanPromptCwdAboveLine(terminal: Terminal, startLine: number): string | undefined {
+function scanPromptCwdAboveLine(
+  terminal: Terminal,
+  startLine: number,
+): string | undefined {
   const buf = terminal.buffer.active;
   const start = Math.max(0, startLine - 200);
   // Collapse `\\+` or `/+` to a single separator, strip trailing quote /
   // punctuation, strip trailing separator. Some prompt themes (Oh-My-Posh,
   // PSReadLine in debug) render paths with escaped double backslashes.
   const clean = (p: string): string =>
-    p.replace(/["'`]+$/, "")
-     .replace(/\\{2,}/g, "\\")
-     .replace(/\/{2,}/g, "/")
-     .replace(/[\\/]+$/, "");
+    p
+      .replace(/["'`]+$/, "")
+      .replace(/\\{2,}/g, "\\")
+      .replace(/\/{2,}/g, "/")
+      .replace(/[\\/]+$/, "");
   // PowerShell: "PS C:\path> " — may be prefixed with conda "(base) ",
   // posh-git prompt glyphs, etc. We anchor on "PS " + drive letter.
   const psRegex = /PS\s+([A-Za-z]:[\\/][^>]*?)\s*>/;
@@ -130,7 +134,8 @@ function scanPromptCwdAboveLine(terminal: Terminal, startLine: number): string |
   // glyph (❯, →, ➜). We look for a drive-letter path on the same line.
   // Exclude quotes and closing brackets so we don't pick up surrounding
   // prompt decoration.
-  const glyphRegex = /[❯→➜►»]\s*.*?([A-Za-z]:[\\/][^\s>"'`()[\]]+)|([A-Za-z]:[\\/][^\s>"'`()[\]]+)\s*[❯→➜►»]/;
+  const glyphRegex =
+    /[❯→➜►»]\s*.*?([A-Za-z]:[\\/][^\s>"'`()[\]]+)|([A-Za-z]:[\\/][^\s>"'`()[\]]+)\s*[❯→➜►»]/;
   // Multi-line Oh-My-Posh: path on one line (often after "user@host  "),
   // glyph alone on the next. Matches any drive-letter path on the line,
   // which we use when scanning the line directly above a bare-glyph line.
@@ -140,23 +145,30 @@ function scanPromptCwdAboveLine(terminal: Terminal, startLine: number): string |
     const line = buf.getLine(y);
     if (!line) continue;
     const text = line.translateToString(true);
-    if (debugLines.length < 6 && text.trim()) debugLines.push(`y=${y}:${JSON.stringify(text.slice(0, 120))}`);
+    if (debugLines.length < 6 && text.trim())
+      debugLines.push(`y=${y}:${JSON.stringify(text.slice(0, 120))}`);
     const psMatch = text.match(psRegex);
     if (psMatch) {
       const p = clean(psMatch[1]);
-      invoke("perf_log", { line: `promptScan HIT PS y=${y} cwd=${p}` }).catch(() => {});
+      invoke("perf_log", { line: `promptScan HIT PS y=${y} cwd=${p}` }).catch(
+        () => {},
+      );
       return p;
     }
     const cmdMatch = text.match(cmdRegex);
     if (cmdMatch) {
       const p = clean(cmdMatch[1]);
-      invoke("perf_log", { line: `promptScan HIT CMD y=${y} cwd=${p}` }).catch(() => {});
+      invoke("perf_log", { line: `promptScan HIT CMD y=${y} cwd=${p}` }).catch(
+        () => {},
+      );
       return p;
     }
     const glyphMatch = text.match(glyphRegex);
     if (glyphMatch) {
       const p = clean(glyphMatch[1] || glyphMatch[2]);
-      invoke("perf_log", { line: `promptScan HIT GLYPH y=${y} cwd=${p}` }).catch(() => {});
+      invoke("perf_log", {
+        line: `promptScan HIT GLYPH y=${y} cwd=${p}`,
+      }).catch(() => {});
       return p;
     }
     // Multi-line glyph prompt: a line containing only a bare glyph means the
@@ -169,13 +181,17 @@ function scanPromptCwdAboveLine(terminal: Terminal, startLine: number): string |
         const m = aboveText.match(bareDrivePathRegex);
         if (m) {
           const p = clean(m[1]);
-          invoke("perf_log", { line: `promptScan HIT GLYPH2L y=${y} cwd=${p}` }).catch(() => {});
+          invoke("perf_log", {
+            line: `promptScan HIT GLYPH2L y=${y} cwd=${p}`,
+          }).catch(() => {});
           return p;
         }
       }
     }
   }
-  invoke("perf_log", { line: `promptScan MISS startLine=${startLine} sampled=[${debugLines.join(" | ")}]` }).catch(() => {});
+  invoke("perf_log", {
+    line: `promptScan MISS startLine=${startLine} sampled=[${debugLines.join(" | ")}]`,
+  }).catch(() => {});
   return undefined;
 }
 
@@ -240,15 +256,19 @@ export function useTerminal({
     // output has printed — causing clicks on listed files to walk past the
     // record and hit a stale older entry instead).
     let cwdProbeTimer: ReturnType<typeof setTimeout> | null = null;
-    let pendingAnchor: { marker: import("@xterm/xterm").IMarker | null; line: number } | null = null;
+    let pendingAnchor: {
+      marker: import("@xterm/xterm").IMarker | null;
+      line: number;
+    } | null = null;
     // Once OSC 7 has been received for this session we know the shell is
     // self-reporting its cwd reliably — skip the PEB probe entirely, since
     // on PowerShell the PEB lags behind and would stomp the OSC 7 value
     // with a stale directory (usually the user's home).
     let hasReceivedOsc7 = false;
-    const probeSessionCwd = (
-      anchor?: { marker: import("@xterm/xterm").IMarker | null; line: number },
-    ) => {
+    const probeSessionCwd = (anchor?: {
+      marker: import("@xterm/xterm").IMarker | null;
+      line: number;
+    }) => {
       if (hasReceivedOsc7) return;
       if (cwdProbeTimer) clearTimeout(cwdProbeTimer);
       // Prefer the earliest anchor in the current debounce window — it's
@@ -270,12 +290,19 @@ export function useTerminal({
           .then((processCwd) => {
             if (!processCwd || disposed) return;
             if (anchor) {
-              recordSessionCwd(sessionId, processCwd, anchor.marker, anchor.line);
+              recordSessionCwd(
+                sessionId,
+                processCwd,
+                anchor.marker,
+                anchor.line,
+              );
             } else {
               recordCwdAtCursor(processCwd);
             }
           })
-          .catch(() => { /* strict failure — rely on OSC 7 / title */ });
+          .catch(() => {
+            /* strict failure — rely on OSC 7 / title */
+          });
       }, 300);
     };
 
@@ -287,7 +314,7 @@ export function useTerminal({
       fontSize: initialFontSettings.fontSize,
       fontFamily: initialFontSettings.fontFamily,
       scrollback: TERMINAL_CONFIG.scrollback,
-      theme: (themeState.activeColors || DEFAULT_TERMINAL_THEME),
+      theme: themeState.activeColors || DEFAULT_TERMINAL_THEME,
       cursorBlink: true,
       cursorStyle: "block",
       allowProposedApi: true,
@@ -320,9 +347,17 @@ export function useTerminal({
     terminal.registerLinkProvider({
       provideLinks(bufferLineNumber, callback) {
         const line = terminal.buffer.active.getLine(bufferLineNumber - 1);
-        if (!line) { callback(undefined); return; }
+        if (!line) {
+          callback(undefined);
+          return;
+        }
         const text = line.translateToString();
-        const links: { startIndex: number; length: number; text: string; isRelative: boolean }[] = [];
+        const links: {
+          startIndex: number;
+          length: number;
+          text: string;
+          isRelative: boolean;
+        }[] = [];
 
         // Match absolute paths: /path/to/file.ext
         const absRegex = /(?:^|\s)(\/[\w./-]+\.\w{1,10})\b/g;
@@ -330,105 +365,161 @@ export function useTerminal({
         while ((match = absRegex.exec(text)) !== null) {
           const path = match[1];
           const startIndex = match.index + match[0].indexOf(path);
-          links.push({ startIndex, length: path.length, text: path, isRelative: false });
+          links.push({
+            startIndex,
+            length: path.length,
+            text: path,
+            isRelative: false,
+          });
         }
 
         // Match filenames with common config/script extensions anywhere in line
         // (covers ls output "CR4.txt", ls -lah trailing filenames, etc.)
-        const fileExts = "txt|cfg|conf|config|ios|acl|js|ts|py|sh|yaml|yml|json|xml|csv|log|bak|md|drawio|tsv";
-        const fnRegex = new RegExp(`(?:^|\\s)([\\w][\\w.+-]*\\.(?:${fileExts}))(?=\\s|$)`, "gi");
+        const fileExts =
+          "txt|cfg|conf|config|ios|acl|js|ts|py|sh|yaml|yml|json|xml|csv|log|bak|md|drawio|tsv";
+        const fnRegex = new RegExp(
+          `(?:^|\\s)([\\w][\\w.+-]*\\.(?:${fileExts}))(?=\\s|$)`,
+          "gi",
+        );
         while ((match = fnRegex.exec(text)) !== null) {
           const fname = match[1];
           const startIndex = match.index + match[0].indexOf(fname);
           // Skip if already matched as absolute path
           if (links.some((l) => l.startIndex === startIndex)) continue;
-          links.push({ startIndex, length: fname.length, text: fname, isRelative: true });
+          links.push({
+            startIndex,
+            length: fname.length,
+            text: fname,
+            isRelative: true,
+          });
         }
 
-        if (links.length === 0) { callback(undefined); return; }
-        callback(links.map((l) => ({
-          range: {
-            start: { x: l.startIndex + 1, y: bufferLineNumber },
-            end: { x: l.startIndex + l.length + 1, y: bufferLineNumber },
-          },
-          text: l.text,
-          activate() {
-            const resolveAndOpen = (openFn: (path: string) => void) => {
-              if (!l.isRelative) { openFn(l.text); return; }
+        if (links.length === 0) {
+          callback(undefined);
+          return;
+        }
+        callback(
+          links.map((l) => ({
+            range: {
+              start: { x: l.startIndex + 1, y: bufferLineNumber },
+              end: { x: l.startIndex + l.length + 1, y: bufferLineNumber },
+            },
+            text: l.text,
+            activate() {
+              const resolveAndOpen = (openFn: (path: string) => void) => {
+                if (!l.isRelative) {
+                  openFn(l.text);
+                  return;
+                }
 
-              const joinPath = (cwd: string, name: string): string => {
-                const sep = cwd.includes("\\") ? "\\" : "/";
-                return cwd.endsWith(sep) ? `${cwd}${name}` : `${cwd}${sep}${name}`;
+                const joinPath = (cwd: string, name: string): string => {
+                  const sep = cwd.includes("\\") ? "\\" : "/";
+                  return cwd.endsWith(sep)
+                    ? `${cwd}${name}`
+                    : `${cwd}${sep}${name}`;
+                };
+
+                // Prompt-scan FIRST: the shell prompt (PS C:\path> / C:\path>)
+                // sits right next to the filename the user clicked and always
+                // reflects the real cwd at that moment. This beats:
+                //  - window-title parsing (PowerShell does NOT update the
+                //    title on `cd`, so titleCwd often sticks at the startup
+                //    value of user-home)
+                //  - `pty_cwd` (PowerShell's `cd` doesn't sync the Win32 PEB
+                //    CurrentDirectory, so NtQueryInformationProcess returns
+                //    a stale value)
+                const promptCwd = scanPromptCwdAboveLine(
+                  terminal,
+                  bufferLineNumber,
+                );
+                if (promptCwd) {
+                  const resolved = joinPath(promptCwd, l.text);
+                  invoke("perf_log", {
+                    line: `link activate name=${l.text} line=${bufferLineNumber} source=promptScan cwd=${promptCwd} resolved=${resolved}`,
+                  }).catch(() => {});
+                  openFn(resolved);
+                  return;
+                }
+
+                // Line-aware title/OSC7 history — resolves to the cwd that
+                // was active when this filename was printed, not the current
+                // cwd. Works well for zsh/bash with title-update hooks.
+                const titleCwd = getSessionCwdAtLine(
+                  sessionId,
+                  bufferLineNumber,
+                );
+                if (titleCwd) {
+                  const resolved = joinPath(titleCwd, l.text);
+                  invoke("perf_log", {
+                    line: `link activate name=${l.text} line=${bufferLineNumber} source=titleCwd cwd=${titleCwd} resolved=${resolved}`,
+                  }).catch(() => {});
+                  openFn(resolved);
+                  return;
+                }
+
+                invoke<string>("pty_cwd", { sessionId })
+                  .then((cwd) => {
+                    const resolved = joinPath(cwd, l.text);
+                    invoke("perf_log", {
+                      line: `link activate name=${l.text} line=${bufferLineNumber} source=pty_cwd cwd=${cwd} resolved=${resolved}`,
+                    }).catch(() => {});
+                    openFn(resolved);
+                  })
+                  .catch(() => {
+                    invoke("perf_log", {
+                      line: `link activate name=${l.text} line=${bufferLineNumber} source=fallback-bare-name`,
+                    }).catch(() => {});
+                    openFn(l.text);
+                  });
               };
 
-              // Prompt-scan FIRST: the shell prompt (PS C:\path> / C:\path>)
-              // sits right next to the filename the user clicked and always
-              // reflects the real cwd at that moment. This beats:
-              //  - window-title parsing (PowerShell does NOT update the
-              //    title on `cd`, so titleCwd often sticks at the startup
-              //    value of user-home)
-              //  - `pty_cwd` (PowerShell's `cd` doesn't sync the Win32 PEB
-              //    CurrentDirectory, so NtQueryInformationProcess returns
-              //    a stale value)
-              const promptCwd = scanPromptCwdAboveLine(terminal, bufferLineNumber);
-              if (promptCwd) {
-                const resolved = joinPath(promptCwd, l.text);
-                invoke("perf_log", { line: `link activate name=${l.text} line=${bufferLineNumber} source=promptScan cwd=${promptCwd} resolved=${resolved}` }).catch(() => {});
-                openFn(resolved);
-                return;
-              }
-
-              // Line-aware title/OSC7 history — resolves to the cwd that
-              // was active when this filename was printed, not the current
-              // cwd. Works well for zsh/bash with title-update hooks.
-              const titleCwd = getSessionCwdAtLine(sessionId, bufferLineNumber);
-              if (titleCwd) {
-                const resolved = joinPath(titleCwd, l.text);
-                invoke("perf_log", { line: `link activate name=${l.text} line=${bufferLineNumber} source=titleCwd cwd=${titleCwd} resolved=${resolved}` }).catch(() => {});
-                openFn(resolved);
-                return;
-              }
-
-              invoke<string>("pty_cwd", { sessionId })
-                .then((cwd) => {
-                  const resolved = joinPath(cwd, l.text);
-                  invoke("perf_log", { line: `link activate name=${l.text} line=${bufferLineNumber} source=pty_cwd cwd=${cwd} resolved=${resolved}` }).catch(() => {});
-                  openFn(resolved);
-                })
-                .catch(() => {
-                  invoke("perf_log", { line: `link activate name=${l.text} line=${bufferLineNumber} source=fallback-bare-name` }).catch(() => {});
-                  openFn(l.text);
-                });
-            };
-
-            const ext = l.text.split(".").pop()?.toLowerCase() || "";
-            if (ext === "md" || ext === "markdown" || ext === "mdx") {
-              // Show context menu for markdown: View or Edit
-              const menu = document.createElement("div");
-              menu.className = "region-tabbar__context-menu";
-              menu.style.cssText = `position:fixed;z-index:1000;left:${window.innerWidth/2-60}px;top:${window.innerHeight/2-30}px;`;
-              menu.innerHTML = `
+              const ext = l.text.split(".").pop()?.toLowerCase() || "";
+              if (ext === "md" || ext === "markdown" || ext === "mdx") {
+                // Show context menu for markdown: View or Edit
+                const menu = document.createElement("div");
+                menu.className = "region-tabbar__context-menu";
+                menu.style.cssText = `position:fixed;z-index:1000;left:${window.innerWidth / 2 - 60}px;top:${window.innerHeight / 2 - 30}px;`;
+                menu.innerHTML = `
                 <button class="region-tabbar__context-item" data-action="view">📖 View Rendered</button>
                 <button class="region-tabbar__context-item" data-action="edit">✏️ Edit Source</button>
               `;
-              document.body.appendChild(menu);
-              const cleanup = () => { menu.remove(); document.removeEventListener("click", outsideClick); };
-              const outsideClick = (e: MouseEvent) => { if (!menu.contains(e.target as Node)) cleanup(); };
-              setTimeout(() => document.addEventListener("click", outsideClick), 10);
-              menu.addEventListener("click", (e) => {
-                const action = (e.target as HTMLElement).getAttribute("data-action");
-                cleanup();
-                if (action === "view") {
-                  resolveAndOpen((path) => useLayoutStore.getState().addMarkdownTab(undefined, path));
-                } else if (action === "edit") {
-                  resolveAndOpen((path) => useLayoutStore.getState().addEditorTab(undefined, path, undefined, true));
-                }
-              });
-            } else {
-              resolveAndOpen((path) => useLayoutStore.getState().addEditorTab(undefined, path));
-            }
-          },
-        })));
+                document.body.appendChild(menu);
+                const cleanup = () => {
+                  menu.remove();
+                  document.removeEventListener("click", outsideClick);
+                };
+                const outsideClick = (e: MouseEvent) => {
+                  if (!menu.contains(e.target as Node)) cleanup();
+                };
+                setTimeout(
+                  () => document.addEventListener("click", outsideClick),
+                  10,
+                );
+                menu.addEventListener("click", (e) => {
+                  const action = (e.target as HTMLElement).getAttribute(
+                    "data-action",
+                  );
+                  cleanup();
+                  if (action === "view") {
+                    resolveAndOpen((path) =>
+                      useLayoutStore.getState().addMarkdownTab(undefined, path),
+                    );
+                  } else if (action === "edit") {
+                    resolveAndOpen((path) =>
+                      useLayoutStore
+                        .getState()
+                        .addEditorTab(undefined, path, undefined, true),
+                    );
+                  }
+                });
+              } else {
+                resolveAndOpen((path) =>
+                  useLayoutStore.getState().addEditorTab(undefined, path),
+                );
+              }
+            },
+          })),
+        );
       },
     });
 
@@ -479,11 +570,18 @@ export function useTerminal({
     // below handles any further layout changes.
     const safeFocus = () => {
       if (disposed) return;
-      try { terminal.focus(); } catch { /* container not ready */ }
+      try {
+        terminal.focus();
+      } catch {
+        /* container not ready */
+      }
     };
     safeFocus();
 
-    const fitRaf = requestAnimationFrame(() => { safeFit(); safeFocus(); });
+    const fitRaf = requestAnimationFrame(() => {
+      safeFit();
+      safeFocus();
+    });
 
     // Initialize highlight engine
     const highlightEngine = new HighlightEngine(terminal);
@@ -515,7 +613,10 @@ export function useTerminal({
       if (disposed) return;
 
       // Change window guard: buffer and check on Enter
-      if (changeWindowEnabledRef.current && (data.includes("\r") || data.includes("\n"))) {
+      if (
+        changeWindowEnabledRef.current &&
+        (data.includes("\r") || data.includes("\n"))
+      ) {
         const command = lineBufferRef.current.trim();
         lineBufferRef.current = "";
 
@@ -575,7 +676,11 @@ export function useTerminal({
         const buffer = terminal.buffer.active;
         const cursorAbsLine = buffer.baseY + buffer.cursorY;
         let marker: import("@xterm/xterm").IMarker | null = null;
-        try { marker = terminal.registerMarker(0); } catch { /* best effort */ }
+        try {
+          marker = terminal.registerMarker(0);
+        } catch {
+          /* best effort */
+        }
         probeSessionCwd({ marker, line: cursorAbsLine });
       }
     });
@@ -590,14 +695,12 @@ export function useTerminal({
     });
 
     // Bridge: terminal resize → PTY resize
-    terminal.onResize(
-      ({ cols, rows }: { cols: number; rows: number }) => {
-        if (disposed) return;
-        invoke("pty_resize", { sessionId, cols, rows }).catch(() => {
-          // pty_resize failure — terminal may be out of sync
-        });
-      },
-    );
+    terminal.onResize(({ cols, rows }: { cols: number; rows: number }) => {
+      if (disposed) return;
+      invoke("pty_resize", { sessionId, cols, rows }).catch(() => {
+        // pty_resize failure — terminal may be out of sync
+      });
+    });
 
     // Title change detection (via escape sequences like \e]0;title\a)
     // Also feeds the per-session CWD registry — many shells set the title
@@ -660,86 +763,100 @@ export function useTerminal({
 
     // Keyboard shortcuts: Cmd/Ctrl+C/V/A (copy/paste/select-all),
     // Ctrl+Shift+H (highlight), Ctrl+Plus/Minus/0 (font zoom)
-    terminal.attachCustomKeyEventHandler(
-      (event: KeyboardEvent) => {
-        if (event.type !== "keydown") return true;
+    terminal.attachCustomKeyEventHandler((event: KeyboardEvent) => {
+      if (event.type !== "keydown") return true;
 
-        const isMod = event.metaKey || event.ctrlKey;
-        const key = event.key.toLowerCase();
+      const isMod = event.metaKey || event.ctrlKey;
+      const key = event.key.toLowerCase();
 
-        // Cmd+C / Ctrl+C — copy selection (if any), otherwise send SIGINT
-        if (isMod && !event.shiftKey && (key === "c" || event.code === "KeyC")) {
-          const selection = terminal.getSelection();
-          if (selection) {
-            navigator.clipboard.writeText(selection).catch(() => {});
-            return false; // Consumed — don't send to PTY
-          }
-          // No selection → let xterm send Ctrl+C (SIGINT) to PTY
-          return true;
+      // Cmd+C / Ctrl+C — copy selection (if any), otherwise send SIGINT
+      if (isMod && !event.shiftKey && (key === "c" || event.code === "KeyC")) {
+        const selection = terminal.getSelection();
+        if (selection) {
+          navigator.clipboard.writeText(selection).catch(() => {});
+          return false; // Consumed — don't send to PTY
         }
+        // No selection → let xterm send Ctrl+C (SIGINT) to PTY
+        return true;
+      }
 
-        // Cmd+V / Ctrl+V — paste from clipboard
-        if (isMod && !event.shiftKey && (key === "v" || event.code === "KeyV")) {
-          event.preventDefault();
-          pasteToTerminal(terminal, sessionId);
-          return false;
+      // Cmd+V / Ctrl+V — paste from clipboard
+      if (isMod && !event.shiftKey && (key === "v" || event.code === "KeyV")) {
+        event.preventDefault();
+        pasteToTerminal(terminal, sessionId);
+        return false;
+      }
+
+      // Cmd+A / Ctrl+A — select all terminal content
+      if (isMod && !event.shiftKey && (key === "a" || event.code === "KeyA")) {
+        terminal.selectAll();
+        return false;
+      }
+
+      // Ctrl+Shift+C — copy (Linux-style, always copies)
+      if (event.ctrlKey && event.shiftKey && event.key === "C") {
+        const selection = terminal.getSelection();
+        if (selection) {
+          navigator.clipboard.writeText(selection).catch(() => {});
         }
+        return false;
+      }
 
-        // Cmd+A / Ctrl+A — select all terminal content
-        if (isMod && !event.shiftKey && (key === "a" || event.code === "KeyA")) {
-          terminal.selectAll();
-          return false;
+      // Ctrl+Shift+V — paste (Linux-style)
+      if (event.ctrlKey && event.shiftKey && event.key === "V") {
+        event.preventDefault();
+        pasteToTerminal(terminal, sessionId);
+        return false;
+      }
+
+      // Ctrl+Shift+H — toggle highlighting
+      if (event.ctrlKey && event.shiftKey && event.key === "H") {
+        const newState = highlightEngine.toggle();
+        setHighlightEnabled(newState);
+        return false;
+      }
+
+      // Ctrl+= or Ctrl+Plus — increase font size
+      if (
+        event.ctrlKey &&
+        !event.shiftKey &&
+        (event.key === "=" || event.key === "+")
+      ) {
+        const current = terminal.options.fontSize ?? FONT_SIZE_DEFAULT;
+        terminal.options.fontSize = clampFontSize(current + 1);
+        try {
+          fitAddon.fit();
+        } catch {
+          /* ignore */
         }
+        return false;
+      }
 
-        // Ctrl+Shift+C — copy (Linux-style, always copies)
-        if (event.ctrlKey && event.shiftKey && event.key === "C") {
-          const selection = terminal.getSelection();
-          if (selection) {
-            navigator.clipboard.writeText(selection).catch(() => {});
-          }
-          return false;
+      // Ctrl+- — decrease font size
+      if (event.ctrlKey && !event.shiftKey && event.key === "-") {
+        const current = terminal.options.fontSize ?? FONT_SIZE_DEFAULT;
+        terminal.options.fontSize = clampFontSize(current - 1);
+        try {
+          fitAddon.fit();
+        } catch {
+          /* ignore */
         }
+        return false;
+      }
 
-        // Ctrl+Shift+V — paste (Linux-style)
-        if (event.ctrlKey && event.shiftKey && event.key === "V") {
-          event.preventDefault();
-          pasteToTerminal(terminal, sessionId);
-          return false;
+      // Ctrl+0 — reset font size to default
+      if (event.ctrlKey && !event.shiftKey && event.key === "0") {
+        terminal.options.fontSize = FONT_SIZE_DEFAULT;
+        try {
+          fitAddon.fit();
+        } catch {
+          /* ignore */
         }
+        return false;
+      }
 
-        // Ctrl+Shift+H — toggle highlighting
-        if (event.ctrlKey && event.shiftKey && event.key === "H") {
-          const newState = highlightEngine.toggle();
-          setHighlightEnabled(newState);
-          return false;
-        }
-
-        // Ctrl+= or Ctrl+Plus — increase font size
-        if (event.ctrlKey && !event.shiftKey && (event.key === "=" || event.key === "+")) {
-          const current = terminal.options.fontSize ?? FONT_SIZE_DEFAULT;
-          terminal.options.fontSize = clampFontSize(current + 1);
-          try { fitAddon.fit(); } catch { /* ignore */ }
-          return false;
-        }
-
-        // Ctrl+- — decrease font size
-        if (event.ctrlKey && !event.shiftKey && event.key === "-") {
-          const current = terminal.options.fontSize ?? FONT_SIZE_DEFAULT;
-          terminal.options.fontSize = clampFontSize(current - 1);
-          try { fitAddon.fit(); } catch { /* ignore */ }
-          return false;
-        }
-
-        // Ctrl+0 — reset font size to default
-        if (event.ctrlKey && !event.shiftKey && event.key === "0") {
-          terminal.options.fontSize = FONT_SIZE_DEFAULT;
-          try { fitAddon.fit(); } catch { /* ignore */ }
-          return false;
-        }
-
-        return true; // Allow normal key processing
-      },
-    );
+      return true; // Allow normal key processing
+    });
 
     // Set up Tauri event listeners (async)
     const setupEvents = async () => {
@@ -868,7 +985,11 @@ export function useTerminal({
       if (themeState.activeColors) {
         term.options.theme = themeState.activeColors;
       }
-      try { fitAddonRef.current?.fit(); } catch { /* ignore */ }
+      try {
+        fitAddonRef.current?.fit();
+      } catch {
+        /* ignore */
+      }
     };
     const unsub = useThemeStore.subscribe(applyTheme);
     return unsub;

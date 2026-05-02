@@ -7,14 +7,14 @@
  * @module
  */
 
-import { useState, useCallback } from 'react';
-import { X } from 'lucide-react';
+import { useState, useCallback } from "react";
+import { X } from "lucide-react";
 
 /** localStorage key for settings. */
-export const SETTINGS_STORAGE_KEY = 'infinicanvas:settings';
+export const SETTINGS_STORAGE_KEY = "infinicanvas:settings";
 
 /** Custom event dispatched on same-tab settings save. */
-export const SETTINGS_CHANGED_EVENT = 'infinicanvas:settings-changed';
+export const SETTINGS_CHANGED_EVENT = "infinicanvas:settings-changed";
 
 /** Settings shape stored in localStorage. */
 export interface AppSettings {
@@ -24,8 +24,8 @@ export interface AppSettings {
 
 /** Default settings values. */
 const DEFAULT_SETTINGS: AppSettings = {
-  gatewayUrl: '',
-  apiKey: '',
+  gatewayUrl: "",
+  apiKey: "",
 };
 
 /**
@@ -41,8 +41,9 @@ function loadSettings(): AppSettings {
 
     const parsed = JSON.parse(raw);
     return {
-      gatewayUrl: typeof parsed.gatewayUrl === 'string' ? parsed.gatewayUrl : '',
-      apiKey: typeof parsed.apiKey === 'string' ? parsed.apiKey : '',
+      gatewayUrl:
+        typeof parsed.gatewayUrl === "string" ? parsed.gatewayUrl : "",
+      apiKey: typeof parsed.apiKey === "string" ? parsed.apiKey : "",
     };
   } catch {
     return { ...DEFAULT_SETTINGS };
@@ -91,31 +92,31 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
     <div
       data-testid="settings-panel"
       style={{
-        position: 'absolute',
+        position: "absolute",
         inset: 0,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        backgroundColor: 'rgba(0, 0, 0, 0.4)',
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        backgroundColor: "rgba(0, 0, 0, 0.4)",
         zIndex: 100,
       }}
     >
       <div
         style={{
-          backgroundColor: 'var(--bg-toolbar, #ffffff)',
+          backgroundColor: "var(--bg-toolbar, #ffffff)",
           borderRadius: 12,
-          padding: '24px',
+          padding: "24px",
           maxWidth: 420,
-          width: '90%',
-          boxShadow: '0 8px 32px rgba(0, 0, 0, 0.2)',
+          width: "90%",
+          boxShadow: "0 8px 32px rgba(0, 0, 0, 0.2)",
         }}
       >
         {/* Header */}
         <div
           style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
             marginBottom: 20,
           }}
         >
@@ -124,8 +125,8 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
               margin: 0,
               fontSize: 18,
               fontWeight: 600,
-              color: 'var(--text-primary, #333333)',
-              fontFamily: 'system-ui, -apple-system, sans-serif',
+              color: "var(--text-primary, #333333)",
+              fontFamily: "system-ui, -apple-system, sans-serif",
             }}
           >
             Settings
@@ -136,16 +137,16 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
             aria-label="Close settings"
             onClick={onClose}
             style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
               width: 28,
               height: 28,
-              border: 'none',
+              border: "none",
               borderRadius: 6,
-              cursor: 'pointer',
-              backgroundColor: 'transparent',
-              color: 'var(--text-primary, #333333)',
+              cursor: "pointer",
+              backgroundColor: "transparent",
+              color: "var(--text-primary, #333333)",
             }}
           >
             <X size={16} />
@@ -154,10 +155,7 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
 
         {/* Gateway URL */}
         <div style={{ marginBottom: 16 }}>
-          <label
-            htmlFor="settings-gateway-url"
-            style={labelStyle}
-          >
+          <label htmlFor="settings-gateway-url" style={labelStyle}>
             Gateway URL
           </label>
           <input
@@ -166,17 +164,14 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
             type="url"
             placeholder="ws://localhost:3001"
             value={settings.gatewayUrl}
-            onChange={(e) => handleChange('gatewayUrl', e.target.value)}
+            onChange={(e) => handleChange("gatewayUrl", e.target.value)}
             style={inputStyle}
           />
         </div>
 
         {/* API Key */}
         <div style={{ marginBottom: 16 }}>
-          <label
-            htmlFor="settings-api-key"
-            style={labelStyle}
-          >
+          <label htmlFor="settings-api-key" style={labelStyle}>
             Gateway API Key
           </label>
           <input
@@ -185,7 +180,7 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
             type="password"
             placeholder="Enter API key"
             value={settings.apiKey}
-            onChange={(e) => handleChange('apiKey', e.target.value)}
+            onChange={(e) => handleChange("apiKey", e.target.value)}
             style={inputStyle}
           />
         </div>
@@ -194,12 +189,12 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
         <p
           style={{
             fontSize: 12,
-            color: '#b58105',
-            backgroundColor: '#fef9e7',
-            padding: '8px 12px',
+            color: "#b58105",
+            backgroundColor: "#fef9e7",
+            padding: "8px 12px",
             borderRadius: 6,
             margin: 0,
-            fontFamily: 'system-ui, -apple-system, sans-serif',
+            fontFamily: "system-ui, -apple-system, sans-serif",
           }}
         >
           ⚠ API keys are stored in your browser&apos;s local storage
@@ -211,25 +206,25 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
 
 /** Shared label style. */
 const labelStyle: React.CSSProperties = {
-  display: 'block',
+  display: "block",
   fontSize: 13,
   fontWeight: 500,
   marginBottom: 4,
-  color: 'var(--text-primary, #333333)',
-  fontFamily: 'system-ui, -apple-system, sans-serif',
+  color: "var(--text-primary, #333333)",
+  fontFamily: "system-ui, -apple-system, sans-serif",
 };
 
 /** Shared input style. */
 const inputStyle: React.CSSProperties = {
-  display: 'block',
-  width: '100%',
-  padding: '8px 12px',
+  display: "block",
+  width: "100%",
+  padding: "8px 12px",
   fontSize: 14,
-  border: '1px solid var(--border, #e0e0e0)',
+  border: "1px solid var(--border, #e0e0e0)",
   borderRadius: 6,
-  backgroundColor: 'var(--bg-canvas, #ffffff)',
-  color: 'var(--text-primary, #333333)',
-  fontFamily: 'system-ui, -apple-system, sans-serif',
-  outline: 'none',
-  boxSizing: 'border-box',
+  backgroundColor: "var(--bg-canvas, #ffffff)",
+  color: "var(--text-primary, #333333)",
+  fontFamily: "system-ui, -apple-system, sans-serif",
+  outline: "none",
+  boxSizing: "border-box",
 };

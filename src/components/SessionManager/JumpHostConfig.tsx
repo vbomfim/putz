@@ -156,10 +156,7 @@ export function JumpHostConfig({
 
       {/* Chain visualization */}
       {chain.length > 0 && (
-        <div
-          className="jump-host-chain"
-          data-testid="jump-host-chain"
-        >
+        <div className="jump-host-chain" data-testid="jump-host-chain">
           <span className="jump-host-chain-label">Connection path:</span>
           <span className="jump-host-chain-path">
             {chain.map((hop, i) => (

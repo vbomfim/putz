@@ -12,7 +12,12 @@ import userEvent from "@testing-library/user-event";
 import { SFTPPanel } from "../components/SFTP/SFTPPanel";
 import { TransferQueue } from "../components/SFTP/TransferQueue";
 import type { RemoteFileEntry, TransferInfo } from "../components/SFTP/types";
-import { formatFileSize, formatPermissions, formatSpeed, formatEta } from "../components/SFTP/types";
+import {
+  formatFileSize,
+  formatPermissions,
+  formatSpeed,
+  formatEta,
+} from "../components/SFTP/types";
 
 // ── Tauri IPC mocks ───────────────────────────────────────────────
 
@@ -30,33 +35,35 @@ vi.mock("@tauri-apps/api/event", () => ({
 // ── Helpers ───────────────────────────────────────────────────────
 
 function setupMocks(files: RemoteFileEntry[] = []) {
-  mockInvoke = vi.fn().mockImplementation(async (cmd: string, args?: Record<string, unknown>) => {
-    switch (cmd) {
-      case "sftp_open":
-        return "sftp-edge-session";
-      case "sftp_list":
-        return files;
-      case "sftp_stat":
-        return {
-          path: args?.path,
-          isDir: false,
-          size: 0,
-          permissions: 0o644,
-          modified: 1700000000,
-        };
-      case "sftp_download":
-        return "transfer-edge-dl";
-      case "sftp_upload":
-        return "transfer-edge-ul";
-      case "sftp_rename":
-      case "sftp_delete":
-      case "sftp_mkdir":
-      case "sftp_close":
-        return undefined;
-      default:
-        throw new Error(`Unknown command: ${cmd}`);
-    }
-  });
+  mockInvoke = vi
+    .fn()
+    .mockImplementation(async (cmd: string, args?: Record<string, unknown>) => {
+      switch (cmd) {
+        case "sftp_open":
+          return "sftp-edge-session";
+        case "sftp_list":
+          return files;
+        case "sftp_stat":
+          return {
+            path: args?.path,
+            isDir: false,
+            size: 0,
+            permissions: 0o644,
+            modified: 1700000000,
+          };
+        case "sftp_download":
+          return "transfer-edge-dl";
+        case "sftp_upload":
+          return "transfer-edge-ul";
+        case "sftp_rename":
+        case "sftp_delete":
+        case "sftp_mkdir":
+        case "sftp_close":
+          return undefined;
+        default:
+          throw new Error(`Unknown command: ${cmd}`);
+      }
+    });
 
   mockListen = vi.fn().mockResolvedValue(vi.fn());
 }
@@ -140,9 +147,7 @@ describe("SFTP Edge Case Tests", () => {
     });
 
     it("handles file named with only spaces", async () => {
-      setupMocks([
-        { name: "   ", path: "/   ", isDir: false, size: 0 },
-      ]);
+      setupMocks([{ name: "   ", path: "/   ", isDir: false, size: 0 }]);
 
       render(<SFTPPanel connectionId="conn-edge" />);
 
@@ -544,19 +549,30 @@ describe("SFTP Edge Case Tests", () => {
     });
 
     it("handles sftp_delete failure without crashing", async () => {
-      const consoleSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+      const consoleSpy = vi
+        .spyOn(console, "error")
+        .mockImplementation(() => {});
       const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(true);
 
       setupMocks([
-        { name: "protected.txt", path: "/protected.txt", isDir: false, size: 100 },
+        {
+          name: "protected.txt",
+          path: "/protected.txt",
+          isDir: false,
+          size: 100,
+        },
       ]);
 
       // Override delete to fail
       const origInvoke = mockInvoke;
-      mockInvoke = vi.fn().mockImplementation(async (cmd: string, args?: Record<string, unknown>) => {
-        if (cmd === "sftp_delete") throw new Error("Permission denied");
-        return origInvoke(cmd, args);
-      });
+      mockInvoke = vi
+        .fn()
+        .mockImplementation(
+          async (cmd: string, args?: Record<string, unknown>) => {
+            if (cmd === "sftp_delete") throw new Error("Permission denied");
+            return origInvoke(cmd, args);
+          },
+        );
 
       render(<SFTPPanel connectionId="conn-err2" />);
 
@@ -587,17 +603,23 @@ describe("SFTP Edge Case Tests", () => {
     });
 
     it("handles sftp_rename failure without crashing", async () => {
-      const consoleSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+      const consoleSpy = vi
+        .spyOn(console, "error")
+        .mockImplementation(() => {});
 
       setupMocks([
         { name: "file.txt", path: "/file.txt", isDir: false, size: 100 },
       ]);
 
       const origInvoke = mockInvoke;
-      mockInvoke = vi.fn().mockImplementation(async (cmd: string, args?: Record<string, unknown>) => {
-        if (cmd === "sftp_rename") throw new Error("File exists");
-        return origInvoke(cmd, args);
-      });
+      mockInvoke = vi
+        .fn()
+        .mockImplementation(
+          async (cmd: string, args?: Record<string, unknown>) => {
+            if (cmd === "sftp_rename") throw new Error("File exists");
+            return origInvoke(cmd, args);
+          },
+        );
 
       const user = userEvent.setup();
       render(<SFTPPanel connectionId="conn-err3" />);
@@ -835,12 +857,15 @@ describe("SFTP Edge Case Tests", () => {
 
   describe("[EDGE] Large directory listing", () => {
     it("renders 500+ files without crashing", async () => {
-      const manyFiles: RemoteFileEntry[] = Array.from({ length: 500 }, (_, i) => ({
-        name: `file_${String(i).padStart(3, "0")}.cfg`,
-        path: `/configs/file_${String(i).padStart(3, "0")}.cfg`,
-        isDir: false,
-        size: i * 100,
-      }));
+      const manyFiles: RemoteFileEntry[] = Array.from(
+        { length: 500 },
+        (_, i) => ({
+          name: `file_${String(i).padStart(3, "0")}.cfg`,
+          path: `/configs/file_${String(i).padStart(3, "0")}.cfg`,
+          isDir: false,
+          size: i * 100,
+        }),
+      );
 
       setupMocks(manyFiles);
 
@@ -889,7 +914,13 @@ describe("SFTP Edge Case Tests", () => {
   describe("[EDGE] Properties dialog", () => {
     it("properties dialog closes when clicking overlay", async () => {
       setupMocks([
-        { name: "test.txt", path: "/test.txt", isDir: false, size: 100, permissions: 0o644 },
+        {
+          name: "test.txt",
+          path: "/test.txt",
+          isDir: false,
+          size: 100,
+          permissions: 0o644,
+        },
       ]);
 
       render(<SFTPPanel connectionId="conn-props" />);
@@ -944,9 +975,9 @@ describe("SFTP Edge Case Tests", () => {
       });
 
       // Click close button inside dialog
-      const closeBtn = screen.getAllByText("Close").find(
-        (el) => el.closest("[role='dialog']") !== null
-      );
+      const closeBtn = screen
+        .getAllByText("Close")
+        .find((el) => el.closest("[role='dialog']") !== null);
       expect(closeBtn).toBeDefined();
       fireEvent.click(closeBtn!);
 

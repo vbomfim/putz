@@ -4,19 +4,27 @@
  * @module
  */
 
-import type { VisualExpression, ProtocolOperation, ExpressionStyle, Layer, ArrowData, ArrowheadType, RoutingMode } from '../../protocol';
+import type {
+  VisualExpression,
+  ProtocolOperation,
+  ExpressionStyle,
+  Layer,
+  ArrowData,
+  ArrowheadType,
+  RoutingMode,
+} from "../../protocol";
 
 /** Tools available for canvas interaction. */
 export type ToolType =
-  | 'select'
-  | 'rectangle'
-  | 'ellipse'
-  | 'diamond'
-  | 'line'
-  | 'arrow'
-  | 'freehand'
-  | 'text'
-  | 'sticky-note';
+  | "select"
+  | "rectangle"
+  | "ellipse"
+  | "diamond"
+  | "line"
+  | "arrow"
+  | "freehand"
+  | "text"
+  | "sticky-note";
 
 /** Camera state for viewport panning and zooming. */
 export interface Camera {
@@ -34,16 +42,16 @@ export interface CameraWaypoint {
 }
 
 /** Grid display type — dots or lines. */
-export type GridType = 'dot' | 'line';
+export type GridType = "dot" | "line";
 
 /** Default style applied to newly created arrows. */
 export interface DefaultArrowStyle {
   /** Routing algorithm for the connector path. */
   routing: RoutingMode;
   /** Arrowhead at the start of the arrow. */
-  startArrowhead: ArrowheadType | 'none';
+  startArrowhead: ArrowheadType | "none";
   /** Arrowhead at the end of the arrow. */
-  endArrowhead: ArrowheadType | 'none';
+  endArrowhead: ArrowheadType | "none";
 }
 
 /** Complete canvas state shape managed by Zustand. */
@@ -122,13 +130,20 @@ export interface CanvasActions {
    * Validates each expression with Zod schema; rejects invalid ones. [S7-1]
    * Clears operationLog and selection.
    */
-  replaceState: (expressions: VisualExpression[], expressionOrder: string[]) => void;
+  replaceState: (
+    expressions: VisualExpression[],
+    expressionOrder: string[],
+  ) => void;
   /**
    * Move expressions to new positions. Emits `move` ProtocolOperations.
    * Accepts original positions so undo snapshot reflects pre-drag state.
    */
   moveExpressions: (
-    moves: Array<{ id: string; from: { x: number; y: number }; to: { x: number; y: number } }>,
+    moves: Array<{
+      id: string;
+      from: { x: number; y: number };
+      to: { x: number; y: number };
+    }>,
   ) => void;
   /**
    * Transform an expression (resize). Emits `transform` ProtocolOperation.
@@ -136,8 +151,14 @@ export interface CanvasActions {
    */
   transformExpression: (
     id: string,
-    original: { position: { x: number; y: number }; size: { width: number; height: number } },
-    final: { position: { x: number; y: number }; size: { width: number; height: number } },
+    original: {
+      position: { x: number; y: number };
+      size: { width: number; height: number };
+    },
+    final: {
+      position: { x: number; y: number };
+      size: { width: number; height: number };
+    },
   ) => void;
   /**
    * Apply style changes to multiple expressions. Emits `style` ProtocolOperation.
@@ -208,7 +229,7 @@ export interface CanvasActions {
   /** Toggle background grid visibility. */
   toggleGrid: () => void;
   /** Set the grid rendering type. */
-  setGridType: (type: 'dot' | 'line') => void;
+  setGridType: (type: "dot" | "line") => void;
   /** Set the grid spacing in world units. */
   setGridSize: (size: number) => void;
   /** Toggle snap-to-grid for shape dragging. */
@@ -271,7 +292,10 @@ export interface CanvasActions {
    * @param scope - 'all' to layout all expressions, 'selected' for only selected ones
    * @returns Number of expressions that were repositioned
    */
-  applyLayout: (options: import('../layout/types.js').LayoutOptions, scope: 'all' | 'selected') => number;
+  applyLayout: (
+    options: import("../layout/types.js").LayoutOptions,
+    scope: "all" | "selected",
+  ) => number;
 
   /**
    * Update arrow-specific data fields on an existing arrow expression.
@@ -292,5 +316,5 @@ export interface CanvasActions {
    * @param themeId - ID of the theme preset to apply
    * @param scope - 'all' applies to all expressions, 'selected' only to selected
    */
-  applyTheme: (themeId: string, scope: 'all' | 'selected') => void;
+  applyTheme: (themeId: string, scope: "all" | "selected") => void;
 }

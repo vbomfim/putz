@@ -22,7 +22,7 @@ describe("ChangeWindowWarning", () => {
     render(<ChangeWindowWarning {...defaultProps} />);
     expect(screen.getByText(/write memory/)).toBeInTheDocument();
     expect(
-      screen.getByText(/No active maintenance window/)
+      screen.getByText(/No active maintenance window/),
     ).toBeInTheDocument();
   });
 
@@ -49,10 +49,7 @@ describe("ChangeWindowWarning", () => {
   it("calls onCancel when Escape key is pressed", () => {
     const onCancel = vi.fn();
     render(<ChangeWindowWarning {...defaultProps} onCancel={onCancel} />);
-    fireEvent.keyDown(
-      screen.getByRole("alertdialog"),
-      { key: "Escape" }
-    );
+    fireEvent.keyDown(screen.getByRole("alertdialog"), { key: "Escape" });
     expect(onCancel).toHaveBeenCalledOnce();
   });
 

@@ -18,8 +18,8 @@
  * @module
  */
 
-import { XMLParser } from 'fast-xml-parser';
-import { escapeXml } from './xmlUtils';
+import { XMLParser } from "fast-xml-parser";
+import { escapeXml } from "./xmlUtils";
 
 // ── Public types ──────────────────────────────────────────
 
@@ -42,7 +42,7 @@ export interface DrawioShape {
   /** Intrinsic height from the XML `h` attribute. */
   height: number;
   /** Aspect ratio mode: "fixed" preserves ratio, "variable" allows stretching. */
-  aspect: 'fixed' | 'variable';
+  aspect: "fixed" | "variable";
   /** Generated SVG string ready for rendering. */
   svg: string;
   /** Named connection points for wiring. */
@@ -67,11 +67,9 @@ const MAX_SHAPE_COUNT = 2_000;
 
 const parser = new XMLParser({
   ignoreAttributes: false,
-  attributeNamePrefix: '@_',
+  attributeNamePrefix: "@_",
   processEntities: false,
-  isArray: (tagName) =>
-    tagName === 'shape' ||
-    tagName === 'constraint',
+  isArray: (tagName) => tagName === "shape" || tagName === "constraint",
 });
 
 // ── Internal types (parsed XML nodes) ─────────────────────
@@ -93,8 +91,8 @@ interface GfxState {
 /** Create a default (currentColor) graphics state. */
 function defaultGfxState(): GfxState {
   return {
-    strokeColor: 'currentColor',
-    fillColor: 'currentColor',
+    strokeColor: "currentColor",
+    fillColor: "currentColor",
     strokeWidth: 1,
   };
 }
@@ -121,46 +119,48 @@ function buildPathD(node: XmlNode): string {
   const parts: string[] = [];
 
   for (const [tag, value] of Object.entries(node)) {
-    if (tag.startsWith('@_')) continue; // skip attributes
-    const items = Array.isArray(value) ? (value as XmlNode[]) : [value as XmlNode];
+    if (tag.startsWith("@_")) continue; // skip attributes
+    const items = Array.isArray(value)
+      ? (value as XmlNode[])
+      : [value as XmlNode];
 
     for (const item of items) {
       switch (tag) {
-        case 'move':
-          parts.push(`M ${attr(item, 'x')} ${attr(item, 'y')}`);
+        case "move":
+          parts.push(`M ${attr(item, "x")} ${attr(item, "y")}`);
           break;
-        case 'line':
-          parts.push(`L ${attr(item, 'x')} ${attr(item, 'y')}`);
+        case "line":
+          parts.push(`L ${attr(item, "x")} ${attr(item, "y")}`);
           break;
-        case 'curve':
+        case "curve":
           parts.push(
-            `C ${attr(item, 'x1')} ${attr(item, 'y1')}, ` +
-            `${attr(item, 'x2')} ${attr(item, 'y2')}, ` +
-            `${attr(item, 'x3')} ${attr(item, 'y3')}`,
+            `C ${attr(item, "x1")} ${attr(item, "y1")}, ` +
+              `${attr(item, "x2")} ${attr(item, "y2")}, ` +
+              `${attr(item, "x3")} ${attr(item, "y3")}`,
           );
           break;
-        case 'quad':
+        case "quad":
           parts.push(
-            `Q ${attr(item, 'x1')} ${attr(item, 'y1')}, ` +
-            `${attr(item, 'x2')} ${attr(item, 'y2')}`,
+            `Q ${attr(item, "x1")} ${attr(item, "y1")}, ` +
+              `${attr(item, "x2")} ${attr(item, "y2")}`,
           );
           break;
-        case 'arc':
+        case "arc":
           parts.push(
-            `A ${attr(item, 'rx')} ${attr(item, 'ry')} ` +
-            `${attr(item, 'x-rotation')} ${attr(item, 'large-arc-flag')} ` +
-            `${attr(item, 'sweep-flag')} ${attr(item, 'x')} ${attr(item, 'y')}`,
+            `A ${attr(item, "rx")} ${attr(item, "ry")} ` +
+              `${attr(item, "x-rotation")} ${attr(item, "large-arc-flag")} ` +
+              `${attr(item, "sweep-flag")} ${attr(item, "x")} ${attr(item, "y")}`,
           );
           break;
-        case 'close':
-          parts.push('Z');
+        case "close":
+          parts.push("Z");
           break;
         // Ignore unknown tags inside <path>
       }
     }
   }
 
-  return parts.join(' ');
+  return parts.join(" ");
 }
 
 /**
@@ -169,29 +169,30 @@ function buildPathD(node: XmlNode): string {
  */
 function attr(node: XmlNode, name: string): string {
   const val = node[`@_${name}`];
-  return val !== undefined ? escapeXml(String(val)) : '0';
+  return val !== undefined ? escapeXml(String(val)) : "0";
 }
 
 // ── SVG element builders ──────────────────────────────────
 
 /** Build SVG attribute string for fill/stroke based on paint operation and state. */
 function paintAttrs(
-  op: 'fill' | 'stroke' | 'fillstroke',
+  op: "fill" | "stroke" | "fillstroke",
   state: GfxState,
 ): string {
   const parts: string[] = [];
 
-  if (op === 'fill' || op === 'fillstroke') {
+  if (op === "fill" || op === "fillstroke") {
     // Default currentColor fills become a light gray so stencils render as
     // professional line-art rather than solid black blobs. Explicit colors
     // from <fillcolor color="..."/> are preserved as-is (multi-color stencils).
-    const fill = state.fillColor === 'currentColor' ? '#888888' : state.fillColor;
+    const fill =
+      state.fillColor === "currentColor" ? "#888888" : state.fillColor;
     parts.push(`fill="${fill}"`);
   } else {
     parts.push('fill="none"');
   }
 
-  if (op === 'stroke' || op === 'fillstroke') {
+  if (op === "stroke" || op === "fillstroke") {
     parts.push(`stroke="${state.strokeColor}"`);
     if (state.strokeWidth !== 1) {
       parts.push(`stroke-width="${state.strokeWidth}"`);
@@ -200,7 +201,7 @@ function paintAttrs(
     parts.push('stroke="none"');
   }
 
-  return parts.join(' ');
+  return parts.join(" ");
 }
 
 /**
@@ -211,11 +212,11 @@ function paintAttrs(
  */
 function injectAttributes(el: string, attrs: string): string {
   // Self-closing: <rect ... /> → <rect ... attrs />
-  if (el.includes('/>')) {
-    return el.replace('/>', ` ${attrs}/>`);
+  if (el.includes("/>")) {
+    return el.replace("/>", ` ${attrs}/>`);
   }
   // Paired tag: <text ...>content</text> → <text ... attrs>content</text>
-  return el.replace('>', ` ${attrs}>`);
+  return el.replace(">", ` ${attrs}>`);
 }
 
 /**
@@ -231,13 +232,15 @@ function processSection(section: XmlNode, state: GfxState): string[] {
   const stateStack: GfxState[] = [];
 
   for (const [tag, value] of Object.entries(section)) {
-    if (tag.startsWith('@_')) continue;
-    const items = Array.isArray(value) ? (value as XmlNode[]) : [value as XmlNode];
+    if (tag.startsWith("@_")) continue;
+    const items = Array.isArray(value)
+      ? (value as XmlNode[])
+      : [value as XmlNode];
 
     for (const item of items) {
       switch (tag) {
         // ── Path ───────────────────────────────────
-        case 'path': {
+        case "path": {
           const d = buildPathD(item);
           if (d) {
             pending.push(`<path d="${d}"/>`);
@@ -246,20 +249,20 @@ function processSection(section: XmlNode, state: GfxState): string[] {
         }
 
         // ── Shape elements ─────────────────────────
-        case 'rect': {
-          const x = attr(item, 'x');
-          const y = attr(item, 'y');
-          const w = attr(item, 'w');
-          const h = attr(item, 'h');
+        case "rect": {
+          const x = attr(item, "x");
+          const y = attr(item, "y");
+          const w = attr(item, "w");
+          const h = attr(item, "h");
           pending.push(`<rect x="${x}" y="${y}" width="${w}" height="${h}"/>`);
           break;
         }
-        case 'roundrect': {
-          const x = attr(item, 'x');
-          const y = attr(item, 'y');
-          const w = attr(item, 'w');
-          const h = attr(item, 'h');
-          const arcsize = Number(attr(item, 'arcsize'));
+        case "roundrect": {
+          const x = attr(item, "x");
+          const y = attr(item, "y");
+          const w = attr(item, "w");
+          const h = attr(item, "h");
+          const arcsize = Number(attr(item, "arcsize"));
           const minDim = Math.min(Number(w), Number(h));
           const rx = (arcsize * minDim) / 2;
           pending.push(
@@ -267,11 +270,11 @@ function processSection(section: XmlNode, state: GfxState): string[] {
           );
           break;
         }
-        case 'ellipse': {
-          const ex = Number(attr(item, 'x'));
-          const ey = Number(attr(item, 'y'));
-          const ew = Number(attr(item, 'w'));
-          const eh = Number(attr(item, 'h'));
+        case "ellipse": {
+          const ex = Number(attr(item, "x"));
+          const ey = Number(attr(item, "y"));
+          const ew = Number(attr(item, "w"));
+          const eh = Number(attr(item, "h"));
           const cx = ex + ew / 2;
           const cy = ey + eh / 2;
           pending.push(
@@ -279,22 +282,22 @@ function processSection(section: XmlNode, state: GfxState): string[] {
           );
           break;
         }
-        case 'text': {
-          const tx = attr(item, 'x');
-          const ty = attr(item, 'y');
-          const str = (item['@_str'] as string) ?? '';
+        case "text": {
+          const tx = attr(item, "x");
+          const ty = attr(item, "y");
+          const str = (item["@_str"] as string) ?? "";
           pending.push(`<text x="${tx}" y="${ty}">${escapeXml(str)}</text>`);
           break;
         }
-        case 'image': {
+        case "image": {
           // Skip images — placeholder per spec
           break;
         }
 
         // ── Paint operations ───────────────────────
-        case 'fill':
-        case 'stroke':
-        case 'fillstroke': {
+        case "fill":
+        case "stroke":
+        case "fillstroke": {
           const pa = paintAttrs(tag, state);
           for (const el of pending) {
             svgElements.push(injectAttributes(el, pa));
@@ -304,19 +307,23 @@ function processSection(section: XmlNode, state: GfxState): string[] {
         }
 
         // ── State commands ─────────────────────────
-        case 'strokewidth':
-          state.strokeWidth = Number(attr(item, 'width'));
+        case "strokewidth":
+          state.strokeWidth = Number(attr(item, "width"));
           break;
-        case 'strokecolor':
-          state.strokeColor = escapeXml((item['@_color'] as string) ?? 'currentColor');
+        case "strokecolor":
+          state.strokeColor = escapeXml(
+            (item["@_color"] as string) ?? "currentColor",
+          );
           break;
-        case 'fillcolor':
-          state.fillColor = escapeXml((item['@_color'] as string) ?? 'currentColor');
+        case "fillcolor":
+          state.fillColor = escapeXml(
+            (item["@_color"] as string) ?? "currentColor",
+          );
           break;
-        case 'save':
+        case "save":
           stateStack.push(cloneGfxState(state));
           break;
-        case 'restore': {
+        case "restore": {
           const restored = stateStack.pop();
           if (restored) {
             state.strokeColor = restored.strokeColor;
@@ -333,7 +340,7 @@ function processSection(section: XmlNode, state: GfxState): string[] {
 
   // Any pending elements without a paint op get default stroke
   if (pending.length > 0) {
-    const pa = paintAttrs('stroke', state);
+    const pa = paintAttrs("stroke", state);
     for (const el of pending) {
       svgElements.push(injectAttributes(el, pa));
     }
@@ -345,17 +352,21 @@ function processSection(section: XmlNode, state: GfxState): string[] {
 // ── Connection points ─────────────────────────────────────
 
 /** Parse `<connections>` element into ConnectionPoint array. */
-function parseConnections(connectionsNode: XmlNode | undefined): ConnectionPoint[] {
+function parseConnections(
+  connectionsNode: XmlNode | undefined,
+): ConnectionPoint[] {
   if (!connectionsNode) return [];
 
-  const constraints = connectionsNode['constraint'];
+  const constraints = connectionsNode["constraint"];
   if (!constraints) return [];
 
-  const items = Array.isArray(constraints) ? (constraints as XmlNode[]) : [constraints as XmlNode];
+  const items = Array.isArray(constraints)
+    ? (constraints as XmlNode[])
+    : [constraints as XmlNode];
   return items.map((c) => ({
-    x: Number(attr(c, 'x')),
-    y: Number(attr(c, 'y')),
-    name: (c['@_name'] as string) ?? '',
+    x: Number(attr(c, "x")),
+    y: Number(attr(c, "y")),
+    name: (c["@_name"] as string) ?? "",
   }));
 }
 
@@ -369,32 +380,40 @@ function parseConnections(connectionsNode: XmlNode | undefined): ConnectionPoint
  * @param height - viewBox height
  * @returns SVG string
  */
-function convertShapeNodeToSvg(shapeNode: XmlNode, width: number, height: number): string {
+function convertShapeNodeToSvg(
+  shapeNode: XmlNode,
+  width: number,
+  height: number,
+): string {
   const state = defaultGfxState();
   const groups: string[] = [];
 
   // Process <background> section
   // Background shapes define the outline — use fill="none" so the expression's
   // backgroundColor controls fill at render time (avoids solid black blobs).
-  const bg = shapeNode['background'] as XmlNode | undefined;
+  const bg = shapeNode["background"] as XmlNode | undefined;
   if (bg) {
-    const bgState = { ...state, fillColor: 'none' };
+    const bgState = { ...state, fillColor: "none" };
     const bgElements = processSection(bg, bgState);
     if (bgElements.length > 0) {
-      groups.push(`  <g class="background">\n    ${bgElements.join('\n    ')}\n  </g>`);
+      groups.push(
+        `  <g class="background">\n    ${bgElements.join("\n    ")}\n  </g>`,
+      );
     }
   }
 
   // Process <foreground> section
-  const fg = shapeNode['foreground'] as XmlNode | undefined;
+  const fg = shapeNode["foreground"] as XmlNode | undefined;
   if (fg) {
     const fgElements = processSection(fg, state);
     if (fgElements.length > 0) {
-      groups.push(`  <g class="foreground">\n    ${fgElements.join('\n    ')}\n  </g>`);
+      groups.push(
+        `  <g class="foreground">\n    ${fgElements.join("\n    ")}\n  </g>`,
+      );
     }
   }
 
-  const body = groups.length > 0 ? `\n${groups.join('\n')}\n` : '';
+  const body = groups.length > 0 ? `\n${groups.join("\n")}\n` : "";
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${width} ${height}" fill="none" stroke="currentColor">${body}</svg>`;
 }
 
@@ -411,7 +430,11 @@ function convertShapeNodeToSvg(shapeNode: XmlNode, width: number, height: number
  * @param height - New viewBox height
  * @returns SVG string with updated viewBox
  */
-export function shapeToSvg(svgString: string, width: number, height: number): string {
+export function shapeToSvg(
+  svgString: string,
+  width: number,
+  height: number,
+): string {
   // Replace existing viewBox with new dimensions
   return svgString.replace(
     /viewBox="[^"]*"/,
@@ -440,13 +463,13 @@ export function parseStencilLibrary(xml: string): DrawioStencilLibrary {
     throw new Error(`Failed to parse stencil XML: ${(err as Error).message}`);
   }
 
-  const shapesRoot = parsed['shapes'] as XmlNode | undefined;
+  const shapesRoot = parsed["shapes"] as XmlNode | undefined;
   if (!shapesRoot) {
-    throw new Error('Invalid stencil library: missing <shapes> root element');
+    throw new Error("Invalid stencil library: missing <shapes> root element");
   }
 
-  const libraryName = (shapesRoot['@_name'] as string) ?? 'Unnamed';
-  const shapeNodes = shapesRoot['shape'];
+  const libraryName = (shapesRoot["@_name"] as string) ?? "Unnamed";
+  const shapeNodes = shapesRoot["shape"];
 
   if (!shapeNodes) {
     return { name: libraryName, shapes: [] };
@@ -463,12 +486,15 @@ export function parseStencilLibrary(xml: string): DrawioStencilLibrary {
   }
 
   const shapes: DrawioShape[] = shapeList.map((node) => {
-    const name = (node['@_name'] as string) ?? 'Unnamed';
-    const width = Number(node['@_w'] ?? 100);
-    const height = Number(node['@_h'] ?? 100);
-    const aspectRaw = (node['@_aspect'] as string) ?? 'variable';
-    const aspect: 'fixed' | 'variable' = aspectRaw === 'fixed' ? 'fixed' : 'variable';
-    const connections = parseConnections(node['connections'] as XmlNode | undefined);
+    const name = (node["@_name"] as string) ?? "Unnamed";
+    const width = Number(node["@_w"] ?? 100);
+    const height = Number(node["@_h"] ?? 100);
+    const aspectRaw = (node["@_aspect"] as string) ?? "variable";
+    const aspect: "fixed" | "variable" =
+      aspectRaw === "fixed" ? "fixed" : "variable";
+    const connections = parseConnections(
+      node["connections"] as XmlNode | undefined,
+    );
 
     // Guard against zero/negative dimensions for a valid viewBox
     const viewWidth = Math.max(1, width);
