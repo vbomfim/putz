@@ -12,6 +12,7 @@ import { create } from "zustand";
 
 import { useLayoutStore } from "./layoutStore";
 import type { Region, LayoutNode } from "../types";
+import { migrateWorkspaceLayout } from "../utils/migratePersistence";
 
 /** Preset workspace accent colors (Catppuccin palette). */
 export const WORKSPACE_COLORS = [
@@ -111,14 +112,29 @@ function captureLayoutState(): WorkspaceLayout {
   return { layout, regions, focusedRegionId };
 }
 
-/** Restores a workspace's layout into layoutStore. */
+/**
+ * Restores a workspace's layout into layoutStore.
+ *
+ * Applies migration to guard against stale tab data that may have been
+ * captured in a previous session before decommissioned features were removed.
+ * See: migration schema v1 (migratePersistence.ts).
+ */
 function restoreLayoutState(snapshot: WorkspaceLayout | null): void {
   if (snapshot) {
-    useLayoutStore.setState({
-      layout: snapshot.layout,
-      regions: snapshot.regions,
-      focusedRegionId: snapshot.focusedRegionId,
-    });
+    const migrated = migrateWorkspaceLayout(
+      snapshot as unknown as Record<string, unknown>,
+    );
+    if (migrated) {
+      useLayoutStore.setState({
+        layout: migrated.layout as LayoutNode,
+        regions: migrated.regions,
+        focusedRegionId: migrated.focusedRegionId,
+      });
+    } else {
+      // Migration returned null — snapshot was irrecoverable; fall through to fresh state
+      restoreLayoutState(null);
+    }
+    return;
   } else {
     // Empty workspace — create a fresh single-region layout
     const regionId = generateId();
