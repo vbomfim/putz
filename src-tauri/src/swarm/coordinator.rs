@@ -592,7 +592,7 @@ mod tests {
     async fn coordinator_new_is_disabled() {
         let coord = SwarmCoordinator::new();
         assert!(!coord.enabled());
-        assert_eq!(coord.state().await.enabled, false);
+        assert!(!coord.state().await.enabled);
     }
 
     #[tokio::test]
@@ -1161,7 +1161,7 @@ mod tests {
     #[tokio::test]
     async fn colleague_env_vars_none_when_disabled() {
         let coord = SwarmCoordinator::new();
-        assert!(coord.enabled.load(std::sync::atomic::Ordering::SeqCst) == false);
+        assert!(!coord.enabled.load(std::sync::atomic::Ordering::SeqCst));
         let result = coord
             .colleague_env_vars("tab-1", "alice-a1b2", "alice", "parent", None)
             .await;
@@ -1358,7 +1358,7 @@ mod tests {
 
         // Bob should exist with messages buffered
         let roster = coord.roster().await;
-        assert!(roster.len() >= 1, "At least bob should be registered");
+        assert!(!roster.is_empty(), "At least bob should be registered");
     }
 
     /// [EDGE] Concurrent subscribe + route_message should not lose messages.
@@ -1436,7 +1436,7 @@ mod tests {
     async fn state_disabled_shape() {
         let coord = SwarmCoordinator::new();
         let state = coord.state().await;
-        assert_eq!(state.enabled, false);
+        assert!(!state.enabled);
         assert!(state.url.is_none());
         assert!(state.token.is_none());
 

@@ -404,7 +404,7 @@ mod tests {
     #[test]
     fn dangerous_command_allowed_within_allday_window() {
         // Create a window that covers all hours and all days
-        let (mgr, _tmp) = manager_with_window(0, 0, vec![]);
+        let (_mgr, _tmp) = manager_with_window(0, 0, vec![]);
         // start == end means 24-hour window (handled as: 0 >= 0 || 0 < 0 → true for overnight)
         // Actually with start==end, the overnight branch fires (start > end is false since 0 == 0)
         // So it falls to start <= end: current_hour >= 0 && current_hour < 0 → false

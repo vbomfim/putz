@@ -14,7 +14,7 @@
 /// ```
 use std::collections::HashMap;
 use std::fs;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 
 use regex::Regex;
@@ -85,11 +85,11 @@ impl TemplateManager {
             }
             let id = Uuid::new_v4().to_string();
             let now = now_iso8601();
-            let filename = slugify(&name) + ".txt";
+            let filename = slugify(name) + ".txt";
 
             // Write content file
             let path = self.config_dir.join(&filename);
-            if let Err(e) = fs::write(&path, &content) {
+            if let Err(e) = fs::write(&path, content) {
                 eprintln!("[TemplateManager] Failed to write built-in template: {e}");
                 continue;
             }
@@ -227,15 +227,14 @@ impl TemplateManager {
     /// Acquires the store mutex, returning an error if poisoned.
     fn lock_store(&self) -> Result<std::sync::MutexGuard<'_, TemplateStore>, TemplateError> {
         self.store.lock().map_err(|_| {
-            TemplateError::Io(std::io::Error::new(
-                std::io::ErrorKind::Other,
+            TemplateError::Io(std::io::Error::other(
                 "Template store lock poisoned",
             ))
         })
     }
 
     /// Loads the template index from disk.
-    fn load_store(config_dir: &PathBuf) -> TemplateStore {
+    fn load_store(config_dir: &Path) -> TemplateStore {
         let path = config_dir.join(INDEX_FILENAME);
         match fs::read_to_string(&path) {
             Ok(json) => serde_json::from_str(&json).unwrap_or_default(),
@@ -244,7 +243,7 @@ impl TemplateManager {
     }
 
     /// Saves the template index to disk.
-    fn save_store(config_dir: &PathBuf, store: &TemplateStore) -> Result<(), TemplateError> {
+    fn save_store(config_dir: &Path, store: &TemplateStore) -> Result<(), TemplateError> {
         let path = config_dir.join(INDEX_FILENAME);
         let json = serde_json::to_string_pretty(store)?;
         fs::write(&path, json)?;

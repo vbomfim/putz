@@ -202,7 +202,7 @@ impl ForwardingManager {
         match rule.forwarding_type {
             ForwardingType::Local => {
                 if rule.remote_host.is_none()
-                    || rule.remote_host.as_deref().map_or(true, str::is_empty)
+                    || rule.remote_host.as_deref().is_none_or(str::is_empty)
                 {
                     return Err(ProtocolError::InvalidParams(
                         "Remote host is required for local forwarding".into(),
@@ -216,7 +216,7 @@ impl ForwardingManager {
             }
             ForwardingType::Remote => {
                 if rule.remote_host.is_none()
-                    || rule.remote_host.as_deref().map_or(true, str::is_empty)
+                    || rule.remote_host.as_deref().is_none_or(str::is_empty)
                 {
                     return Err(ProtocolError::InvalidParams(
                         "Remote host is required for remote forwarding".into(),
@@ -608,10 +608,9 @@ impl ForwardingManager {
                 .iter()
                 .find(|(_, t)| {
                     t.rule.forwarding_type == ForwardingType::Remote
-                        && t.rule
+                        && (t.rule
                             .remote_host
-                            .as_deref()
-                            .map_or(false, |h| h == connected_address)
+                            .as_deref() == Some(connected_address))
                         && t.rule.remote_port == Some(connected_port as u16)
                 })
                 .map(|(_, t)| {
@@ -654,6 +653,7 @@ impl ForwardingManager {
 ///
 /// Listens for incoming TCP connections and opens a `direct-tcpip`
 /// SSH channel for each via ConnectionManager, then relays data.
+#[allow(clippy::too_many_arguments)] // FIXME: refactor into a config struct (epic #86)
 async fn local_forward_accept_loop(
     listener: TcpListener,
     conn_manager: Arc<crate::protocol::connection_manager::ConnectionManager>,
@@ -708,6 +708,7 @@ async fn local_forward_accept_loop(
 ///
 /// Accepts SOCKS5 connections, performs the handshake, then opens
 /// a `direct-tcpip` channel for each CONNECT request via ConnectionManager.
+#[allow(clippy::too_many_arguments)] // FIXME: refactor into a config struct (epic #86)
 async fn socks5_accept_loop(
     listener: TcpListener,
     conn_manager: Arc<crate::protocol::connection_manager::ConnectionManager>,
@@ -733,8 +734,9 @@ async fn socks5_accept_loop(
         conns.fetch_add(1, Ordering::Relaxed);
 
         tokio::spawn(async move {
-            if let Err(_) =
-                handle_socks5_client(tcp_stream, mgr, &cid, peer_addr, tx, rx, &conns).await
+            if handle_socks5_client(tcp_stream, mgr, &cid, peer_addr, tx, rx, &conns)
+                .await
+                .is_err()
             {
                 conns.fetch_sub(1, Ordering::Relaxed);
             }

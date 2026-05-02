@@ -30,7 +30,7 @@ fn run_git(repo_path: &str, args: &[&str]) -> Result<String, String> {
     if us > 20_000 {
         crate::perf::log(&format!(
             "git {} cwd={} took_us={}",
-            args.get(0).copied().unwrap_or(""),
+            args.first().copied().unwrap_or(""),
             repo_path,
             us
         ));
@@ -48,9 +48,7 @@ pub fn git_log(
     max_count: Option<u32>,
     file_path: Option<String>,
 ) -> Result<String, String> {
-    let format_str = format!(
-        "--format=\x1e%H\x1f%h\x1f%s\x1f%b\x1f%aN\x1f%aE\x1f%aI\x1f%P\x1f%D"
-    );
+    let format_str = "--format=\x1e%H\x1f%h\x1f%s\x1f%b\x1f%aN\x1f%aE\x1f%aI\x1f%P\x1f%D".to_string();
     let count_str = max_count.unwrap_or(500).to_string();
     let max_count_arg = format!("--max-count={}", count_str);
     let mut args: Vec<&str> = vec!["log", &format_str, &max_count_arg, "--all"];
@@ -73,9 +71,7 @@ pub fn git_status(repo_path: String) -> Result<String, String> {
 
 #[tauri::command]
 pub fn git_show(repo_path: String, hash: String) -> Result<String, String> {
-    let format_str = format!(
-        "--format=\x1e%H\x1f%h\x1f%s\x1f%b\x1f%aN\x1f%aE\x1f%aI\x1f%P\x1f%D"
-    );
+    let format_str = "--format=\x1e%H\x1f%h\x1f%s\x1f%b\x1f%aN\x1f%aE\x1f%aI\x1f%P\x1f%D".to_string();
     run_git(
         &repo_path,
         &["show", &format_str, "--name-status", &hash, "--"],

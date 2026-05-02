@@ -159,7 +159,7 @@ pub fn validate_request(req: &PingRequest) -> Result<(), String> {
         }
     }
     if let Some(interval) = req.interval {
-        if interval < 0.1 || interval > 60.0 {
+        if !(0.1..=60.0).contains(&interval) {
             return Err("Interval must be between 0.1 and 60 seconds".into());
         }
     }
