@@ -1,7 +1,7 @@
 [package]
 name = "putz"
-version = "0.1.0"
-description = "A cross-platform terminal emulator inspired by SecureCRT"
+version = "0.4.0"
+description = "A local developer terminal with a Canvas tab and a Git Graph tab"
 authors = ["vbomfim"]
 license = "MIT"
 edition = "2021"

@@ -240,7 +240,9 @@ pub fn build_menu(app: &AppHandle<Wry>) -> Result<tauri::menu::Menu<Wry>, tauri:
         .name(Some("Putz"))
         .version(Some(env!("CARGO_PKG_VERSION")))
         .short_version(Some(env!("CARGO_PKG_VERSION")))
-        .comments(Some("A cross-platform terminal emulator"))
+        .comments(Some(
+            "A local developer terminal with a Canvas tab and a Git Graph tab",
+        ))
         .license(Some("MIT"))
         .build();
 

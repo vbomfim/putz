@@ -1,14 +1,21 @@
-# Putz — Cross-Platform Terminal Emulator
+# Putz — Local Developer Terminal
 
-A modern, cross-platform terminal emulator inspired by SecureCRT, built with [Tauri 2.0](https://tauri.app/), [React](https://react.dev/), and [TypeScript](https://www.typescriptlang.org/).
+A modern, cross-platform local terminal emulator with a few unique tricks: a built-in **Canvas tab** for visual diagrams and a **Git Graph tab** for browsing commit history — all alongside your terminals. Built with [Tauri 2.0](https://tauri.app/), [React](https://react.dev/), and [TypeScript](https://www.typescriptlang.org/).
 
-## Features (Planned)
+## Features
 
-- 🖥️ Cross-platform: Windows, macOS, Linux
-- 🔒 SSH, Telnet, Serial protocol support
-- 📑 Tabbed sessions with split panes
-- 🎨 Customizable themes and key bindings
-- 📁 Session management and organization
+- 🖥️ **Cross-platform** — Windows, macOS, Linux
+- 🎨 **Canvas tab** — infinite canvas for architecture diagrams, visual thinking, and sketches
+- 🌳 **Git Graph tab** — branch visualization, commit history, and file diffs
+- 📑 **Tabs & split panes** — drag-to-reorder tabs, horizontal/vertical splits, recursive layout
+- 📌 **Bookmarks** — quick-access bar and panel for directories and files
+- 🤖 **Swarm** — AI-agent coordination via PTY environment injection
+- 📡 **Broadcast** — send input to multiple terminal panes simultaneously
+- 🎨 **Themes** — customizable themes, fonts, and key bindings
+- 🔍 **Highlight engine** — keyword highlighting with regex support and preset themes
+- 📜 **History & templates** — command history search and reusable command templates
+- ✏️ **Editor tabs** — Monaco-based file editor built in
+- 📝 **Scripting** — script editor and runner (writes directly to PTY)
 
 ## Tech Stack
 
@@ -16,7 +23,7 @@ A modern, cross-platform terminal emulator inspired by SecureCRT, built with [Ta
 |----------|---------------------|
 | Frontend | React + TypeScript  |
 | Backend  | Rust (Tauri 2.0)    |
-| Terminal | xterm.js (planned)  |
+| Terminal | xterm.js            |
 | Build    | Vite                |
 | Test     | Vitest + Cargo test |
 | Lint     | ESLint + Prettier   |
@@ -64,8 +71,9 @@ putz/
 ├── src/                    # React frontend
 │   ├── App.tsx             # Main application component
 │   ├── main.tsx            # React entry point
-│   ├── components/         # Reusable React components
+│   ├── components/         # UI components (Terminal, GitGraph, Canvas, Bookmarks, etc.)
 │   ├── hooks/              # Custom React hooks
+│   ├── lib/                # Feature libraries (canvas, git-graph)
 │   ├── stores/             # State management
 │   ├── styles/             # CSS styling
 │   ├── test/               # Test setup and test files
@@ -74,7 +82,15 @@ putz/
 │   ├── src/
 │   │   ├── main.rs         # Tauri application entry point
 │   │   ├── lib.rs          # Library root with Tauri builder
-│   │   └── commands/       # Tauri command handlers
+│   │   ├── menu.rs         # Application menus
+│   │   ├── ipc/            # Tauri IPC command handlers
+│   │   ├── pty/            # Local PTY management
+│   │   ├── scripting/      # Script engine
+│   │   ├── swarm/          # AI-agent coordination
+│   │   ├── highlight/      # Keyword highlighting engine
+│   │   ├── theme/          # Theme management
+│   │   ├── history/        # Command history
+│   │   └── templates/      # Command templates
 │   ├── Cargo.toml          # Rust dependencies
 │   └── tauri.conf.json     # Tauri configuration
 ├── scripts/                # Build & utility scripts
