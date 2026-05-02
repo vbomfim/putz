@@ -1,8 +1,8 @@
 {
   "name": "putz",
   "private": true,
-  "version": "0.3.5",
-  "description": "A cross-platform terminal emulator inspired by SecureCRT, built with Tauri 2.0",
+  "version": "0.4.0",
+  "description": "A local developer terminal with a Canvas tab and a Git Graph tab — built with Tauri 2.0",
   "type": "module",
   "license": "MIT",
   "scripts": {
