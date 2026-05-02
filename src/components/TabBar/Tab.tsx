@@ -32,10 +32,7 @@ interface TabProps {
 
 /** Color mapping for tab status indicators. */
 const STATUS_COLORS: Record<TabType["status"], string> = {
-  connected: "#50fa7b",
   local: "#50fa7b",
-  disconnected: "#ff5555",
-  connecting: "#f1fa8c",
 };
 
 /** Individual tab in the tab bar. */

@@ -4,8 +4,8 @@
  * Shared types for tabs, panes, and layout management.
  */
 
-/** Status of a terminal tab connection. */
-export type TabStatus = "connected" | "disconnected" | "connecting" | "local";
+/** Status of a terminal tab. Only "local" remains after remote feature removal. */
+export type TabStatus = "local";
 
 /** Content type rendered inside a tab. */
 export type TabContentType =
