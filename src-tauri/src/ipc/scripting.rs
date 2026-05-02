@@ -79,8 +79,16 @@ pub async fn script_run(
                         return;
                     }
 
-                    // Try connection (async)
-                    let conn = app.state::<ConnectionManager>();
+                    // Try connection (async) — gracefully handle removed manager
+                    let conn = match app.try_state::<ConnectionManager>() {
+                        Some(c) => c,
+                        None => {
+                            let _ = result_tx.send(Err(
+                                "Connection feature has been removed".to_string(),
+                            ));
+                            return;
+                        }
+                    };
                     let conn_result = conn.write(&session_id, &data_bytes).await;
                     match conn_result {
                         Ok(()) => {
@@ -105,7 +113,15 @@ pub async fn script_run(
                         return;
                     }
 
-                    let conn = app.state::<ConnectionManager>();
+                    let conn = match app.try_state::<ConnectionManager>() {
+                        Some(c) => c,
+                        None => {
+                            let _ = result_tx.send(Err(
+                                "Connection feature has been removed".to_string(),
+                            ));
+                            return;
+                        }
+                    };
                     let conn_result = conn.close(&session_id).await;
                     match conn_result {
                         Ok(()) => {
@@ -120,7 +136,15 @@ pub async fn script_run(
                     credential_name,
                     result_tx,
                 } => {
-                    let vault = app.state::<VaultManager>();
+                    let vault = match app.try_state::<VaultManager>() {
+                        Some(v) => v,
+                        None => {
+                            let _ = result_tx.send(Err(
+                                "Vault feature has been removed".to_string(),
+                            ));
+                            return;
+                        }
+                    };
                     let creds = vault.list().unwrap_or_default();
                     let found = creds.iter().find(|c| c.name == credential_name);
 
@@ -191,7 +215,15 @@ pub async fn script_run_multi(
                             return;
                         }
 
-                        let conn = app.state::<ConnectionManager>();
+                        let conn = match app.try_state::<ConnectionManager>() {
+                            Some(c) => c,
+                            None => {
+                                let _ = result_tx.send(Err(
+                                    "Connection feature has been removed".to_string(),
+                                ));
+                                return;
+                            }
+                        };
                         let conn_result = conn.write(&session_id, &data_bytes).await;
                         match conn_result {
                             Ok(()) => {
@@ -213,7 +245,15 @@ pub async fn script_run_multi(
                             return;
                         }
 
-                        let conn = app.state::<ConnectionManager>();
+                        let conn = match app.try_state::<ConnectionManager>() {
+                            Some(c) => c,
+                            None => {
+                                let _ = result_tx.send(Err(
+                                    "Connection feature has been removed".to_string(),
+                                ));
+                                return;
+                            }
+                        };
                         let conn_result = conn.close(&session_id).await;
                         match conn_result {
                             Ok(()) => {
@@ -228,7 +268,15 @@ pub async fn script_run_multi(
                         credential_name,
                         result_tx,
                     } => {
-                        let vault = app.state::<VaultManager>();
+                        let vault = match app.try_state::<VaultManager>() {
+                            Some(v) => v,
+                            None => {
+                                let _ = result_tx.send(Err(
+                                    "Vault feature has been removed".to_string(),
+                                ));
+                                return;
+                            }
+                        };
                         let creds = vault.list().unwrap_or_default();
                         let found = creds.iter().find(|c| c.name == credential_name);
 
