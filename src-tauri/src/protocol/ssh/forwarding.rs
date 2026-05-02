@@ -608,9 +608,7 @@ impl ForwardingManager {
                 .iter()
                 .find(|(_, t)| {
                     t.rule.forwarding_type == ForwardingType::Remote
-                        && (t.rule
-                            .remote_host
-                            .as_deref() == Some(connected_address))
+                        && (t.rule.remote_host.as_deref() == Some(connected_address))
                         && t.rule.remote_port == Some(connected_port as u16)
                 })
                 .map(|(_, t)| {

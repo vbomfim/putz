@@ -478,9 +478,7 @@ function decodeEntities(s: string): string {
  * Uses a tolerant regex-based parser — draw.io tables are simple (tr/td, sometimes
  * wrapped in <b>/<font>) and don't need a full HTML parser.
  */
-function parseHtmlTable(
-  html: string,
-): {
+function parseHtmlTable(html: string): {
   title?: string;
   headers: string[];
   rows: (string | { text: string; backgroundColor?: string })[][];

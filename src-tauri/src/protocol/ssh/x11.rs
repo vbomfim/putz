@@ -51,7 +51,6 @@ pub struct X11ForwardingConfig {
     pub trusted: bool,
 }
 
-
 /// Status of X11 forwarding on a connection.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]

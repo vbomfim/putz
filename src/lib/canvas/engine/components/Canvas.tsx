@@ -338,11 +338,9 @@ function CanvasInner() {
             // Only save font size if it was actually shrunk
             if (shrunkFontSize !== undefined && editingExpr) {
               const worldFontSize = shrunkFontSize / camera.zoom;
-              storeApi
-                .getState()
-                .styleExpressions([editingExpr.id], {
-                  fontSize: worldFontSize,
-                });
+              storeApi.getState().styleExpressions([editingExpr.id], {
+                fontSize: worldFontSize,
+              });
             }
           }}
           onCancel={() => {

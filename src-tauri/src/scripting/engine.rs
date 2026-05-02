@@ -215,7 +215,8 @@ fn register_putz_api(context: &mut Context, ctx: Arc<ScriptContext>) -> JsResult
                 if ctx.cancelled.load(Ordering::SeqCst) {
                     return Err(js_error("Script execution was stopped"));
                 }
-                let text = args.first()
+                let text = args
+                    .first()
                     .cloned()
                     .unwrap_or(JsValue::undefined())
                     .to_string(context)?
@@ -256,7 +257,8 @@ fn register_putz_api(context: &mut Context, ctx: Arc<ScriptContext>) -> JsResult
                 if ctx.cancelled.load(Ordering::SeqCst) {
                     return Err(js_error("Script execution was stopped"));
                 }
-                let pattern = args.first()
+                let pattern = args
+                    .first()
                     .cloned()
                     .unwrap_or(JsValue::undefined())
                     .to_string(context)?
@@ -326,7 +328,8 @@ fn register_putz_api(context: &mut Context, ctx: Arc<ScriptContext>) -> JsResult
                 if ctx.cancelled.load(Ordering::SeqCst) {
                     return Err(js_error("Script execution was stopped"));
                 }
-                let text = args.first()
+                let text = args
+                    .first()
                     .cloned()
                     .unwrap_or(JsValue::undefined())
                     .to_string(context)?
@@ -419,7 +422,8 @@ fn register_putz_api(context: &mut Context, ctx: Arc<ScriptContext>) -> JsResult
                 if ctx.cancelled.load(Ordering::SeqCst) {
                     return Err(js_error("Script execution was stopped"));
                 }
-                let ms = args.first()
+                let ms = args
+                    .first()
                     .cloned()
                     .unwrap_or(JsValue::undefined())
                     .to_number(context)? as u64;
@@ -451,7 +455,8 @@ fn register_putz_api(context: &mut Context, ctx: Arc<ScriptContext>) -> JsResult
         let ctx = ctx.clone();
         let log_fn = unsafe {
             NativeFunction::from_closure(move |_this, args, context| {
-                let msg = args.first()
+                let msg = args
+                    .first()
                     .cloned()
                     .unwrap_or(JsValue::undefined())
                     .to_string(context)?
@@ -509,7 +514,8 @@ fn register_putz_api(context: &mut Context, ctx: Arc<ScriptContext>) -> JsResult
                 if ctx_vault.cancelled.load(Ordering::SeqCst) {
                     return Err(js_error("Script execution was stopped"));
                 }
-                let name = args.first()
+                let name = args
+                    .first()
                     .cloned()
                     .unwrap_or(JsValue::undefined())
                     .to_string(context)?

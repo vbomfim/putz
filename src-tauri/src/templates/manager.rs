@@ -226,11 +226,9 @@ impl TemplateManager {
 
     /// Acquires the store mutex, returning an error if poisoned.
     fn lock_store(&self) -> Result<std::sync::MutexGuard<'_, TemplateStore>, TemplateError> {
-        self.store.lock().map_err(|_| {
-            TemplateError::Io(std::io::Error::other(
-                "Template store lock poisoned",
-            ))
-        })
+        self.store
+            .lock()
+            .map_err(|_| TemplateError::Io(std::io::Error::other("Template store lock poisoned")))
     }
 
     /// Loads the template index from disk.

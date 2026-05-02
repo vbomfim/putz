@@ -48,7 +48,8 @@ pub fn git_log(
     max_count: Option<u32>,
     file_path: Option<String>,
 ) -> Result<String, String> {
-    let format_str = "--format=\x1e%H\x1f%h\x1f%s\x1f%b\x1f%aN\x1f%aE\x1f%aI\x1f%P\x1f%D".to_string();
+    let format_str =
+        "--format=\x1e%H\x1f%h\x1f%s\x1f%b\x1f%aN\x1f%aE\x1f%aI\x1f%P\x1f%D".to_string();
     let count_str = max_count.unwrap_or(500).to_string();
     let max_count_arg = format!("--max-count={}", count_str);
     let mut args: Vec<&str> = vec!["log", &format_str, &max_count_arg, "--all"];
@@ -71,7 +72,8 @@ pub fn git_status(repo_path: String) -> Result<String, String> {
 
 #[tauri::command]
 pub fn git_show(repo_path: String, hash: String) -> Result<String, String> {
-    let format_str = "--format=\x1e%H\x1f%h\x1f%s\x1f%b\x1f%aN\x1f%aE\x1f%aI\x1f%P\x1f%D".to_string();
+    let format_str =
+        "--format=\x1e%H\x1f%h\x1f%s\x1f%b\x1f%aN\x1f%aE\x1f%aI\x1f%P\x1f%D".to_string();
     run_git(
         &repo_path,
         &["show", &format_str, "--name-status", &hash, "--"],
@@ -107,7 +109,11 @@ pub fn git_worktree_list(repo_path: String) -> Result<String, String> {
 
 /// Get file content at a specific commit (or empty string if the file didn't exist).
 #[tauri::command]
-pub fn git_file_at_commit(repo_path: String, hash: String, file_path: String) -> Result<String, String> {
+pub fn git_file_at_commit(
+    repo_path: String,
+    hash: String,
+    file_path: String,
+) -> Result<String, String> {
     let spec = format!("{}:{}", hash, file_path);
     match run_git(&repo_path, &["show", &spec]) {
         Ok(content) => Ok(content),
@@ -127,7 +133,10 @@ pub fn git_status_summary(path: String) -> Result<String, String> {
 
     for line in status_raw.lines() {
         if line.starts_with("# branch.head ") {
-            branch = line.strip_prefix("# branch.head ").unwrap_or("").to_string();
+            branch = line
+                .strip_prefix("# branch.head ")
+                .unwrap_or("")
+                .to_string();
         } else if line.starts_with("# branch.ab ") {
             let parts: Vec<&str> = line.split_whitespace().collect();
             if parts.len() >= 4 {

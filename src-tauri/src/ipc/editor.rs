@@ -24,10 +24,7 @@ pub fn dir_list(path: String) -> Result<Vec<DirEntry>, String> {
         if name.starts_with('.') {
             continue;
         }
-        let is_dir = entry
-            .file_type()
-            .map(|ft| ft.is_dir())
-            .unwrap_or(false);
+        let is_dir = entry.file_type().map(|ft| ft.is_dir()).unwrap_or(false);
         result.push(DirEntry {
             name,
             path: entry.path().to_string_lossy().to_string(),

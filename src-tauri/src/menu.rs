@@ -92,8 +92,18 @@ pub fn build_menu(app: &AppHandle<Wry>) -> Result<tauri::menu::Menu<Wry>, tauri:
         .item(&PredefinedMenuItem::paste(app, None)?)
         .item(&PredefinedMenuItem::select_all(app, None)?)
         .separator()
-        .item(&menu_item!(app, "menu-copy", "Terminal Copy", "CmdOrCtrl+Shift+C"))
-        .item(&menu_item!(app, "menu-paste", "Terminal Paste", "CmdOrCtrl+Shift+V"))
+        .item(&menu_item!(
+            app,
+            "menu-copy",
+            "Terminal Copy",
+            "CmdOrCtrl+Shift+C"
+        ))
+        .item(&menu_item!(
+            app,
+            "menu-paste",
+            "Terminal Paste",
+            "CmdOrCtrl+Shift+V"
+        ))
         .item(&menu_item!(app, "menu-select-all", "Terminal Select All"))
         .separator()
         .item(&menu_item!(app, "menu-find", "Find...", "CmdOrCtrl+F"))
@@ -185,7 +195,11 @@ pub fn build_menu(app: &AppHandle<Wry>) -> Result<tauri::menu::Menu<Wry>, tauri:
         ))
         .separator()
         .item(&menu_item!(app, "menu-add-bookmark", "Add Bookmark"))
-        .item(&menu_item!(app, "menu-manage-bookmarks", "Manage Bookmarks…"))
+        .item(&menu_item!(
+            app,
+            "menu-manage-bookmarks",
+            "Manage Bookmarks…"
+        ))
         .build()?;
 
     let session_menu = SubmenuBuilder::new(app, "Session")
@@ -242,12 +256,7 @@ pub fn build_menu(app: &AppHandle<Wry>) -> Result<tauri::menu::Menu<Wry>, tauri:
             "CmdOrCtrl+Shift+G"
         ))
         .separator()
-        .item(&menu_item!(
-            app,
-            "menu-radio",
-            "Radio",
-            "CmdOrCtrl+Shift+R"
-        ))
+        .item(&menu_item!(app, "menu-radio", "Radio", "CmdOrCtrl+Shift+R"))
         .build()?;
 
     let window_menu = SubmenuBuilder::new(app, "Window")
