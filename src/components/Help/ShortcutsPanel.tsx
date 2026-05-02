@@ -43,11 +43,8 @@ export const SHORTCUT_CATEGORIES: ShortcutCategory[] = [
     ],
   },
   {
-    category: "Connection",
-    shortcuts: [
-      { action: "New Connection", keys: "Ctrl+N" },
-      { action: "Quick Connect", keys: "Ctrl+K" },
-    ],
+    category: "Terminal",
+    shortcuts: [{ action: "New Terminal", keys: "Ctrl+N" }],
   },
   {
     category: "Edit",
@@ -61,7 +58,6 @@ export const SHORTCUT_CATEGORIES: ShortcutCategory[] = [
   {
     category: "View",
     shortcuts: [
-      { action: "Toggle Sidebar", keys: "Ctrl+B" },
       { action: "Toggle Highlighting", keys: "Ctrl+Shift+H" },
       { action: "Toggle Broadcast", keys: "Ctrl+Shift+A" },
       { action: "Zoom In", keys: "Ctrl+=" },
@@ -71,17 +67,8 @@ export const SHORTCUT_CATEGORIES: ShortcutCategory[] = [
     ],
   },
   {
-    category: "Session",
-    shortcuts: [
-      { action: "Session Manager", keys: "Ctrl+B" },
-      { action: "Start/Stop Logging", keys: "Ctrl+Shift+L" },
-      { action: "Send Break", keys: "Ctrl+Break" },
-    ],
-  },
-  {
     category: "Tools",
     shortcuts: [
-      { action: "SFTP File Transfer", keys: "Ctrl+Shift+F" },
       { action: "Command History", keys: "Ctrl+R" },
       { action: "Command Templates", keys: "Ctrl+Shift+T" },
     ],

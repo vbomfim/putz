@@ -12,7 +12,6 @@ import { TerminalView } from "../Terminal";
 import { EditorTab } from "../Scripting/EditorTab";
 import { DiffEditorTab } from "../Scripting/DiffEditorTab";
 import { SearchReplaceTab } from "../Scripting/SearchReplaceTab";
-import { VaultTab } from "../Vault/VaultTab";
 import { HistoryTab } from "../History/HistoryTab";
 import { TemplateTab } from "../Templates/TemplateTab";
 import { SettingsTab } from "../Settings/SettingsTab";
@@ -151,22 +150,6 @@ export function RegionView({ region, isFocused }: RegionViewProps) {
                   regionId={region.id}
                   tabId={tab.id}
                 />
-              </div>
-            );
-          }
-          if (tab.type === "vault") {
-            return (
-              <div
-                key={tab.id}
-                style={{
-                  display: isTabActive ? "flex" : "none",
-                  flex: 1,
-                  flexDirection: "column",
-                  minHeight: 0,
-                  overflow: "hidden",
-                }}
-              >
-                <VaultTab />
               </div>
             );
           }
@@ -347,7 +330,6 @@ export function RegionView({ region, isFocused }: RegionViewProps) {
                 onTitleChange={handleTitleChange}
                 isSearchOpen={isTabActive && isFocused && isSearchOpen}
                 onSearchClose={closeSearch}
-                isConnected={tab.status === "connected"}
                 onExit={() => closeTab(region.id, tab.id)}
               />
             </div>

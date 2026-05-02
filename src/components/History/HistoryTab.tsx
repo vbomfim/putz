@@ -9,7 +9,7 @@
 import { useState, useCallback, useEffect, useRef } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { useLayoutStore } from "../../stores/layoutStore";
-import "../Vault/VaultTab.css";
+import "../../styles/tab-list.css";
 
 interface CommandEntry {
   id: number;
@@ -67,12 +67,8 @@ export function HistoryTab() {
         showToast("No active terminal");
         return;
       }
-      const region = state.getFocusedRegion();
-      const activeTab = region?.tabs.find((t) => t.id === region.activeTabId);
       const bytes = Array.from(new TextEncoder().encode(command));
-      const ipcCommand =
-        activeTab?.status === "connected" ? "connection_write" : "pty_write";
-      invoke(ipcCommand, { sessionId, data: bytes }).catch(() => {});
+      invoke("pty_write", { sessionId, data: bytes }).catch(() => {});
       showToast("Sent to terminal");
     },
     [showToast],

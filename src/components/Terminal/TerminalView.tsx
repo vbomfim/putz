@@ -15,7 +15,7 @@
  * - highlightSetId: optional highlight set ID to apply
  * - onBell: callback when a visual bell (\a) is received
  */
-import { useCallback, useState } from "react";
+import { useCallback } from "react";
 import { useTerminal } from "./useTerminal";
 import { useSearch } from "./useSearch";
 import { SearchBar } from "./SearchBar";
@@ -23,7 +23,6 @@ import {
   TerminalBackground,
   type BackgroundEffect,
 } from "./TerminalBackground";
-import { ChangeWindowWarning } from "../Compliance/ChangeWindowWarning";
 import { BELL_FLASH_CLASS, BELL_FLASH_DURATION_MS } from "./terminalPolish";
 import { useSettingsStore } from "../../stores/settingsStore";
 import { useThemeStore } from "../../stores/themeStore";
@@ -47,10 +46,6 @@ interface TerminalViewProps {
   isBroadcastTarget?: boolean;
   /** Optional ref to the tab element for visual bell flash. */
   tabElementId?: string;
-  /** Whether change window enforcement is enabled. */
-  changeWindowEnabled?: boolean;
-  /** Whether this is a connected (SSH) session — shows hostname watermark. */
-  isConnected?: boolean;
   /** Callback when the PTY process exits. */
   onExit?: (code: number) => void;
 }
@@ -65,11 +60,8 @@ export function TerminalView({
   highlightSetId,
   isBroadcastTarget,
   tabElementId,
-  changeWindowEnabled = false,
-  isConnected = false,
   onExit,
 }: TerminalViewProps) {
-  const [hostname, setHostname] = useState("");
   const backgroundEffect = useSettingsStore(
     (s) => s.backgroundEffect,
   ) as BackgroundEffect;
@@ -97,24 +89,14 @@ export function TerminalView({
           ? "multicolor"
           : fgColor;
 
-  // Extract hostname only from SSH sessions (title contains user@remote-host)
-  // Local shells show "user@local-machine" which we skip
-  const handleTitleChangeWithHostname = useCallback(
+  // Title change handler — forwards to parent callback
+  const handleTitleChange = useCallback(
     (title: string) => {
       onTitleChange?.(title);
-      // Only show watermark for SSH: look for user@host where host differs from local machine
-      const atMatch = title.match(/@([^:@\s]+)/);
-      if (atMatch) {
-        const host = atMatch[1];
-        // Skip local machine names (set by the local shell)
-        // SSH sessions typically set the title to the remote hostname
-        // We detect SSH by checking if the tab status is "connected"
-        // For now, just store it — the title changes to the remote host on SSH
-        setHostname(host);
-      }
     },
     [onTitleChange],
   );
+
   // Fix 3: Visual bell — briefly flash the terminal wrapper
   const handleBell = useCallback(() => {
     // Flash the tab element if available, otherwise flash the terminal wrapper
@@ -148,16 +130,12 @@ export function TerminalView({
     hasExited,
     highlightEnabled,
     terminalInstance,
-    changeWindowWarning,
-    onChangeWindowProceed,
-    onChangeWindowCancel,
   } = useTerminal({
     sessionId,
-    onTitleChange: handleTitleChangeWithHostname,
+    onTitleChange: handleTitleChange,
     onExit,
     highlightSetId,
     onBell: handleBell,
-    changeWindowEnabled,
   });
 
   const search = useSearch({ terminal: terminalInstance });
@@ -204,7 +182,7 @@ export function TerminalView({
         color={effectColor}
         speed={backgroundSpeed}
         size={backgroundSize}
-        hostname={isConnected ? hostname : undefined}
+        hostname={undefined}
       />
       {searchOpen && (
         <SearchBar
@@ -250,14 +228,6 @@ export function TerminalView({
             Restart Terminal
           </button>
         </div>
-      )}
-      {changeWindowWarning.show && (
-        <ChangeWindowWarning
-          command={changeWindowWarning.command}
-          reason={changeWindowWarning.reason}
-          onProceed={onChangeWindowProceed}
-          onCancel={onChangeWindowCancel}
-        />
       )}
     </div>
   );

@@ -22,13 +22,10 @@ interface MenuEventPayload {
 
 /** Callback type for panel toggles managed by App.tsx state. */
 export interface MenuEventCallbacks {
-  onToggleVault?: () => void;
-  onToggleKeyManager?: () => void;
   onToggleThemeEditor?: () => void;
   onToggleFontConfig?: () => void;
   onToggleTemplates?: () => void;
   onToggleHistory?: () => void;
-  onTogglePing?: () => void;
   onToggleScript?: () => void;
   onOpenSettings?: () => void;
   onToggleWorkspaceBar?: () => void;
@@ -43,18 +40,6 @@ let menuCallbacks: MenuEventCallbacks = {};
 /** Registers callbacks for menu events that need to toggle App-level state. */
 export function setMenuEventCallbacks(callbacks: MenuEventCallbacks): void {
   menuCallbacks = callbacks;
-}
-
-/**
- * Checks whether the active tab is a local terminal.
- * Returns true if there's no active tab or its status is "local".
- */
-function isActiveTabLocal(): boolean {
-  const { regions, focusedRegionId } = useLayoutStore.getState();
-  const region = regions[focusedRegionId];
-  if (!region) return true;
-  const activeTab = region.tabs.find((t) => t.id === region.activeTabId);
-  return !activeTab || activeTab.status === "local";
 }
 
 /**
@@ -186,26 +171,6 @@ export function useMenuEvents(): void {
           break;
 
         // ─── Session ───────────────────────────────────────
-        case "menu-connect":
-        case "menu-disconnect":
-        case "menu-reconnect":
-          if (isActiveTabLocal()) {
-            console.warn(
-              `[menuEvents] ${id} ignored — active tab is a local terminal`,
-            );
-          } else {
-            // Future: implement actual connect/disconnect/reconnect
-            console.debug(`[menuEvents] ${id} — remote session action`);
-          }
-          break;
-
-        case "menu-credential-vault":
-          menuCallbacks.onToggleVault?.();
-          break;
-
-        case "menu-ssh-key-manager":
-          menuCallbacks.onToggleKeyManager?.();
-          break;
 
         case "menu-theme-editor":
           menuCallbacks.onToggleThemeEditor?.();
@@ -221,10 +186,6 @@ export function useMenuEvents(): void {
 
         case "menu-command-history":
           menuCallbacks.onToggleHistory?.();
-          break;
-
-        case "menu-ping-dashboard":
-          menuCallbacks.onTogglePing?.();
           break;
 
         case "menu-script-editor":
@@ -251,10 +212,6 @@ export function useMenuEvents(): void {
 
         case "menu-radio":
           useLayoutStore.getState().addRadioTab();
-          break;
-
-        case "menu-start-logging":
-        case "menu-stop-logging":
           break;
 
         // ─── Window ────────────────────────────────────────

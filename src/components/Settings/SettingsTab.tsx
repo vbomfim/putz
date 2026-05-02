@@ -10,7 +10,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { useSettingsStore } from "../../stores/settingsStore";
 import { useThemeStore } from "../../stores/themeStore";
 import type { BackgroundEffect } from "../Terminal/TerminalBackground";
-import "../Vault/VaultTab.css";
+import "../../styles/tab-list.css";
 
 interface Theme {
   id: string;

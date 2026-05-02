@@ -187,9 +187,6 @@ interface LayoutState {
   /** Adds a search & replace tab. */
   addSearchTab: (regionId?: string, directory?: string) => void;
 
-  /** Adds a vault (credentials + keys) tab. */
-  addVaultTab: (regionId?: string) => void;
-
   /** Adds a command history tab. */
   addHistoryTab: (regionId?: string) => void;
 
@@ -504,48 +501,6 @@ export const useLayoutStore = create<LayoutState>((set, get) => ({
         },
       },
       tabCounter: nextCounter,
-    }));
-  },
-
-  addVaultTab: (regionId?: string) => {
-    const targetRegionId = regionId || get().focusedRegionId;
-    const region = get().regions[targetRegionId];
-    if (!region) return;
-
-    // Don't open duplicate vault tabs in the same region
-    const existing = region.tabs.find((t) => t.type === "vault");
-    if (existing) {
-      set((state) => ({
-        regions: {
-          ...state.regions,
-          [targetRegionId]: {
-            ...state.regions[targetRegionId],
-            activeTabId: existing.id,
-          },
-        },
-      }));
-      return;
-    }
-
-    const sessionId = `${EDITOR_SESSION_PREFIX}vault-${generateId()}`;
-    const tab: RegionTab = {
-      id: generateId(),
-      title: "Vault",
-      type: "vault",
-      sessionId,
-      status: "local",
-    };
-
-    set((state) => ({
-      regions: {
-        ...state.regions,
-        [targetRegionId]: {
-          ...state.regions[targetRegionId],
-          tabs: [...state.regions[targetRegionId].tabs, tab],
-          activeTabId: tab.id,
-        },
-      },
-      tabCounter: state.tabCounter + 1,
     }));
   },
 

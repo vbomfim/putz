@@ -2,19 +2,15 @@
  * Application shell — entry point for the Putz terminal emulator.
  *
  * Renders a region-based terminal interface with:
- * - SessionSidebar on the left for session management
  * - RegionContainer for the window layout (regions with tab bars)
  * - ShortcutsPanel modal for keyboard shortcuts reference
  * - HistoryPanel (Ctrl+R) for cross-session command history search
- * - QuickConnect (Ctrl+K) for fast connection input
  * - Empty state with "New Terminal" prompt when no tabs exist
- * - Config Diff Viewer (Ctrl+Shift+K)
  * - Command Templates panel (Ctrl+Shift+T)
  */
 import { useCallback, useEffect, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
-import { openUrl } from "@tauri-apps/plugin-opener";
 import { useLayoutStore } from "./stores/layoutStore";
 import { useBookmarksStore } from "./stores/bookmarksStore";
 import {
@@ -32,16 +28,12 @@ import { RegionContainer } from "./components/Region";
 import { BroadcastBar } from "./components/BroadcastBar";
 import { PathBar } from "./components/PathBar";
 import { ShortcutsPanel } from "./components/Help";
-import { SessionSidebar } from "./components/SessionManager";
 
 import { useMenuEvents, setMenuEventCallbacks } from "./utils/useMenuEvents";
 import {
   useKeyboardShortcuts,
   setKeyboardShortcutCallbacks,
 } from "./components/TabBar/useKeyboardShortcuts";
-import { QuickConnect } from "./components/QuickConnect";
-import { CredentialReminder } from "./components/Vault/CredentialReminder";
-import { PingDashboard } from "./components/Ping/PingDashboard";
 import { Toast, useToast } from "./components/Toast";
 
 import { ThemeEditor } from "./components/Terminal/ThemeEditor";
@@ -51,10 +43,7 @@ import { BookmarksBar } from "./components/BookmarksBar";
 import { useThemeStore } from "./stores/themeStore";
 import { useSettingsStore } from "./stores/settingsStore";
 import type { Theme } from "./components/Terminal/themeTypes";
-import type { SessionProfile } from "./components/SessionManager";
-import type { ParsedConnection } from "./components/QuickConnect";
 import type { RegionTab } from "./types";
-import "./components/SessionManager/SessionManager.css";
 import "./styles/App.css";
 
 // ─── Display helpers ─────────────────────────────────────────────────
@@ -68,7 +57,6 @@ function App() {
   const regions = useLayoutStore((s) => s.regions);
   const addTerminalTab = useLayoutStore((s) => s.addTerminalTab);
   const addEditorTab = useLayoutStore((s) => s.addEditorTab);
-  const addVaultTab = useLayoutStore((s) => s.addVaultTab);
   const addHistoryTab = useLayoutStore((s) => s.addHistoryTab);
   const addTemplateTab = useLayoutStore((s) => s.addTemplateTab);
   const addSettingsTab = useLayoutStore((s) => s.addSettingsTab);
@@ -78,11 +66,8 @@ function App() {
   const bookmarksBarVisible = useSettingsStore((s) => s.bookmarksBarVisible);
   const toggleBookmarksBar = useSettingsStore((s) => s.toggleBookmarksBar);
   const hasInitialized = useRef(false);
-  const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [quickConnectOpen, setQuickConnectOpen] = useState(false);
   const [themeEditorOpen, setThemeEditorOpen] = useState(false);
   const [fontConfigOpen, setFontConfigOpen] = useState(false);
-  const [pingOpen, setPingOpen] = useState(false);
   const [availableThemes, setAvailableThemes] = useState<Theme[]>([]);
   const [toastMessage, showToast, dismissToast] = useToast();
 
@@ -183,13 +168,15 @@ function App() {
     invoke<Theme[]>("theme_list")
       .then((themes) => {
         setAvailableThemes(themes);
-        useThemeStore.getState().setThemes(
-          themes.map((t) => ({
-            id: t.id,
-            name: t.name,
-            isBuiltin: t.isBuiltin,
-          })),
-        );
+        useThemeStore
+          .getState()
+          .setThemes(
+            themes.map((t) => ({
+              id: t.id,
+              name: t.name,
+              isBuiltin: t.isBuiltin,
+            })),
+          );
       })
       .catch((err) => {
         console.warn("[App] Failed to load themes:", err);
@@ -199,13 +186,10 @@ function App() {
   // Wire menu event callbacks for panel toggles
   useEffect(() => {
     setMenuEventCallbacks({
-      onToggleVault: () => addVaultTab(),
-      onToggleKeyManager: () => addVaultTab(),
       onToggleThemeEditor: () => setThemeEditorOpen((prev) => !prev),
       onToggleFontConfig: () => setFontConfigOpen((prev) => !prev),
       onToggleTemplates: () => addTemplateTab(),
       onToggleHistory: () => addHistoryTab(),
-      onTogglePing: () => setPingOpen((prev) => !prev),
       onToggleScript: () => addEditorTab(),
       onOpenSettings: () => addSettingsTab(),
       onToggleWorkspaceBar: () => toggleWorkspaceBar(),
@@ -216,7 +200,6 @@ function App() {
     return () => setMenuEventCallbacks({});
   }, [
     addEditorTab,
-    addVaultTab,
     addHistoryTab,
     addTemplateTab,
     addSettingsTab,
@@ -243,13 +226,15 @@ function App() {
             useThemeStore.getState().setActiveTheme(active.id, active.colors);
           }
           setAvailableThemes(themes);
-          useThemeStore.getState().setThemes(
-            themes.map((t) => ({
-              id: t.id,
-              name: t.name,
-              isBuiltin: t.isBuiltin,
-            })),
-          );
+          useThemeStore
+            .getState()
+            .setThemes(
+              themes.map((t) => ({
+                id: t.id,
+                name: t.name,
+                isBuiltin: t.isBuiltin,
+              })),
+            );
         })
         .catch(() => {});
 
@@ -285,7 +270,7 @@ function App() {
     };
   }, []);
 
-  // Global keyboard shortcuts for History (Ctrl+R) and QuickConnect (Ctrl+K)
+  // Global keyboard shortcuts for History (Ctrl+R)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       const modifier = e.ctrlKey || e.metaKey;
@@ -297,14 +282,6 @@ function App() {
       if (key === "r" && !e.shiftKey) {
         e.preventDefault();
         addHistoryTab();
-        setQuickConnectOpen(false);
-        return;
-      }
-
-      // Ctrl+K — Toggle quick connect bar
-      if (key === "k" && !e.shiftKey) {
-        e.preventDefault();
-        setQuickConnectOpen((prev) => !prev);
         return;
       }
     };
@@ -332,9 +309,9 @@ function App() {
     return () => window.removeEventListener("keydown", handleEscape);
   }, [themeEditorOpen, fontConfigOpen]);
 
-  const handleSidebarToggle = useCallback(() => {
-    setSidebarOpen((prev) => !prev);
-  }, []);
+  // Empty state — all regions are empty
+  // Note: don't render empty state here — RegionContainer handles all workspaces.
+  // Switching to an empty workspace shouldn't unmount other workspace terminals.
 
   /** Global keyboard shortcut: Ctrl+Shift+T → Templates tab. */
   useEffect(() => {
@@ -350,42 +327,10 @@ function App() {
     return () => window.removeEventListener("keydown", handler);
   }, [addTemplateTab]);
 
-  /** Called when a session is opened from the sidebar. */
-  const handleSessionOpen = useCallback(
-    (_session: SessionProfile) => {
-      // Future: spawn a connection for this session profile.
-      // For now, just open a new local terminal tab.
-      addTerminalTab();
-    },
-    [addTerminalTab],
-  );
-
-  /** Called when a connection is submitted from the quick connect bar. */
-  const handleQuickConnect = useCallback(
-    (connection: ParsedConnection) => {
-      // HTTP(S) URLs → open in the system default browser
-      if (connection.protocol === "ssh" && connection.host.startsWith("http")) {
-        const url = connection.host.includes("://")
-          ? connection.host
-          : `https://${connection.host}`;
-        openUrl(url).catch(() => {});
-        return;
-      }
-      // Future: open a connection with the parsed details.
-      addTerminalTab();
-    },
-    [addTerminalTab],
-  );
-
-  // Empty state — all regions are empty
-  // Note: don't render empty state here — RegionContainer handles all workspaces.
-  // Switching to an empty workspace shouldn't unmount other workspace terminals.
-
   return (
     <div className="app-shell" data-testid="app-root">
       {workspaceBarVisible && <WorkspaceBar />}
       <main className="app-container">
-        <CredentialReminder />
         {/* BookmarksBar — positioned below toolbar, above region tree. */}
         {bookmarksBarVisible && (
           <BookmarksBar
@@ -395,39 +340,13 @@ function App() {
           />
         )}
         <div style={{ display: "flex", flex: 1, minHeight: 0 }}>
-          {sidebarOpen && (
-            <SessionSidebar
-              isOpen={sidebarOpen}
-              onToggle={handleSidebarToggle}
-              onSessionOpen={handleSessionOpen}
-            />
-          )}
           <div className="app-content">
             <RegionContainer />
           </div>
         </div>
-        {!sidebarOpen && (
-          <button
-            className="sidebar-toggle"
-            onClick={handleSidebarToggle}
-            onMouseDown={(e) => e.preventDefault()}
-            type="button"
-            aria-label="Open session manager"
-            data-testid="sidebar-toggle"
-            title="Toggle Session Manager (Ctrl+B)"
-            tabIndex={-1}
-          >
-            ▶
-          </button>
-        )}
         <PathBar />
         <BroadcastBar />
         <ShortcutsPanel />
-        <QuickConnect
-          isOpen={quickConnectOpen}
-          onClose={() => setQuickConnectOpen(false)}
-          onConnect={handleQuickConnect}
-        />
 
         {/* Font Config overlay */}
         {fontConfigOpen && (
@@ -440,28 +359,6 @@ function App() {
             themes={availableThemes}
             onClose={() => setThemeEditorOpen(false)}
           />
-        )}
-
-        {/* Ping Dashboard */}
-        {pingOpen && (
-          <div
-            className="modal-overlay"
-            onClick={(e) => {
-              if (e.target === e.currentTarget) setPingOpen(false);
-            }}
-            role="dialog"
-            aria-modal="true"
-          >
-            <div className="modal-panel modal-panel--wide">
-              <button
-                className="modal-close"
-                onClick={() => setPingOpen(false)}
-              >
-                ✕
-              </button>
-              <PingDashboard />
-            </div>
-          </div>
         )}
 
         {/* Toast notification — auto-dismiss, bottom-right */}

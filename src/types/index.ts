@@ -13,7 +13,6 @@ export type TabContentType =
   | "editor"
   | "diff"
   | "search"
-  | "vault"
   | "history"
   | "templates"
   | "settings"
