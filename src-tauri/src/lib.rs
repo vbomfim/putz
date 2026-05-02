@@ -1,13 +1,10 @@
 #![allow(dead_code)]
 
 mod commands;
-mod compliance;
 mod highlight;
 mod history;
 mod ipc;
-mod logging;
 mod menu;
-mod nettools;
 mod perf;
 mod pty;
 mod scripting;
