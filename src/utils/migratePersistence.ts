@@ -3,7 +3,7 @@
  *
  * Handles upgrading on-disk state from v0.3.x → v1.0 by:
  * - Filtering out tabs with content types removed in the decommission epic (#86)
- * - Stripping removed fields (e.g., `status`) from persisted tab objects
+ * - Picking only valid fields (allowlist) from persisted tab objects
  * - Fixing dangling `activeTabId` references after tab removal
  *
  * All functions are pure (input → output, no side effects) and wrapped
@@ -12,6 +12,10 @@
  * Schema versions:
  *   undefined / 0 → pre-v1.0 (may contain ssh, vault, chatview, etc.)
  *   1             → v1.0 (decommissioned content types removed)
+ *
+ * Migration registry:
+ *   Add future version bumps to the MIGRATIONS record below.
+ *   Example: { 0: migrateV0ToV1, 1: migrateV1ToV2 }
  *
  * @module migratePersistence
  */
@@ -27,7 +31,7 @@ export const CURRENT_SCHEMA_VERSION = 1;
  * a removed feature or data corruption — is filtered out. New content types
  * added in future versions must be added here.
  */
-export const VALID_CONTENT_TYPES: ReadonlySet<string> = new Set<string>([
+export const VALID_TAB_TYPES: ReadonlySet<string> = new Set<string>([
   "terminal",
   "editor",
   "diff",
@@ -44,30 +48,49 @@ export const VALID_CONTENT_TYPES: ReadonlySet<string> = new Set<string>([
 ]);
 
 /**
- * Fields that existed on RegionTab in v0.3.x but were removed in v1.0.
- * These are stripped during migration to avoid carrying dead data.
+ * Canonical allowlist of valid RegionTab fields.
+ *
+ * Only these keys are kept during migration — everything else (removed fields,
+ * unknown adversarial keys, prototype-pollution keys) is silently dropped.
+ * Sourced from the RegionTab interface in src/types/index.ts.
  */
-const REMOVED_TAB_FIELDS: ReadonlySet<string> = new Set([
-  "status",
-  "connectionId",
-  "remoteHost",
-  "remotePort",
-  "sshConfig",
-  "serialConfig",
+const VALID_TAB_FIELDS: ReadonlySet<string> = new Set<string>([
+  "id",
+  "title",
+  "type",
+  "sessionId",
+  "editorFilePath",
+  "editorScriptId",
+  "diffLeftPath",
+  "diffRightPath",
+  "diffLeftContent",
+  "diffRightContent",
 ]);
 
 /**
- * Strips removed fields from a tab object.
- *
- * Returns a new object with only the fields defined in the current
- * RegionTab interface. Unknown fields are silently dropped.
+ * Keys that must never appear on a tab object — defense-in-depth against
+ * prototype pollution even though `JSON.parse` doesn't create polluted
+ * objects in modern JS engines.
  */
-export function stripRemovedFields(tab: Record<string, unknown>): RegionTab {
-  const cleaned: Record<string, unknown> = {};
-  for (const [key, value] of Object.entries(tab)) {
-    if (!REMOVED_TAB_FIELDS.has(key)) {
-      cleaned[key] = value;
-    }
+const DANGEROUS_KEYS: ReadonlySet<string> = new Set([
+  "__proto__",
+  "constructor",
+  "prototype",
+]);
+
+/**
+ * Picks only valid RegionTab fields from a tab object (allowlist approach).
+ *
+ * Returns a null-prototype object containing only keys present in
+ * VALID_TAB_FIELDS. Dangerous keys (__proto__, constructor, prototype)
+ * are rejected even if they were somehow in the allowlist.
+ */
+export function stripToValidFields(tab: Record<string, unknown>): RegionTab {
+  const cleaned = Object.create(null) as Record<string, unknown>;
+  for (const key of Object.keys(tab)) {
+    if (DANGEROUS_KEYS.has(key)) continue;
+    if (!VALID_TAB_FIELDS.has(key)) continue;
+    cleaned[key] = tab[key];
   }
   return cleaned as unknown as RegionTab;
 }
@@ -76,7 +99,7 @@ export function stripRemovedFields(tab: Record<string, unknown>): RegionTab {
  * Checks whether a tab's content type is valid in v1.0.
  */
 export function isValidContentType(type: unknown): type is TabContentType {
-  return typeof type === "string" && VALID_CONTENT_TYPES.has(type);
+  return typeof type === "string" && VALID_TAB_TYPES.has(type);
 }
 
 /**
@@ -91,7 +114,7 @@ export function isValidContentType(type: unknown): type is TabContentType {
 export function migrateRegion(region: Record<string, unknown>): Region {
   const rawTabs = Array.isArray(region.tabs) ? region.tabs : [];
 
-  // Filter to valid content types, then strip removed fields
+  // Filter to valid content types, then pick only valid fields
   const migratedTabs: RegionTab[] = rawTabs
     .filter(
       (tab: Record<string, unknown>) =>
@@ -99,7 +122,7 @@ export function migrateRegion(region: Record<string, unknown>): Region {
         typeof tab === "object" &&
         isValidContentType((tab as Record<string, unknown>).type),
     )
-    .map((tab: Record<string, unknown>) => stripRemovedFields(tab));
+    .map((tab: Record<string, unknown>) => stripToValidFields(tab));
 
   // Fix activeTabId — if it pointed to a removed tab, pick the first remaining
   const activeTabId =
@@ -126,6 +149,9 @@ export function migrateRegion(region: Record<string, unknown>): Region {
  * The `layout` tree (LayoutNode) is structurally safe — it only references
  * region IDs, which are preserved. Tabs inside regions are the concern.
  *
+ * If the input already has `schemaVersion === CURRENT_SCHEMA_VERSION`, the
+ * migration pipeline is skipped but shape validation still runs (defense-in-depth).
+ *
  * @param raw - Raw persisted data (may be any shape)
  * @returns Migrated data, or null if input is irrecoverable
  */
@@ -135,6 +161,7 @@ export function migrateWorkspaceLayout(
   layout: unknown;
   regions: Record<string, Region>;
   focusedRegionId: string;
+  schemaVersion: number;
 } | null {
   if (raw == null || typeof raw !== "object") return null;
 
@@ -157,5 +184,6 @@ export function migrateWorkspaceLayout(
     regions: migratedRegions,
     focusedRegionId:
       typeof raw.focusedRegionId === "string" ? raw.focusedRegionId : "",
+    schemaVersion: CURRENT_SCHEMA_VERSION,
   };
 }

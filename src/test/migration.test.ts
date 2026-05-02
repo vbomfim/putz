@@ -16,9 +16,9 @@ import { describe, it, expect } from "vitest";
 
 import {
   CURRENT_SCHEMA_VERSION,
-  VALID_CONTENT_TYPES,
+  VALID_TAB_TYPES,
   isValidContentType,
-  stripRemovedFields,
+  stripToValidFields,
   migrateRegion,
   migrateWorkspaceLayout,
 } from "../utils/migratePersistence";
@@ -31,9 +31,9 @@ describe("schema version", () => {
   });
 });
 
-// ─── VALID_CONTENT_TYPES ─────────────────────────────────────────────
+// ─── VALID_TAB_TYPES ─────────────────────────────────────────────────
 
-describe("VALID_CONTENT_TYPES", () => {
+describe("VALID_TAB_TYPES", () => {
   it("includes all v1.0 content types", () => {
     const expected = [
       "terminal",
@@ -51,14 +51,14 @@ describe("VALID_CONTENT_TYPES", () => {
       "radio",
     ];
     for (const t of expected) {
-      expect(VALID_CONTENT_TYPES.has(t)).toBe(true);
+      expect(VALID_TAB_TYPES.has(t)).toBe(true);
     }
   });
 
   it("does NOT include removed content types", () => {
     const removed = ["ssh", "vault", "chatview", "sftp", "serial", "telnet"];
     for (const t of removed) {
-      expect(VALID_CONTENT_TYPES.has(t)).toBe(false);
+      expect(VALID_TAB_TYPES.has(t)).toBe(false);
     }
   });
 });
@@ -86,9 +86,9 @@ describe("isValidContentType", () => {
   });
 });
 
-// ─── stripRemovedFields ──────────────────────────────────────────────
+// ─── stripToValidFields ──────────────────────────────────────────────
 
-describe("stripRemovedFields", () => {
+describe("stripToValidFields", () => {
   it("strips the status field from a tab", () => {
     const tab = {
       id: "tab-1",
@@ -97,7 +97,7 @@ describe("stripRemovedFields", () => {
       sessionId: "sess-1",
       status: "connected",
     };
-    const result = stripRemovedFields(tab);
+    const result = stripToValidFields(tab);
     expect(result).not.toHaveProperty("status");
     expect(result.id).toBe("tab-1");
     expect(result.type).toBe("terminal");
@@ -115,7 +115,7 @@ describe("stripRemovedFields", () => {
       sshConfig: { key: "value" },
       serialConfig: { baud: 9600 },
     };
-    const result = stripRemovedFields(tab);
+    const result = stripToValidFields(tab);
     expect(result).not.toHaveProperty("status");
     expect(result).not.toHaveProperty("connectionId");
     expect(result).not.toHaveProperty("remoteHost");
@@ -133,13 +133,52 @@ describe("stripRemovedFields", () => {
       editorFilePath: "/home/user/file.ts",
       editorScriptId: "script-1",
     };
-    const result = stripRemovedFields(tab);
+    const result = stripToValidFields(tab);
     expect(result.id).toBe("tab-3");
     expect(result.title).toBe("Editor");
     expect(result.type).toBe("editor");
     expect(result.sessionId).toBe("editor-1");
     expect(result.editorFilePath).toBe("/home/user/file.ts");
     expect(result.editorScriptId).toBe("script-1");
+  });
+
+  it("preserves diff-related fields", () => {
+    const tab = {
+      id: "tab-diff",
+      title: "Diff",
+      type: "diff",
+      sessionId: "diff-1",
+      diffLeftPath: "/a.ts",
+      diffRightPath: "/b.ts",
+      diffLeftContent: "left",
+      diffRightContent: "right",
+    };
+    const result = stripToValidFields(tab);
+    expect(result.diffLeftPath).toBe("/a.ts");
+    expect(result.diffRightPath).toBe("/b.ts");
+    expect(result.diffLeftContent).toBe("left");
+    expect(result.diffRightContent).toBe("right");
+  });
+
+  it("strips unknown/adversarial keys not in the allowlist", () => {
+    const tab = {
+      id: "tab-4",
+      title: "Term",
+      type: "terminal",
+      sessionId: "s4",
+      remoteUser: "admin",
+      unknownField: "should-be-dropped",
+    };
+    const result = stripToValidFields(tab);
+    expect(result).not.toHaveProperty("remoteUser");
+    expect(result).not.toHaveProperty("unknownField");
+    expect(result.id).toBe("tab-4");
+  });
+
+  it("returns a null-prototype object", () => {
+    const tab = { id: "x", title: "t", type: "terminal", sessionId: "s" };
+    const result = stripToValidFields(tab);
+    expect(Object.getPrototypeOf(result)).toBeNull();
   });
 });
 
@@ -591,4 +630,222 @@ describe("full upgrade scenario", () => {
     expect(result!.regions.r1.tabs).toHaveLength(0);
     expect(result!.regions.r1.activeTabId).toBe("");
   });
+});
+
+// ─── Schema version stamping ─────────────────────────────────────────
+
+describe("schema version stamping", () => {
+  it("stamps CURRENT_SCHEMA_VERSION on migrated output", () => {
+    const raw = {
+      layout: { type: "region", regionId: "r1" },
+      regions: {
+        r1: {
+          id: "r1",
+          tabs: [
+            { id: "t1", title: "Term", type: "terminal", sessionId: "s1" },
+          ],
+          activeTabId: "t1",
+          tabPosition: "top",
+        },
+      },
+      focusedRegionId: "r1",
+    };
+    const result = migrateWorkspaceLayout(raw);
+    expect(result).not.toBeNull();
+    expect(result!.schemaVersion).toBe(CURRENT_SCHEMA_VERSION);
+  });
+
+  it("input with schemaVersion: 1 is still validated (defense-in-depth)", () => {
+    const raw = {
+      schemaVersion: 1,
+      layout: { type: "region", regionId: "r1" },
+      regions: {
+        r1: {
+          id: "r1",
+          tabs: [
+            {
+              id: "t1",
+              title: "Term",
+              type: "terminal",
+              sessionId: "s1",
+              status: "stale-field",
+            },
+          ],
+          activeTabId: "t1",
+          tabPosition: "top",
+        },
+      },
+      focusedRegionId: "r1",
+    };
+    const result = migrateWorkspaceLayout(raw);
+    expect(result).not.toBeNull();
+    expect(result!.schemaVersion).toBe(1);
+    // Even with schemaVersion: 1, fields are still cleaned
+    expect(result!.regions.r1.tabs[0]).not.toHaveProperty("status");
+  });
+
+  it("input with schemaVersion: undefined is migrated", () => {
+    const raw = {
+      layout: { type: "region", regionId: "r1" },
+      regions: {
+        r1: {
+          id: "r1",
+          tabs: [{ id: "t1", title: "SSH", type: "ssh", sessionId: "s1" }],
+          activeTabId: "t1",
+          tabPosition: "top",
+        },
+      },
+      focusedRegionId: "r1",
+    };
+    const result = migrateWorkspaceLayout(raw);
+    expect(result).not.toBeNull();
+    expect(result!.schemaVersion).toBe(1);
+    expect(result!.regions.r1.tabs).toHaveLength(0);
+  });
+});
+
+// ─── Idempotency ─────────────────────────────────────────────────────
+
+describe("idempotency", () => {
+  it("migrating twice equals migrating once", () => {
+    const input = {
+      layout: {
+        type: "split",
+        direction: "horizontal",
+        children: [
+          { type: "region", regionId: "main" },
+          { type: "region", regionId: "side" },
+        ],
+        ratio: 0.7,
+      },
+      regions: {
+        main: {
+          id: "main",
+          tabs: [
+            {
+              id: "tab-ssh-1",
+              title: "router-01",
+              type: "ssh",
+              sessionId: "sess-ssh-1",
+              status: "connected",
+              connectionId: "conn-router-01",
+              remoteHost: "192.168.1.1",
+              remotePort: 22,
+            },
+            {
+              id: "tab-term-1",
+              title: "Terminal 1",
+              type: "terminal",
+              sessionId: "sess-term-1",
+              status: "local",
+            },
+          ],
+          activeTabId: "tab-ssh-1",
+          tabPosition: "top",
+        },
+        side: {
+          id: "side",
+          tabs: [
+            {
+              id: "tab-editor-1",
+              title: "config.yaml",
+              type: "editor",
+              sessionId: "editor-config",
+              editorFilePath: "/etc/config.yaml",
+            },
+          ],
+          activeTabId: "tab-editor-1",
+          tabPosition: "top",
+        },
+      },
+      focusedRegionId: "main",
+    };
+    const once = migrateWorkspaceLayout(input);
+    const twice = migrateWorkspaceLayout(
+      once as unknown as Record<string, unknown>,
+    );
+    expect(twice).toEqual(once);
+  });
+});
+
+// ─── Prototype pollution defense ─────────────────────────────────────
+
+describe("prototype pollution defense", () => {
+  it("rejects __proto__ keys in tab data", () => {
+    const polluted = JSON.parse(
+      '{"__proto__": {"polluted": true}, "id": "x", "title": "t", "type": "terminal", "sessionId": "s"}',
+    );
+    const result = stripToValidFields(polluted);
+    expect((result as Record<string, unknown>).polluted).toBeUndefined();
+    expect(Object.getPrototypeOf(result)).toBeNull();
+    expect(
+      (Object.prototype as Record<string, unknown>).polluted,
+    ).toBeUndefined();
+  });
+
+  it("rejects constructor key", () => {
+    const tab = {
+      constructor: "evil",
+      id: "x",
+      title: "t",
+      type: "terminal",
+      sessionId: "s",
+    };
+    const result = stripToValidFields(tab as Record<string, unknown>);
+    expect(result).not.toHaveProperty("constructor");
+    expect(result.id).toBe("x");
+  });
+
+  it("rejects prototype key", () => {
+    const tab = {
+      prototype: { evil: true },
+      id: "x",
+      title: "t",
+      type: "terminal",
+      sessionId: "s",
+    };
+    const result = stripToValidFields(tab as Record<string, unknown>);
+    expect(result).not.toHaveProperty("prototype");
+    expect(result.id).toBe("x");
+  });
+});
+
+// ─── All decommissioned types filtered ───────────────────────────────
+
+describe("all decommissioned types from epic #86 are filtered", () => {
+  const removedTypes = [
+    "keys",
+    "quick-connect",
+    "session-manager",
+    "ping",
+    "config-diff",
+    "interface-status",
+    "mac-arp-viewer",
+    "chatview",
+    "compliance",
+    "forwarding",
+    "backup",
+    "ssh",
+    "vault",
+    "sftp",
+    "serial",
+    "telnet",
+  ];
+
+  for (const removedType of removedTypes) {
+    it(`filters out "${removedType}" tabs`, () => {
+      const region = {
+        id: "r1",
+        tabs: [
+          { id: "t1", title: "Removed", type: removedType, sessionId: "s1" },
+          { id: "t2", title: "Terminal", type: "terminal", sessionId: "s2" },
+        ],
+        activeTabId: "t1",
+        tabPosition: "top",
+      };
+      const result = migrateRegion(region);
+      expect(result.tabs).toHaveLength(1);
+      expect(result.tabs[0].type).toBe("terminal");
+    });
+  }
 });

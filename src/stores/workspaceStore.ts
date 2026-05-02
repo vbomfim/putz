@@ -12,7 +12,10 @@ import { create } from "zustand";
 
 import { useLayoutStore } from "./layoutStore";
 import type { Region, LayoutNode } from "../types";
-import { migrateWorkspaceLayout } from "../utils/migratePersistence";
+import {
+  migrateWorkspaceLayout,
+  CURRENT_SCHEMA_VERSION,
+} from "../utils/migratePersistence";
 
 /** Preset workspace accent colors (Catppuccin palette). */
 export const WORKSPACE_COLORS = [
@@ -34,6 +37,8 @@ interface WorkspaceLayout {
   layout: LayoutNode;
   regions: Record<string, Region>;
   focusedRegionId: string;
+  /** Schema version — used by migrateWorkspaceLayout to skip already-migrated data. */
+  schemaVersion?: number;
 }
 
 /** A named collection of tabs (now region-based). */
@@ -109,7 +114,12 @@ function persistState(state: PersistedWorkspaceState): void {
 /** Captures the current layoutStore state as a workspace snapshot. */
 function captureLayoutState(): WorkspaceLayout {
   const { layout, regions, focusedRegionId } = useLayoutStore.getState();
-  return { layout, regions, focusedRegionId };
+  return {
+    layout,
+    regions,
+    focusedRegionId,
+    schemaVersion: CURRENT_SCHEMA_VERSION,
+  };
 }
 
 /**
@@ -118,22 +128,28 @@ function captureLayoutState(): WorkspaceLayout {
  * Applies migration to guard against stale tab data that may have been
  * captured in a previous session before decommissioned features were removed.
  * See: migration schema v1 (migratePersistence.ts).
+ *
+ * On any exception (migration throws, setState rejects, schema invariant
+ * violation), falls back to fresh state — corrupt snapshot must not crash startup.
  */
 function restoreLayoutState(snapshot: WorkspaceLayout | null): void {
   if (snapshot) {
-    const migrated = migrateWorkspaceLayout(
-      snapshot as unknown as Record<string, unknown>,
-    );
-    if (migrated) {
-      useLayoutStore.setState({
-        layout: migrated.layout as LayoutNode,
-        regions: migrated.regions,
-        focusedRegionId: migrated.focusedRegionId,
-      });
-    } else {
-      // Migration returned null — snapshot was irrecoverable; fall through to fresh state
-      restoreLayoutState(null);
+    try {
+      const migrated = migrateWorkspaceLayout(
+        snapshot as unknown as Record<string, unknown>,
+      );
+      if (migrated) {
+        useLayoutStore.setState({
+          layout: migrated.layout as LayoutNode,
+          regions: migrated.regions,
+          focusedRegionId: migrated.focusedRegionId,
+        });
+        return;
+      }
+    } catch {
+      // fall through to fresh state — corrupt snapshot must not crash startup
     }
+    restoreLayoutState(null);
     return;
   } else {
     // Empty workspace — create a fresh single-region layout
