@@ -51,7 +51,6 @@ export function useKeyboardShortcuts(): void {
   const prevTab = useLayoutStore((s) => s.prevTab);
   const splitRegion = useLayoutStore((s) => s.splitRegion);
   const toggleSearch = useLayoutStore((s) => s.toggleSearch);
-  const toggleLogging = useLayoutStore((s) => s.toggleLogging);
   const toggleBroadcast = useBroadcastStore((s) => s.toggle);
   const toggleShortcutsPanel = useSettingsStore((s) => s.toggleShortcutsPanel);
 
@@ -137,13 +136,6 @@ export function useKeyboardShortcuts(): void {
         return;
       }
 
-      // Ctrl+Shift+L — Toggle session logging
-      if (key === "l" && e.shiftKey) {
-        e.preventDefault();
-        toggleLogging();
-        return;
-      }
-
       // Ctrl+Shift+A — Toggle broadcast mode
       if (key === "a" && e.shiftKey) {
         e.preventDefault();
@@ -173,7 +165,6 @@ export function useKeyboardShortcuts(): void {
       prevTab,
       splitRegion,
       toggleSearch,
-      toggleLogging,
       toggleBroadcast,
       toggleShortcutsPanel,
     ],

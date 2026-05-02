@@ -182,7 +182,6 @@ export function TerminalView({
         color={effectColor}
         speed={backgroundSpeed}
         size={backgroundSize}
-        hostname={undefined}
       />
       {searchOpen && (
         <SearchBar

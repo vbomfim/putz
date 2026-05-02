@@ -168,15 +168,13 @@ function App() {
     invoke<Theme[]>("theme_list")
       .then((themes) => {
         setAvailableThemes(themes);
-        useThemeStore
-          .getState()
-          .setThemes(
-            themes.map((t) => ({
-              id: t.id,
-              name: t.name,
-              isBuiltin: t.isBuiltin,
-            })),
-          );
+        useThemeStore.getState().setThemes(
+          themes.map((t) => ({
+            id: t.id,
+            name: t.name,
+            isBuiltin: t.isBuiltin,
+          })),
+        );
       })
       .catch((err) => {
         console.warn("[App] Failed to load themes:", err);
@@ -226,15 +224,13 @@ function App() {
             useThemeStore.getState().setActiveTheme(active.id, active.colors);
           }
           setAvailableThemes(themes);
-          useThemeStore
-            .getState()
-            .setThemes(
-              themes.map((t) => ({
-                id: t.id,
-                name: t.name,
-                isBuiltin: t.isBuiltin,
-              })),
-            );
+          useThemeStore.getState().setThemes(
+            themes.map((t) => ({
+              id: t.id,
+              name: t.name,
+              isBuiltin: t.isBuiltin,
+            })),
+          );
         })
         .catch(() => {});
 

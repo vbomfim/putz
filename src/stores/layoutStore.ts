@@ -159,9 +159,6 @@ interface LayoutState {
   // Search state (preserved from tabStore)
   isSearchOpen: boolean;
 
-  // Logging state — tracks which sessions have active logging
-  loggingSessions: Set<string>;
-
   // ─── Region Tab Actions ───────────────────────────────────────────
 
   /** Adds a terminal tab to a region (defaults to focused region). */
@@ -268,12 +265,6 @@ interface LayoutState {
   toggleSearch: () => void;
   closeSearch: () => void;
 
-  // ─── Logging ──────────────────────────────────────────────────────
-
-  toggleLogging: () => void;
-  setLogging: (sessionId: string, active: boolean) => void;
-  isLogging: (sessionId: string) => boolean;
-
   // ─── Helpers ──────────────────────────────────────────────────────
 
   /** Returns the session ID of the active tab in the focused region, or null. */
@@ -295,7 +286,6 @@ function createInitialState() {
     focusedRegionId: regionId,
     tabCounter: 0,
     isSearchOpen: false,
-    loggingSessions: new Set<string>(),
   };
 }
 
@@ -1298,64 +1288,6 @@ export const useLayoutStore = create<LayoutState>((set, get) => ({
 
   closeSearch: () => {
     set({ isSearchOpen: false });
-  },
-
-  // ─── Logging ──────────────────────────────────────────────────────
-
-  toggleLogging: () => {
-    const sessionId = get().getActiveSessionId();
-    if (!sessionId) return;
-
-    const { loggingSessions, focusedRegionId, regions } = get();
-    const region = regions[focusedRegionId];
-    const activeTab = region?.tabs.find((t) => t.id === region.activeTabId);
-    const newLogging = new Set(loggingSessions);
-
-    if (newLogging.has(sessionId)) {
-      newLogging.delete(sessionId);
-      invoke("logging_stop", { sessionId }).catch(() => {
-        const rollback = new Set(get().loggingSessions);
-        rollback.add(sessionId);
-        set({ loggingSessions: rollback });
-      });
-    } else {
-      newLogging.add(sessionId);
-      invoke("logging_start", {
-        sessionId,
-        config: {
-          directory: "",
-          sessionName: (activeTab?.title || "terminal")
-            .replace(/\s+/g, "-")
-            .toLowerCase(),
-          timestamps: true,
-          stripAnsi: true,
-          maxFileSize: 100 * 1024 * 1024,
-          flushIntervalMs: 100,
-        },
-      }).catch(() => {
-        const rollback = new Set(get().loggingSessions);
-        rollback.delete(sessionId);
-        set({ loggingSessions: rollback });
-      });
-    }
-
-    set({ loggingSessions: newLogging });
-  },
-
-  setLogging: (sessionId: string, active: boolean) => {
-    set((state) => {
-      const newLogging = new Set(state.loggingSessions);
-      if (active) {
-        newLogging.add(sessionId);
-      } else {
-        newLogging.delete(sessionId);
-      }
-      return { loggingSessions: newLogging };
-    });
-  },
-
-  isLogging: (sessionId: string) => {
-    return get().loggingSessions.has(sessionId);
   },
 
   // ─── Helpers ──────────────────────────────────────────────────────

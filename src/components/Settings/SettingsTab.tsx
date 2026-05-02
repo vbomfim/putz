@@ -194,8 +194,7 @@ export function SettingsTab() {
               margin: "0 0 12px",
             }}
           >
-            Hostname watermark always shows when connected via SSH. Animated
-            effects are optional.
+            Animated effects are optional eye-candy behind the terminal.
           </p>
 
           <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
