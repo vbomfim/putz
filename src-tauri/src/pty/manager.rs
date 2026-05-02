@@ -13,7 +13,6 @@ use tauri::{AppHandle, Emitter};
 use uuid::Uuid;
 
 use super::error::PtyError;
-use crate::logging::SessionLogger;
 
 /// Output buffer size for reading from the PTY.
 const READ_BUFFER_SIZE: usize = 4096;
@@ -105,7 +104,6 @@ impl PtyManager {
         cols: u16,
         rows: u16,
         env: Option<HashMap<String, String>>,
-        log_loggers: Arc<Mutex<HashMap<String, Arc<SessionLogger>>>>,
     ) -> Result<String, PtyError> {
         // Check session limit before doing anything else
         {
@@ -233,7 +231,7 @@ impl PtyManager {
 
         // Start the output reader on an OS thread (blocking I/O).
         // This thread lives until the PTY process exits (reader returns EOF).
-        self.start_reader_thread(app.clone(), session_id.clone(), reader, log_loggers);
+        self.start_reader_thread(app.clone(), session_id.clone(), reader);
 
         Ok(session_id)
     }
@@ -417,14 +415,12 @@ impl PtyManager {
     /// Output bytes are base64-encoded before emission to avoid the
     /// overhead of serializing Vec<u8> as a JSON array of numbers.
     ///
-    /// If a session logger is active, raw output bytes are also written
-    /// to the log file via the shared logger registry.
+    /// Reads PTY output in a blocking loop and emits it to the frontend.
     fn start_reader_thread(
         &self,
         app: AppHandle,
         session_id: String,
         mut reader: Box<dyn Read + Send>,
-        log_loggers: Arc<Mutex<HashMap<String, Arc<SessionLogger>>>>,
     ) {
         let sessions = self.sessions.clone();
         let b64_engine = base64::engine::general_purpose::STANDARD;
@@ -442,15 +438,6 @@ impl PtyManager {
                         let encoded = b64_engine.encode(data);
                         let event_name = format!("pty-output-{session_id}");
                         let _ = app.emit(&event_name, encoded);
-
-                        // Write to session logger if active (non-blocking lookup)
-                        if let Ok(loggers) = log_loggers.lock() {
-                            if let Some(logger) = loggers.get(&session_id) {
-                                let logger = logger.clone(); // Arc clone — release HashMap lock
-                                drop(loggers);
-                                let _ = logger.write_data(data);
-                            }
-                        }
                     }
                     Err(e) => {
                         // I/O error — log minimally (no content!) and exit
