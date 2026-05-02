@@ -11,7 +11,6 @@ mod logging;
 mod menu;
 mod nettools;
 mod perf;
-mod protocol;
 mod pty;
 mod scripting;
 mod session;
