@@ -554,7 +554,7 @@ export const STENCIL_CATALOG: Map<string, StencilEntry> = new Map([
 // ── Initialize metadata from eager catalog ────────────────
 
 function syncMetaFromCatalog(): void {
-  for (const [_id, entry] of STENCIL_CATALOG) {
+  for (const entry of STENCIL_CATALOG.values()) {
     if (!STENCIL_META.has(entry.id)) {
       STENCIL_META.set(entry.id, {
         id: entry.id,
@@ -780,7 +780,7 @@ export function _resetLazyState(): void {
   // Reset metadata to eager only
   STENCIL_META.clear();
   LOADED_CATEGORIES.clear();
-  for (const [_id, entry] of STENCIL_CATALOG) {
+  for (const entry of STENCIL_CATALOG.values()) {
     STENCIL_META.set(entry.id, {
       id: entry.id,
       label: entry.label,
