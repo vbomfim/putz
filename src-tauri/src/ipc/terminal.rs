@@ -10,7 +10,6 @@ use std::collections::HashMap;
 
 use tauri::{AppHandle, State};
 
-use crate::logging::LogManager;
 use crate::pty::PtyManager;
 use crate::swarm::SwarmCoordinator;
 
@@ -29,7 +28,6 @@ use crate::pty::PtyError;
 pub async fn pty_spawn(
     app: AppHandle,
     state: State<'_, PtyManager>,
-    log_state: State<'_, LogManager>,
     swarm: State<'_, SwarmCoordinator>,
     shell: Option<String>,
     cwd: Option<String>,
@@ -57,15 +55,7 @@ pub async fn pty_spawn(
     };
 
     state
-        .spawn(
-            &app,
-            shell,
-            cwd,
-            cols,
-            rows,
-            merged_env,
-            log_state.get_loggers(),
-        )
+        .spawn(&app, shell, cwd, cols, rows, merged_env)
         .map_err(|e| e.to_string())
 }
 
