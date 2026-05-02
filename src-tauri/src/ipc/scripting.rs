@@ -5,12 +5,10 @@
 /// immediately and the script executes in the background.
 use tauri::{AppHandle, Manager, State};
 
-use crate::protocol::connection_manager::ConnectionManager;
 use crate::pty::PtyManager;
 use crate::scripting::engine::ScriptCommand;
 use crate::scripting::models::*;
 use crate::scripting::ScriptManager;
-use crate::vault::VaultManager;
 
 /// Lists all saved scripts (metadata only).
 #[tauri::command]
@@ -57,7 +55,8 @@ pub async fn script_run(
     let app_for_handler = app.clone();
 
     // Build the command handler that routes script commands to managers.
-    // Uses AppHandle to access managed state (PtyManager, ConnectionManager, etc.)
+    // Uses AppHandle to access managed state (PtyManager).
+    // Connection and Vault features have been removed (epic #86).
     let handler = move |cmd: ScriptCommand| {
         let app = app_for_handler.clone();
         let session_id = session_id.clone();
@@ -70,27 +69,8 @@ pub async fn script_run(
                     result_tx,
                 } => {
                     let data_bytes = format!("{data}\r\n").into_bytes();
-
-                    // Try PTY first
                     let pty = app.state::<PtyManager>();
-                    let pty_result = pty.write(&session_id, &data_bytes);
-                    if pty_result.is_ok() {
-                        let _ = result_tx.send(Ok(()));
-                        return;
-                    }
-
-                    // Try connection (async) — gracefully handle removed manager
-                    let conn = match app.try_state::<ConnectionManager>() {
-                        Some(c) => c,
-                        None => {
-                            let _ = result_tx.send(Err(
-                                "Connection feature has been removed".to_string(),
-                            ));
-                            return;
-                        }
-                    };
-                    let conn_result = conn.write(&session_id, &data_bytes).await;
-                    match conn_result {
+                    match pty.write(&session_id, &data_bytes) {
                         Ok(()) => {
                             let _ = result_tx.send(Ok(()));
                         }
@@ -107,23 +87,7 @@ pub async fn script_run(
                     result_tx,
                 } => {
                     let pty = app.state::<PtyManager>();
-                    let pty_result = pty.close(&session_id);
-                    if pty_result.is_ok() {
-                        let _ = result_tx.send(Ok(()));
-                        return;
-                    }
-
-                    let conn = match app.try_state::<ConnectionManager>() {
-                        Some(c) => c,
-                        None => {
-                            let _ = result_tx.send(Err(
-                                "Connection feature has been removed".to_string(),
-                            ));
-                            return;
-                        }
-                    };
-                    let conn_result = conn.close(&session_id).await;
-                    match conn_result {
+                    match pty.close(&session_id) {
                         Ok(()) => {
                             let _ = result_tx.send(Ok(()));
                         }
@@ -133,34 +97,10 @@ pub async fn script_run(
                     }
                 }
                 ScriptCommand::VaultGet {
-                    credential_name,
+                    credential_name: _,
                     result_tx,
                 } => {
-                    let vault = match app.try_state::<VaultManager>() {
-                        Some(v) => v,
-                        None => {
-                            let _ = result_tx.send(Err(
-                                "Vault feature has been removed".to_string(),
-                            ));
-                            return;
-                        }
-                    };
-                    let creds = vault.list().unwrap_or_default();
-                    let found = creds.iter().find(|c| c.name == credential_name);
-
-                    match found {
-                        Some(meta) => match vault.get(&meta.id) {
-                            Ok(cred) => {
-                                let _ = result_tx.send(Ok(Some(cred.secret.clone())));
-                            }
-                            Err(e) => {
-                                let _ = result_tx.send(Err(e.to_string()));
-                            }
-                        },
-                        None => {
-                            let _ = result_tx.send(Ok(None));
-                        }
-                    }
+                    let _ = result_tx.send(Err("Vault feature has been removed".to_string()));
                 }
                 ScriptCommand::Log { entry } => {
                     let _ =
@@ -209,23 +149,7 @@ pub async fn script_run_multi(
                     } => {
                         let data_bytes = format!("{data}\r\n").into_bytes();
                         let pty = app.state::<PtyManager>();
-                        let pty_result = pty.write(&session_id, &data_bytes);
-                        if pty_result.is_ok() {
-                            let _ = result_tx.send(Ok(()));
-                            return;
-                        }
-
-                        let conn = match app.try_state::<ConnectionManager>() {
-                            Some(c) => c,
-                            None => {
-                                let _ = result_tx.send(Err(
-                                    "Connection feature has been removed".to_string(),
-                                ));
-                                return;
-                            }
-                        };
-                        let conn_result = conn.write(&session_id, &data_bytes).await;
-                        match conn_result {
+                        match pty.write(&session_id, &data_bytes) {
                             Ok(()) => {
                                 let _ = result_tx.send(Ok(()));
                             }
@@ -239,60 +163,20 @@ pub async fn script_run_multi(
                         result_tx,
                     } => {
                         let pty = app.state::<PtyManager>();
-                        let pty_result = pty.close(&session_id);
-                        if pty_result.is_ok() {
-                            let _ = result_tx.send(Ok(()));
-                            return;
-                        }
-
-                        let conn = match app.try_state::<ConnectionManager>() {
-                            Some(c) => c,
-                            None => {
-                                let _ = result_tx.send(Err(
-                                    "Connection feature has been removed".to_string(),
-                                ));
-                                return;
-                            }
-                        };
-                        let conn_result = conn.close(&session_id).await;
-                        match conn_result {
+                        match pty.close(&session_id) {
                             Ok(()) => {
                                 let _ = result_tx.send(Ok(()));
                             }
                             Err(e) => {
-                                let _ = result_tx.send(Err(e.to_string()));
+                                let _ = result_tx.send(Err(format!("Failed to disconnect: {e}")));
                             }
                         }
                     }
                     ScriptCommand::VaultGet {
-                        credential_name,
+                        credential_name: _,
                         result_tx,
                     } => {
-                        let vault = match app.try_state::<VaultManager>() {
-                            Some(v) => v,
-                            None => {
-                                let _ = result_tx.send(Err(
-                                    "Vault feature has been removed".to_string(),
-                                ));
-                                return;
-                            }
-                        };
-                        let creds = vault.list().unwrap_or_default();
-                        let found = creds.iter().find(|c| c.name == credential_name);
-
-                        match found {
-                            Some(meta) => match vault.get(&meta.id) {
-                                Ok(cred) => {
-                                    let _ = result_tx.send(Ok(Some(cred.secret.clone())));
-                                }
-                                Err(e) => {
-                                    let _ = result_tx.send(Err(e.to_string()));
-                                }
-                            },
-                            None => {
-                                let _ = result_tx.send(Ok(None));
-                            }
-                        }
+                        let _ = result_tx.send(Err("Vault feature has been removed".to_string()));
                     }
                     ScriptCommand::Log { entry } => {
                         let _ = tauri::Emitter::emit(
