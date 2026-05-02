@@ -44,32 +44,9 @@ pub fn build_menu(app: &AppHandle<Wry>) -> Result<tauri::menu::Menu<Wry>, tauri:
         ))
         .item(&menu_item!(
             app,
-            "menu-new-connection",
-            "New Connection...",
-            "CmdOrCtrl+N"
-        ))
-        .item(&menu_item!(
-            app,
-            "menu-quick-connect",
-            "Quick Connect",
-            "CmdOrCtrl+K"
-        ))
-        .item(&menu_item!(
-            app,
             "menu-open-file",
             "Open File...",
             "CmdOrCtrl+O"
-        ))
-        .separator()
-        .item(&menu_item!(
-            app,
-            "menu-import-sessions",
-            "Import Sessions..."
-        ))
-        .item(&menu_item!(
-            app,
-            "menu-export-sessions",
-            "Export Sessions..."
         ))
         .separator()
         .item(&menu_item!(
@@ -202,38 +179,7 @@ pub fn build_menu(app: &AppHandle<Wry>) -> Result<tauri::menu::Menu<Wry>, tauri:
         ))
         .build()?;
 
-    let session_menu = SubmenuBuilder::new(app, "Session")
-        .item(&menu_item!(app, "menu-connect", "Connect"))
-        .item(&menu_item!(app, "menu-disconnect", "Disconnect"))
-        .item(&menu_item!(app, "menu-reconnect", "Reconnect"))
-        .separator()
-        .item(&menu_item!(
-            app,
-            "menu-session-manager",
-            "Session Manager",
-            "CmdOrCtrl+B"
-        ))
-        .item(&menu_item!(
-            app,
-            "menu-credential-vault",
-            "Credential Vault"
-        ))
-        .item(&menu_item!(app, "menu-ssh-key-manager", "SSH Key Manager"))
-        .separator()
-        .item(&menu_item!(
-            app,
-            "menu-start-logging",
-            "Start Logging",
-            "CmdOrCtrl+Shift+L"
-        ))
-        .item(&menu_item!(app, "menu-stop-logging", "Stop Logging"))
-        .separator()
-        .item(&menu_item!(app, "menu-send-break", "Send Break"))
-        .build()?;
-
     let tools_menu = SubmenuBuilder::new(app, "Tools")
-        .item(&menu_item!(app, "menu-ping-dashboard", "Ping Dashboard"))
-        .separator()
         .item(&menu_item!(
             app,
             "menu-command-history",
@@ -324,7 +270,6 @@ pub fn build_menu(app: &AppHandle<Wry>) -> Result<tauri::menu::Menu<Wry>, tauri:
         .item(&edit_menu)
         .item(&view_menu)
         .item(&bookmarks_menu)
-        .item(&session_menu)
         .item(&tools_menu)
         .item(&window_menu)
         .item(&help_menu)
