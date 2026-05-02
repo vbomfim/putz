@@ -23,6 +23,7 @@ import { GitGraph } from "../GitGraph";
 import { Radio } from "../Radio";
 import { RegionTabBar } from "./RegionTabBar";
 import { useLayoutStore } from "../../stores/layoutStore";
+import { VALID_CONTENT_TYPES } from "../../utils/migratePersistence";
 import type { Region } from "../../types";
 
 interface RegionViewProps {
@@ -311,6 +312,29 @@ export function RegionView({ region, isFocused }: RegionViewProps) {
                 }}
               >
                 <Radio />
+              </div>
+            );
+          }
+          // Defensive guard: if a persisted tab has an unknown/removed content
+          // type that survived migration (e.g., "ssh", "vault"), render an
+          // empty placeholder instead of crashing. This protects against stale
+          // localStorage data from v0.3.x upgrades.
+          if (!VALID_CONTENT_TYPES.has(tab.type)) {
+            return (
+              <div
+                key={tab.id}
+                style={{
+                  display: isTabActive ? "flex" : "none",
+                  flex: 1,
+                  flexDirection: "column",
+                  minHeight: 0,
+                  overflow: "hidden",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  opacity: 0.5,
+                }}
+              >
+                <p>Unsupported tab type</p>
               </div>
             );
           }
