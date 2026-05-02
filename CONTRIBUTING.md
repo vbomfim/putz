@@ -52,7 +52,7 @@ Thank you for your interest in contributing to Putz! This document provides guid
 - Follow `rustfmt` configuration in `src-tauri/rustfmt.toml`
 - Run `cargo fmt` before committing
 - Run `cargo clippy` to catch common issues
-- Place Tauri commands in `src-tauri/src/commands/`
+- Place Tauri commands in `src-tauri/src/ipc/`
 
 ## Reporting Issues
 
