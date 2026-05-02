@@ -12,7 +12,6 @@ import { useState, useCallback, useEffect, useRef } from "react";
 import { useTabStore } from "../../stores/tabStore";
 import { Tab } from "./Tab";
 import { useKeyboardShortcuts } from "./useKeyboardShortcuts";
-import { ChangeWindowIndicator } from "../Compliance/ChangeWindowIndicator";
 import "./TabBar.css";
 
 /** Context menu state. */
@@ -182,8 +181,6 @@ export function TabBar() {
           />
         ))}
       </div>
-
-      <ChangeWindowIndicator />
 
       <button
         className="tabbar__add"

@@ -159,9 +159,6 @@ interface LayoutState {
   // Search state (preserved from tabStore)
   isSearchOpen: boolean;
 
-  // Logging state — tracks which sessions have active logging
-  loggingSessions: Set<string>;
-
   // ─── Region Tab Actions ───────────────────────────────────────────
 
   /** Adds a terminal tab to a region (defaults to focused region). */
@@ -186,9 +183,6 @@ interface LayoutState {
 
   /** Adds a search & replace tab. */
   addSearchTab: (regionId?: string, directory?: string) => void;
-
-  /** Adds a vault (credentials + keys) tab. */
-  addVaultTab: (regionId?: string) => void;
 
   /** Adds a command history tab. */
   addHistoryTab: (regionId?: string) => void;
@@ -271,12 +265,6 @@ interface LayoutState {
   toggleSearch: () => void;
   closeSearch: () => void;
 
-  // ─── Logging ──────────────────────────────────────────────────────
-
-  toggleLogging: () => void;
-  setLogging: (sessionId: string, active: boolean) => void;
-  isLogging: (sessionId: string) => boolean;
-
   // ─── Helpers ──────────────────────────────────────────────────────
 
   /** Returns the session ID of the active tab in the focused region, or null. */
@@ -298,7 +286,6 @@ function createInitialState() {
     focusedRegionId: regionId,
     tabCounter: 0,
     isSearchOpen: false,
-    loggingSessions: new Set<string>(),
   };
 }
 
@@ -504,48 +491,6 @@ export const useLayoutStore = create<LayoutState>((set, get) => ({
         },
       },
       tabCounter: nextCounter,
-    }));
-  },
-
-  addVaultTab: (regionId?: string) => {
-    const targetRegionId = regionId || get().focusedRegionId;
-    const region = get().regions[targetRegionId];
-    if (!region) return;
-
-    // Don't open duplicate vault tabs in the same region
-    const existing = region.tabs.find((t) => t.type === "vault");
-    if (existing) {
-      set((state) => ({
-        regions: {
-          ...state.regions,
-          [targetRegionId]: {
-            ...state.regions[targetRegionId],
-            activeTabId: existing.id,
-          },
-        },
-      }));
-      return;
-    }
-
-    const sessionId = `${EDITOR_SESSION_PREFIX}vault-${generateId()}`;
-    const tab: RegionTab = {
-      id: generateId(),
-      title: "Vault",
-      type: "vault",
-      sessionId,
-      status: "local",
-    };
-
-    set((state) => ({
-      regions: {
-        ...state.regions,
-        [targetRegionId]: {
-          ...state.regions[targetRegionId],
-          tabs: [...state.regions[targetRegionId].tabs, tab],
-          activeTabId: tab.id,
-        },
-      },
-      tabCounter: state.tabCounter + 1,
     }));
   },
 
@@ -1343,64 +1288,6 @@ export const useLayoutStore = create<LayoutState>((set, get) => ({
 
   closeSearch: () => {
     set({ isSearchOpen: false });
-  },
-
-  // ─── Logging ──────────────────────────────────────────────────────
-
-  toggleLogging: () => {
-    const sessionId = get().getActiveSessionId();
-    if (!sessionId) return;
-
-    const { loggingSessions, focusedRegionId, regions } = get();
-    const region = regions[focusedRegionId];
-    const activeTab = region?.tabs.find((t) => t.id === region.activeTabId);
-    const newLogging = new Set(loggingSessions);
-
-    if (newLogging.has(sessionId)) {
-      newLogging.delete(sessionId);
-      invoke("logging_stop", { sessionId }).catch(() => {
-        const rollback = new Set(get().loggingSessions);
-        rollback.add(sessionId);
-        set({ loggingSessions: rollback });
-      });
-    } else {
-      newLogging.add(sessionId);
-      invoke("logging_start", {
-        sessionId,
-        config: {
-          directory: "",
-          sessionName: (activeTab?.title || "terminal")
-            .replace(/\s+/g, "-")
-            .toLowerCase(),
-          timestamps: true,
-          stripAnsi: true,
-          maxFileSize: 100 * 1024 * 1024,
-          flushIntervalMs: 100,
-        },
-      }).catch(() => {
-        const rollback = new Set(get().loggingSessions);
-        rollback.delete(sessionId);
-        set({ loggingSessions: rollback });
-      });
-    }
-
-    set({ loggingSessions: newLogging });
-  },
-
-  setLogging: (sessionId: string, active: boolean) => {
-    set((state) => {
-      const newLogging = new Set(state.loggingSessions);
-      if (active) {
-        newLogging.add(sessionId);
-      } else {
-        newLogging.delete(sessionId);
-      }
-      return { loggingSessions: newLogging };
-    });
-  },
-
-  isLogging: (sessionId: string) => {
-    return get().loggingSessions.has(sessionId);
   },
 
   // ─── Helpers ──────────────────────────────────────────────────────

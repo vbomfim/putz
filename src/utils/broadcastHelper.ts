@@ -24,7 +24,7 @@ import { useBroadcastStore, collectSessionIds } from "../stores/broadcastStore";
  * 2. Does the source session belong to the active tab?
  * 3. If yes, writes data to all target tabs' sessions.
  *
- * Uses `pty_write` for local tabs and `connection_write` for connected tabs.
+ * Uses `pty_write` for all tabs.
  *
  * @param sourceSessionId - The session ID that originated the input
  * @param data - The encoded byte data to broadcast
@@ -50,9 +50,7 @@ export function broadcastWrite(sourceSessionId: string, data: number[]): void {
   const sourcePaneSessions = collectSessionIds(sourceTab.layout);
   for (const siblingSessionId of sourcePaneSessions) {
     if (siblingSessionId === sourceSessionId) continue;
-    const command =
-      sourceTab.status === "connected" ? "connection_write" : "pty_write";
-    invoke(command, { sessionId: siblingSessionId, data }).catch(() => {});
+    invoke("pty_write", { sessionId: siblingSessionId, data }).catch(() => {});
   }
 
   // 4b. Send to ALL sessions in each target tab (other tabs)
@@ -69,11 +67,7 @@ export function broadcastWrite(sourceSessionId: string, data: number[]): void {
       // Skip if it's the same session as the source
       if (targetSessionId === sourceSessionId) continue;
 
-      // Use connection_write for remote sessions, pty_write for local
-      const command =
-        targetTab.status === "connected" ? "connection_write" : "pty_write";
-
-      invoke(command, {
+      invoke("pty_write", {
         sessionId: targetSessionId,
         data,
       }).catch(() => {

@@ -1,4 +1,5 @@
-/* ── Vault Tab ─────────────────────────────────────────── */
+/* ── Tab List Styles ─────────────────────────────────────── */
+/* Shared list/item/form styles used by History, Templates, and Settings tabs. */
 
 .vault-tab {
   display: flex;
@@ -10,14 +11,6 @@
   font-family: "JetBrains Mono", "Cascadia Code", monospace;
   font-size: 13px;
   position: relative;
-}
-
-.vault-tab__loading {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  height: 100%;
-  color: var(--text-secondary);
 }
 
 /* Toast notification */
@@ -54,35 +47,6 @@
   padding: 6px 8px;
   background: var(--bg-secondary);
   border-bottom: 1px solid var(--hover-bg);
-}
-
-.vault-tab__section-tabs {
-  display: flex;
-  gap: 2px;
-}
-
-.vault-tab__section-btn {
-  padding: 4px 10px;
-  border: none;
-  border-radius: 4px;
-  background: transparent;
-  color: var(--text-secondary);
-  font-size: 12px;
-  font-family: inherit;
-  cursor: pointer;
-  transition:
-    background 0.15s,
-    color 0.15s;
-}
-
-.vault-tab__section-btn:hover {
-  background: var(--hover-bg);
-  color: var(--text-primary);
-}
-
-.vault-tab__section-btn--active {
-  background: var(--accent);
-  color: white;
 }
 
 .vault-tab__filter {
@@ -129,22 +93,55 @@
   min-height: 0;
 }
 
-/* Inline form */
-.vault-tab__inline-form {
-  padding: 8px;
-  background: var(--bg-secondary);
-  border-bottom: 2px solid var(--accent);
+/* List items */
+.vault-tab__item {
   display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.vault-tab__form-row {
-  display: flex;
-  gap: 4px;
   align-items: center;
+  justify-content: space-between;
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--hover-bg);
+  transition: background 0.1s;
 }
 
+.vault-tab__item:hover {
+  background: var(--hover-bg);
+}
+
+.vault-tab__item-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  flex: 1;
+}
+
+.vault-tab__item-name {
+  font-weight: 600;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.vault-tab__item-badge {
+  padding: 1px 6px;
+  border-radius: 3px;
+  font-size: 10px;
+  font-weight: 600;
+  background: var(--hover-bg);
+  color: var(--text-secondary);
+  flex-shrink: 0;
+}
+
+/* Empty state */
+.vault-tab__empty {
+  padding: 32px;
+  text-align: center;
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
+/* Form inputs */
 .vault-tab__form-input {
   padding: 5px 8px;
   border: 1px solid var(--hover-bg);
@@ -158,24 +155,8 @@
   min-width: 0;
 }
 
-.vault-tab__form-input--flex {
-  flex: 2;
-}
-
 .vault-tab__form-input:focus {
   border-color: var(--accent);
-}
-
-.vault-tab__form-select {
-  padding: 5px 6px;
-  border: 1px solid var(--hover-bg);
-  border-radius: 4px;
-  background: var(--bg-primary);
-  color: var(--text-primary);
-  font-size: 11px;
-  font-family: inherit;
-  outline: none;
-  flex-shrink: 0;
 }
 
 .vault-tab__form-save {
@@ -215,41 +196,7 @@
   color: var(--text-primary);
 }
 
-/* List items */
-.vault-tab__item {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 6px 8px;
-  border-bottom: 1px solid var(--hover-bg);
-  transition: background 0.1s;
-}
-
-.vault-tab__item:hover {
-  background: var(--hover-bg);
-}
-
-.vault-tab__item--editing {
-  background: var(--bg-secondary);
-  opacity: 0.4;
-}
-
-.vault-tab__item-info {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  min-width: 0;
-  flex: 1;
-}
-
-.vault-tab__item-name {
-  font-weight: 600;
-  color: var(--text-primary);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
+/* Item user text */
 .vault-tab__item-user {
   color: var(--text-secondary);
   font-size: 12px;
@@ -258,26 +205,7 @@
   text-overflow: ellipsis;
 }
 
-.vault-tab__item-badge {
-  padding: 1px 6px;
-  border-radius: 3px;
-  font-size: 10px;
-  font-weight: 600;
-  background: var(--hover-bg);
-  color: var(--text-secondary);
-  flex-shrink: 0;
-}
-
-.vault-tab__item-fingerprint {
-  color: var(--text-secondary);
-  font-size: 11px;
-  font-family: monospace;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  min-width: 0;
-}
-
+/* Item actions */
 .vault-tab__item-actions {
   display: flex;
   gap: 2px;
@@ -312,12 +240,4 @@
 .vault-tab__action--danger:hover {
   background: rgba(255, 85, 85, 0.15);
   color: #ff5555;
-}
-
-/* Empty state */
-.vault-tab__empty {
-  padding: 32px;
-  text-align: center;
-  color: var(--text-secondary);
-  font-size: 12px;
 }

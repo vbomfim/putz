@@ -1,9 +1,7 @@
 /**
- * TerminalBackground — Animated canvas backgrounds and hostname watermark.
+ * TerminalBackground — Animated canvas backgrounds.
  *
- * Two modes:
- * 1. Animated effects (matrix, starfield, network, rain) — fun/aesthetic
- * 2. Hostname watermark — large faded text showing which device you're on
+ * Animated effects (matrix, starfield, network, rain) — fun/aesthetic.
  *
  * Renders behind the terminal with the xterm background semi-transparent.
  *
@@ -26,51 +24,6 @@ interface TerminalBackgroundProps {
   speed?: number;
   /** Avatar/effect size: small, medium, large. */
   size?: "small" | "medium" | "large";
-  /** Hostname/label watermark — shown as large faded text behind terminal. */
-  hostname?: string;
-}
-
-// ── Hostname Watermark ─────────────────────────────────────────
-function hostnameWatermark(
-  ctx: CanvasRenderingContext2D,
-  w: number,
-  h: number,
-  hostname: string,
-  color: string,
-) {
-  ctx.clearRect(0, 0, w, h);
-
-  // Large centered hostname
-  const fontSize = Math.min(w / (hostname.length * 0.55), h * 0.25, 120);
-  ctx.font = `bold ${fontSize}px "JetBrains Mono", "Cascadia Code", monospace`;
-  ctx.textAlign = "center";
-  ctx.textBaseline = "middle";
-  ctx.fillStyle = color;
-  ctx.globalAlpha = 0.07;
-  ctx.fillText(hostname, w / 2, h / 2);
-
-  // Smaller repeated pattern (subtle)
-  ctx.font = `${Math.max(12, fontSize * 0.15)}px monospace`;
-  ctx.globalAlpha = 0.03;
-  const smallSize = Math.max(12, fontSize * 0.15);
-  const cols = Math.ceil(w / (hostname.length * smallSize * 0.6));
-  const rows = Math.ceil(h / (smallSize * 3));
-  for (let r = 0; r < rows; r++) {
-    for (let c = 0; c < cols; c++) {
-      const x =
-        c * (hostname.length * smallSize * 0.6) + (r % 2 ? smallSize * 2 : 0);
-      const y = r * smallSize * 3;
-      if (
-        Math.abs(y - h / 2) < fontSize * 0.7 &&
-        Math.abs(x - w / 2) < hostname.length * fontSize * 0.3
-      )
-        continue;
-      ctx.fillText(hostname, x, y);
-    }
-  }
-  ctx.globalAlpha = 1;
-  ctx.textAlign = "start";
-  ctx.textBaseline = "alphabetic";
 }
 
 // ── Matrix Digital Rain ────────────────────────────────────────
@@ -545,7 +498,6 @@ export function TerminalBackground({
   color = "#50fa7b",
   speed = 1,
   size = "large",
-  hostname,
 }: TerminalBackgroundProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const animRef = useRef<number>(0);
@@ -563,29 +515,6 @@ export function TerminalBackground({
     phase: "idle",
     phaseStep: 0,
   });
-
-  // Static hostname watermark (no animation loop needed)
-  const hostnameCanvasRef = useRef<HTMLCanvasElement>(null);
-  useEffect(() => {
-    if (!hostname) return;
-    const canvas = hostnameCanvasRef.current;
-    if (!canvas) return;
-    const parent = canvas.parentElement;
-    if (!parent) return;
-
-    const draw = () => {
-      canvas.width = parent.clientWidth;
-      canvas.height = parent.clientHeight;
-      const ctx = canvas.getContext("2d");
-      if (ctx)
-        hostnameWatermark(ctx, canvas.width, canvas.height, hostname, color);
-    };
-
-    draw();
-    const observer = new ResizeObserver(draw);
-    observer.observe(parent);
-    return () => observer.disconnect();
-  }, [hostname, color]);
 
   const frameCountRef = useRef(0);
 
@@ -690,33 +619,18 @@ export function TerminalBackground({
     };
   }, [effect, render]);
 
-  if (effect === "none" && !hostname) return null;
+  if (effect === "none") return null;
 
   return (
-    <>
-      {hostname && (
-        <canvas
-          ref={hostnameCanvasRef}
-          style={{
-            position: "absolute",
-            inset: 0,
-            zIndex: 10,
-            pointerEvents: "none",
-          }}
-        />
-      )}
-      {effect !== "none" && (
-        <canvas
-          ref={canvasRef}
-          style={{
-            position: "absolute",
-            inset: 0,
-            zIndex: 10,
-            opacity,
-            pointerEvents: "none",
-          }}
-        />
-      )}
-    </>
+    <canvas
+      ref={canvasRef}
+      style={{
+        position: "absolute",
+        inset: 0,
+        zIndex: 10,
+        opacity,
+        pointerEvents: "none",
+      }}
+    />
   );
 }

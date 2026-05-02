@@ -10,7 +10,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { useSettingsStore } from "../../stores/settingsStore";
 import { useThemeStore } from "../../stores/themeStore";
 import type { BackgroundEffect } from "../Terminal/TerminalBackground";
-import "../Vault/VaultTab.css";
+import "../../styles/tab-list.css";
 
 interface Theme {
   id: string;
@@ -194,8 +194,7 @@ export function SettingsTab() {
               margin: "0 0 12px",
             }}
           >
-            Hostname watermark always shows when connected via SSH. Animated
-            effects are optional.
+            Animated effects are optional eye-candy behind the terminal.
           </p>
 
           <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
