@@ -25,7 +25,6 @@ export interface BookmarkableItem {
 /** Tab types that are never bookmarkable. */
 const NON_BOOKMARKABLE_TYPES = new Set([
   "settings",
-  "vault",
   "history",
   "templates",
   "diff",
@@ -81,7 +80,7 @@ export function isBookmarkActionAvailable(tab: RegionTab): boolean {
  *
  * - Editor/CSV/Markdown tabs → file bookmark (if `editorFilePath` present)
  * - Terminal tabs → folder bookmark (CWD from cwdRegistry)
- * - Settings/Vault/History/Template/Diff/Search → null
+ * - Settings/History/Template/Diff/Search → null
  *
  * @param tab - The RegionTab to inspect.
  * @returns BookmarkableItem or null if nothing is bookmarkable.

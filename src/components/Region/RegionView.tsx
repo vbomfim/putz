@@ -23,6 +23,7 @@ import { GitGraph } from "../GitGraph";
 import { Radio } from "../Radio";
 import { RegionTabBar } from "./RegionTabBar";
 import { useLayoutStore } from "../../stores/layoutStore";
+import { VALID_TAB_TYPES } from "../../utils/migratePersistence";
 import type { Region } from "../../types";
 
 interface RegionViewProps {
@@ -313,6 +314,16 @@ export function RegionView({ region, isFocused }: RegionViewProps) {
                 <Radio />
               </div>
             );
+          }
+          // Defensive guard: if a persisted tab has an unknown/removed content
+          // type that survived migration (e.g., "ssh", "vault"), render nothing
+          // and warn in console. This protects against stale localStorage data
+          // from v0.3.x upgrades without showing a misleading UI element.
+          if (!VALID_TAB_TYPES.has(tab.type)) {
+            console.warn(
+              `[RegionView] Unknown tab type: ${tab.type} — likely persistence corruption`,
+            );
+            return null;
           }
           return (
             <div
