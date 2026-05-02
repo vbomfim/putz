@@ -57,7 +57,6 @@ describe("tabStore", () => {
         type: "leaf",
         terminalSessionId: "session-abc",
       });
-      expect(state.tabs[0].status).toBe("local");
       expect(state.tabs[0].title).toMatch(/^Terminal\s/);
     });
 

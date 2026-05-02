@@ -1,24 +1,16 @@
 #![allow(dead_code)]
 
-mod autologin;
 mod commands;
-mod compliance;
 mod highlight;
 mod history;
 mod ipc;
-mod keys;
-mod logging;
 mod menu;
-mod nettools;
 mod perf;
-mod protocol;
 mod pty;
 mod scripting;
-mod session;
 mod swarm;
 mod templates;
 mod theme;
-mod vault;
 
 use commands::greet;
 use highlight::HighlightManager;

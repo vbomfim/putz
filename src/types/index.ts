@@ -4,9 +4,6 @@
  * Shared types for tabs, panes, and layout management.
  */
 
-/** Status of a terminal tab connection. */
-export type TabStatus = "connected" | "disconnected" | "connecting" | "local";
-
 /** Content type rendered inside a tab. */
 export type TabContentType =
   | "terminal"
@@ -46,8 +43,6 @@ export interface Tab {
   title: string;
   /** Pane layout tree for this tab. */
   layout: PaneNode;
-  /** Connection status of the tab. */
-  status: TabStatus;
   /** Timestamp (ms since epoch) when this tab was created. */
   createdAt: number;
   /** Session ID of the last focused pane in this tab. */
@@ -86,8 +81,6 @@ export interface RegionTab {
   diffLeftContent?: string;
   /** Right content for diff tabs (if no path). */
   diffRightContent?: string;
-  /** Connection status of the tab. */
-  status: TabStatus;
 }
 
 /** Prefix for editor tab session IDs. */

@@ -263,14 +263,10 @@ impl ScriptManager {
         let buffer_clone = output_buffer.clone();
         let notify_clone = output_notify.clone();
         let event_name_pty = format!("pty-output-{}", session_id);
-        let event_name_conn = format!("connection-output-{}", session_id);
 
         let listener_pty = app.clone();
-        let listener_conn = app.clone();
         let buffer_pty = buffer_clone.clone();
-        let buffer_conn = buffer_clone.clone();
         let notify_pty = notify_clone.clone();
-        let notify_conn = notify_clone.clone();
 
         // Listen for PTY output
         let unlisten_pty = tauri::Listener::listen(&listener_pty, &event_name_pty, move |event| {
@@ -283,18 +279,6 @@ impl ScriptManager {
                 notify_pty.notify_one();
             }
         });
-
-        // Listen for connection output
-        let unlisten_conn =
-            tauri::Listener::listen(&listener_conn, &event_name_conn, move |event| {
-                let payload = event.payload();
-                if let Some(data) = decode_output_payload(payload) {
-                    if let Ok(mut buf) = buffer_conn.lock() {
-                        buf.append(&data);
-                    }
-                    notify_conn.notify_one();
-                }
-            });
 
         // Create script context
         let ctx = Arc::new(ScriptContext {
@@ -351,7 +335,6 @@ impl ScriptManager {
 
             // Clean up listeners
             tauri::Listener::unlisten(&listener_pty, unlisten_pty);
-            tauri::Listener::unlisten(&listener_conn, unlisten_conn);
 
             // Abort the command handler
             handler_task.abort();

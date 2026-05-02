@@ -92,7 +92,6 @@ describe("layoutStore", () => {
       expect(region.tabs).toHaveLength(1);
       expect(region.tabs[0].type).toBe("terminal");
       expect(region.tabs[0].sessionId).toBe("session-abc");
-      expect(region.tabs[0].status).toBe("local");
       expect(region.activeTabId).toBe(region.tabs[0].id);
     });
 

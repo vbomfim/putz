@@ -47,7 +47,6 @@ function makeTab(id: string, sessionId: string, title = "Terminal 1"): TabType {
     id,
     title,
     layout: { type: "leaf", terminalSessionId: sessionId },
-    status: "local",
     createdAt: Date.now(),
   };
 }
@@ -144,7 +143,6 @@ describe("Tab Logging Indicator Integration", () => {
           ],
           ratio: 0.5,
         },
-        status: "local",
         createdAt: Date.now(),
       };
 
@@ -170,7 +168,6 @@ describe("Tab Logging Indicator Integration", () => {
           ],
           ratio: 0.5,
         },
-        status: "local",
         createdAt: Date.now(),
       };
 

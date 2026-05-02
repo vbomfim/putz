@@ -42,7 +42,6 @@ const DEFAULT_LAYOUT_STATE = {
           title: "config.ts",
           sessionId: "editor-1",
           editorFilePath: "/Users/me/config.ts",
-          status: "local" as const,
         },
       ],
       activeTabId: "tab-editor",
@@ -143,7 +142,6 @@ describe("getBookmarkableFromTab", () => {
       title: "Test",
       type: "terminal",
       sessionId: "s-1",
-      status: "local",
       ...overrides,
     };
   }
@@ -266,7 +264,6 @@ describe("getFocusedTerminalSessionId", () => {
         type: "terminal" as const,
         title: "Terminal",
         sessionId: "pty-99",
-        status: "local" as const,
       },
     ];
     mockLayoutState.regions["region-1"].activeTabId = "tab-term";
@@ -392,7 +389,6 @@ describe("isBookmarkActionAvailable", () => {
       title: "Test",
       type: "terminal",
       sessionId: "s-1",
-      status: "local",
       ...overrides,
     };
   }
@@ -565,7 +561,6 @@ describe("AC10: already-bookmarked dedup", () => {
         title: "config.ts",
         sessionId: "e-1",
         editorFilePath: "/abs/config.ts",
-        status: "local" as const,
       },
     ];
     mockLayoutState.regions["region-1"].activeTabId = "tab-editor";
@@ -590,7 +585,6 @@ describe("AC10: already-bookmarked dedup", () => {
         title: "foo.ts",
         sessionId: "e-2",
         editorFilePath: "/projects/foo.ts",
-        status: "local" as const,
       },
     ];
     mockLayoutState.regions["region-1"].activeTabId = "tab-editor";
@@ -625,7 +619,6 @@ describe("pty_cwd async fallback", () => {
         type: "terminal" as const,
         title: "Terminal",
         sessionId: "pty-42",
-        status: "local" as const,
       },
     ];
     mockLayoutState.regions["region-1"].activeTabId = "tab-term";
@@ -654,7 +647,6 @@ describe("pty_cwd async fallback", () => {
         type: "terminal" as const,
         title: "Terminal",
         sessionId: "pty-99",
-        status: "local" as const,
       },
     ];
     mockLayoutState.regions["region-1"].activeTabId = "tab-term";

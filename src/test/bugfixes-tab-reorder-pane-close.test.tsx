@@ -113,7 +113,6 @@ function createMockTab(id: string, title: string): Tab {
     id,
     title,
     layout: { type: "leaf", terminalSessionId: `session-${id}` },
-    status: "local",
     createdAt: Date.now(),
   };
 }
