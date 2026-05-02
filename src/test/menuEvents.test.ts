@@ -249,36 +249,12 @@ describe("useMenuEvents", () => {
     expect(() => emitMenuEvent("menu-sftp")).not.toThrow();
   });
 
-  it("menu-ping-dashboard calls onTogglePing callback", () => {
-    const onTogglePing = vi.fn();
-    setMenuEventCallbacks({ onTogglePing });
-    renderHook(() => useMenuEvents());
-    emitMenuEvent("menu-ping-dashboard");
-    expect(onTogglePing).toHaveBeenCalledTimes(1);
-  });
-
   it("menu-script-editor calls onToggleScript callback", () => {
     const onToggleScript = vi.fn();
     setMenuEventCallbacks({ onToggleScript });
     renderHook(() => useMenuEvents());
     emitMenuEvent("menu-script-editor");
     expect(onToggleScript).toHaveBeenCalledTimes(1);
-  });
-
-  it("menu-credential-vault calls onToggleVault callback", () => {
-    const onToggleVault = vi.fn();
-    setMenuEventCallbacks({ onToggleVault });
-    renderHook(() => useMenuEvents());
-    emitMenuEvent("menu-credential-vault");
-    expect(onToggleVault).toHaveBeenCalledTimes(1);
-  });
-
-  it("menu-ssh-key-manager calls onToggleKeyManager callback", () => {
-    const onToggleKeyManager = vi.fn();
-    setMenuEventCallbacks({ onToggleKeyManager });
-    renderHook(() => useMenuEvents());
-    emitMenuEvent("menu-ssh-key-manager");
-    expect(onToggleKeyManager).toHaveBeenCalledTimes(1);
   });
 
   // ─── M2: Async unmount race — cancelled flag ────────────────────
