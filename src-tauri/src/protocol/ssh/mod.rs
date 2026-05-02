@@ -757,18 +757,14 @@ async fn ssh_read_loop(
         };
 
         match msg {
-            Some(ChannelMsg::Data { data }) => {
-                if !data.is_empty() {
-                    let encoded = b64_engine.encode(&data[..]);
-                    emitter.emit_output(&connection_id, &encoded);
-                }
+            Some(ChannelMsg::Data { data }) if !data.is_empty() => {
+                let encoded = b64_engine.encode(&data[..]);
+                emitter.emit_output(&connection_id, &encoded);
             }
-            Some(ChannelMsg::ExtendedData { data, .. }) => {
+            Some(ChannelMsg::ExtendedData { data, .. }) if !data.is_empty() => {
                 // stderr — emit as regular output for display
-                if !data.is_empty() {
-                    let encoded = b64_engine.encode(&data[..]);
-                    emitter.emit_output(&connection_id, &encoded);
-                }
+                let encoded = b64_engine.encode(&data[..]);
+                emitter.emit_output(&connection_id, &encoded);
             }
             Some(ChannelMsg::ExitStatus { exit_status }) => {
                 connected.store(false, Ordering::SeqCst);

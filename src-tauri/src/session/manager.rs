@@ -582,7 +582,7 @@ impl SessionManager {
             .iter()
             .filter(|s| s.folder_id == parent_id)
             .collect();
-        sessions.sort_by(|a, b| a.name.to_lowercase().cmp(&b.name.to_lowercase()));
+        sessions.sort_by_key(|a| a.name.to_lowercase());
 
         for session in sessions {
             children.push(SessionNode::Session {
