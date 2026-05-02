@@ -100,7 +100,6 @@ describe("TabBar", () => {
       expect(tabs[0]).toHaveAttribute("aria-selected", "true");
       expect(tabs[1]).toHaveAttribute("aria-selected", "false");
     });
-
   });
 
   describe("interactions [AC-1] [AC-2]", () => {
