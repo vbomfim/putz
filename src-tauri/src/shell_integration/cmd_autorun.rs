@@ -37,8 +37,12 @@ pub struct RegistryChange {
 /// Preview of what a cmd.exe install would do — no side effects.
 #[derive(Debug, Clone, Serialize)]
 pub struct CmdPreview {
-    /// Current AutoRun value (empty if not set).
-    pub existing_autorun: String,
+    /// True if there are existing AutoRun entries from other applications.
+    /// Their actual content is not exposed — use `read_existing_autorun()` gated
+    /// behind an explicit "Show existing" disclosure button.
+    pub has_existing_entries: bool,
+    /// True if Putz's segment is already present in AutoRun.
+    pub has_existing_putz_segment: bool,
     /// Proposed AutoRun value after install.
     pub proposed_autorun: String,
     /// Path to the Putz cmd init script.
@@ -137,9 +141,12 @@ mod platform {
         let existing = read_autorun().unwrap_or_default();
         let path = cmd_snippet_path();
 
-        if has_putz_segment(&existing, &path) {
+        let has_putz = has_putz_segment(&existing, &path);
+
+        if has_putz {
             return Ok(CmdPreview {
-                existing_autorun: existing.clone(),
+                has_existing_entries: !existing.is_empty(),
+                has_existing_putz_segment: true,
                 proposed_autorun: existing,
                 snippet_path: path.display().to_string(),
                 explanation: "Putz shell integration is already installed in cmd.exe AutoRun. No changes needed.".into(),
@@ -150,18 +157,21 @@ mod platform {
         let explanation = if existing.is_empty() {
             "The AutoRun registry value is currently empty. Putz will set it to run the shell integration script on every cmd.exe launch.".into()
         } else {
-            format!(
-                "The AutoRun registry value already contains other entries. Putz will append its script after the existing chain: {}",
-                existing
-            )
+            "The AutoRun registry value already contains entries from other applications. Putz will append its script after the existing chain.".into()
         };
 
         Ok(CmdPreview {
-            existing_autorun: existing,
+            has_existing_entries: !existing.is_empty(),
+            has_existing_putz_segment: false,
             proposed_autorun: proposed,
             snippet_path: path.display().to_string(),
             explanation,
         })
+    }
+
+    /// Returns the raw existing AutoRun value — gated behind explicit user action.
+    pub fn read_existing_autorun_value() -> Result<String, String> {
+        read_autorun()
     }
 
     /// Installs Putz's cmd.exe integration via the AutoRun registry key.
@@ -273,6 +283,10 @@ mod platform {
     pub fn uninstall() -> Result<RegistryChange, String> {
         Err("cmd.exe is only supported on Windows".into())
     }
+
+    pub fn read_existing_autorun_value() -> Result<String, String> {
+        Err("cmd.exe is only supported on Windows".into())
+    }
 }
 
 // ═══════════════════════════════════════════════════════════════════════
@@ -295,6 +309,14 @@ pub fn install_confirmed() -> Result<RegistryChange, String> {
 /// segment from the AutoRun chain.
 pub fn uninstall() -> Result<RegistryChange, String> {
     platform::uninstall()
+}
+
+/// Returns the raw existing AutoRun value.
+///
+/// Privacy: This is gated behind an explicit user action ("Show existing AutoRun")
+/// in the UI. It reveals registry content from other applications.
+pub fn read_existing_autorun() -> Result<String, String> {
+    platform::read_existing_autorun_value()
 }
 
 // ═══════════════════════════════════════════════════════════════════════

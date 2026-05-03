@@ -12,7 +12,8 @@ import { invoke } from "@tauri-apps/api/core";
 // ── Types ────────────────────────────────────────────────────────────
 
 interface CmdPreview {
-  existing_autorun: string;
+  has_existing_entries: boolean;
+  has_existing_putz_segment: boolean;
   proposed_autorun: string;
   snippet_path: string;
   explanation: string;
@@ -42,6 +43,8 @@ export function CmdRegistryConfirmDialog({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [applying, setApplying] = useState(false);
+  const [existingAutorun, setExistingAutorun] = useState<string | null>(null);
+  const [loadingExisting, setLoadingExisting] = useState(false);
 
   // Load preview on mount.
   useEffect(() => {
@@ -151,22 +154,35 @@ export function CmdRegistryConfirmDialog({
               {preview.explanation}
             </p>
 
-            {/* Existing value */}
-            <details style={{ marginBottom: 6 }}>
-              <summary
-                style={{
-                  fontSize: 11,
-                  cursor: "pointer",
-                  color: "var(--text-secondary)",
-                }}
-                data-testid="cmd-existing-toggle"
-              >
-                Show existing AutoRun value
-              </summary>
-              <pre style={previewCodeStyle} data-testid="cmd-existing-value">
-                {preview.existing_autorun || "(empty)"}
-              </pre>
-            </details>
+            {/* Existing entries indicator */}
+            {preview.has_existing_entries && (
+              <details style={{ marginBottom: 6 }}>
+                <summary
+                  style={{
+                    fontSize: 11,
+                    cursor: "pointer",
+                    color: "var(--text-secondary)",
+                  }}
+                  data-testid="cmd-existing-toggle"
+                  onClick={() => {
+                    if (existingAutorun === null && !loadingExisting) {
+                      setLoadingExisting(true);
+                      invoke<string>("shell_integration_cmd_show_existing")
+                        .then((val) => setExistingAutorun(val))
+                        .catch(() => setExistingAutorun("(failed to load)"))
+                        .finally(() => setLoadingExisting(false));
+                    }
+                  }}
+                >
+                  Show existing AutoRun entries (from other applications)
+                </summary>
+                <pre style={previewCodeStyle} data-testid="cmd-existing-value">
+                  {loadingExisting
+                    ? "Loading…"
+                    : (existingAutorun ?? "(click to load)")}
+                </pre>
+              </details>
+            )}
 
             {/* Proposed value */}
             <details style={{ marginBottom: 6 }} open>

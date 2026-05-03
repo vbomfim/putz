@@ -117,6 +117,7 @@ export function ShellIntegrationPanel() {
           "shell_integration_install",
           {
             shellId,
+            dotfilePath: shells.find((s) => s.id === shellId)?.dotfile_path,
           },
         );
         setActionMessage((m) => ({ ...m, [shellId]: result.message }));
@@ -139,6 +140,7 @@ export function ShellIntegrationPanel() {
           "shell_integration_uninstall",
           {
             shellId,
+            dotfilePath: shells.find((s) => s.id === shellId)?.dotfile_path,
           },
         );
         setActionMessage((m) => ({ ...m, [shellId]: result.message }));
@@ -419,14 +421,30 @@ function ShellCard({
           </button>
         )}
         {shell.status === "CustomModification" && !isCmd && (
-          <button
-            onClick={() => onInstall(shell.id)}
-            disabled={busy}
-            style={actionButtonStyle}
-            data-testid={`reinstall-btn-${shell.id}`}
-          >
-            {busy ? "Reinstalling…" : "Reinstall"}
-          </button>
+          <>
+            <div
+              style={{
+                fontSize: 11,
+                color: "var(--color-warning, #ff9800)",
+                background: "var(--bg-warning, rgba(255,152,0,0.1))",
+                padding: "4px 8px",
+                borderRadius: 3,
+                marginTop: 4,
+              }}
+              data-testid={`drift-warning-${shell.id}`}
+            >
+              ⚠ The shell integration snippet has been manually modified.
+              Reinstalling will overwrite your changes.
+            </div>
+            <button
+              onClick={() => onInstall(shell.id)}
+              disabled={busy}
+              style={actionButtonStyle}
+              data-testid={`reinstall-btn-${shell.id}`}
+            >
+              {busy ? "Reinstalling…" : "Reinstall (overwrite changes)"}
+            </button>
+          </>
         )}
         {(shell.status === "Installed" ||
           shell.status === "CustomModification") &&

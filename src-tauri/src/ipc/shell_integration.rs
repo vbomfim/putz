@@ -12,6 +12,10 @@ use crate::shell_integration::installer::{self, InstallResult, InstallStatus};
 ///
 /// Returns a list of detected shells with binary paths, versions,
 /// dotfile locations, and current install status.
+///
+/// The frontend should call this once at panel load and cache the result.
+/// Subsequent install/uninstall calls accept `dotfile_path` directly,
+/// avoiding redundant subprocess spawns for shell detection.
 #[tauri::command]
 pub fn shell_integration_detect() -> Vec<ShellInfo> {
     let detected = detector::detect_shells();
@@ -19,8 +23,8 @@ pub fn shell_integration_detect() -> Vec<ShellInfo> {
         .into_iter()
         .map(|shell| {
             let status = if shell.id == "cmd" {
-                // cmd.exe uses registry, not dotfile — check differently.
-                InstallStatus::NotInstalled // TODO: Windows registry check
+                // cmd.exe uses registry — check via marker in AutoRun value.
+                cmd_status_check()
             } else {
                 installer::check_status(&shell.id, &PathBuf::from(&shell.dotfile_path))
             };
@@ -37,54 +41,124 @@ pub fn shell_integration_detect() -> Vec<ShellInfo> {
         .collect()
 }
 
-/// Installs shell integration for the specified shell.
-#[tauri::command]
-pub fn shell_integration_install(shell_id: String) -> Result<InstallResult, String> {
-    let shells = detector::detect_shells();
-    let shell = shells
-        .iter()
-        .find(|s| s.id == shell_id)
-        .ok_or_else(|| format!("Shell '{}' not detected on this system", shell_id))?;
+/// Checks cmd.exe install status via the AutoRun registry key.
+fn cmd_status_check() -> InstallStatus {
+    // On non-Windows, cmd is always NotInstalled.
+    #[cfg(not(windows))]
+    {
+        InstallStatus::NotInstalled
+    }
+    #[cfg(windows)]
+    {
+        match cmd_autorun::preview() {
+            Ok(preview) => {
+                if preview.has_existing_putz_segment {
+                    InstallStatus::Installed
+                } else {
+                    InstallStatus::NotInstalled
+                }
+            }
+            Err(_) => InstallStatus::NotInstalled,
+        }
+    }
+}
 
-    if shell.id == "cmd" {
+/// Installs shell integration for the specified shell.
+///
+/// Accepts `dotfile_path` from the frontend's cached detection result
+/// to avoid re-running shell detection subprocesses.
+#[tauri::command]
+pub fn shell_integration_install(
+    shell_id: String,
+    dotfile_path: Option<String>,
+) -> Result<InstallResult, String> {
+    if shell_id == "cmd" {
         return Err("cmd.exe install requires registry access — use shell_integration_install_cmd with explicit confirmation".into());
     }
 
-    installer::install(&shell.id, &PathBuf::from(&shell.dotfile_path))
+    let path = resolve_dotfile_path(&shell_id, dotfile_path)?;
+
+    eprintln!(
+        "[shell_integration] install: shell={}, dotfile={}",
+        shell_id,
+        path.display()
+    );
+
+    installer::install(&shell_id, &path).map_err(sanitize_error)
 }
 
 /// Uninstalls shell integration for the specified shell.
+///
+/// Accepts `dotfile_path` from the frontend's cached detection result.
 #[tauri::command]
-pub fn shell_integration_uninstall(shell_id: String) -> Result<InstallResult, String> {
-    let shells = detector::detect_shells();
-    let shell = shells
-        .iter()
-        .find(|s| s.id == shell_id)
-        .ok_or_else(|| format!("Shell '{}' not detected on this system", shell_id))?;
-
-    if shell.id == "cmd" {
+pub fn shell_integration_uninstall(
+    shell_id: String,
+    dotfile_path: Option<String>,
+) -> Result<InstallResult, String> {
+    if shell_id == "cmd" {
         return Err(
             "cmd.exe uninstall requires registry access — use shell_integration_uninstall_cmd"
                 .into(),
         );
     }
 
-    installer::uninstall(&shell.id, &PathBuf::from(&shell.dotfile_path))
+    let path = resolve_dotfile_path(&shell_id, dotfile_path)?;
+
+    eprintln!(
+        "[shell_integration] uninstall: shell={}, dotfile={}",
+        shell_id,
+        path.display()
+    );
+
+    installer::uninstall(&shell_id, &path).map_err(sanitize_error)
 }
 
 /// Returns the installation status for a specific shell.
+///
+/// Accepts `dotfile_path` from the frontend's cached detection result.
 #[tauri::command]
-pub fn shell_integration_status(shell_id: String) -> Result<InstallStatus, String> {
-    let shells = detector::detect_shells();
-    let shell = shells
-        .iter()
-        .find(|s| s.id == shell_id)
-        .ok_or_else(|| format!("Shell '{}' not detected on this system", shell_id))?;
+pub fn shell_integration_status(
+    shell_id: String,
+    dotfile_path: Option<String>,
+) -> Result<InstallStatus, String> {
+    if shell_id == "cmd" {
+        return Ok(cmd_status_check());
+    }
 
-    Ok(installer::check_status(
-        &shell.id,
-        &PathBuf::from(&shell.dotfile_path),
-    ))
+    let path = resolve_dotfile_path(&shell_id, dotfile_path)?;
+
+    Ok(installer::check_status(&shell_id, &path))
+}
+
+/// Resolves the dotfile path: uses the frontend-provided path if given,
+/// otherwise falls back to re-detecting (backward compat).
+fn resolve_dotfile_path(shell_id: &str, dotfile_path: Option<String>) -> Result<PathBuf, String> {
+    match dotfile_path {
+        Some(p) => Ok(PathBuf::from(p)),
+        None => {
+            // Fallback: re-detect (preserves backward compatibility)
+            let shells = detector::detect_shells();
+            let shell = shells
+                .iter()
+                .find(|s| s.id == shell_id)
+                .ok_or_else(|| format!("Shell '{}' not detected on this system", shell_id))?;
+            Ok(PathBuf::from(&shell.dotfile_path))
+        }
+    }
+}
+
+/// Sanitizes installer errors for IPC — strips full filesystem paths.
+fn sanitize_error(e: String) -> String {
+    // Don't leak full paths in error messages sent to the frontend.
+    if e.contains("outside home directory") {
+        "Refused: path outside home directory".to_string()
+    } else if e.contains("traversal") {
+        "Refused: path contains traversal components".to_string()
+    } else if e.contains("Failed to") {
+        "I/O error writing shell integration".to_string()
+    } else {
+        format!("Install failed: {e}")
+    }
 }
 
 /// Returns the snippet content for a shell (for "Show Snippet" UI).
@@ -118,6 +192,15 @@ pub fn shell_integration_cmd_preview() -> Result<CmdPreview, String> {
     cmd_autorun::preview()
 }
 
+/// Show the raw existing AutoRun value (gated behind explicit user action).
+///
+/// Privacy: The full AutoRun content from other applications is only
+/// returned when the user explicitly clicks "Show existing AutoRun".
+#[tauri::command]
+pub fn shell_integration_cmd_show_existing() -> Result<String, String> {
+    cmd_autorun::read_existing_autorun()
+}
+
 /// Install cmd.exe shell integration after explicit user confirmation.
 ///
 /// The frontend MUST call `shell_integration_cmd_preview()` first,
@@ -125,6 +208,7 @@ pub fn shell_integration_cmd_preview() -> Result<CmdPreview, String> {
 /// the user clicks "Install" in the confirmation dialog.
 #[tauri::command]
 pub fn shell_integration_cmd_install_confirmed() -> Result<RegistryChange, String> {
+    eprintln!("[shell_integration] cmd install confirmed via registry");
     cmd_autorun::install_confirmed()
 }
 
@@ -134,5 +218,6 @@ pub fn shell_integration_cmd_install_confirmed() -> Result<RegistryChange, Strin
 /// Preserves other applications' AutoRun entries.
 #[tauri::command]
 pub fn shell_integration_cmd_uninstall() -> Result<RegistryChange, String> {
+    eprintln!("[shell_integration] cmd uninstall via registry");
     cmd_autorun::uninstall()
 }

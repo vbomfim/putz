@@ -356,13 +356,17 @@ describe("ShellIntegrationPanel", () => {
       }
       if (cmd === "shell_integration_cmd_preview") {
         return Promise.resolve({
-          existing_autorun: "chcp 65001",
+          has_existing_entries: true,
+          has_existing_putz_segment: false,
           proposed_autorun:
             'chcp 65001 & "C:\\Users\\test\\AppData\\Local\\putz\\cmd-init.bat"',
           snippet_path: "C:\\Users\\test\\AppData\\Local\\putz\\cmd-init.bat",
           explanation:
-            "The AutoRun registry value already contains other entries.",
+            "The AutoRun registry value already contains entries from other applications.",
         });
+      }
+      if (cmd === "shell_integration_cmd_show_existing") {
+        return Promise.resolve("chcp 65001");
       }
       if (cmd === "shell_integration_cmd_install_confirmed") {
         return Promise.resolve({
@@ -420,7 +424,7 @@ describe("ShellIntegrationPanel", () => {
       fireEvent.click(screen.getByTestId("install-btn-cmd"));
       await waitFor(() => {
         expect(screen.getByTestId("cmd-dialog-explanation")).toBeTruthy();
-        expect(screen.getByText(/already contains other entries/)).toBeTruthy();
+        expect(screen.getByText(/already contains entries/)).toBeTruthy();
       });
     });
 
