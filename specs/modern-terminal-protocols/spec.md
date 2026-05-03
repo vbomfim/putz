@@ -6,7 +6,7 @@
 **Input**: Epic #98 — make Putz a first-class host for modern shells
 
 **Owner**: PO Guardian via Copilot
-**Last updated**: 2026-05-02
+**Last updated**: 2026-05-03
 **Issue tracker**: [Epic #98](https://github.com/vbomfim/putz/issues/98)
 **Version**: 1.0.0
 **Tickets**:
@@ -231,10 +231,12 @@ press Cmd+↑ and verify the viewport jumps to the prompt above the output.
 #### FR-Install — Shell-Integration Install UX (S3 #101)
 
 - **FR-020**: System MUST provide a Settings panel section showing detected
-  shells as individual cards with install status.
+  shells as individual cards with install status, PLUS an "Install for all
+  detected" button at the top of the panel for one-click bulk install.
 - **FR-021**: Each card MUST offer a one-click "Install" button that writes the
   correct shell-integration snippet to the appropriate dotfile for the detected
-  OS.
+  OS. The bulk "Install for all detected" button MUST invoke the same per-shell
+  install logic for every shell whose status is "Detected" or "Outdated."
 - **FR-022**: Each card MUST offer a "Show snippet" button for manual install.
 - **FR-023**: Install scripts MUST use idempotent marker blocks:
   `# === putz shell integration ===` ... `# === end ===` (or platform equivalent).
@@ -264,8 +266,10 @@ press Cmd+↑ and verify the viewport jumps to the prompt above the output.
 - **FR-033**: System MUST only populate `CommandBlock` records for sessions that
   have completed the shell-integration handshake (see FR-Security) — OSC 133
   from un-handshaked sessions MUST be silently ignored.
-- **FR-034**: System MUST expose the `CommandBlock` list via a React-accessible
-  store or ref so that UI components (gutter, nav, context menu) can read it.
+- **FR-034**: System MUST expose the `CommandBlock` list via a Zustand store
+  keyed by `sessionId` (consistent with existing `layoutStore`, `tabStore`,
+  `workspaceStore` patterns) so that UI components (gutter, nav, context menu)
+  can read it without prop drilling.
 
 #### FR-Gutter — Per-Command Gutter UX (S5 #103)
 
@@ -319,8 +323,9 @@ press Cmd+↑ and verify the viewport jumps to the prompt above the output.
   mode toggles (CSI `?2004h` / `?2004l`). All other OSC sequences MUST be
   passed through to xterm.js without Putz-level interpretation.
 - **FR-081**: OSC 133 prompt-marker tracking MUST only activate after the shell
-  sends a Putz-specific integration handshake OSC at session startup. Sessions
-  that have not completed the handshake MUST treat OSC 133 as opaque data.
+  sends the Putz-specific integration handshake OSC (`\e]133;P;putz=1\a`) at
+  session startup. Sessions that have not completed the handshake MUST treat
+  OSC 133 as opaque data.
 - **FR-082**: All OSC payloads MUST be validated as well-formed UTF-8 before
   string-interpolating into any Putz data structure.
 - **FR-083**: Individual OSC payloads MUST be rejected if they exceed 8 KB.
@@ -650,20 +655,19 @@ Combine the strongest patterns from iTerm2 (handshake gating) and WezTerm
    bracketed paste mode toggles are parsed by Putz-level code. All other OSC
    sequences pass through to xterm.js unchanged.
 2. **Handshake gating**: OSC 133 prompt-marker tracking only activates after
-   the shell sends a Putz-specific handshake OSC (`\e]133;P;putz=1\a` or
-   similar magic) at session startup. The shell-integration install scripts
-   (S3) emit this automatically. Sessions without the handshake treat OSC 133
-   as opaque data — xterm.js may render them, but Putz does not build
-   `CommandBlock` records from them.
+   the shell sends the Putz-specific integration handshake OSC
+   (`\e]133;P;putz=1\a`) at session startup. This piggybacks on the OSC 133
+   subparameter namespace — no new OSC code registration needed. The
+   shell-integration install scripts (S3) emit this automatically. Sessions
+   without the handshake treat OSC 133 as opaque data — xterm.js may render
+   them, but Putz does not build `CommandBlock` records from them.
 3. **Size cap**: Individual OSC payloads exceeding 8 KB are rejected (logged
    and discarded).
 4. **UTF-8 validation**: All OSC payloads are validated as well-formed UTF-8
    before being interpolated into TypeScript strings or data structures.
 
-> **[NEEDS CLARIFICATION: Confirm allowlist + handshake-gated security model]**
-> The user indicated "safer is always better" and the above approach combines
-> the strongest industry patterns. Confirm this is acceptable, or specify
-> deviations (e.g., a simpler trust-all model matching Windows Terminal).
+This approach is **locked in** — approved by the user as the security model for
+this epic.
 
 ---
 
@@ -684,12 +688,14 @@ Combine the strongest patterns from iTerm2 (handshake gating) and WezTerm
 | Linux | fish | `~/.config/fish/config.fish` | Same as macOS. |
 | Windows | pwsh (PS 7) | `$PROFILE.CurrentUserCurrentHost` | Path: `~\Documents\PowerShell\Microsoft.PowerShell_profile.ps1` (varies). |
 | Windows | Windows PowerShell (5.1) | `$PROFILE.CurrentUserCurrentHost` | Path: `~\Documents\WindowsPowerShell\Microsoft.PowerShell_profile.ps1`. |
-| Windows | cmd.exe | Registry `HKCU\...\Command Processor\AutoRun` | No dotfile concept. Must use registry key or doskey macros. Limited integration (OSC 7 only). |
+| Windows | cmd.exe | Registry `HKCU\Software\Microsoft\Command Processor\AutoRun` | No dotfile concept. Uses AutoRun registry key. Limited integration (OSC 7 only). See safeguards below. |
 | All | nushell (tier-2) | `~/.config/nushell/env.nu` | Best-effort. Not CI-gating. |
 
-### Proposed UX: Per-shell card
+### Proposed UX: Hybrid — Per-shell cards + bulk install
 
-The Settings → Shell Integration panel shows one card per detected shell:
+The Settings → Shell Integration panel shows one card per detected shell, with
+an **"Install for all detected"** button at the top of the panel for users who
+want one-click setup:
 
 ```
 ┌─────────────────────────────────────────────┐
@@ -707,6 +713,11 @@ The Settings → Shell Integration panel shows one card per detected shell:
 └─────────────────────────────────────────────┘
 ```
 
+**Panel layout:**
+- Top: **"Install for all detected"** button — invokes Install for every shell
+  with status "Detected" or "Outdated". One click, all shells patched.
+- Below: Per-shell cards for granular control and visibility.
+
 Each card:
 - Detects the shell binary path and version
 - Shows current install status (installed, not installed, outdated)
@@ -714,21 +725,37 @@ Each card:
 - "Show snippet" reveals the raw script for manual copy
 - "Uninstall" removes the marker block
 
-> **[NEEDS CLARIFICATION: Confirm per-shell card UI vs simpler bulk-install]**
-> An alternative is a single "Install All" button that patches every detected
-> shell at once. The per-shell card approach gives users more control and
-> visibility but is more UI surface. Which approach does the user prefer? A
-> hybrid (cards for visibility + "Install All Detected" convenience button) is
-> also an option.
+#### cmd.exe install safeguards
+
+Because cmd.exe uses the `HKCU\Software\Microsoft\Command Processor\AutoRun`
+registry key (not a dotfile), the cmd.exe install card MUST implement these
+additional safeguards:
+
+1. **Show before write**: Before applying, display the exact registry value
+   being written in a readable code block. The user must confirm.
+2. **Plain-language explanation**: The card must explain that AutoRun runs every
+   time `cmd.exe` opens, and that Putz is adding a small script to emit OSC 7
+   CWD reporting.
+3. **Surgical uninstall**: If other applications have chained AutoRun values
+   (e.g., `doskey /macrofile=... & putz-integration.cmd`), the uninstall action
+   MUST parse the existing value, remove only Putz's contribution, and preserve
+   the rest. Must NOT delete the entire AutoRun key if other entries exist.
 
 ---
 
-## Open Questions
+## Resolved Questions
 
-| # | Question | Context | Blocking? |
-|---|----------|---------|-----------|
-| OQ-1 | **Install UX: per-shell card vs bulk install** | S3 #101. The spec proposes per-shell cards in Settings. User may prefer a simpler "Install All" or a hybrid. See "Shell-Integration Install UX" section above. | No — S3 can start with either approach. |
-| OQ-2 | **Security model: confirm allowlist + handshake gating** | FR-080–084. The spec proposes combining iTerm2's handshake with WezTerm's size caps. User said "safer is always better" but has not explicitly confirmed. See "Threat Model" section above. | No — S4 can start with the handshake model and adjust if user pushes back. |
+All open questions have been resolved. Decisions are locked into the relevant
+spec sections.
+
+| # | Question | Resolution | Resolved |
+|---|----------|------------|----------|
+| OQ-1 | Install UX: per-shell card vs bulk install | **Hybrid** — per-shell cards PLUS "Install for all detected" button at top. See "Shell-Integration Install UX" section. | 2026-05-03 |
+| OQ-2 | Security model: confirm allowlist + handshake gating | **Approved as proposed.** Allowlist + `\e]133;P;putz=1\a` handshake + 8 KB cap + UTF-8 validation. See "Threat Model" section. | 2026-05-03 |
+| OS-1 | Handshake OSC format | **Approved.** `\e]133;P;putz=1\a` — piggyback on OSC 133 subparameter namespace. | 2026-05-03 |
+| OS-2 | CommandBlock state pattern | **Approved.** Zustand store keyed by sessionId. Consistent with existing store patterns. | 2026-05-03 |
+| OS-3 | cmd.exe via AutoRun registry | **Approved with safeguards.** Show-before-write, plain-language explanation, surgical uninstall. See "cmd.exe install safeguards" subsection. | 2026-05-03 |
+| OS-4 | Gutter feature-flag default | **Default ON for handshaked sessions.** Non-handshaked sessions show no gutter. | 2026-05-03 |
 
 ---
 
