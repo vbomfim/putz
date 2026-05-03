@@ -21,6 +21,13 @@
 import type { Terminal, IDisposable } from "@xterm/xterm";
 
 // ---------------------------------------------------------------------------
+// Module-level singletons
+// ---------------------------------------------------------------------------
+
+/** Reusable encoder — TextEncoder is stateless, no need to allocate per call. */
+const utf8Encoder = new TextEncoder();
+
+// ---------------------------------------------------------------------------
 // Constants
 // ---------------------------------------------------------------------------
 
@@ -148,9 +155,19 @@ export function parseOsc1337CurrentDir(data: string): string | null {
   const match = data.match(/^CurrentDir=(.+)$/);
   if (!match) return null;
 
-  const path = match[1];
+  const raw = match[1];
 
-  // Path length cap
+  // UTF-8 validation: decodeURIComponent validates percent-encoded sequences
+  // and is a no-op for plain non-percent chars. Symmetric with OSC 7's defense.
+  let path: string;
+  try {
+    path = decodeURIComponent(raw);
+  } catch {
+    // Malformed percent encoding or invalid UTF-8 — reject
+    return null;
+  }
+
+  // Path length cap (after decoding, same as OSC 7)
   if (byteLength(path) > MAX_CWD_PATH_BYTES) return null;
 
   return path;
@@ -188,7 +205,7 @@ export function createOscParser(sessionId: string): OscParser {
       try {
         cb(event);
       } catch {
-        // Listener errors must not break the parser
+        // Listener threw — swallow to keep the parser loop stable for remaining listeners
       }
     }
   };
@@ -211,12 +228,12 @@ export function createOscParser(sessionId: string): OscParser {
                 source: "osc-7",
               });
             }
-            return false; // let other handlers (if any) run
+            return false; // let xterm.js built-in OSC handler also process (e.g., for window-title side effects)
           },
         );
         disposables.push(handler);
       } catch {
-        // Older xterm.js versions may not expose parser.registerOscHandler
+        // xterm.js < 4.14 lacks registerOscHandler — degrade gracefully
       }
 
       // OSC 1337 — iTerm2 CurrentDir: \e]1337;CurrentDir=/path\a
@@ -233,12 +250,12 @@ export function createOscParser(sessionId: string): OscParser {
                 source: "osc-1337",
               });
             }
-            return false;
+            return false; // let xterm.js built-in OSC handler also process (e.g., for window-title side effects)
           },
         );
         disposables.push(handler);
       } catch {
-        // ignore
+        // xterm.js < 4.14 lacks registerOscHandler — degrade gracefully
       }
     },
 
@@ -256,7 +273,7 @@ export function createOscParser(sessionId: string): OscParser {
         try {
           d.dispose();
         } catch {
-          // ignore
+          // IDisposable.dispose() may throw if the terminal was already torn down — safe to ignore
         }
       }
       disposables.length = 0;
@@ -273,6 +290,5 @@ export function createOscParser(sessionId: string): OscParser {
  * Uses TextEncoder for accuracy.
  */
 function byteLength(s: string): number {
-  // TextEncoder is available in all modern runtimes (browser + Node 16+)
-  return new TextEncoder().encode(s).byteLength;
+  return utf8Encoder.encode(s).byteLength;
 }

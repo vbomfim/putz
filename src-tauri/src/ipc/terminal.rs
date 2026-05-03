@@ -103,6 +103,9 @@ pub fn pty_close(state: State<'_, PtyManager>, session_id: String) -> Result<(),
 }
 
 /// Gets the current working directory of a PTY session's shell process.
+///
+/// TODO(#119): migrate frontend callers to subscribe to cwdRegistry / OSC 7 events,
+/// then delete this IPC. See https://github.com/vbomfim/putz/issues/119
 #[tauri::command]
 pub fn pty_cwd(state: State<'_, PtyManager>, session_id: String) -> Result<String, String> {
     let t0 = std::time::Instant::now();

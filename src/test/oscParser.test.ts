@@ -132,6 +132,35 @@ describe("parseOsc1337CurrentDir", () => {
     const longPath = "/" + "a".repeat(MAX_CWD_PATH_BYTES);
     expect(parseOsc1337CurrentDir(`CurrentDir=${longPath}`)).toBeNull();
   });
+
+  it("rejects invalid UTF-8 percent sequences (%FF%FE)", () => {
+    // %FF%FE is not valid UTF-8 — decodeURIComponent must throw, parser returns null
+    expect(parseOsc1337CurrentDir("CurrentDir=%FF%FE")).toBeNull();
+  });
+
+  it("decodes percent-encoded paths (symmetric with OSC 7)", () => {
+    expect(parseOsc1337CurrentDir("CurrentDir=/path%20with%20spaces")).toBe(
+      "/path with spaces",
+    );
+  });
+});
+
+describe("parseOsc1337CurrentDir + createOscParser integration", () => {
+  it("does not emit event for invalid UTF-8 in OSC 1337", () => {
+    const { terminal, fireOsc } = createMockTerminal();
+    const parser = createOscParser("session-1");
+    parser.attach(terminal);
+
+    const events: import("../lib/terminal/oscParser").OscEvent[] = [];
+    parser.on((e) => events.push(e));
+
+    // Invalid UTF-8 percent-encoded path — should be silently rejected
+    fireOsc(1337, "CurrentDir=%FF%FE");
+
+    expect(events).toHaveLength(0);
+
+    parser.dispose();
+  });
 });
 
 // ---------------------------------------------------------------------------
