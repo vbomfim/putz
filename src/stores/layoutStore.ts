@@ -41,12 +41,14 @@ async function spawnPtySession(): Promise<string> {
 /** Closes a PTY session via Tauri IPC (fire-and-forget). */
 import { cleanupPortalTarget } from "../components/Region/RegionContainer";
 import { clearSessionCwd } from "../components/Terminal/cwdRegistry";
+import { useCommandBlockStore } from "./commandBlockStore";
 
 function closePtySession(sessionId: string): void {
   invoke("pty_close", { sessionId }).catch(() => {
     // Ignore — session may already be closed
   });
   clearSessionCwd(sessionId);
+  useCommandBlockStore.getState().clearSession(sessionId);
 }
 
 /** Closes a tab's session based on its type. */

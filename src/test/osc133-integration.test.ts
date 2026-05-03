@@ -265,4 +265,35 @@ describe("OSC 133 integration (shellCompatHarness)", () => {
     expect(blocksA[0].exitCode).toBe(0);
     expect(blocksB[0].exitCode).toBe(1);
   });
+
+  it("captures absolute row position after scrollback grows beyond viewport", async () => {
+    const sid = "int-scrollback";
+    // 50 lines of output → 24-row viewport means baseY > 0
+    const filler = "line\r\n".repeat(50);
+    const input = `\x1b]133;P;putz=1${BEL}` + filler + `\x1b]133;A${BEL}`;
+
+    const events: OscEvent[] = [];
+    const terminal = await createTerminalFromBytes(enc(input), {
+      cols: 80,
+      rows: 24,
+      beforeWrite: (term) => {
+        const parser = createOscParser(sid);
+        parser.attach(term);
+        parser.on((event) => events.push(event));
+      },
+    });
+
+    // After 50 lines in a 24-row terminal, baseY should be > 0
+    expect(terminal.buffer.active.baseY).toBeGreaterThan(0);
+
+    const promptEvent = events.find(
+      (e): e is Osc133Event =>
+        e.kind === "osc-133" && e.marker === "prompt-start",
+    );
+    expect(promptEvent).toBeDefined();
+    // Absolute row must reflect scrollback — well above viewport's 0-23 range
+    expect(promptEvent!.cell.row).toBeGreaterThan(20);
+
+    terminal.dispose();
+  });
 });

@@ -36,6 +36,21 @@ import type { Osc133Event, CellPosition } from "../lib/terminal/oscParser";
 export const MAX_BLOCKS_PER_SESSION = 500;
 
 // ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+/** Compile-time exhaustiveness guard — a missing `case` causes a TS error. */
+function assertNever(value: never): never {
+  throw new Error(`Unhandled OSC 133 marker: ${String(value)}`);
+}
+
+/** Enforce ring buffer cap: keep only the newest MAX_BLOCKS_PER_SESSION entries. */
+function enforceRingCap(blocks: CommandBlock[]): CommandBlock[] {
+  if (blocks.length <= MAX_BLOCKS_PER_SESSION) return blocks;
+  return blocks.slice(blocks.length - MAX_BLOCKS_PER_SESSION);
+}
+
+// ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
 
@@ -55,9 +70,25 @@ export interface CommandBlock {
   commandEnd: CellPosition | null;
   /** Exit code from D;N, or null if D had no exit code or block is incomplete. */
   exitCode: number | null;
-  /** Reserved for future ticket — command text between B and C positions. */
+  /**
+   * Captured command text when available — currently always empty.
+   * Future tickets may populate this from the buffer between command-start
+   * and output-start.
+   *
+   * @privacy Tier-2-PII-when-populated. Shell commands routinely contain
+   * hostnames, usernames, file paths, and occasionally secrets typed at
+   * prompt. Any code that sets this to a non-empty value MUST go through
+   * privacy review (Privacy Guardian) to add appropriate redaction or
+   * opt-in gating.
+   */
   commandText: string;
-  /** Timestamp when the block was created (prompt-start). */
+  /**
+   * Timestamp when the block was created (prompt-start).
+   *
+   * @privacy Not currently used by S5 gutter; in-memory only. If persistence
+   * is ever added, review data minimization — exit codes + timestamps form a
+   * behavioral fingerprint.
+   */
   startedAt: number;
 }
 
@@ -125,11 +156,7 @@ export const useCommandBlockStore = create<
             session.blocks.push(session.activeBlock);
           }
           // Enforce ring buffer cap
-          if (session.blocks.length > MAX_BLOCKS_PER_SESSION) {
-            session.blocks = session.blocks.slice(
-              session.blocks.length - MAX_BLOCKS_PER_SESSION,
-            );
-          }
+          session.blocks = enforceRingCap(session.blocks);
           session.activeBlock = {
             id: crypto.randomUUID(),
             sessionId: event.sessionId,
@@ -172,13 +199,12 @@ export const useCommandBlockStore = create<
             session.blocks.push(completed);
             session.activeBlock = null;
             // Enforce ring buffer cap
-            if (session.blocks.length > MAX_BLOCKS_PER_SESSION) {
-              session.blocks = session.blocks.slice(
-                session.blocks.length - MAX_BLOCKS_PER_SESSION,
-              );
-            }
+            session.blocks = enforceRingCap(session.blocks);
           }
           break;
+
+        default:
+          assertNever(event.marker);
       }
 
       sessions.set(event.sessionId, session);

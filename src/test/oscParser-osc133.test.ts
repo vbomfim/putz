@@ -104,13 +104,25 @@ describe("parseOsc133Payload", () => {
     expect(parseOsc133Payload("D;")).toBeNull();
   });
 
-  it("rejects 'D;3.14' (float exit code)", () => {
-    // parseInt("3.14") === 3 which is valid, but we test for spec compliance
-    // Actually parseInt("3.14", 10) returns 3 which IS valid 0-255
-    const result = parseOsc133Payload("D;3.14");
-    // parseInt("3.14", 10) === 3 which is valid; this passes since
-    // we use parseInt which truncates to integer
-    expect(result).toEqual({ marker: "command-end", exitCode: 3 });
+  it("rejects 'D;3.14' (float — strict digits-only after fix)", () => {
+    // Previously parseInt("3.14") truncated to 3; now strict regex rejects non-digit chars.
+    expect(parseOsc133Payload("D;3.14")).toBeNull();
+  });
+
+  it("rejects 'D;10abc' (trailing garbage)", () => {
+    expect(parseOsc133Payload("D;10abc")).toBeNull();
+  });
+
+  it("rejects 'D; 5' (leading space)", () => {
+    expect(parseOsc133Payload("D; 5")).toBeNull();
+  });
+
+  it("rejects 'D;0x10' (hex prefix)", () => {
+    expect(parseOsc133Payload("D;0x10")).toBeNull();
+  });
+
+  it("rejects 'D;1e2' (scientific notation)", () => {
+    expect(parseOsc133Payload("D;1e2")).toBeNull();
   });
 
   it("rejects 'Z' (unknown marker)", () => {
@@ -345,11 +357,33 @@ describe("createOscParser — OSC 133 cell position", () => {
 
     parser.dispose();
   });
-});
 
-// ---------------------------------------------------------------------------
-// createOscParser — OSC 133 exit code variations
-// ---------------------------------------------------------------------------
+  it("captures absolute row (baseY + cursorY) when scrollback is non-zero", () => {
+    const { terminal, fireOsc, setCursor, setBaseY } = createMockTerminal();
+    const parser = createOscParser("sess-scrollback");
+    parser.attach(terminal);
+
+    const events: OscEvent[] = [];
+    parser.on((e) => events.push(e));
+
+    // Handshake at origin
+    setCursor(0, 0);
+    fireOsc(133, "P;putz=1");
+
+    // Simulate scrollback: 30 lines have scrolled past the viewport
+    setBaseY(30);
+    // Cursor is at viewport row 5, col 0 → absolute row = 30 + 5 = 35
+    setCursor(5, 0);
+    fireOsc(133, "A");
+
+    const osc133 = osc133Events(events);
+    expect(osc133[1].marker).toBe("prompt-start");
+    // Must be absolute (35), NOT viewport-relative (5)
+    expect(osc133[1].cell).toEqual({ row: 35, col: 0 });
+
+    parser.dispose();
+  });
+});
 
 describe("createOscParser — OSC 133 exit code handling", () => {
   it("D without exit code emits exitCode undefined", () => {

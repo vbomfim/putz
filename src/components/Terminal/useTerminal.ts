@@ -525,13 +525,23 @@ export function useTerminal({
     const oscParser = createOscParser(sessionId);
     oscParser.attach(terminal);
     const unsubOsc = oscParser.on((event) => {
-      if (event.kind === "cwd-updated") {
-        if (event.source === "osc-7") {
-          hasReceivedOsc7 = true;
+      switch (event.kind) {
+        case "cwd-updated":
+          if (event.source === "osc-7") {
+            hasReceivedOsc7 = true;
+          }
+          recordCwdAtCursor(event.cwd);
+          break;
+        case "osc-133":
+          useCommandBlockStore.getState().ingestOscEvent(event);
+          break;
+        default: {
+          // Compile-time exhaustiveness: future OscEvent variants trigger a TS error.
+          const _exhaustive: never = event;
+          throw new Error(
+            `Unhandled OscEvent kind: ${(_exhaustive as { kind: string }).kind}`,
+          );
         }
-        recordCwdAtCursor(event.cwd);
-      } else if (event.kind === "osc-133") {
-        useCommandBlockStore.getState().ingestOscEvent(event);
       }
     });
 
@@ -733,7 +743,10 @@ export function useTerminal({
       pasteGuard.dispose();
       unsubOsc();
       oscParser.dispose();
-      useCommandBlockStore.getState().clearSession(sessionId);
+      // NOTE: clearSession is NOT called here — it is coupled to the PTY
+      // session lifecycle (layoutStore.closePtySession), NOT the React mount
+      // lifecycle. This ensures command blocks survive remounts (e.g.,
+      // pop-out windows) while the session is still alive.
 
       for (const unlisten of unlisteners) {
         unlisten();

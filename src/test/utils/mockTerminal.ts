@@ -27,6 +27,7 @@ export function createMockTerminal() {
   const handlers = new Map<number, ((data: string) => boolean | void)[]>();
   let cursorX = 0;
   let cursorY = 0;
+  let baseY = 0;
 
   return {
     terminal: {
@@ -50,6 +51,9 @@ export function createMockTerminal() {
           get cursorY() {
             return cursorY;
           },
+          get baseY() {
+            return baseY;
+          },
         },
       },
     } as unknown as import("@xterm/xterm").Terminal,
@@ -71,6 +75,14 @@ export function createMockTerminal() {
     setCursor(row: number, col: number): void {
       cursorY = row;
       cursorX = col;
+    },
+
+    /**
+     * Set the mock base Y offset (scrollback).
+     * When baseY > 0, the absolute row = baseY + cursorY.
+     */
+    setBaseY(value: number): void {
+      baseY = value;
     },
   };
 }

@@ -68,7 +68,19 @@ export type Osc133Marker =
   | "command-end"
   | "handshake";
 
-/** Cell position in the terminal buffer. */
+/**
+ * Cursor position at the moment an OSC sequence was processed.
+ *
+ * Row is stored as an **absolute** buffer offset (`baseY + cursorY`),
+ * not the viewport-relative `cursorY` alone, so gutter dots survive
+ * scrollback growth.
+ *
+ * @security Cell position is derived from xterm.js cursor state, which is
+ * influenced by ALL terminal output (including CSI cursor-movement sequences
+ * from the PTY). It is trustworthy for display purposes (where to draw the
+ * gutter dot) but should not be used for any security-sensitive decisions
+ * (e.g., "this OSC was emitted from row N").
+ */
 export interface CellPosition {
   readonly row: number;
   readonly col: number;
@@ -253,6 +265,11 @@ export function parseOsc133Payload(data: string): Osc133ParsedPayload | null {
 
   if (data.startsWith("D;")) {
     const exitStr = data.slice(2);
+    // Strict: digits only, 1-3 chars (max 999, then range-checked to 0..255).
+    // parseInt would accept trailing garbage ("10abc" → 10); reject explicitly.
+    if (!/^\d{1,3}$/.test(exitStr)) {
+      return null;
+    }
     const exitCode = parseInt(exitStr, 10);
     if (Number.isInteger(exitCode) && exitCode >= 0 && exitCode <= 255) {
       return { marker: "command-end", exitCode };
@@ -276,9 +293,12 @@ export function parseOsc133Payload(data: string): Osc133ParsedPayload | null {
  * deferring would record a stale position.
  */
 function getCurrentCell(terminal: Terminal): CellPosition {
+  const buffer = terminal.buffer.active;
   return {
-    row: terminal.buffer.active.cursorY,
-    col: terminal.buffer.active.cursorX,
+    // Absolute row = base of the active buffer + viewport-relative cursor row.
+    // Required for S5 gutter to find the right row after scrollback grows.
+    row: buffer.baseY + buffer.cursorY,
+    col: buffer.cursorX,
   };
 }
 

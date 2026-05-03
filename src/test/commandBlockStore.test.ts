@@ -354,4 +354,31 @@ describe("CommandBlockStore", () => {
     expect(b[0].commandStart).toEqual({ row: 0, col: 2 });
     expect(b[0].commandEnd).toBeNull();
   });
+
+  // --- Lifecycle: clearSession decoupled from React unmount ---
+
+  it("preserves command blocks across simulated remount (clearSession not called)", () => {
+    const sid = "sess-remount";
+    // Simulate: some blocks exist for the session
+    ingest(makeEvent(sid, "handshake"));
+    ingest(makeEvent(sid, "prompt-start", { row: 0, col: 0 }));
+    ingest(makeEvent(sid, "command-end", { row: 5, col: 0 }, 0));
+    ingest(makeEvent(sid, "prompt-start", { row: 6, col: 0 }));
+    ingest(makeEvent(sid, "command-end", { row: 10, col: 0 }, 1));
+
+    expect(blocks(sid)).toHaveLength(2);
+    expect(useCommandBlockStore.getState().isSessionHandshaked(sid)).toBe(true);
+
+    // Simulate useTerminal cleanup WITHOUT clearSession (the fix):
+    // Only listener unsub + dispose happens — blocks survive.
+    // (No action needed here — we simply verify blocks remain.)
+    expect(blocks(sid)).toHaveLength(2);
+
+    // Simulate layoutStore.closePtySession calling clearSession:
+    useCommandBlockStore.getState().clearSession(sid);
+    expect(blocks(sid)).toEqual([]);
+    expect(useCommandBlockStore.getState().isSessionHandshaked(sid)).toBe(
+      false,
+    );
+  });
 });
