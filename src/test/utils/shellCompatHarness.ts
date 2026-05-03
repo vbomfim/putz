@@ -31,6 +31,12 @@ export interface ShellCompatOptions {
   rows?: number;
   /** Timeout in ms to wait for write to flush (default: 500) */
   flushTimeoutMs?: number;
+  /**
+   * Hook invoked AFTER the Terminal is constructed but BEFORE bytes are written.
+   * Useful for attaching parsers/handlers that need to observe the byte stream
+   * (e.g., the OSC parser).
+   */
+  beforeWrite?: (terminal: XtermTerminal) => void;
 }
 
 export interface CellInfo {
@@ -71,7 +77,7 @@ export async function createTerminalFromBytes(
   bytes: Uint8Array,
   options: ShellCompatOptions = {},
 ): Promise<XtermTerminal> {
-  const { cols = 80, rows = 24, flushTimeoutMs = 500 } = options;
+  const { cols = 80, rows = 24, flushTimeoutMs = 500, beforeWrite } = options;
 
   // Import the real xterm.js module, bypassing any vi.mock in test setup.
   // When running under Vitest, vi.importActual resolves the un-mocked module.
@@ -110,6 +116,10 @@ export async function createTerminalFromBytes(
     allowProposedApi: true,
     scrollback: 1000,
   });
+
+  if (beforeWrite) {
+    beforeWrite(terminal);
+  }
 
   // Write bytes and wait for the parser to flush
   await new Promise<void>((resolve, reject) => {

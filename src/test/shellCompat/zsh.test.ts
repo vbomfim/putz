@@ -23,6 +23,7 @@ import {
   findRowWithText,
   getCursorPosition,
 } from "../utils/shellCompatHarness";
+import { createOscParser, type OscEvent } from "../../lib/terminal/oscParser";
 
 const FIXTURES = join(import.meta.dirname, "fixtures");
 function loadFixture(name: string): Uint8Array {
@@ -276,8 +277,24 @@ describe("zsh shell compatibility", () => {
       expect(line).toContain("cd /tmp");
     });
 
-    it.todo(
-      "fires cwdChanged event for OSC 7 (blocked by S2 #100 — enable after merge)",
-    );
+    it("fires cwd-updated event when OSC 7 sequence is parsed", async () => {
+      const events: OscEvent[] = [];
+      const parser = createOscParser("zsh-test-session");
+      parser.on((event) => events.push(event));
+
+      terminal = await createTerminalFromBytes(loadFixture("zsh-osc7.bytes"), {
+        beforeWrite: (term) => parser.attach(term),
+      });
+
+      const cwdEvents = events.filter((e) => e.kind === "cwd-updated");
+      expect(cwdEvents.length).toBeGreaterThan(0);
+
+      const last = cwdEvents[cwdEvents.length - 1];
+      expect(last.sessionId).toBe("zsh-test-session");
+      expect(last.source).toBe("osc-7");
+      expect(last.cwd).toMatch(/\/tmp/);
+
+      parser.dispose();
+    });
   });
 });
