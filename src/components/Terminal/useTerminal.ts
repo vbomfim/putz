@@ -78,101 +78,6 @@ interface UseTerminalReturn {
 // See #99 for details.
 
 /**
- * Scan the terminal buffer upward from `startLine` for a shell prompt that
- * embeds its cwd (PowerShell `PS C:\path>` or CMD `C:\path>`). Returns the
- * most recent cwd found, or undefined.
- *
- * This is used as a fallback cwd source on Windows because PowerShell's
- * `cd`/`Set-Location` updates `$PWD` but does NOT sync the Win32 process
- * `CurrentDirectory` in the PEB — so reading it via NtQueryInformationProcess
- * can return a stale value (usually the user's home directory).
- */
-function scanPromptCwdAboveLine(
-  terminal: Terminal,
-  startLine: number,
-): string | undefined {
-  const buf = terminal.buffer.active;
-  const start = Math.max(0, startLine - 200);
-  // Collapse `\\+` or `/+` to a single separator, strip trailing quote /
-  // punctuation, strip trailing separator. Some prompt themes (Oh-My-Posh,
-  // PSReadLine in debug) render paths with escaped double backslashes.
-  const clean = (p: string): string =>
-    p
-      .replace(/["'`]+$/, "")
-      .replace(/\\{2,}/g, "\\")
-      .replace(/\/{2,}/g, "/")
-      .replace(/[\\/]+$/, "");
-  // PowerShell: "PS C:\path> " — may be prefixed with conda "(base) ",
-  // posh-git prompt glyphs, etc. We anchor on "PS " + drive letter.
-  const psRegex = /PS\s+([A-Za-z]:[\\/][^>]*?)\s*>/;
-  // CMD: line ends with "C:\path>" (optionally with a trailing space).
-  const cmdRegex = /([A-Za-z]:[\\/][^>\s]*)\s*>\s*$/;
-  // Oh-My-Posh / Starship style: path appears bare on a line with a prompt
-  // glyph (❯, →, ➜). We look for a drive-letter path on the same line.
-  // Exclude quotes and closing brackets so we don't pick up surrounding
-  // prompt decoration.
-  const glyphRegex =
-    /[❯→➜►»]\s*.*?([A-Za-z]:[\\/][^\s>"'`()[\]]+)|([A-Za-z]:[\\/][^\s>"'`()[\]]+)\s*[❯→➜►»]/;
-  // Multi-line Oh-My-Posh: path on one line (often after "user@host  "),
-  // glyph alone on the next. Matches any drive-letter path on the line,
-  // which we use when scanning the line directly above a bare-glyph line.
-  const bareDrivePathRegex = /([A-Za-z]:[\\/][^\s>"'`()[\]]*)/;
-  const debugLines: string[] = [];
-  for (let y = startLine; y >= start; y--) {
-    const line = buf.getLine(y);
-    if (!line) continue;
-    const text = line.translateToString(true);
-    if (debugLines.length < 6 && text.trim())
-      debugLines.push(`y=${y}:${JSON.stringify(text.slice(0, 120))}`);
-    const psMatch = text.match(psRegex);
-    if (psMatch) {
-      const p = clean(psMatch[1]);
-      invoke("perf_log", { line: `promptScan HIT PS y=${y} cwd=${p}` }).catch(
-        () => {},
-      );
-      return p;
-    }
-    const cmdMatch = text.match(cmdRegex);
-    if (cmdMatch) {
-      const p = clean(cmdMatch[1]);
-      invoke("perf_log", { line: `promptScan HIT CMD y=${y} cwd=${p}` }).catch(
-        () => {},
-      );
-      return p;
-    }
-    const glyphMatch = text.match(glyphRegex);
-    if (glyphMatch) {
-      const p = clean(glyphMatch[1] || glyphMatch[2]);
-      invoke("perf_log", {
-        line: `promptScan HIT GLYPH y=${y} cwd=${p}`,
-      }).catch(() => {});
-      return p;
-    }
-    // Multi-line glyph prompt: a line containing only a bare glyph means the
-    // cwd lives on the previous line (Oh-My-Posh two-line layout).
-    const bareGlyph = text.trim();
-    if (/^[❯→➜►»]\s*$/.test(bareGlyph)) {
-      const above = buf.getLine(y - 1);
-      if (above) {
-        const aboveText = above.translateToString(true);
-        const m = aboveText.match(bareDrivePathRegex);
-        if (m) {
-          const p = clean(m[1]);
-          invoke("perf_log", {
-            line: `promptScan HIT GLYPH2L y=${y} cwd=${p}`,
-          }).catch(() => {});
-          return p;
-        }
-      }
-    }
-  }
-  invoke("perf_log", {
-    line: `promptScan MISS startLine=${startLine} sampled=[${debugLines.join(" | ")}]`,
-  }).catch(() => {});
-  return undefined;
-}
-
-/**
  * React hook that manages the full xterm.js terminal lifecycle.
  *
  * Handles: Terminal creation → addon loading → event binding →
@@ -386,31 +291,10 @@ export function useTerminal({
                     : `${cwd}${sep}${name}`;
                 };
 
-                // Prompt-scan FIRST: the shell prompt (PS C:\path> / C:\path>)
-                // sits right next to the filename the user clicked and always
-                // reflects the real cwd at that moment. This beats:
-                //  - window-title parsing (PowerShell does NOT update the
-                //    title on `cd`, so titleCwd often sticks at the startup
-                //    value of user-home)
-                //  - `pty_cwd` (PowerShell's `cd` doesn't sync the Win32 PEB
-                //    CurrentDirectory, so NtQueryInformationProcess returns
-                //    a stale value)
-                const promptCwd = scanPromptCwdAboveLine(
-                  terminal,
-                  bufferLineNumber,
-                );
-                if (promptCwd) {
-                  const resolved = joinPath(promptCwd, l.text);
-                  invoke("perf_log", {
-                    line: `link activate name=${l.text} line=${bufferLineNumber} source=promptScan cwd=${promptCwd} resolved=${resolved}`,
-                  }).catch(() => {});
-                  openFn(resolved);
-                  return;
-                }
-
-                // Line-aware title/OSC7 history — resolves to the cwd that
-                // was active when this filename was printed, not the current
-                // cwd. Works well for zsh/bash with title-update hooks.
+                // Line-aware OSC 7 / title history — resolves to the cwd
+                // that was active when this filename was printed, not the
+                // current cwd. With OSC 7 as primary source (#100), this
+                // is the most reliable path.
                 const titleCwd = getSessionCwdAtLine(
                   sessionId,
                   bufferLineNumber,
