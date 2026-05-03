@@ -1,5 +1,13 @@
 import "@testing-library/jest-dom/vitest";
-import { vi } from "vitest";
+import { beforeEach, vi } from "vitest";
+
+/**
+ * Stub HTMLCanvasElement.getContext for jsdom — xterm.js probes canvas for its
+ * DomRenderer and emits noisy "Not implemented" warnings to stderr otherwise.
+ */
+beforeEach(() => {
+  HTMLCanvasElement.prototype.getContext = vi.fn(() => null) as never;
+});
 
 /**
  * Polyfill document.queryCommandSupported for jsdom — required by

@@ -1,3 +1,6 @@
+// Layer 1: synthetic fixture rendering coverage.
+// See docs/shell-compat-fixtures.md for capture instructions to upgrade to recorded fixtures.
+
 /**
  * Shell Compatibility Tests — zsh
  *
@@ -19,7 +22,7 @@ import {
   getLineText,
   findRowWithText,
   getCursorPosition,
-} from "../../lib/terminal/shellCompatHarness";
+} from "../utils/shellCompatHarness";
 
 const FIXTURES = join(import.meta.dirname, "fixtures");
 function loadFixture(name: string): Uint8Array {
@@ -274,7 +277,7 @@ describe("zsh shell compatibility", () => {
     });
 
     it.todo(
-      "fires cwdChanged event with correct path (requires S2 OSC 7 parser)",
+      "fires cwdChanged event for OSC 7 (blocked by S2 #100 — enable after merge)",
     );
   });
 });

@@ -1,8 +1,14 @@
 # Shell Compatibility Test Fixtures
 
-Documentation for the S7 shell compatibility test suite — Layer 1 (synthetic PTY byte streams).
+Documentation for the S7 shell compatibility test suite.
 
-## Overview
+## Overview — Layer 1: Synthetic-Fixture Rendering Coverage
+
+> **Caveat:** These fixtures are hand-crafted byte streams that mirror documented
+> shell escape-sequence behavior. They prove the xterm.js renderer + OSC parser
+> handle the documented protocol correctly. They do **NOT** prove compatibility
+> with real-shell quirks (e.g., fish's `__fish_print_help` SGR stacking).
+> Layer 2 (recorded-session fixtures) is a follow-up.
 
 The shell compatibility test suite validates that common shell features render
 correctly through xterm.js's escape sequence parser and buffer model. Tests feed
@@ -31,8 +37,8 @@ resulting buffer state (text content, cursor position, cell colors, attributes).
 
 ```
 src/
-├── lib/terminal/
-│   └── shellCompatHarness.ts          # Harness: bytes → headless Terminal
+├── test/utils/
+│   └── shellCompatHarness.ts              # Harness: bytes → headless Terminal
 ├── test/shellCompat/
 │   ├── fixtures/                       # Binary .bytes fixture files
 │   │   ├── zsh-cold-prompt.bytes

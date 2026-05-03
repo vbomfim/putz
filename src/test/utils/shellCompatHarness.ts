@@ -4,6 +4,9 @@
  * Pure function that feeds pre-recorded PTY byte streams into a headless
  * xterm.js Terminal and returns the populated instance for assertions.
  *
+ * This is TEST-ONLY infrastructure — it lives under src/test/utils/ and
+ * must never be imported from production code under src/lib/.
+ *
  * Usage:
  *   const term = await createTerminalFromBytes(fixtureBytes);
  *   const line = term.buffer.active.getLine(0)?.translateToString(true);
@@ -17,6 +20,9 @@
 // or use the re-exported createTerminalFromBytes which handles this internally.
 //
 // The Terminal is used headless — no DOM, no canvas — so it works in jsdom.
+
+/** Convenience alias to avoid repeating the full import type. */
+type XtermTerminal = import("@xterm/xterm").Terminal;
 
 export interface ShellCompatOptions {
   /** Terminal column count (default: 80) */
@@ -64,7 +70,7 @@ export interface CellInfo {
 export async function createTerminalFromBytes(
   bytes: Uint8Array,
   options: ShellCompatOptions = {},
-): Promise<import("@xterm/xterm").Terminal> {
+): Promise<XtermTerminal> {
   const { cols = 80, rows = 24, flushTimeoutMs = 500 } = options;
 
   // Import the real xterm.js module, bypassing any vi.mock in test setup.
@@ -83,6 +89,19 @@ export async function createTerminalFromBytes(
     // Not in Vitest context — use regular import
     const xtermModule = await import("@xterm/xterm");
     RealTerminal = xtermModule.Terminal;
+  }
+
+  // Safety net: if vi.importActual silently returned the mocked module
+  // (e.g., Vitest internal renamed), fail loudly instead of testing the mock.
+  if (
+    typeof RealTerminal !== "function" ||
+    !RealTerminal.prototype ||
+    !("write" in RealTerminal.prototype)
+  ) {
+    throw new Error(
+      "[shellCompatHarness] Failed to obtain real xterm.js Terminal. " +
+        "vi.importActual probe likely broke. Check Vitest version and update probe.",
+    );
   }
 
   const terminal = new RealTerminal({
@@ -115,7 +134,7 @@ export async function createTerminalFromBytes(
  * Returns null if the line or cell doesn't exist.
  */
 export function getCellInfo(
-  terminal: import("@xterm/xterm").Terminal,
+  terminal: XtermTerminal,
   row: number,
   col: number,
 ): CellInfo | null {
@@ -148,7 +167,7 @@ export function getCellInfo(
  * @param trimRight - If true (default), trims trailing whitespace
  */
 export function getLineText(
-  terminal: import("@xterm/xterm").Terminal,
+  terminal: XtermTerminal,
   row: number,
   trimRight = true,
 ): string {
@@ -163,7 +182,7 @@ export function getLineText(
  * visible text in a properly functioning terminal.
  */
 export function hasBracketedPasteMarkersVisible(
-  terminal: import("@xterm/xterm").Terminal,
+  terminal: XtermTerminal,
   startRow = 0,
   endRow?: number,
 ): boolean {
@@ -182,7 +201,7 @@ export function hasBracketedPasteMarkersVisible(
  * Returns -1 if not found.
  */
 export function findRowWithText(
-  terminal: import("@xterm/xterm").Terminal,
+  terminal: XtermTerminal,
   needle: string,
   startRow = 0,
 ): number {
@@ -199,7 +218,7 @@ export function findRowWithText(
 /**
  * Get cursor position in the active buffer.
  */
-export function getCursorPosition(terminal: import("@xterm/xterm").Terminal): {
+export function getCursorPosition(terminal: XtermTerminal): {
   x: number;
   y: number;
 } {

@@ -1,3 +1,6 @@
+// Layer 1: synthetic fixture rendering coverage.
+// See docs/shell-compat-fixtures.md for capture instructions to upgrade to recorded fixtures.
+
 /**
  * Shell Compatibility Tests — Windows Command Prompt (cmd.exe)
  *
@@ -24,7 +27,7 @@ import {
   getCellInfo,
   getLineText,
   findRowWithText,
-} from "../../lib/terminal/shellCompatHarness";
+} from "../utils/shellCompatHarness";
 
 const FIXTURES = join(import.meta.dirname, "fixtures");
 function loadFixture(name: string): Uint8Array {
