@@ -94,7 +94,8 @@ impl PtyManager {
     /// that reads PTY output and emits Tauri events.
     ///
     /// Validates shell path, working directory, and environment variables
-    /// before spawning.
+    /// before spawning. When `PUTZ_PERF=1`, emits a `pty-perf` event with
+    /// spawn timing data (time to first byte from PTY).
     #[allow(clippy::too_many_arguments)]
     pub fn spawn(
         &self,
@@ -105,6 +106,7 @@ impl PtyManager {
         rows: u16,
         env: Option<HashMap<String, String>>,
     ) -> Result<String, PtyError> {
+        let t_spawn_start = std::time::Instant::now();
         // Check session limit before doing anything else
         {
             let sessions = self
@@ -198,6 +200,8 @@ impl PtyManager {
             .spawn_command(cmd)
             .map_err(|e| PtyError::SpawnFailed(e.to_string()))?;
 
+        let t_pty_ready = std::time::Instant::now();
+
         // Drop the slave — we only need the master side
         drop(pair.slave);
 
@@ -231,7 +235,14 @@ impl PtyManager {
 
         // Start the output reader on an OS thread (blocking I/O).
         // This thread lives until the PTY process exits (reader returns EOF).
-        self.start_reader_thread(app.clone(), session_id.clone(), reader);
+        self.start_reader_thread(
+            app.clone(),
+            session_id.clone(),
+            reader,
+            t_spawn_start,
+            t_pty_ready,
+            shell_path,
+        );
 
         Ok(session_id)
     }
@@ -393,23 +404,58 @@ impl PtyManager {
     /// Output bytes are base64-encoded before emission to avoid the
     /// overhead of serializing Vec<u8> as a JSON array of numbers.
     ///
+    /// When `PUTZ_PERF=1`, emits a `pty-perf` event on the first read
+    /// with spawn-to-first-byte timing data.
+    ///
     /// Reads PTY output in a blocking loop and emits it to the frontend.
     fn start_reader_thread(
         &self,
         app: AppHandle,
         session_id: String,
         mut reader: Box<dyn Read + Send>,
+        t_spawn_start: std::time::Instant,
+        t_pty_ready: std::time::Instant,
+        shell_path: String,
     ) {
         let sessions = self.sessions.clone();
         let b64_engine = base64::engine::general_purpose::STANDARD;
 
         std::thread::spawn(move || {
             let mut buf = [0u8; READ_BUFFER_SIZE];
+            let mut first_read = true;
 
             loop {
                 match reader.read(&mut buf) {
                     Ok(0) => break, // EOF — child process exited
                     Ok(n) => {
+                        // Emit spawn-to-first-byte timing on the first read
+                        if first_read {
+                            first_read = false;
+                            let t_first_read = std::time::Instant::now();
+                            let spawn_to_ready_ms =
+                                t_pty_ready.duration_since(t_spawn_start).as_secs_f64() * 1000.0;
+                            let spawn_to_first_byte_ms =
+                                t_first_read.duration_since(t_spawn_start).as_secs_f64() * 1000.0;
+
+                            if crate::perf::is_enabled() {
+                                crate::perf::log(&format!(
+                                    "pty_spawn session={} shell={} spawn_to_ready_ms={:.2} spawn_to_first_byte_ms={:.2}",
+                                    &session_id[..8.min(session_id.len())],
+                                    shell_path,
+                                    spawn_to_ready_ms,
+                                    spawn_to_first_byte_ms,
+                                ));
+
+                                let perf_payload = serde_json::json!({
+                                    "sessionId": session_id,
+                                    "shell": shell_path,
+                                    "spawnToReadyMs": spawn_to_ready_ms,
+                                    "spawnToFirstByteMs": spawn_to_first_byte_ms,
+                                });
+                                let _ = app.emit("pty-perf", perf_payload);
+                            }
+                        }
+
                         let data = &buf[..n];
 
                         // Emit to frontend (base64-encoded)

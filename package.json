@@ -18,6 +18,7 @@
     "test:frontend": "vitest run",
     "test:backend": "cd src-tauri && cargo test",
     "test:watch": "vitest",
+    "perf:measure": "node scripts/measure-spawn.mjs --save",
     "version:bump": "node scripts/version-bump.mjs"
   },
   "dependencies": {

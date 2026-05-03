@@ -1,0 +1,114 @@
+{
+  "arch": "aarch64",
+  "capturedAt": "2026-05-03T01:20:30.362041+00:00",
+  "errors": 0,
+  "loginShell": false,
+  "osVersion": "26.4.1",
+  "platform": "macos",
+  "putzVersion": "0.4.0",
+  "sampleCount": 20,
+  "samples": [
+    {
+      "spawnToFirstByteMs": 20.07,
+      "spawnToReadyMs": 4.18
+    },
+    {
+      "spawnToFirstByteMs": 26.53,
+      "spawnToReadyMs": 5.32
+    },
+    {
+      "spawnToFirstByteMs": 27.11,
+      "spawnToReadyMs": 4.54
+    },
+    {
+      "spawnToFirstByteMs": 13.04,
+      "spawnToReadyMs": 1.38
+    },
+    {
+      "spawnToFirstByteMs": 13.63,
+      "spawnToReadyMs": 1.31
+    },
+    {
+      "spawnToFirstByteMs": 14.32,
+      "spawnToReadyMs": 1.49
+    },
+    {
+      "spawnToFirstByteMs": 11.23,
+      "spawnToReadyMs": 1.3
+    },
+    {
+      "spawnToFirstByteMs": 12.92,
+      "spawnToReadyMs": 1.41
+    },
+    {
+      "spawnToFirstByteMs": 22.39,
+      "spawnToReadyMs": 2.76
+    },
+    {
+      "spawnToFirstByteMs": 12.27,
+      "spawnToReadyMs": 1.26
+    },
+    {
+      "spawnToFirstByteMs": 31.01,
+      "spawnToReadyMs": 5.02
+    },
+    {
+      "spawnToFirstByteMs": 17.75,
+      "spawnToReadyMs": 2.05
+    },
+    {
+      "spawnToFirstByteMs": 26.61,
+      "spawnToReadyMs": 3.58
+    },
+    {
+      "spawnToFirstByteMs": 27.8,
+      "spawnToReadyMs": 4.43
+    },
+    {
+      "spawnToFirstByteMs": 22.43,
+      "spawnToReadyMs": 2.8
+    },
+    {
+      "spawnToFirstByteMs": 25.54,
+      "spawnToReadyMs": 3.84
+    },
+    {
+      "spawnToFirstByteMs": 27.51,
+      "spawnToReadyMs": 4.27
+    },
+    {
+      "spawnToFirstByteMs": 31.62,
+      "spawnToReadyMs": 4.98
+    },
+    {
+      "spawnToFirstByteMs": 29.62,
+      "spawnToReadyMs": 4.76
+    },
+    {
+      "spawnToFirstByteMs": 14.76,
+      "spawnToReadyMs": 1.41
+    }
+  ],
+  "shell": "/bin/zsh",
+  "shellVersion": "zsh 5.9 (arm64-apple-darwin25.0)",
+  "stats": {
+    "spawnToFirstByte": {
+      "max": 31.62,
+      "mean": 21.41,
+      "min": 11.23,
+      "p50": 22.41,
+      "p95": 31.04,
+      "p99": 31.51,
+      "stddev": 6.88
+    },
+    "spawnToReady": {
+      "max": 5.32,
+      "mean": 3.11,
+      "min": 1.26,
+      "p50": 3.19,
+      "p95": 5.04,
+      "p99": 5.27,
+      "stddev": 1.49
+    }
+  }
+}

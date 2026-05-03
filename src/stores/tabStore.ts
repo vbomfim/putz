@@ -11,6 +11,7 @@
  */
 import { create } from "zustand";
 import { invoke } from "@tauri-apps/api/core";
+import { listen } from "@tauri-apps/api/event";
 import type { Tab, PaneNode } from "../types";
 import { MAX_SPLIT_DEPTH } from "../types";
 import { TERMINAL_CONFIG } from "../components/Terminal";
@@ -30,6 +31,61 @@ async function spawnPtySession(): Promise<string> {
     cols: TERMINAL_CONFIG.defaultCols,
     rows: TERMINAL_CONFIG.defaultRows,
   });
+}
+
+/**
+ * Module-level perf flag. Set once at startup via checkPerfEnabled().
+ * Avoids repeated IPC calls and test interference.
+ */
+let _perfEnabled: boolean | null = null;
+
+/** Checks the backend perf_enabled flag once and caches the result. */
+async function checkPerfEnabled(): Promise<boolean> {
+  if (_perfEnabled !== null) return _perfEnabled;
+  try {
+    _perfEnabled = await invoke<boolean>("perf_enabled");
+  } catch {
+    _perfEnabled = false;
+  }
+  return _perfEnabled;
+}
+
+/**
+ * Records frontend-side spawn timing when PUTZ_PERF is enabled.
+ *
+ * Measures the time from before the pty_spawn IPC call to the first
+ * pty-output event arriving in the frontend. This captures the full
+ * round-trip including IPC overhead.
+ *
+ * Uses setTimeout(0) to avoid interfering with the synchronous
+ * control flow of mock invoke values in tests.
+ *
+ * Guarded by perf_enabled IPC check — no-op in production.
+ */
+function recordSpawnTiming(sessionId: string, t0: number): void {
+  // Defer entirely so the perf_enabled check never consumes
+  // a mocked invoke value that a test set up for pty_spawn
+  setTimeout(async () => {
+    try {
+      if (!(await checkPerfEnabled())) return;
+
+      const unlisten = await listen<string>(
+        `pty-output-${sessionId}`,
+        () => {
+          const t1 = performance.now();
+          const durationMs = t1 - t0;
+          const platform = navigator.platform;
+          invoke("perf_log", {
+            line: `frontend_spawn session=${sessionId.slice(0, 8)} ipc_roundtrip_ms=${durationMs.toFixed(2)} platform=${platform}`,
+          }).catch(() => {});
+          // One-shot: unlisten after first output
+          unlisten();
+        },
+      );
+    } catch {
+      // Perf instrumentation must never break tab creation
+    }
+  }, 0);
 }
 
 /** Closes a PTY session via Tauri IPC (fire-and-forget). */
@@ -235,6 +291,7 @@ export const useTabStore = create<TabState>((set, get) => ({
   },
 
   addTab: async () => {
+    const t0 = performance.now();
     let sessionId: string;
     try {
       sessionId = await spawnPtySession();
@@ -244,6 +301,9 @@ export const useTabStore = create<TabState>((set, get) => ({
       console.error("[tabStore] Failed to spawn PTY session:", message);
       return;
     }
+
+    // Record frontend-side spawn timing (no-op unless PUTZ_PERF=1)
+    recordSpawnTiming(sessionId, t0);
 
     const nextCounter = get().tabCounter + 1;
     const tab: Tab = {
@@ -356,6 +416,7 @@ export const useTabStore = create<TabState>((set, get) => ({
     if (!sourceTab) return;
 
     let sessionId: string;
+    const t0 = performance.now();
     try {
       sessionId = await spawnPtySession();
     } catch (err: unknown) {
@@ -364,6 +425,9 @@ export const useTabStore = create<TabState>((set, get) => ({
       console.error("[tabStore] Failed to spawn PTY for duplicate:", message);
       return;
     }
+
+    // Record frontend-side spawn timing (no-op unless PUTZ_PERF=1)
+    recordSpawnTiming(sessionId, t0);
 
     const nextCounter = get().tabCounter + 1;
     const newTab: Tab = {
@@ -452,6 +516,7 @@ export const useTabStore = create<TabState>((set, get) => ({
     if (currentDepth >= MAX_SPLIT_DEPTH) return;
 
     let newSessionId: string;
+    const t0 = performance.now();
     try {
       newSessionId = await spawnPtySession();
     } catch (err: unknown) {
@@ -460,6 +525,9 @@ export const useTabStore = create<TabState>((set, get) => ({
       console.error("[tabStore] Failed to spawn PTY for split:", message);
       return;
     }
+
+    // Record frontend-side spawn timing (no-op unless PUTZ_PERF=1)
+    recordSpawnTiming(newSessionId, t0);
 
     const newLayout = splitNodeBySession(
       tab.layout,
