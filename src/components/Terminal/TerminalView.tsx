@@ -24,6 +24,7 @@ import {
   type BackgroundEffect,
 } from "./TerminalBackground";
 import { BELL_FLASH_CLASS, BELL_FLASH_DURATION_MS } from "./terminalPolish";
+import { DEFAULT_TERMINAL_THEME } from "./types";
 import { useSettingsStore } from "../../stores/settingsStore";
 import { useThemeStore } from "../../stores/themeStore";
 import { CommandGutter } from "./CommandGutter";
@@ -147,16 +148,22 @@ export function TerminalView({
   // Sync xterm theme.background transparency to the animated-effect setting.
   // When an effect is active, override the theme's background to a semi-transparent
   // value so the canvas behind shows through. When 'none', restore the theme bg.
+  // IMPORTANT: derive themeBase from the STABLE theme store (never from
+  // term.options.theme), otherwise after the first override the next render
+  // reads back the override as the "base" and the original opaque bg is lost.
   useEffect(() => {
     const term = terminalInstance;
     if (!term) return;
-    const themeBase = termColors || term.options.theme || {};
+    const themeBase = termColors || DEFAULT_TERMINAL_THEME;
     if (backgroundEffect === "none") {
-      term.options.theme = themeBase;
+      term.options.theme = { ...themeBase };
     } else {
       term.options.theme = {
         ...themeBase,
-        background: "rgba(0, 0, 0, 0)", // fully transparent — backgroundOpacity controls canvas alpha
+        // Semi-transparent dark scrim — canvas shows through but text remains
+        // legible even if the user's animated effect is subtle. Tune via
+        // backgroundOpacity setting on the canvas itself.
+        background: "rgba(0, 0, 0, 0.4)",
       };
     }
   }, [terminalInstance, backgroundEffect, termColors]);
