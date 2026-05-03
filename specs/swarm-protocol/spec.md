@@ -335,9 +335,15 @@ README.
   `127.0.0.1:0`) as the cross-network / external-agent fallback.
 - **FR-003**: Socket path convention MUST be:
   - Unix: `/tmp/putz-swarm-<port>-<pid>-<random>.sock`
-  - Windows: `\\.\pipe\putz-swarm-<port>-<pid>-<random>`
+  - Windows: `\\.\pipe\putz-swarm-<username>-<port>`
+    where `<username>` is the current OS user (via `whoami::username()` or
+    `std::env::var("USERNAME")`). Including the username prevents cross-user
+    collisions on shared Windows machines. The pipe name omits PID/random to
+    stay within the 256-char limit and because Windows DACL (user-SID-only)
+    provides the isolation that Unix socket permissions (`0700`) provide on
+    Unix.
   where `<port>` is the HTTP server port, `<pid>` is the Putz process ID, and
-  `<random>` is a 6-character hex suffix to prevent collisions.
+  `<random>` is a 6-character hex suffix to prevent collisions (Unix only).
 - **FR-004**: Socket framing MUST use length-prefixed JSON: 4-byte big-endian
   `u32` frame length followed by a UTF-8 JSON payload. Maximum frame size:
   64 KiB (consistent with existing HTTP body limit).
@@ -365,10 +371,12 @@ README.
 - **FR-011**: **Tier 2 (External)**: Agents not spawned by Putz that attempt to
   register MUST trigger a UI prompt: "Agent '[name]' wants to join the swarm.
   [Allow] [Deny] [Always allow this name]".
-- **FR-012**: The "Always allow this name" persistence MUST be stored in Putz's
-  settings store, keyed by agent name. [NEEDS CLARIFICATION: should persistence
-  be per-machine or per-workspace? Per-machine is simpler; per-workspace is
-  more granular for shared machines.]
+- **FR-012**: The "Always allow this name" persistence MUST be stored
+  **per-machine** in the standard Tauri app config directory, under the settings
+  key `swarm.trustedAgents` (array of agent name patterns). Per-machine scope
+  matches the macOS Accessibility permission model — a user trusts an agent for
+  their entire machine, not per-workspace. This simplifies the UI and avoids
+  the "which workspace am I in?" confusion.
 - **FR-013**: System MUST provide a Settings → Swarm → Trusted Agents panel
   where users can view and revoke "always allow" entries.
 - **FR-014**: Trust-tier detection MUST use the registration request's origin:
@@ -440,7 +448,12 @@ README.
 #### FR-Spawn — Cmd+K Palette + .putz/spawn.json
 
 - **FR-050**: The existing command palette (Cmd+K) MUST be extended with
-  "Spawn: <agent>" actions.
+  "Spawn: <agent>" actions. **Keybinding: smart-intercept** — Cmd+K is consumed
+  by Putz ONLY when the terminal pane does NOT have focus (i.e., focus is on the
+  tab bar, sidebar, or app chrome). When the terminal viewport has focus, Cmd+K
+  passes through to the shell (e.g., zsh clear-screen). Implementation: subscribe
+  to `document.activeElement` and check whether it's within a terminal viewport
+  element before intercepting.
 - **FR-051**: Auto-discovered agents MUST be populated by scanning PATH for
   known AI CLI binaries: `gh` (for `gh copilot`), `claude`, `gemini`, `ollama`.
   Discovery MUST run at most once per Putz session (cached in memory).
@@ -465,9 +478,11 @@ README.
   auto-registers as a colleague via the env-injected token.
 - **FR-054**: The `.putz/spawn.json` schema MUST be published at
   `specs/swarm-protocol/spawn-schema.json` in the Putz repo.
-- **FR-055**: [NEEDS CLARIFICATION: when both `.putz/spawn.json` env vars and
-  Swarm env vars define the same key, which takes precedence? Proposed: Swarm
-  env vars win — they are infrastructure, not user config.]
+- **FR-055**: When `.putz/spawn.json` recipe env vars conflict with
+  Swarm-injected env vars (e.g., both define `PUTZ_SWARM_URL`), **Swarm env
+  vars always win** — they are infrastructure. The spawn confirmation UI MUST
+  show a warning: "Note: [VAR_NAME] was overridden by Swarm" for each
+  overridden variable, so the user is aware of the precedence.
 
 #### FR-Discovery — First-Run Wizard
 
@@ -872,6 +887,10 @@ contains:
 
 ### Recommendation: **Close PR #126 and create fresh implementation tickets**
 
+> **Status: Closed 2026-05-03 per this spec's recommendation.** Branch archived
+> as reference material. Patterns extracted as design references for fresh
+> implementation tickets.
+
 **Rationale:**
 
 1. **Conflict surface is too large**: PR #126 is 94 commits behind main and
@@ -905,16 +924,38 @@ contains:
 
 ---
 
-## Open Questions
+## Resolved Decisions
 
-| # | Question | Status |
-|---|----------|--------|
-| OQ-1 | **Trust persistence scope**: Should "always allow this name" be per-machine or per-workspace? Per-machine is simpler and matches macOS Accessibility permission model. Per-workspace is more granular for shared machines but adds UI complexity. | [NEEDS CLARIFICATION] |
-| OQ-2 | **Spawn env var precedence**: When `.putz/spawn.json` recipe env vars conflict with Swarm-injected env vars (e.g., both define `PUTZ_TAB_ID`), which wins? Proposed: Swarm env vars always win (they are infrastructure). | [NEEDS CLARIFICATION] |
-| OQ-3 | **Cmd+K keybinding conflict**: Cmd+K is "clear screen" in many shells. Should Putz intercept Cmd+K only when the command palette is already visible, or always at the app level? Proposed: intercept only when terminal does NOT have focus, or use Cmd+Shift+K to avoid conflict. | [NEEDS CLARIFICATION] |
-| OQ-4 | **Socket path on Windows**: Windows named pipe names have a 256-char limit. The proposed `\\.\pipe\putz-swarm-<port>-<pid>-<random>` is ~50 chars, well within limits. But should the pipe name include the username to avoid cross-user collisions on shared machines? | [NEEDS CLARIFICATION] |
-| OQ-5 | **Per-agent vs session-wide token**: Phase 1 uses one bearer token for the entire Swarm session. Should v2 mint per-agent tokens (higher security, more complexity) or keep the session-wide token? The Security Guardian recommends deferring per-agent tokens to v2.1. | [NEEDS CLARIFICATION — deferred decision] |
-| OQ-6 | **Epic number**: This spec needs a parent epic issue. Number assigned after creation. | Resolved at publish time |
+All open questions have been resolved. Decisions are locked into the relevant
+spec sections.
+
+| # | Question | Resolution | Resolved |
+|---|----------|------------|----------|
+| OQ-1 | **Trust persistence scope**: per-machine or per-workspace? | **Per-machine.** Stored in Tauri app config dir, key `swarm.trustedAgents` (array of agent name patterns). Matches macOS Accessibility permission model. Simpler UX, no "which workspace?" confusion. | 2026-05-03 |
+| OQ-2 | **Spawn env var precedence**: recipe vars vs Swarm-injected vars? | **Swarm vars always win** — they are infrastructure. Overridden vars trigger a warning in the spawn confirmation UI: "Note: [VAR_NAME] was overridden by Swarm." | 2026-05-03 |
+| OQ-3 | **Cmd+K keybinding conflict** with shell clear-screen? | **Smart-intercept.** Cmd+K consumed by Putz only when terminal pane does NOT have focus (focus on tab bar, sidebar, or app chrome). When terminal has focus, passes through to shell. Implementation: check `document.activeElement` against terminal viewport elements. | 2026-05-03 |
+| OQ-4 | **Windows named pipe naming**: include username? | **Yes.** Format: `\\.\pipe\putz-swarm-{username}-{port}`. Username via `whoami::username()` or `std::env::var("USERNAME")`. Rationale: shared-machine isolation without relying solely on DACL. | 2026-05-03 |
+| OQ-5 | **Per-agent vs session-wide token**? | **Deferred to v2.1.** v2.0 keeps the session-wide shared token (simpler). v2.1 introduces per-agent tokens for better blast-radius isolation. Trade-off documented in "Future Work" below. | 2026-05-03 |
+| OQ-6 | **Epic number**: this spec needs a parent epic issue. | **#127.** Created at spec publish time. | 2026-05-03 |
+
+### Future Work: Per-Agent Token Isolation (v2.1)
+
+The v2.0 Swarm uses a **session-wide bearer token** shared across all agents
+spawned within a single Swarm session. This is simpler to implement and
+sufficient for the localhost-only threat model.
+
+**v2.1 improvement**: Mint a unique per-agent token at spawn time. Each agent
+receives its own token via env injection. Benefits:
+- **Blast-radius isolation**: A compromised agent's token cannot impersonate
+  other agents.
+- **Revocation granularity**: Individual agents can be revoked without
+  restarting the entire Swarm session.
+- **Audit trail**: Token-per-agent enables per-agent activity logging.
+
+**Trade-off**: Per-agent tokens add complexity to the coordinator (token
+registry, per-request lookup) and to the trust model (token rotation,
+expiration). The Security Guardian recommends this as the next security
+hardening step after v2.0 stabilizes.
 
 ---
 
@@ -943,6 +984,9 @@ These are explicitly NOT part of this epic:
 - **Phase 1 broker removal** — The existing HTTP-only broker on main is NOT
   removed. It is extended. Phase 1 clients continue to work. Removal of
   deprecated-only paths (if any) is a future cleanup ticket.
+- **Per-agent token isolation** — Deferred to v2.1. v2.0 uses a session-wide
+  shared token. See "Future Work: Per-Agent Token Isolation" in Resolved
+  Decisions for the trade-off analysis.
 
 ---
 
@@ -960,7 +1004,7 @@ These are explicitly NOT part of this epic:
 
 | Dependency | Type | Status | Why |
 |------------|------|--------|-----|
-| PR #126 Phase 2 wiring | Branch | Draft (stalled) | Reference material for env injection, tab lifecycle, Copilot CLI extension. This spec supersedes the branch but uses it as reference. |
+| PR #126 Phase 2 wiring | Branch | Closed (2026-05-03) | Reference material for env injection, tab lifecycle, Copilot CLI extension. This spec supersedes the branch. Patterns extracted as design references for fresh implementation. |
 | `@github/copilot-sdk/extension` | External | Stable | The Copilot CLI extension depends on this SDK. No Putz control over its API stability. |
 
 ---
@@ -975,9 +1019,10 @@ These are explicitly NOT part of this epic:
 | R-4 | **cmux ships polished UX faster** | Low (strategic) | Not a technical risk. Putz's differentiator is openness (vendor-neutral, cross-platform, documented wire format), not UX polish. The spec emphasizes protocol openness, not feature parity. |
 | R-5 | **Vendor SDK divergence**: Copilot vs Claude vs Gemini agents implement slightly different protocol variants | Medium | Conformance test suite at `tests/swarm-protocol-conformance/`. All SDKs must pass. Wire format is the contract, not the SDK implementation. |
 | R-6 | **Fan-in jank from 4 stores to sidebar** | Medium | Debounced `useColleagueStatus` hook (100ms window). Benchmark with 10 active colleagues producing rapid output. |
-| R-7 | **PR #126 rebase complexity** | High | Recommendation: close PR #126, create fresh tickets. See "Spec Drift Handling" section. |
-| R-8 | **Cmd+K keybinding conflict with shell "clear screen"** | Medium | Intercept only when terminal does not have focus, OR use Cmd+Shift+K. See OQ-3. |
+| R-7 | **PR #126 rebase complexity** | ~~High~~ Resolved | PR #126 closed 2026-05-03 per spec recommendation. Fresh implementation tickets will be created. |
+| R-8 | **Cmd+K keybinding conflict with shell "clear screen"** | ~~Medium~~ Resolved | Smart-intercept: Cmd+K consumed only when terminal does not have focus. See OQ-3 resolution. |
 | R-9 | **`.putz/spawn.json` command injection** | Medium | Spawn only on explicit user selection from Cmd+K palette. No auto-execution. Same trust model as `.vscode/tasks.json`. Validate JSON schema before execution. |
+| R-10 | **v2.0 → v2.1 token migration**: Session-wide token in v2.0 must migrate to per-agent tokens in v2.1 without breaking existing agents | Low | v2.1 token migration will be backward-compatible: agents presenting the session-wide token will be accepted (with a deprecation warning in logs) until v3.0. New agents will receive per-agent tokens. See "Future Work" in Resolved Decisions. |
 
 ---
 
