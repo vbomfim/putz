@@ -39,3 +39,10 @@ pub use terminal::{pty_close, pty_cwd, pty_list_shells, pty_resize, pty_spawn, p
 pub use theme::{
     theme_create, theme_delete, theme_export, theme_get, theme_import, theme_list, theme_update,
 };
+pub mod shell_integration;
+pub use shell_integration::{
+    shell_integration_cmd_install_confirmed, shell_integration_cmd_preview,
+    shell_integration_cmd_show_existing, shell_integration_cmd_uninstall, shell_integration_detect,
+    shell_integration_install, shell_integration_show_snippet, shell_integration_status,
+    shell_integration_uninstall,
+};

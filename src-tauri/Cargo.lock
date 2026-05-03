@@ -3463,6 +3463,8 @@ dependencies = [
  "directories",
  "dirs",
  "futures-util",
+ "getrandom 0.3.4",
+ "libc",
  "portable-pty",
  "regex",
  "reqwest",
@@ -3483,6 +3485,7 @@ dependencies = [
  "urlencoding",
  "uuid",
  "walkdir",
+ "winreg 0.55.0",
 ]
 
 [[package]]

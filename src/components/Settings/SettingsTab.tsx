@@ -10,6 +10,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { useSettingsStore } from "../../stores/settingsStore";
 import { useThemeStore } from "../../stores/themeStore";
 import type { BackgroundEffect } from "../Terminal/TerminalBackground";
+import { ShellIntegrationPanel } from "./ShellIntegrationPanel";
 import "../../styles/tab-list.css";
 
 interface Theme {
@@ -572,6 +573,9 @@ export function SettingsTab() {
             reference personal or confidential information.
           </p>
         </section>
+
+        {/* ── Shell Integration ────────────────────────── */}
+        <ShellIntegrationPanel />
 
         {/* ── Info ─────────────────────────────────────── */}
         <section>
