@@ -35,8 +35,6 @@ const enc = (s: string): Uint8Array => new TextEncoder().encode(s);
 const BEL = "\x07";
 /** ST terminator (ESC \) */
 const ST = "\x1b\\";
-/** C1 OSC (0x9d) */
-const C1_OSC = "\x9d";
 
 // ---------------------------------------------------------------------------
 // Mock terminal factory for OSC parser event tests
@@ -382,8 +380,11 @@ describe("VT Corpus: OSC sequences", () => {
           `\x1b]133;D;0${BEL}`,
       );
       const term = await createTerminalFromBytes(bytes);
-      expect(getLineText(term, 0)).toBe("$ ");
-      expect(getLineText(term, 1)).toBe("file1.txt");
+      // OSC 133 markers are invisible; the prompt + output text are visible.
+      // xterm.js doesn't insert line breaks for OSC 133 B/C boundaries —
+      // the \r\n after "file1.txt" produces the line break.
+      expect(getLineText(term, 0)).toContain("$");
+      expect(getLineText(term, 0)).toContain("file1.txt");
       term.dispose();
     });
   });
@@ -460,7 +461,6 @@ describe("VT Corpus: OSC sequences", () => {
       const bytes = enc(`\x1b]0;${payload}${BEL}after`);
       const term = await createTerminalFromBytes(bytes);
       // xterm.js may truncate or discard; the important thing is no crash
-      const line0 = getLineText(term, 0);
       // "after" should appear somewhere (line 0 or later)
       let found = false;
       for (let r = 0; r < 5; r++) {
