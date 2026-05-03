@@ -169,13 +169,13 @@ describe("parseOsc1337CurrentDir + createOscParser integration", () => {
 // ---------------------------------------------------------------------------
 
 describe("createOscParser", () => {
-  it("registers only OSC 7 and OSC 1337 handlers (allowlist)", () => {
+  it("registers OSC 7, OSC 133, and OSC 1337 handlers (allowlist)", () => {
     const { terminal, registeredCodes } = createMockTerminal();
     const parser = createOscParser("session-1");
     parser.attach(terminal);
 
     const codes = registeredCodes().sort((a, b) => a - b);
-    expect(codes).toEqual([7, 1337]);
+    expect(codes).toEqual([7, 133, 1337]);
 
     parser.dispose();
   });

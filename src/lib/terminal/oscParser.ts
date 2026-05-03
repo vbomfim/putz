@@ -2,9 +2,12 @@
  * OSC (Operating System Command) parser for terminal protocol support.
  *
  * Consumes the PTY output stream via xterm.js's parser hook chain and emits
- * typed events. Only allowlisted OSC codes are handled — currently OSC 7
- * (cwd notification) and OSC 1337 (iTerm2 CurrentDir). All other codes are
- * ignored.
+ * typed events. Handled OSC codes:
+ *  - OSC 7   — cwd notification (`file://hostname/path`)
+ *  - OSC 133 — shell integration / command boundaries (A/B/C/D + P;putz=1)
+ *  - OSC 1337 — iTerm2 CurrentDir
+ *
+ * All other codes are ignored.
  *
  * Design:
  *  - Per-instance state via `createOscParser()` factory (same pattern as
@@ -13,9 +16,13 @@
  *    console warning.
  *  - UTF-8 validation via `decodeURIComponent` (throws on malformed sequences).
  *  - Path length cap of 4096 bytes for cwd paths.
+ *  - OSC 133 handshake gating — A/B/C/D markers are only emitted after the
+ *    session has received a `P;putz=1` handshake, preventing spoofing via
+ *    `cat malicious.txt`.
  *
  * @module oscParser
  * @see https://github.com/vbomfim/putz/issues/100
+ * @see https://github.com/vbomfim/putz/issues/102
  * @see specs/modern-terminal-protocols/spec.md
  */
 import type { Terminal, IDisposable } from "@xterm/xterm";
@@ -49,8 +56,43 @@ export interface OscCwdEvent {
   readonly source: "osc-7" | "osc-1337";
 }
 
-/** All OSC event types (extensible for S4: OSC 133). */
-export type OscEvent = OscCwdEvent;
+// ---------------------------------------------------------------------------
+// OSC 133 event types
+// ---------------------------------------------------------------------------
+
+/** Semantic markers emitted by OSC 133 shell integration. */
+export type Osc133Marker =
+  | "prompt-start"
+  | "command-start"
+  | "output-start"
+  | "command-end"
+  | "handshake";
+
+/** Cell position in the terminal buffer. */
+export interface CellPosition {
+  readonly row: number;
+  readonly col: number;
+}
+
+/**
+ * Event emitted when an OSC 133 sequence is parsed.
+ *
+ * The `cell` field records the cursor position at the moment the OSC handler
+ * fires — this is critical for S5's gutter rendering, which needs to know
+ * exactly which terminal row each command block occupies.
+ */
+export interface Osc133Event {
+  readonly kind: "osc-133";
+  readonly sessionId: string;
+  readonly marker: Osc133Marker;
+  /** Only present for command-end with an exit code (0–255). */
+  readonly exitCode?: number;
+  /** Cursor position when this OSC arrived. */
+  readonly cell: CellPosition;
+}
+
+/** All OSC event types emitted by the parser. */
+export type OscEvent = OscCwdEvent | Osc133Event;
 
 /** Callback for OSC events. */
 export type OscEventCallback = (event: OscEvent) => void;
@@ -174,6 +216,73 @@ export function parseOsc1337CurrentDir(data: string): string | null {
 }
 
 // ---------------------------------------------------------------------------
+// OSC 133 parsing
+// ---------------------------------------------------------------------------
+
+/**
+ * Parsed result from an OSC 133 payload (internal, before session/cell enrichment).
+ */
+interface Osc133ParsedPayload {
+  marker: Osc133Marker;
+  exitCode?: number;
+}
+
+/**
+ * Parse an OSC 133 payload string into a structured marker.
+ *
+ * Supported formats:
+ *  - `"A"`           → prompt start
+ *  - `"B"`           → command start
+ *  - `"C"`           → output start
+ *  - `"D"`           → command end (no exit code)
+ *  - `"D;0"` – `"D;255"` → command end with exit code
+ *  - `"P;putz=1"`    → putz handshake
+ *
+ * Returns null for any unrecognized or malformed payload.
+ *
+ * @param data - The OSC 133 payload (everything after `133;` up to ST/BEL)
+ */
+export function parseOsc133Payload(data: string): Osc133ParsedPayload | null {
+  // Size cap — defensive half of MAX_OSC_PAYLOAD_BYTES for char-vs-byte safety
+  if (data.length > MAX_OSC_PAYLOAD_BYTES / 2) return null;
+
+  if (data === "A") return { marker: "prompt-start" };
+  if (data === "B") return { marker: "command-start" };
+  if (data === "C") return { marker: "output-start" };
+  if (data === "D") return { marker: "command-end" };
+
+  if (data.startsWith("D;")) {
+    const exitStr = data.slice(2);
+    const exitCode = parseInt(exitStr, 10);
+    if (Number.isInteger(exitCode) && exitCode >= 0 && exitCode <= 255) {
+      return { marker: "command-end", exitCode };
+    }
+    return null; // malformed exit code
+  }
+
+  if (data === "P;putz=1") return { marker: "handshake" };
+
+  // Future-proof: other P; subparameters or unknown markers → ignore
+  return null;
+}
+
+// ---------------------------------------------------------------------------
+// Cell position helper
+// ---------------------------------------------------------------------------
+
+/**
+ * Read the current cursor position from an xterm.js Terminal.
+ * Must be called synchronously inside the OSC handler callback —
+ * deferring would record a stale position.
+ */
+function getCurrentCell(terminal: Terminal): CellPosition {
+  return {
+    row: terminal.buffer.active.cursorY,
+    col: terminal.buffer.active.cursorX,
+  };
+}
+
+// ---------------------------------------------------------------------------
 // Factory
 // ---------------------------------------------------------------------------
 
@@ -198,6 +307,7 @@ export function createOscParser(sessionId: string): OscParser {
   const listeners = new Set<OscEventCallback>();
   const disposables: IDisposable[] = [];
   let disposed = false;
+  let handshakeSeen = false; // OSC 133 trust gate
 
   const emit = (event: OscEvent): void => {
     if (disposed) return;
@@ -229,6 +339,47 @@ export function createOscParser(sessionId: string): OscParser {
               });
             }
             return false; // let xterm.js built-in OSC handler also process (e.g., for window-title side effects)
+          },
+        );
+        disposables.push(handler);
+      } catch {
+        // xterm.js < 4.14 lacks registerOscHandler — degrade gracefully
+      }
+
+      // OSC 133 — shell integration / command boundaries
+      // Handshake-gated: A/B/C/D events are only emitted after P;putz=1
+      // has been received, preventing spoofing via `cat malicious.txt`.
+      try {
+        const handler = terminal.parser.registerOscHandler(
+          133,
+          (data: string) => {
+            const parsed = parseOsc133Payload(data);
+            if (!parsed) return false;
+
+            const cell = getCurrentCell(terminal);
+
+            if (parsed.marker === "handshake") {
+              handshakeSeen = true;
+              emit({
+                kind: "osc-133",
+                sessionId,
+                marker: "handshake",
+                cell,
+              });
+              return false;
+            }
+
+            // Trust gate: ignore A/B/C/D until handshake has been seen
+            if (!handshakeSeen) return false;
+
+            emit({
+              kind: "osc-133",
+              sessionId,
+              marker: parsed.marker,
+              exitCode: parsed.exitCode,
+              cell,
+            });
+            return false;
           },
         );
         disposables.push(handler);
