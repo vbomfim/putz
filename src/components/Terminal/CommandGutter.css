@@ -1,0 +1,106 @@
+/**
+ * CommandGutter styles — per-command status dots in the terminal gutter.
+ *
+ * The gutter is a narrow vertical strip on the left edge of the terminal,
+ * with absolutely-positioned dots at each command block's row.
+ *
+ * @see https://github.com/vbomfim/putz/issues/103
+ */
+
+.command-gutter {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 14px;
+  height: 100%;
+  z-index: 4;
+  pointer-events: none;
+}
+
+/* Individual dot — positioned absolutely within the gutter */
+.gutter-dot {
+  position: absolute;
+  left: 4px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  pointer-events: auto;
+  cursor: pointer;
+  transition: transform 0.15s ease;
+}
+
+.gutter-dot:hover {
+  transform: scale(1.5);
+}
+
+/* Success — exit code 0 */
+.gutter-dot--success {
+  background-color: #50fa7b;
+}
+
+/* Error — non-zero exit code */
+.gutter-dot--error {
+  background-color: #ff5555;
+}
+
+/* Running — in-progress (commandEnd === null) */
+.gutter-dot--running {
+  background-color: #8be9fd;
+  animation: gutter-pulse 1.5s ease-in-out infinite;
+}
+
+/* Unknown — ended but no exit code */
+.gutter-dot--unknown {
+  background-color: #6272a4;
+}
+
+@keyframes gutter-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.4;
+  }
+}
+
+/* ── Command block context menu ──────────────────────────────── */
+
+.command-block-context-menu {
+  position: fixed;
+  z-index: 1000;
+  min-width: 180px;
+  background-color: var(--bg-secondary, #2a2a2a);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 6px;
+  padding: 4px 0;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+}
+
+.context-menu-item {
+  display: block;
+  width: 100%;
+  padding: 6px 16px;
+  border: none;
+  background: transparent;
+  color: var(--text-primary, #cdd6f4);
+  font-size: 0.8125rem;
+  text-align: left;
+  cursor: pointer;
+}
+
+.context-menu-item:hover:not(:disabled) {
+  background-color: rgba(255, 255, 255, 0.08);
+}
+
+.context-menu-item:disabled {
+  color: var(--text-secondary, #6c7086);
+  cursor: default;
+  opacity: 0.5;
+}
+
+.context-menu-separator {
+  height: 1px;
+  margin: 4px 8px;
+  background-color: rgba(255, 255, 255, 0.1);
+}

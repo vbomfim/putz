@@ -98,6 +98,7 @@ vi.mock("@xterm/xterm", () => {
     clear = vi.fn();
     reset = vi.fn();
     scrollToBottom = vi.fn();
+    scrollToLine = vi.fn();
     registerMarker = vi.fn().mockReturnValue({
       dispose: vi.fn(),
     });
@@ -132,6 +133,11 @@ vi.mock("@xterm/xterm", () => {
     }
     onWriteParsed(handler: () => void) {
       this._onWriteParsedHandlers.push(handler);
+      return createDisposable();
+    }
+    onScroll(handler: (ydisp: number) => void) {
+      // Store handler but don't auto-call — tests can trigger scroll via mock
+      void handler;
       return createDisposable();
     }
   }

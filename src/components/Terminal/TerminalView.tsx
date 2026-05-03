@@ -15,7 +15,7 @@
  * - highlightSetId: optional highlight set ID to apply
  * - onBell: callback when a visual bell (\a) is received
  */
-import { useCallback } from "react";
+import { useCallback, useEffect, useState, useRef } from "react";
 import { useTerminal } from "./useTerminal";
 import { useSearch } from "./useSearch";
 import { SearchBar } from "./SearchBar";
@@ -26,6 +26,14 @@ import {
 import { BELL_FLASH_CLASS, BELL_FLASH_DURATION_MS } from "./terminalPolish";
 import { useSettingsStore } from "../../stores/settingsStore";
 import { useThemeStore } from "../../stores/themeStore";
+import { CommandGutter } from "./CommandGutter";
+import { CommandBlockContextMenu } from "./CommandBlockContextMenu";
+import {
+  navigateToPreviousPrompt,
+  navigateToNextPrompt,
+} from "./usePromptNavigation";
+import type { CommandBlock } from "../../stores/commandBlockStore";
+import type { GetBufferLine } from "./bufferUtils";
 import "@xterm/xterm/css/xterm.css";
 import "./Terminal.css";
 
@@ -140,6 +148,110 @@ export function TerminalView({
 
   const search = useSearch({ terminal: terminalInstance });
 
+  // ── Gutter state: viewport scroll + cell height ──────────────────────
+  const [viewportTop, setViewportTop] = useState(0);
+  const [cellHeight, setCellHeight] = useState(17); // sensible default
+  const [contextMenu, setContextMenu] = useState<{
+    block: CommandBlock;
+    position: { x: number; y: number };
+  } | null>(null);
+  const terminalInstanceRef = useRef(terminalInstance);
+  terminalInstanceRef.current = terminalInstance;
+
+  // Subscribe to xterm scroll events and measure cell height
+  useEffect(() => {
+    const term = terminalInstance;
+    if (!term) return;
+
+    // Measure cell height from the terminal element
+    const measureCellHeight = () => {
+      const el = term.element;
+      if (el && term.rows > 0) {
+        const height = el.clientHeight / term.rows;
+        if (height > 0) setCellHeight(height);
+      }
+    };
+
+    measureCellHeight();
+
+    // Update viewportTop on scroll
+    const scrollDisposable = term.onScroll(() => {
+      setViewportTop(term.buffer.active.viewportY);
+    });
+
+    // Re-measure on resize
+    const resizeDisposable = term.onResize(() => {
+      measureCellHeight();
+    });
+
+    return () => {
+      scrollDisposable.dispose();
+      resizeDisposable.dispose();
+    };
+  }, [terminalInstance]);
+
+  // ── Prompt navigation: Cmd+↑/↓ ──────────────────────────────────────
+  useEffect(() => {
+    const term = terminalInstance;
+    if (!term) return;
+
+    // attachCustomKeyEventHandler returns void — the handler is registered
+    // for the lifetime of the terminal. This is fine because the terminal
+    // instance is disposed when the component unmounts.
+    term.attachCustomKeyEventHandler((event: KeyboardEvent): boolean => {
+      const isModifier = event.metaKey || event.ctrlKey;
+      if (!isModifier || event.type !== "keydown") return true;
+
+      if (event.key === "ArrowUp") {
+        const target = navigateToPreviousPrompt(
+          sessionId,
+          term.buffer.active.viewportY,
+        );
+        if (target !== null) {
+          term.scrollToLine(target);
+          setViewportTop(target);
+        }
+        event.preventDefault();
+        return false; // prevent xterm from processing the key
+      }
+      if (event.key === "ArrowDown") {
+        const target = navigateToNextPrompt(
+          sessionId,
+          term.buffer.active.viewportY,
+        );
+        if (target !== null) {
+          term.scrollToLine(target);
+          setViewportTop(target);
+        }
+        event.preventDefault();
+        return false;
+      }
+      return true; // let other keys through
+    });
+  }, [terminalInstance, sessionId]);
+
+  // ── Context menu handlers ────────────────────────────────────────────
+  const handleDotContextMenu = useCallback(
+    (block: CommandBlock, event: React.MouseEvent) => {
+      setContextMenu({
+        block,
+        position: { x: event.clientX, y: event.clientY },
+      });
+    },
+    [],
+  );
+
+  const handleContextMenuClose = useCallback(() => {
+    setContextMenu(null);
+  }, []);
+
+  const getBufferLine: GetBufferLine = useCallback((row: number) => {
+    const term = terminalInstanceRef.current;
+    if (!term) return null;
+    const line = term.buffer.active.getLine(row);
+    return line ?? null;
+  }, []);
+
   // Use external search state if provided, otherwise internal
   const searchOpen =
     externalSearchOpen !== undefined ? externalSearchOpen : search.isSearchOpen;
@@ -205,6 +317,22 @@ export function TerminalView({
         className="terminal-container"
         data-testid="terminal-container"
       />
+      <CommandGutter
+        sessionId={sessionId}
+        cellHeight={cellHeight}
+        viewportTop={viewportTop}
+        rows={terminalInstance?.rows ?? 24}
+        onDotContextMenu={handleDotContextMenu}
+      />
+      {contextMenu && (
+        <CommandBlockContextMenu
+          block={contextMenu.block}
+          position={contextMenu.position}
+          onClose={handleContextMenuClose}
+          getBufferLine={getBufferLine}
+          totalBufferLength={terminalInstance?.buffer.active.length ?? 0}
+        />
+      )}
       {highlightEnabled && (
         <div
           className="terminal-highlight-indicator"
