@@ -39,6 +39,7 @@ import {
 } from "./cwdRegistry";
 import { pasteToTerminal, createPasteGuard } from "./pasteHelper";
 import { createOscParser } from "../../lib/terminal/oscParser";
+import { useCommandBlockStore } from "../../stores/commandBlockStore";
 
 interface UseTerminalOptions {
   /** UUID v4 session identifier from pty_spawn. */
@@ -516,11 +517,11 @@ export function useTerminal({
       }
     });
 
-    // OSC parser — unified handler for OSC 7 (cwd) and OSC 1337 (iTerm2
-    // CurrentDir). Replaces the two inline registerOscHandler calls that
-    // were duplicating parsing logic. The parser module enforces the 8 KB
-    // payload cap, UTF-8 validation, and allowlist (only OSC 7 + 1337).
-    // See #100 and specs/modern-terminal-protocols/spec.md.
+    // OSC parser — unified handler for OSC 7 (cwd), OSC 133 (command
+    // boundaries), and OSC 1337 (iTerm2 CurrentDir). The parser module
+    // enforces the 8 KB payload cap, UTF-8 validation, allowlist, and
+    // OSC 133 handshake gating.
+    // See #100, #102, and specs/modern-terminal-protocols/spec.md.
     const oscParser = createOscParser(sessionId);
     oscParser.attach(terminal);
     const unsubOsc = oscParser.on((event) => {
@@ -529,6 +530,8 @@ export function useTerminal({
           hasReceivedOsc7 = true;
         }
         recordCwdAtCursor(event.cwd);
+      } else if (event.kind === "osc-133") {
+        useCommandBlockStore.getState().ingestOscEvent(event);
       }
     });
 
@@ -730,6 +733,7 @@ export function useTerminal({
       pasteGuard.dispose();
       unsubOsc();
       oscParser.dispose();
+      useCommandBlockStore.getState().clearSession(sessionId);
 
       for (const unlisten of unlisteners) {
         unlisten();
