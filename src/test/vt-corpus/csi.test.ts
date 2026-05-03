@@ -752,9 +752,7 @@ describe("VT Corpus: CSI sequences", () => {
 
     // Source: microsoft/terminal OutputEngineTest.cpp TestControlCharacters (MIT)
     it("NUL (0x00) is silently ignored", async () => {
-      const bytes = new Uint8Array([
-        0x41, 0x00, 0x42,
-      ]); // A NUL B
+      const bytes = new Uint8Array([0x41, 0x00, 0x42]); // A NUL B
       const term = await createTerminalFromBytes(bytes);
       expect(getLineText(term, 0)).toBe("AB");
       term.dispose();

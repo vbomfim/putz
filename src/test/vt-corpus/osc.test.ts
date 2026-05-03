@@ -11,11 +11,12 @@
  * @see THIRD_PARTY.md for full attribution
  * @see https://github.com/vbomfim/putz/issues/107
  */
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect } from "vitest";
 import {
   createTerminalFromBytes,
   getLineText,
 } from "../utils/shellCompatHarness";
+import { createMockTerminal } from "../utils/mockTerminal";
 import {
   parseOsc7Payload,
   parseOsc1337CurrentDir,
@@ -35,42 +36,6 @@ const enc = (s: string): Uint8Array => new TextEncoder().encode(s);
 const BEL = "\x07";
 /** ST terminator (ESC \) */
 const ST = "\x1b\\";
-
-// ---------------------------------------------------------------------------
-// Mock terminal factory for OSC parser event tests
-// (same pattern as src/test/oscParser.test.ts)
-// ---------------------------------------------------------------------------
-
-function createMockTerminal() {
-  const oscHandlers = new Map<
-    number,
-    (data: string) => boolean | Promise<boolean>
-  >();
-
-  const terminal = {
-    parser: {
-      registerOscHandler: vi.fn(
-        (
-          id: number,
-          handler: (data: string) => boolean | Promise<boolean>,
-        ) => {
-          oscHandlers.set(id, handler);
-          return { dispose: vi.fn() };
-        },
-      ),
-    },
-  };
-
-  const fireOsc = (id: number, data: string) => {
-    const handler = oscHandlers.get(id);
-    if (handler) handler(data);
-  };
-
-  return {
-    terminal: terminal as unknown as import("@xterm/xterm").Terminal,
-    fireOsc,
-  };
-}
 
 // ===========================================================================
 // OSC 0 — Set Window Title (BEL terminator)
@@ -272,9 +237,7 @@ describe("VT Corpus: OSC sequences", () => {
 
     // Source: putz-custom
     it("multiple OSC 7 in sequence do not leak to buffer", async () => {
-      const bytes = enc(
-        `\x1b]7;file:///a${BEL}\x1b]7;file:///b${BEL}visible`,
-      );
+      const bytes = enc(`\x1b]7;file:///a${BEL}\x1b]7;file:///b${BEL}visible`);
       const term = await createTerminalFromBytes(bytes);
       expect(getLineText(term, 0)).toBe("visible");
       term.dispose();

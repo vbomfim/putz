@@ -162,8 +162,12 @@ describe("VT Corpus: Unicode Width & Characters", () => {
       // '3' + U+FE0F + U+20E3 = keycap three
       const bytes = enc("3\uFE0F\u20E3");
       const term = await createTerminalFromBytes(bytes);
-      // Should not crash; width depends on xterm.js Unicode version
-      expect(typeof getLineText(term, 0)).toBe("string");
+      // xterm.js v6 in headless mode (jsdom) reports emoji width=1 because the
+      // Unicode 11 width tables ship as a separate optional addon. In production
+      // (with the renderer mounted) width=2 is used. Both are spec-acceptable
+      // for terminals that haven't loaded full Unicode 11 width support.
+      const cell = getCellInfo(term, 0, 0);
+      expect([1, 2]).toContain(cell.width);
       term.dispose();
     });
   });
@@ -183,7 +187,10 @@ describe("VT Corpus: Unicode Width & Characters", () => {
       const bytes = enc("🎉");
       const term = await createTerminalFromBytes(bytes);
       const cell = getCellInfo(term, 0, 0);
-      // Width is 1 in xterm.js v6 default (without full Unicode 11 wcwidth)
+      // xterm.js v6 in headless mode (jsdom) reports emoji width=1 because the
+      // Unicode 11 width tables ship as a separate optional addon. In production
+      // (with the renderer mounted) width=2 is used. Both are spec-acceptable
+      // for terminals that haven't loaded full Unicode 11 width support.
       expect([1, 2]).toContain(cell.width);
       term.dispose();
     });
@@ -216,8 +223,12 @@ describe("VT Corpus: Unicode Width & Characters", () => {
       // U+1F1FA U+1F1F8 = 🇺🇸 (US flag)
       const bytes = enc("🇺🇸");
       const term = await createTerminalFromBytes(bytes);
-      // Width varies by implementation; no crash is the key assertion
-      expect(typeof getLineText(term, 0)).toBe("string");
+      // xterm.js v6 in headless mode (jsdom) reports emoji width=1 because the
+      // Unicode 11 width tables ship as a separate optional addon. In production
+      // (with the renderer mounted) width=2 is used. Both are spec-acceptable
+      // for terminals that haven't loaded full Unicode 11 width support.
+      const cell = getCellInfo(term, 0, 0);
+      expect([1, 2]).toContain(cell.width);
       term.dispose();
     });
 
@@ -226,7 +237,12 @@ describe("VT Corpus: Unicode Width & Characters", () => {
       // 👨‍💻 (man technologist) = U+1F468 U+200D U+1F4BB
       const bytes = enc("👨\u200D💻");
       const term = await createTerminalFromBytes(bytes);
-      expect(typeof getLineText(term, 0)).toBe("string");
+      // xterm.js v6 in headless mode (jsdom) reports emoji width=1 because the
+      // Unicode 11 width tables ship as a separate optional addon. In production
+      // (with the renderer mounted) width=2 is used. Both are spec-acceptable
+      // for terminals that haven't loaded full Unicode 11 width support.
+      const cell = getCellInfo(term, 0, 0);
+      expect([1, 2]).toContain(cell.width);
       term.dispose();
     });
 
@@ -235,7 +251,12 @@ describe("VT Corpus: Unicode Width & Characters", () => {
       // 👋🏽 (waving hand, medium skin) = U+1F44B U+1F3FD
       const bytes = enc("👋🏽");
       const term = await createTerminalFromBytes(bytes);
-      expect(typeof getLineText(term, 0)).toBe("string");
+      // xterm.js v6 in headless mode (jsdom) reports emoji width=1 because the
+      // Unicode 11 width tables ship as a separate optional addon. In production
+      // (with the renderer mounted) width=2 is used. Both are spec-acceptable
+      // for terminals that haven't loaded full Unicode 11 width support.
+      const cell = getCellInfo(term, 0, 0);
+      expect([1, 2]).toContain(cell.width);
       term.dispose();
     });
   });
@@ -313,8 +334,10 @@ describe("VT Corpus: Unicode Width & Characters", () => {
     it("Arabic text doesn't crash the terminal", async () => {
       const bytes = enc("مرحبا");
       const term = await createTerminalFromBytes(bytes);
-      expect(typeof getLineText(term, 0)).toBe("string");
-      expect(getLineText(term, 0).length).toBeGreaterThan(0);
+      // BiDi rendering is implementation-dependent, but the text must be
+      // present in the buffer and have non-zero length.
+      const line = getLineText(term, 0);
+      expect(line.length).toBeGreaterThan(0);
       term.dispose();
     });
 
@@ -322,8 +345,8 @@ describe("VT Corpus: Unicode Width & Characters", () => {
     it("Hebrew text doesn't crash the terminal", async () => {
       const bytes = enc("שלום");
       const term = await createTerminalFromBytes(bytes);
-      expect(typeof getLineText(term, 0)).toBe("string");
-      expect(getLineText(term, 0).length).toBeGreaterThan(0);
+      const line = getLineText(term, 0);
+      expect(line.length).toBeGreaterThan(0);
       term.dispose();
     });
 
@@ -341,7 +364,9 @@ describe("VT Corpus: Unicode Width & Characters", () => {
     it("RTL with LTR override (U+202D) doesn't crash", async () => {
       const bytes = enc("\u202Dhello\u202C");
       const term = await createTerminalFromBytes(bytes);
-      expect(typeof getLineText(term, 0)).toBe("string");
+      // Robustness check: BiDi override characters are consumed without
+      // corrupting the buffer. "hello" should appear in the line text.
+      expect(getLineText(term, 0)).toContain("hello");
       term.dispose();
     });
   });
@@ -382,7 +407,9 @@ describe("VT Corpus: Unicode Width & Characters", () => {
     it("Musical Symbol (U+1D11E 𝄞) outside BMP doesn't crash", async () => {
       const bytes = enc("𝄞");
       const term = await createTerminalFromBytes(bytes);
-      expect(typeof getLineText(term, 0)).toBe("string");
+      // Non-emoji outside BMP should render as a narrow (width=1) glyph.
+      const cell = getCellInfo(term, 0, 0);
+      expect(cell.width).toBe(1);
       term.dispose();
     });
   });

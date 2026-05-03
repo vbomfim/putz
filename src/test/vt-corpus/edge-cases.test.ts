@@ -48,13 +48,15 @@ describe("VT Corpus: Edge Cases", () => {
 
     // Source: putz-custom
     it("unterminated CSI followed by text", async () => {
-      // ESC [ without final byte, then printable text
+      // ESC [ without final byte, then printable text.
+      // '999' are CSI params; 'v' is a final byte (0x76), so xterm.js
+      // dispatches an unrecognized CSI and 'isible' prints as text.
       const bytes = enc("\x1b[999visible");
       const term = await createTerminalFromBytes(bytes);
-      // Parser should eventually recover; "visible" may or may not appear
-      // depending on how xterm.js handles the sequence. No crash is the key.
+      // Robustness check: parser handles malformed CSI without throwing.
+      // The parser treats 'v' as the final byte, rendering "isible" as text.
       const line = getLineText(term, 0);
-      expect(typeof line).toBe("string"); // No crash
+      expect(line).toContain("isible");
       term.dispose();
     });
 
@@ -113,9 +115,10 @@ describe("VT Corpus: Edge Cases", () => {
     it("CSI with param after intermediate goes to CSI_IGNORE", async () => {
       const bytes = enc("\x1b[ 1mafter");
       const term = await createTerminalFromBytes(bytes);
-      // Should be handled or ignored gracefully
+      // The malformed CSI (space before '1') transitions to CSI_IGNORE.
+      // "after" text should still render after the ignored sequence.
       const line = getLineText(term, 0);
-      expect(typeof line).toBe("string");
+      expect(line).toContain("after");
       term.dispose();
     });
 
@@ -123,9 +126,19 @@ describe("VT Corpus: Edge Cases", () => {
     it("CSI with absurdly large param doesn't crash", async () => {
       const bytes = enc("\x1b[999999999Htext");
       const term = await createTerminalFromBytes(bytes);
+      // Robustness check: parser clamps or ignores huge CUP param without throwing.
+      // "text" renders on whichever row the cursor lands on.
       const line = getLineText(term, 0);
-      // May be on a different row, but no crash
-      expect(typeof line).toBe("string");
+      expect(line).toBeDefined();
+      // Verify "text" is somewhere in the buffer
+      let found = false;
+      for (let row = 0; row < term.rows; row++) {
+        if (getLineText(term, row).includes("text")) {
+          found = true;
+          break;
+        }
+      }
+      expect(found).toBe(true);
       term.dispose();
     });
   });
@@ -139,37 +152,34 @@ describe("VT Corpus: Edge Cases", () => {
   describe("C1 Control Codes (8-bit)", () => {
     // Source: microsoft/terminal OutputEngineTest.cpp TestC1Osc (MIT)
     it("C1 OSC (0x9d) starts an OSC sequence", async () => {
-      const bytes = new Uint8Array([
-        0x9d,
-        ...enc("0;title\x07after"),
-      ]);
+      const bytes = new Uint8Array([0x9d, ...enc("0;title\x07after")]);
       const term = await createTerminalFromBytes(bytes);
-      // C1 OSC may or may not be supported by xterm.js depending on mode
-      // Key assertion: no crash
-      expect(typeof getLineText(term, 0)).toBe("string");
+      // C1 OSC (0x9d) is handled in 8-bit mode: xterm.js may parse the
+      // title or ignore the C1 byte. Either way "after" prints as text.
+      const line = getLineText(term, 0);
+      expect(line).toContain("after");
       term.dispose();
     });
 
     // Source: microsoft/terminal OutputEngineTest.cpp TestC1CsiEntry (MIT)
     it("C1 CSI (0x9b) starts a CSI sequence", async () => {
-      const bytes = new Uint8Array([
-        0x9b,
-        ...enc("31mred"),
-      ]);
+      const bytes = new Uint8Array([0x9b, ...enc("31mred")]);
       const term = await createTerminalFromBytes(bytes);
-      // C1 CSI may or may not be handled — no crash is the requirement
-      expect(typeof getLineText(term, 0)).toBe("string");
+      // C1 CSI (0x9b) may set SGR 31 (red) or be ignored as high byte.
+      // In either case, "red" appears in the buffer as printable text.
+      const line = getLineText(term, 0);
+      expect(line).toContain("red");
       term.dispose();
     });
 
     // Source: microsoft/terminal OutputEngineTest.cpp TestC1DcsEntry (MIT)
     it("C1 DCS (0x90) doesn't crash", async () => {
-      const bytes = new Uint8Array([
-        0x90,
-        ...enc("1;1;1{ data\x1b\\after"),
-      ]);
+      const bytes = new Uint8Array([0x90, ...enc("1;1;1{ data\x1b\\after")]);
       const term = await createTerminalFromBytes(bytes);
-      expect(typeof getLineText(term, 0)).toBe("string");
+      // Robustness check: C1 DCS is consumed or ignored; "after" follows
+      // the ST terminator and should render as printable text.
+      const line = getLineText(term, 0);
+      expect(line).toContain("after");
       term.dispose();
     });
   });
@@ -254,9 +264,7 @@ describe("VT Corpus: Edge Cases", () => {
 
     // Source: putz-custom
     it("multiple sequence types in rapid succession", async () => {
-      const bytes = enc(
-        "\x1b[31m\x1b]0;title\x07\x1b[1;1H\x1b[2J\x1b[0mclean",
-      );
+      const bytes = enc("\x1b[31m\x1b]0;title\x07\x1b[1;1H\x1b[2J\x1b[0mclean");
       const term = await createTerminalFromBytes(bytes);
       expect(getLineText(term, 0)).toBe("clean");
       term.dispose();
@@ -264,9 +272,7 @@ describe("VT Corpus: Edge Cases", () => {
 
     // Source: putz-custom
     it("alternating printable text and control sequences", async () => {
-      const bytes = enc(
-        "A\x1b[1mB\x1b[0mC\x1b[4mD\x1b[0mE",
-      );
+      const bytes = enc("A\x1b[1mB\x1b[0mC\x1b[4mD\x1b[0mE");
       const term = await createTerminalFromBytes(bytes);
       expect(getLineText(term, 0)).toBe("ABCDE");
       term.dispose();
@@ -289,8 +295,8 @@ describe("VT Corpus: Edge Cases", () => {
     // Source: putz-custom
     it("stream of only control characters doesn't crash", async () => {
       const bytes = new Uint8Array([
-        0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08,
-        0x0e, 0x0f, 0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17,
+        0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x0e, 0x0f, 0x10,
+        0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17,
       ]);
       const term = await createTerminalFromBytes(bytes);
       expect(getLineText(term, 0)).toBe("");
@@ -301,7 +307,9 @@ describe("VT Corpus: Edge Cases", () => {
     it("stream of only ESC chars doesn't crash", async () => {
       const bytes = enc("\x1b\x1b\x1b\x1b\x1b");
       const term = await createTerminalFromBytes(bytes);
-      expect(typeof getLineText(term, 0)).toBe("string");
+      // Robustness check: repeated bare ESC bytes are consumed without
+      // emitting printable output or throwing.
+      expect(getLineText(term, 0)).toBe("");
       term.dispose();
     });
 
@@ -324,8 +332,9 @@ describe("VT Corpus: Edge Cases", () => {
       const payload = "a".repeat(10240);
       const bytes = enc(`\x1b]0;${payload}\x07ok`);
       const term = await createTerminalFromBytes(bytes);
-      // May or may not render "ok" depending on xterm.js limits, but no crash
-      expect(typeof getLineText(term, 0)).toBe("string");
+      // Robustness check: oversized OSC is consumed (may be truncated
+      // internally) and subsequent text "ok" renders normally.
+      expect(getLineText(term, 0)).toBe("ok");
       term.dispose();
     });
 
@@ -334,7 +343,8 @@ describe("VT Corpus: Edge Cases", () => {
       const params = Array.from({ length: 100 }, (_, i) => String(i)).join(";");
       const bytes = enc(`\x1b[${params}mtext`);
       const term = await createTerminalFromBytes(bytes);
-      expect(typeof getLineText(term, 0)).toBe("string");
+      // Robustness check: xterm.js clamps excess params and still renders "text".
+      expect(getLineText(term, 0)).toContain("text");
       term.dispose();
     });
 
@@ -347,8 +357,17 @@ describe("VT Corpus: Edge Cases", () => {
       seq += "done";
       const bytes = enc(seq);
       const term = await createTerminalFromBytes(bytes);
-      // Cursor should end up back at the starting position (or clamped)
-      expect(typeof getLineText(term, 0)).toBe("string");
+      // Robustness check: 1000 rounds of up/down/right/left cursor moves
+      // are processed without throwing. "done" prints wherever the cursor
+      // lands (may not be row 0 due to clamping).
+      let found = false;
+      for (let row = 0; row < term.rows; row++) {
+        if (getLineText(term, row).includes("done")) {
+          found = true;
+          break;
+        }
+      }
+      expect(found).toBe(true);
       term.dispose();
     });
   });

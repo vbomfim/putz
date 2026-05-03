@@ -11,7 +11,7 @@
  *
  * @see https://github.com/vbomfim/putz/issues/100
  */
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect } from "vitest";
 import {
   parseOsc7Payload,
   parseOsc1337CurrentDir,
@@ -19,6 +19,7 @@ import {
   MAX_OSC_PAYLOAD_BYTES,
   MAX_CWD_PATH_BYTES,
 } from "../lib/terminal/oscParser";
+import { createMockTerminal } from "./utils/mockTerminal";
 
 // ---------------------------------------------------------------------------
 // parseOsc7Payload — unit tests
@@ -166,44 +167,6 @@ describe("parseOsc1337CurrentDir + createOscParser integration", () => {
 // ---------------------------------------------------------------------------
 // createOscParser — factory + lifecycle tests
 // ---------------------------------------------------------------------------
-
-/**
- * Creates a minimal mock Terminal with a parser that records registered
- * OSC handlers so we can invoke them directly in tests.
- */
-function createMockTerminal() {
-  const handlers = new Map<number, ((data: string) => boolean | void)[]>();
-
-  return {
-    terminal: {
-      parser: {
-        registerOscHandler(
-          code: number,
-          callback: (data: string) => boolean | void,
-        ) {
-          if (!handlers.has(code)) handlers.set(code, []);
-          handlers.get(code)!.push(callback);
-          return {
-            dispose: vi.fn(),
-          };
-        },
-      },
-    } as unknown as import("@xterm/xterm").Terminal,
-
-    /** Fire an OSC handler by code, simulating xterm.js parser delivery. */
-    fireOsc(code: number, data: string): void {
-      const cbs = handlers.get(code);
-      if (cbs) {
-        for (const cb of cbs) cb(data);
-      }
-    },
-
-    /** Check which OSC codes have registered handlers. */
-    registeredCodes(): number[] {
-      return Array.from(handlers.keys());
-    },
-  };
-}
 
 describe("createOscParser", () => {
   it("registers only OSC 7 and OSC 1337 handlers (allowlist)", () => {
