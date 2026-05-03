@@ -15,7 +15,7 @@
  * @see https://github.com/vbomfim/putz/issues/103
  */
 import { describe, it, expect, beforeEach, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, fireEvent } from "@testing-library/react";
 import { CommandGutter } from "../components/Terminal/CommandGutter";
 import { useCommandBlockStore } from "../stores/commandBlockStore";
 import type { CommandBlock } from "../stores/commandBlockStore";
@@ -451,5 +451,47 @@ describe("CommandGutter", () => {
     expect(
       container.querySelector('[data-testid="command-gutter"]'),
     ).toBeNull();
+  });
+
+  it("fires onDotContextMenu when a dot is right-clicked", () => {
+    const block = makeBlock({
+      id: "b1",
+      commandStart: { row: 2, col: 2 },
+    });
+    useCommandBlockStore.setState({
+      sessions: new Map([
+        [
+          SESSION_ID,
+          {
+            handshaked: true,
+            blocks: [block],
+            activeBlock: null,
+          },
+        ],
+      ]),
+    });
+
+    const onDotContextMenu = vi.fn();
+    const { container } = render(
+      <CommandGutter
+        sessionId={SESSION_ID}
+        cellHeight={CELL_HEIGHT}
+        viewportTop={0}
+        rows={ROWS}
+        onDotContextMenu={onDotContextMenu}
+      />,
+    );
+
+    const dot = container.querySelector(
+      '[data-testid="gutter-dot"]',
+    ) as HTMLElement;
+    expect(dot).toBeTruthy();
+
+    fireEvent.contextMenu(dot);
+    expect(onDotContextMenu).toHaveBeenCalledTimes(1);
+    expect(onDotContextMenu).toHaveBeenCalledWith(
+      expect.objectContaining({ id: "b1" }),
+      expect.any(Object),
+    );
   });
 });
