@@ -144,6 +144,23 @@ export function TerminalView({
 
   const search = useSearch({ terminal: terminalInstance });
 
+  // Sync xterm theme.background transparency to the animated-effect setting.
+  // When an effect is active, override the theme's background to a semi-transparent
+  // value so the canvas behind shows through. When 'none', restore the theme bg.
+  useEffect(() => {
+    const term = terminalInstance;
+    if (!term) return;
+    const themeBase = termColors || term.options.theme || {};
+    if (backgroundEffect === "none") {
+      term.options.theme = themeBase;
+    } else {
+      term.options.theme = {
+        ...themeBase,
+        background: "rgba(0, 0, 0, 0)", // fully transparent — backgroundOpacity controls canvas alpha
+      };
+    }
+  }, [terminalInstance, backgroundEffect, termColors]);
+
   // ── Gutter state: viewport scroll + cell height ──────────────────────
   const [viewportTop, setViewportTop] = useState(0);
   const [cellHeight, setCellHeight] = useState(17); // sensible default

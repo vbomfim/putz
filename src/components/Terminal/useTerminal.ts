@@ -180,6 +180,10 @@ export function useTerminal({
       cursorBlink: true,
       cursorStyle: "block",
       allowProposedApi: true,
+      // Required so the animated background canvas (rendered behind the
+      // terminal at z-index: 0) shows through. theme.background is mutated
+      // to a transparent value in TerminalView when an effect is active.
+      allowTransparency: true,
       wordSeparator: WORD_SEPARATOR,
     });
 
