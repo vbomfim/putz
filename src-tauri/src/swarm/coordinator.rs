@@ -45,7 +45,9 @@ struct Colleague {
     name: String,
     parent: Option<String>,
     tab_id: String,
-    #[allow(dead_code)]
+    /// OS PID of the colleague process, surfaced in tracing on register /
+    /// disconnect for operator debugging.
+    // TODO(T3): expose pid in colleague status surface
     pid: Option<u32>,
     status: ColleagueStatus,
     last_seen: Instant,
@@ -62,6 +64,11 @@ struct Inner {
     by_id: HashMap<String, Colleague>,
     /// Reverse index: connection → colleague_id.
     by_conn: HashMap<ConnectionId, String>,
+    /// Reverse index: tab_id → colleague_id. Used by [`SwarmCoordinator::register`]
+    /// to enforce FR-009 idempotency keyed on tab — a re-register from the
+    /// same tab evicts whatever colleague was previously bound to it, even
+    /// if the new colleague_id differs.
+    by_tab: HashMap<String, String>,
     /// Listening path (Unix socket file or Windows pipe name).
     path: Option<String>,
 }
@@ -151,6 +158,7 @@ impl SwarmCoordinator {
         let mut inner = self.inner.write().await;
         inner.by_id.clear();
         inner.by_conn.clear();
+        inner.by_tab.clear();
         inner.path = None;
     }
 
@@ -192,6 +200,10 @@ impl SwarmCoordinator {
     }
 
     /// Env vars for a freshly-spawned colleague tab — base env + identity.
+    ///
+    /// `initial_prompt` is treated as **@privacy Tier-2 PII** — it flows
+    /// only into the spawned process's env (`COPILOT_COLLEAGUE_INITIAL_PROMPT`),
+    /// never into logs, never persisted. See PRI-001/002.
     pub async fn colleague_env_vars(
         &self,
         tab_id: &str,
@@ -205,6 +217,8 @@ impl SwarmCoordinator {
         vars.insert("COPILOT_COLLEAGUE_NAME".into(), name.into());
         vars.insert("COPILOT_COLLEAGUE_PARENT".into(), parent.into());
         if let Some(prompt) = initial_prompt {
+            // @privacy Tier-2 PII — never log this value, never persist.
+            // Pass-through to the spawned colleague's env only. PRI-001/002.
             vars.insert("COPILOT_COLLEAGUE_INITIAL_PROMPT".into(), prompt.into());
         }
         Some(vars)
@@ -227,9 +241,16 @@ impl SwarmCoordinator {
             .collect()
     }
 
-    /// Insert a colleague tied to a fresh `ConnectionId`. If `colleague_id`
-    /// already has a connection, the old one is evicted (a `Disconnect`
-    /// frame is sent best-effort to its sender).
+    /// Insert a colleague tied to a fresh `ConnectionId`. Idempotency is
+    /// keyed on **`tab_id`** (FR-009): if a colleague is already registered
+    /// for this tab — even under a different `colleague_id` — that prior
+    /// registration is evicted (sent a best-effort `Disconnect` and removed
+    /// from all indices) before the new colleague is inserted.
+    ///
+    /// Rationale: a "tab" is the user-visible unit. A Copilot CLI process
+    /// crashing and being restarted in the same tab will produce a fresh
+    /// `colleague_id` (UUID-suffixed) but reuse the tab. We must not leak
+    /// the old roster entry.
     ///
     /// Returns `(connection_id, register_ack_frame)` so the socket layer
     /// can send the ack on the correct stream.
@@ -249,29 +270,51 @@ impl SwarmCoordinator {
         let conn_id = ConnectionId(Uuid::new_v4().to_string());
         let mut inner = self.inner.write().await;
 
-        // Capacity check (only for genuinely new colleagues).
+        // FR-009 idempotency: evict any prior colleague bound to this tab,
+        // regardless of colleague_id. Covers crash-restart and rename cases.
+        let evict_target: Option<String> = inner.by_tab.get(&tab_id).cloned();
+        if let Some(prev_id) = evict_target {
+            if let Some(prev) = inner.by_id.remove(&prev_id) {
+                let _ = prev.sender.try_send(Frame::Disconnect {
+                    colleague_id: prev_id.clone(),
+                    reason: Some("replaced by new connection on same tab".into()),
+                });
+                inner.by_conn.remove(&prev.conn_id);
+                tracing_warn(&format!(
+                    "swarm: evicted colleague {prev_id:?} on tab {tab_id:?} \
+                     (replaced by new register; pid was {:?})",
+                    prev.pid
+                ));
+            }
+            inner.by_tab.remove(&tab_id);
+        }
+
+        // Capacity check (only for genuinely new colleagues — eviction above
+        // may have freed a slot already).
         if !inner.by_id.contains_key(&colleague_id) && inner.by_id.len() >= MAX_COLLEAGUES {
             return Err("registry full".into());
         }
 
-        // Duplicate-tab eviction: send Disconnect to the old sender (if
-        // the channel is full or closed, we ignore — the old conn is
-        // gone either way).
-        let old_conn = inner.by_id.get(&colleague_id).map(|c| {
-            let _ = c.sender.try_send(Frame::Disconnect {
-                colleague_id: colleague_id.clone(),
-                reason: Some("replaced by new connection".into()),
-            });
-            c.conn_id.clone()
-        });
-        if let Some(old) = old_conn {
-            inner.by_conn.remove(&old);
+        // Edge case: a *different* tab is already holding this colleague_id.
+        // This is a protocol error from the client (colleague_ids are
+        // generated as `name-{uuid4-prefix}` so collisions are vanishingly
+        // unlikely). Reject rather than silently shadow.
+        if let Some(existing) = inner.by_id.get(&colleague_id) {
+            if existing.tab_id != tab_id {
+                return Err(format!(
+                    "colleague_id {colleague_id:?} already bound to a different tab"
+                ));
+            }
         }
+
+        tracing_warn(&format!(
+            "swarm: registered colleague {colleague_id:?} on tab {tab_id:?} (pid={pid:?})"
+        ));
 
         let colleague = Colleague {
             name: sanitize_label(&name),
             parent,
-            tab_id,
+            tab_id: tab_id.clone(),
             pid,
             status: ColleagueStatus::Idle,
             last_seen: Instant::now(),
@@ -280,6 +323,7 @@ impl SwarmCoordinator {
         };
         inner.by_id.insert(colleague_id.clone(), colleague);
         inner.by_conn.insert(conn_id.clone(), colleague_id.clone());
+        inner.by_tab.insert(tab_id, colleague_id.clone());
 
         let roster: Vec<ColleagueView> = inner
             .by_id
@@ -323,6 +367,12 @@ impl SwarmCoordinator {
         message: String,
     ) {
         if message.len() > MAX_MESSAGE_LEN {
+            // Observability for backpressure / abuse — log size and conn
+            // only; never log message contents (PRI-002).
+            tracing_warn(&format!(
+                "swarm: notify dropped (oversize {}B > {MAX_MESSAGE_LEN}B) from conn {conn_id:?}",
+                message.len()
+            ));
             return;
         }
         let mut inner = self.inner.write().await;
@@ -353,21 +403,42 @@ impl SwarmCoordinator {
         let Some(target) = inner.by_id.get(to) else {
             return;
         };
-        let _ = target.sender.try_send(Frame::RecvFrom {
-            from: bound_id.clone(),
-            payload,
-        });
+        if target
+            .sender
+            .try_send(Frame::RecvFrom {
+                from: bound_id.clone(),
+                payload,
+            })
+            .is_err()
+        {
+            // Backpressure: target's mpsc is full or closed. Log identity
+            // only (no payload — PRI-002).
+            tracing_warn(&format!(
+                "swarm: send_to dropped (back-channel full) from {from:?} to {to:?}"
+            ));
+        }
     }
 
     /// Drop a connection. Called by the socket layer on EOF / error.
     pub async fn disconnect(&self, conn_id: &ConnectionId) {
         let mut inner = self.inner.write().await;
         if let Some(colleague_id) = inner.by_conn.remove(conn_id) {
-            // Only remove from by_id if this conn still owns it (guards
-            // against duplicate-register eviction races).
-            if let Some(c) = inner.by_id.get(&colleague_id) {
-                if &c.conn_id == conn_id {
-                    inner.by_id.remove(&colleague_id);
+            // Only remove from by_id / by_tab if this conn still owns it
+            // (guards against duplicate-register eviction races).
+            let owned_tab: Option<String> = match inner.by_id.get(&colleague_id) {
+                Some(c) if &c.conn_id == conn_id => Some(c.tab_id.clone()),
+                _ => None,
+            };
+            if let Some(tab_id) = owned_tab {
+                if let Some(c) = inner.by_id.remove(&colleague_id) {
+                    tracing_warn(&format!(
+                        "swarm: disconnected colleague {colleague_id:?} (pid={:?})",
+                        c.pid
+                    ));
+                }
+                // Only clear by_tab if it still points at us (defensive).
+                if inner.by_tab.get(&tab_id) == Some(&colleague_id) {
+                    inner.by_tab.remove(&tab_id);
                 }
             }
         }
@@ -400,10 +471,9 @@ fn validate_ident(s: &str, field: &str) -> Result<(), String> {
 }
 
 fn validate_tab_id(s: &str) -> Result<(), String> {
-    if s.is_empty() || s.len() > MAX_IDENT_LEN {
-        return Err("invalid tab_id".into());
-    }
-    Ok(())
+    // Same charset as colleague_id / name (CR-Opus #7) — defends against
+    // control chars / unicode confusables flowing into env vars.
+    validate_ident(s, "tab_id")
 }
 
 fn parse_status(s: Option<&str>) -> Option<ColleagueStatus> {
@@ -425,6 +495,13 @@ fn sanitize_label(s: &str) -> String {
 fn emit_state_changed(app: &tauri::AppHandle, state: &SwarmStatePublic) {
     use tauri::Emitter;
     let _ = app.emit("swarm://state-changed", state);
+}
+
+/// Stripped-down stand-in for `tracing::warn!`. Mirrors the helper in
+/// [`super::socket`] so coordinator-side observability calls don't need
+/// to cross the module boundary. Never log frame contents (PRI-002).
+fn tracing_warn(msg: &str) {
+    eprintln!("[swarm] {msg}");
 }
 
 async fn sweep_loop(
@@ -465,6 +542,7 @@ async fn sweep_once(coord: &SwarmCoordinator) -> bool {
     for id in to_evict {
         if let Some(c) = inner.by_id.remove(&id) {
             inner.by_conn.remove(&c.conn_id);
+            inner.by_tab.remove(&c.tab_id);
             // Best-effort: tell the writer task to quit so the connection closes.
             let _ = c.sender.try_send(Frame::Disconnect {
                 colleague_id: id,
@@ -529,12 +607,16 @@ mod tests {
 
     #[tokio::test]
     async fn duplicate_register_evicts_old_connection() {
+        // FR-009: idempotency is keyed on tab_id, NOT colleague_id.
+        // Re-registering the same tab with a *different* colleague_id must
+        // still evict the prior colleague (e.g., crash → restart picks a
+        // fresh `name-{uuid4}` id but reuses the tab).
         let c = SwarmCoordinator::new();
         let (tx1, mut rx1) = mpsc::channel(8);
         let (cid1, _) = c
             .register(
-                "tab1".into(),
-                "alice".into(),
+                "tab-shared".into(),
+                "alice-aaaa".into(),
                 "alice".into(),
                 None,
                 None,
@@ -545,8 +627,8 @@ mod tests {
         let (tx2, _rx2) = mpsc::channel(8);
         let (cid2, _) = c
             .register(
-                "tab2".into(),
-                "alice".into(),
+                "tab-shared".into(),
+                "alice-bbbb".into(), // DIFFERENT colleague_id, same tab
                 "alice".into(),
                 None,
                 None,
@@ -555,10 +637,84 @@ mod tests {
             .await
             .unwrap();
         assert_ne!(cid1, cid2);
-        // Old sender received a Disconnect.
+        // Old sender received a Disconnect (proves eviction-by-tab worked).
         let evicted = rx1.try_recv();
-        assert!(matches!(evicted, Ok(Frame::Disconnect { .. })));
+        assert!(
+            matches!(evicted, Ok(Frame::Disconnect { .. })),
+            "old connection was not sent a Disconnect frame: got {evicted:?}"
+        );
+        // Roster has only the new colleague — old one is gone.
+        let roster = c.roster().await;
+        assert_eq!(
+            roster.len(),
+            1,
+            "roster must have exactly the new colleague"
+        );
+        assert_eq!(roster[0].id, "alice-bbbb");
+    }
+
+    /// FR-009 corner: the *same* colleague_id re-registering on the same
+    /// tab is also handled (degenerate case of the tab-keyed rule).
+    #[tokio::test]
+    async fn duplicate_register_same_colleague_id_same_tab_evicts() {
+        let c = SwarmCoordinator::new();
+        let (tx1, mut rx1) = mpsc::channel(8);
+        let _ = c
+            .register(
+                "tab".into(),
+                "alice".into(),
+                "alice".into(),
+                None,
+                None,
+                tx1,
+            )
+            .await
+            .unwrap();
+        let (tx2, _) = mpsc::channel(8);
+        let _ = c
+            .register(
+                "tab".into(),
+                "alice".into(),
+                "alice".into(),
+                None,
+                None,
+                tx2,
+            )
+            .await
+            .unwrap();
+        assert!(matches!(rx1.try_recv(), Ok(Frame::Disconnect { .. })));
         assert_eq!(c.roster().await.len(), 1);
+    }
+
+    /// Defensive: a *different* tab trying to claim an in-use colleague_id
+    /// is rejected (vanishingly unlikely in practice — UUID-suffixed ids).
+    #[tokio::test]
+    async fn register_rejects_colleague_id_collision_across_tabs() {
+        let c = SwarmCoordinator::new();
+        let (tx1, _) = mpsc::channel(8);
+        let _ = c
+            .register(
+                "tab1".into(),
+                "alice".into(),
+                "alice".into(),
+                None,
+                None,
+                tx1,
+            )
+            .await
+            .unwrap();
+        let (tx2, _) = mpsc::channel(8);
+        let res = c
+            .register(
+                "tab2".into(),
+                "alice".into(),
+                "alice".into(),
+                None,
+                None,
+                tx2,
+            )
+            .await;
+        assert!(res.is_err(), "expected colleague_id collision rejection");
     }
 
     #[tokio::test]
@@ -698,6 +854,35 @@ mod tests {
         assert!(validate_ident("with/slash", "x").is_err());
         let too_long = "a".repeat(MAX_IDENT_LEN + 1);
         assert!(validate_ident(&too_long, "x").is_err());
+    }
+
+    /// CR-Opus #7: tab_id must use the same charset rule as colleague_id —
+    /// rejecting control characters and other non-safe input that would
+    /// otherwise flow into an env var.
+    #[test]
+    fn validate_tab_id_rejects_control_chars() {
+        assert!(validate_tab_id("tab-1").is_ok());
+        assert!(validate_tab_id("").is_err());
+        assert!(validate_tab_id("tab\x00null").is_err());
+        assert!(validate_tab_id("tab\nnewline").is_err());
+        assert!(validate_tab_id("tab with space").is_err());
+    }
+
+    #[tokio::test]
+    async fn register_rejects_tab_id_with_control_chars() {
+        let c = SwarmCoordinator::new();
+        let (tx, _rx) = mpsc::channel(8);
+        let res = c
+            .register(
+                "tab\x07bell".into(),
+                "alice".into(),
+                "alice".into(),
+                None,
+                None,
+                tx,
+            )
+            .await;
+        assert!(res.is_err(), "tab_id with control char must be rejected");
     }
 
     #[test]

@@ -31,10 +31,15 @@ impl ColleagueStatus {
 }
 
 /// Severity tag for `notify` frames — drives Cmd+J inbox bucketing.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+///
+/// Defaulting to [`Severity::Normal`] lets older / minimal clients omit the
+/// field entirely (FR-015) — the wire decoder applies the default via
+/// `#[serde(default)]` on `Frame::Notify { severity }`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "lowercase")]
 pub enum Severity {
     Urgent,
+    #[default]
     Normal,
     Ambient,
 }
@@ -60,7 +65,9 @@ pub struct ColleagueView {
 pub struct SwarmStatePublic {
     pub enabled: bool,
     /// Socket path (Unix) or pipe name (Windows). `null` when disabled.
-    /// Keyed as `url` for frontend back-compat (T4 will rename).
+    /// Keyed as `url` for frontend back-compat.
+    // TODO(#146): rename `url` → `path` in both Rust serde and
+    // src/components/Settings/SettingsTab.tsx (T4 cleanup).
     #[serde(rename = "url")]
     pub path: Option<String>,
     pub colleague_count: usize,

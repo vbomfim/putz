@@ -48,6 +48,8 @@ pub async fn swarm_spawn_colleague(
     state: State<'_, SwarmCoordinator>,
     app: tauri::AppHandle,
     name: String,
+    // @privacy Tier-2 PII — never log, never persist, never forward to telemetry.
+    // Free-form user-authored prompt; may contain user content / secrets. See PRI-001/002.
     initial_prompt: Option<String>,
 ) -> Result<(), String> {
     use tauri::Emitter;

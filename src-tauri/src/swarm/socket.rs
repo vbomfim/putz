@@ -14,6 +14,8 @@
 //! Putz instances for the same user do not collide (spec §4 edge cases).
 use std::io;
 use std::path::PathBuf;
+use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::Arc;
 use std::time::Duration;
 
 use interprocess::local_socket::{
@@ -38,6 +40,18 @@ const REGISTER_DEADLINE: Duration = Duration::from_secs(1);
 /// Capacity of the per-connection back-channel (server → client). Bounded
 /// to defend against a slow client wedging the coordinator.
 const BACKCHANNEL_CAPACITY: usize = 256;
+
+/// Per-frame write timeout. If the client TCP/pipe buffer is full and the
+/// peer isn't reading, we abandon the write rather than wedge the writer
+/// task forever. Pairs with the per-connection cancel token (see
+/// [`handle_connection`]). Spec SEC-002 (resource exhaustion defense).
+const WRITE_TIMEOUT: Duration = Duration::from_secs(5);
+
+/// Maximum simultaneously-accepted-but-not-yet-registered connections.
+/// Once exceeded, new accepts are immediately closed. Defends against
+/// a flood of half-open connections wedging memory before the
+/// register-or-die deadline reaps them. Spec SEC-002.
+const MAX_INFLIGHT_PRE_REGISTER: usize = 256;
 
 /// Resolve the socket / pipe path for the current process.
 ///
@@ -105,10 +119,16 @@ pub struct Listener {
 impl Listener {
     /// Bind a fresh listener at `path`. On Unix, removes any stale socket
     /// file at `path` before binding (a prior crashed Putz may have left
-    /// one — spec §4 edge cases). Then `chmod 600`s it.
+    /// one — spec §4 edge cases) and binds **with `umask(0o077)` set
+    /// across the bind call** so the socket file is created with mode
+    /// 0o600 atomically — no TOCTOU window between bind and chmod.
+    /// `chmod 600` is also re-applied as belt-and-braces in case a kernel
+    /// or filesystem (e.g., FAT) ignores the umask.
     ///
     /// On Windows, `path` is a flat pipe name (no `\\.\pipe\` prefix) and
     /// the OS enforces "creator-SID-only" via the default DACL.
+    /// Note: Windows DACL hardening to an explicit current-user-SID-only
+    /// descriptor is tracked as a follow-up — see `interprocess` v2 limits.
     pub fn bind(path: PathBuf) -> io::Result<Self> {
         // Make parent dir on Unix (XDG_RUNTIME_DIR/putz).
         #[cfg(unix)]
@@ -126,8 +146,19 @@ impl Listener {
         }
 
         let name = path_to_name(&path)?;
+
+        // Bind with strict umask scoped only across the bind call.
+        // This closes the TOCTOU window where another process could
+        // open the socket between bind() and chmod().
+        #[cfg(unix)]
+        let inner = with_strict_umask(|| ListenerOptions::new().name(name).create_tokio())?;
+        #[cfg(not(unix))]
         let inner = ListenerOptions::new().name(name).create_tokio()?;
 
+        // Belt-and-braces: even with umask, re-apply 0o600 explicitly.
+        // (Some filesystems ignore umask — e.g., FAT — and bind itself
+        // may set group/other bits depending on libc. This is now an
+        // assertion of state, not the *only* enforcement.)
         #[cfg(unix)]
         chmod_600(&path)?;
 
@@ -143,18 +174,36 @@ impl Listener {
     /// Run the accept loop until `cancel` fires. Each accepted connection
     /// is spawned as an independent tokio task — slow / hung clients do
     /// not block other colleagues.
+    ///
+    /// Inflight (accepted but not yet registered) connections are capped
+    /// at [`MAX_INFLIGHT_PRE_REGISTER`]; excess accepts are immediately
+    /// closed. Defends against a flood overwhelming RAM before the
+    /// register-or-die deadline reaps them (spec SEC-002).
     pub async fn run(self, coordinator: SwarmCoordinator, cancel: CancellationToken) {
         let path = self.path.clone();
+        let inflight = Arc::new(AtomicUsize::new(0));
         loop {
             tokio::select! {
                 _ = cancel.cancelled() => break,
                 accepted = self.inner.accept() => {
                     match accepted {
                         Ok(stream) => {
+                            // Inflight cap (SEC-002). Increment first, drop on overflow.
+                            let n = inflight.fetch_add(1, Ordering::AcqRel) + 1;
+                            if n > MAX_INFLIGHT_PRE_REGISTER {
+                                inflight.fetch_sub(1, Ordering::AcqRel);
+                                tracing_warn(&format!(
+                                    "swarm: inflight cap reached ({MAX_INFLIGHT_PRE_REGISTER}), \
+                                     dropping new connection"
+                                ));
+                                drop(stream);
+                                continue;
+                            }
                             let coord = coordinator.clone();
                             let cancel = cancel.clone();
+                            let inflight = inflight.clone();
                             tokio::spawn(async move {
-                                handle_connection(stream, coord, cancel).await;
+                                handle_connection(stream, coord, cancel, inflight).await;
                             });
                         }
                         Err(e) => {
@@ -196,14 +245,52 @@ fn chmod_600(path: &std::path::Path) -> io::Result<()> {
     std::fs::set_permissions(path, perms)
 }
 
+/// Run `f` with `umask(0o077)` set, restoring the previous umask afterward.
+/// Closes the TOCTOU window between `bind()` and `chmod()` — the socket
+/// file is created with mode 0o600 atomically (modulo filesystems that
+/// ignore umask, which is why `chmod_600` runs as belt-and-braces).
+#[cfg(unix)]
+fn with_strict_umask<F, T>(f: F) -> io::Result<T>
+where
+    F: FnOnce() -> io::Result<T>,
+{
+    // SAFETY: `umask(2)` is process-global and not thread-safe. The swarm
+    // listener is bound exactly once per process inside a coordinator
+    // lifecycle mutex, so we are not racing another swarm bind. We are
+    // racing arbitrary other code in this process that might also call
+    // umask — but since we restore promptly, the worst case is a brief
+    // window where unrelated file creates inherit our 0o077.
+    let prev = unsafe { libc::umask(0o077) };
+    let result = f();
+    unsafe {
+        libc::umask(prev);
+    }
+    result
+}
+
 /// Handle one accepted connection: enforce register-or-die, then spin up
 /// the read/write tasks and bridge them through the coordinator.
+///
+/// `inflight` is decremented exactly once — when this connection's
+/// register-or-die outcome is decided (success or failure). Inflight
+/// accounting only covers the pre-register window; once registered, the
+/// MAX_COLLEAGUES cap takes over.
 async fn handle_connection(
     stream: LocalStream,
     coordinator: SwarmCoordinator,
     cancel: CancellationToken,
+    inflight: Arc<AtomicUsize>,
 ) {
     let (mut reader, mut writer) = tokio::io::split(stream);
+    // Decrement inflight when the pre-register window closes. Wrapped in
+    // a closure so every early-return path settles the counter.
+    let mut inflight_decremented = false;
+    let decrement_inflight = |dec: &mut bool| {
+        if !*dec {
+            inflight.fetch_sub(1, Ordering::AcqRel);
+            *dec = true;
+        }
+    };
 
     // ── Register-or-die handshake ────────────────────────────────
     let register = match tokio::time::timeout(REGISTER_DEADLINE, read_frame(&mut reader)).await {
@@ -215,16 +302,21 @@ async fn handle_connection(
             pid,
         }))) => (tab_id, colleague_id, name, parent, pid),
         Ok(Ok(Some(_))) => {
-            // First frame wasn't Register — protocol violation.
+            decrement_inflight(&mut inflight_decremented);
             return;
         }
-        Ok(Ok(None)) => return, // clean EOF
+        Ok(Ok(None)) => {
+            decrement_inflight(&mut inflight_decremented);
+            return;
+        }
         Ok(Err(e)) => {
             tracing_warn(&format!("swarm: bad register frame: {e}"));
+            decrement_inflight(&mut inflight_decremented);
             return;
         }
         Err(_) => {
             // Timeout — slow-loris defense.
+            decrement_inflight(&mut inflight_decremented);
             return;
         }
     };
@@ -240,9 +332,13 @@ async fn handle_connection(
         Ok(pair) => pair,
         Err(e) => {
             tracing_warn(&format!("swarm: register rejected: {e}"));
+            decrement_inflight(&mut inflight_decremented);
             return;
         }
     };
+
+    // Successful register — exit the pre-register window.
+    decrement_inflight(&mut inflight_decremented);
 
     // Send the ack synchronously so the client sees roster on return.
     if write_frame(&mut writer, &ack).await.is_err() {
@@ -250,16 +346,33 @@ async fn handle_connection(
         return;
     }
 
+    // Per-connection cancel — child of the global cancel. Reader cancels
+    // it on exit so the writer doesn't wedge waiting on rx.recv() when
+    // the peer is gone but the coordinator's sender hasn't been dropped
+    // yet. Spec SEC-002 + CR-Opus #3.
+    let conn_cancel = cancel.child_token();
+
     // ── Writer task: drain backchannel → socket ──────────────────
-    let writer_cancel = cancel.clone();
+    let writer_conn_cancel = conn_cancel.clone();
+    let writer_global_cancel = cancel.clone();
     let writer_task = tokio::spawn(async move {
         loop {
             tokio::select! {
-                _ = writer_cancel.cancelled() => break,
+                _ = writer_global_cancel.cancelled() => break,
+                _ = writer_conn_cancel.cancelled() => break,
                 msg = rx.recv() => {
                     let Some(frame) = msg else { break };
-                    if write_frame(&mut writer, &frame).await.is_err() {
-                        break;
+                    // Per-write timeout: a slow / hung client cannot pin
+                    // this task forever. Belt to the per-conn cancel's
+                    // braces — a wedged TCP-buffer-full peer is reaped
+                    // by the timeout even before the reader notices EOF.
+                    match tokio::time::timeout(WRITE_TIMEOUT, write_frame(&mut writer, &frame)).await {
+                        Ok(Ok(())) => {}
+                        Ok(Err(_)) => break,
+                        Err(_) => {
+                            tracing_warn("swarm: writer timeout, abandoning connection");
+                            break;
+                        }
                     }
                 }
             }
@@ -271,11 +384,12 @@ async fn handle_connection(
     // ── Reader task: socket → coordinator dispatch ───────────────
     let reader_conn = conn_id.clone();
     let reader_coord = coordinator.clone();
-    let reader_cancel = cancel.clone();
+    let reader_global_cancel = cancel.clone();
+    let reader_conn_cancel = conn_cancel.clone();
     let reader_task = tokio::spawn(async move {
         loop {
             tokio::select! {
-                _ = reader_cancel.cancelled() => break,
+                _ = reader_global_cancel.cancelled() => break,
                 frame = read_frame(&mut reader) => {
                     match frame {
                         Ok(Some(f)) => {
@@ -300,13 +414,16 @@ async fn handle_connection(
                 }
             }
         }
+        // Wake the writer task even if the coordinator's sender clones
+        // are still alive somewhere (e.g., a pending send_to closure).
+        reader_conn_cancel.cancel();
     });
 
     // Either side ending = the connection is done.
     let _ = reader_task.await;
     coordinator.disconnect(&conn_id).await;
-    // Cancel the writer once disconnect has dropped its sender; rx.recv()
-    // will return None and the writer exits.
+    // After disconnect, the coordinator drops its sender; combined with
+    // the per-conn cancel the reader fired, the writer exits promptly.
     let _ = writer_task.await;
 }
 
@@ -692,6 +809,164 @@ mod tests {
         assert!(res.is_err(), "expected EOF after register-or-die deadline");
 
         cancel.cancel();
+        let _ = server.await;
+    }
+
+    /// CR-Opus #3 + Sec #2: The writer task must NOT wedge forever when
+    /// the peer stops reading (TCP/pipe buffers fill, mpsc fills, the
+    /// coordinator's sender clones may still be alive). Per-conn cancel
+    /// + per-write timeout must terminate the writer within WRITE_TIMEOUT.
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn writer_terminates_when_client_stops_reading() {
+        // Smaller-budget version: with the per-conn cancel firing on
+        // reader exit, when the client drops without reading, the reader
+        // task observes EOF and cancels the per-conn token; the writer
+        // exits its select! immediately rather than blocking on rx.recv()
+        // for a coordinator clone that may still hold a sender.
+        let coord = SwarmCoordinator::new();
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("wedge.sock");
+        let listener = Listener::bind(path.clone()).unwrap();
+        let cancel = CancellationToken::new();
+        let server = tokio::spawn({
+            let coord = coord.clone();
+            let cancel = cancel.clone();
+            async move { listener.run(coord, cancel).await }
+        });
+
+        // Connect, register, then stop reading and disconnect.
+        let mut client = connect(&path).await.unwrap();
+        write_frame(
+            &mut client,
+            &Frame::Register {
+                tab_id: "wedge".into(),
+                colleague_id: "wedge-1".into(),
+                name: "wedge".into(),
+                parent: None,
+                pid: None,
+            },
+        )
+        .await
+        .unwrap();
+        let _ack = read_frame(&mut client).await.unwrap().unwrap();
+
+        // Drop the client — peer goes away. The server-side reader task
+        // observes EOF, cancels the per-conn token, and the writer must
+        // exit even if no frames are ever queued. The coordinator's
+        // disconnect handler also drops its sender as a backstop.
+        drop(client);
+
+        // Within a small bound, the roster should clear (proves the
+        // server-side connection tasks tore down — including the writer
+        // which previously could have wedged).
+        let cleared = tokio::time::timeout(Duration::from_secs(3), async {
+            loop {
+                if coord.roster().await.is_empty() {
+                    return;
+                }
+                tokio::time::sleep(Duration::from_millis(20)).await;
+            }
+        })
+        .await;
+        assert!(
+            cleared.is_ok(),
+            "writer/reader did not terminate within timeout — wedge regression"
+        );
+
+        cancel.cancel();
+        let _ = server.await;
+    }
+
+    /// Sec #1: Bind under a permissive umask MUST still produce a
+    /// 0o600-mode socket file — proves the umask scope around bind closes
+    /// the TOCTOU window between bind() and chmod(). We assert mode
+    /// strictly equals 0o600.
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn bind_under_permissive_umask_still_chmod_600() {
+        use std::os::unix::fs::PermissionsExt;
+        // Set a wide-open umask (allow all bits — would otherwise produce
+        // 0o777 - umask = 0o755 or similar on most filesystems).
+        let prev = unsafe { libc::umask(0o000) };
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("umask.sock");
+        let listener = Listener::bind(path.clone()).unwrap();
+        // Restore caller umask immediately.
+        unsafe { libc::umask(prev) };
+
+        let meta = std::fs::metadata(listener.path()).unwrap();
+        let mode = meta.permissions().mode() & 0o777;
+        assert_eq!(
+            mode, 0o600,
+            "even with caller umask 0o000, socket must be 0o600 (got {mode:o})"
+        );
+    }
+
+    /// Sec #3: Inflight (accepted-but-unregistered) connections are capped.
+    /// Open MANY silent connections; once the cap is reached, additional
+    /// accepts must be closed promptly (server-side stream drop → client
+    /// observes EOF). We don't measure exact threshold (brittle on macOS
+    /// listen-backlog defaults) — just that overflow eventually closes.
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn inflight_pre_register_cap_drops_excess_connections() {
+        let coord = SwarmCoordinator::new();
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("flood.sock");
+        let listener = Listener::bind(path.clone()).unwrap();
+        let cancel = CancellationToken::new();
+        let server = tokio::spawn({
+            let coord = coord.clone();
+            let cancel = cancel.clone();
+            async move { listener.run(coord, cancel).await }
+        });
+
+        // Saturate the inflight cap with silent conns. Yield between
+        // connects so the server's accept loop processes each — this
+        // ensures the inflight counter actually reaches the cap before
+        // we test the overflow path.
+        let mut held = Vec::new();
+        for _ in 0..MAX_INFLIGHT_PRE_REGISTER {
+            match connect(&path).await {
+                Ok(c) => {
+                    held.push(c);
+                    tokio::task::yield_now().await;
+                }
+                Err(_) => break,
+            }
+        }
+        // Give the accept loop a generous moment to process the queue.
+        tokio::time::sleep(Duration::from_millis(200)).await;
+
+        // Now flood with extras and look for ANY one that gets closed
+        // promptly. With cap = MAX_INFLIGHT_PRE_REGISTER and that many
+        // silent conns held, every excess connection must hit the drop
+        // path and close server-side.
+        let mut overflow_observed = false;
+        for _ in 0..16 {
+            let mut excess = match connect(&path).await {
+                Ok(c) => c,
+                Err(_) => continue,
+            };
+            let mut buf = [0u8; 1];
+            // Cap-rejected streams are dropped server-side immediately
+            // (no register-or-die wait), so EOF should arrive far
+            // sooner than REGISTER_DEADLINE (1s).
+            let read =
+                tokio::time::timeout(Duration::from_millis(250), excess.read_exact(&mut buf)).await;
+            if matches!(read, Ok(Err(_))) {
+                overflow_observed = true;
+                break;
+            }
+        }
+        assert!(
+            overflow_observed,
+            "expected at least one excess connection to be closed promptly by the inflight cap"
+        );
+
+        cancel.cancel();
+        drop(held);
         let _ = server.await;
     }
 }

@@ -57,18 +57,27 @@ pub enum Frame {
     /// client → server. Unread-worthy event surfaced in the Cmd+J inbox.
     Notify {
         colleague_id: String,
+        /// Defaults to [`Severity::Normal`] when omitted by the client (FR-015).
+        #[serde(default)]
         severity: Severity,
+        /// @privacy Tier-2 PII — never log, never persist, never forward to telemetry.
+        /// May contain user prompts, secrets, or session content. See PRI-001/002.
         message: String,
     },
     /// client → server. Cross-colleague routed message.
     SendTo {
         from: String,
         to: String,
+        /// @privacy Tier-2 PII — never log, never persist, never forward to telemetry.
+        /// Opaque payload routed between colleagues; may contain user prompts or secrets.
+        /// See PRI-001/002.
         payload: serde_json::Value,
     },
     /// server → client. Delivered cross-colleague message.
     RecvFrom {
         from: String,
+        /// @privacy Tier-2 PII — never log, never persist, never forward to telemetry.
+        /// See PRI-001/002.
         payload: serde_json::Value,
     },
     /// bidirectional. Clean shutdown. The coordinator emits this when it
@@ -88,8 +97,16 @@ pub enum FrameError {
     Io(#[from] io::Error),
     #[error("frame too large: {0} bytes (max {})", MAX_FRAME_BYTES)]
     TooLarge(u32),
+    /// Length prefix is structurally invalid (currently: zero). Distinct from
+    /// [`FrameError::TooLarge`] so callers can treat protocol-violation vs
+    /// resource-exhaustion separately in metrics/logs.
+    #[error("invalid frame length: {0}")]
+    InvalidLength(u32),
     #[error("invalid utf-8 in frame body")]
     InvalidUtf8,
+    // NOTE: serde_json::Error::Display does not echo input bytes. If the parser
+    // is swapped (e.g., simd-json), audit before logging this variant — the
+    // wire payload may carry user prompts / secrets (PRI-002).
     #[error("invalid json: {0}")]
     Json(#[from] serde_json::Error),
 }
@@ -110,7 +127,10 @@ where
         Err(e) => return Err(e.into()),
     }
     let len = u32::from_be_bytes(len_buf);
-    if len == 0 || len > MAX_FRAME_BYTES {
+    if len == 0 {
+        return Err(FrameError::InvalidLength(len));
+    }
+    if len > MAX_FRAME_BYTES {
         return Err(FrameError::TooLarge(len));
     }
     let mut body = vec![0u8; len as usize];
@@ -202,7 +222,37 @@ mod tests {
         a.write_all(&[0, 0, 0, 0]).await.unwrap();
         a.flush().await.unwrap();
         let err = read_frame(&mut b).await.unwrap_err();
-        assert!(matches!(err, FrameError::TooLarge(0)));
+        assert!(
+            matches!(err, FrameError::InvalidLength(0)),
+            "expected InvalidLength(0), got {err:?}"
+        );
+    }
+
+    /// FR-015: clients may omit `severity` in a `notify` frame; the decoder
+    /// must default it to `Severity::Normal` rather than reject the frame.
+    #[tokio::test]
+    async fn notify_severity_defaults_to_normal_when_omitted() {
+        let (mut a, mut b) = duplex(256);
+        let body = br#"{"type":"notify","colleague_id":"x","message":"hi"}"#;
+        let len = (body.len() as u32).to_be_bytes();
+        a.write_all(&len).await.unwrap();
+        a.write_all(body).await.unwrap();
+        a.flush().await.unwrap();
+        let frame = read_frame(&mut b).await.unwrap().unwrap();
+        match frame {
+            Frame::Notify {
+                severity, message, ..
+            } => {
+                assert_eq!(severity, Severity::Normal);
+                assert_eq!(message, "hi");
+            }
+            other => panic!("expected Notify, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn severity_default_is_normal() {
+        assert_eq!(Severity::default(), Severity::Normal);
     }
 
     #[tokio::test]
