@@ -40,6 +40,10 @@ import {
 import { pasteToTerminal, createPasteGuard } from "./pasteHelper";
 import { createOscParser } from "../../lib/terminal/oscParser";
 import { useCommandBlockStore } from "../../stores/commandBlockStore";
+import {
+  navigateToPreviousPrompt,
+  navigateToNextPrompt,
+} from "./usePromptNavigation";
 
 interface UseTerminalOptions {
   /** UUID v4 session identifier from pty_spawn. */
@@ -546,12 +550,43 @@ export function useTerminal({
     });
 
     // Keyboard shortcuts: Cmd/Ctrl+C/V/A (copy/paste/select-all),
-    // Ctrl+Shift+H (highlight), Ctrl+Plus/Minus/0 (font zoom)
+    // Ctrl+Shift+H (highlight), Ctrl+Plus/Minus/0 (font zoom),
+    // Cmd/Ctrl+↑/↓ (prompt navigation)
+    //
+    // IMPORTANT: xterm.js only supports ONE custom key handler at a time
+    // (attachCustomKeyEventHandler is a setter, not additive). ALL keyboard
+    // shortcut logic MUST live in this single handler.
     terminal.attachCustomKeyEventHandler((event: KeyboardEvent) => {
       if (event.type !== "keydown") return true;
 
       const isMod = event.metaKey || event.ctrlKey;
       const key = event.key.toLowerCase();
+
+      // Cmd+↑ / Ctrl+↑ — jump to previous prompt
+      if (isMod && event.key === "ArrowUp") {
+        const target = navigateToPreviousPrompt(
+          sessionId,
+          terminal.buffer.active.viewportY,
+        );
+        if (target !== null) {
+          terminal.scrollToLine(target);
+        }
+        event.preventDefault();
+        return false;
+      }
+
+      // Cmd+↓ / Ctrl+↓ — jump to next prompt
+      if (isMod && event.key === "ArrowDown") {
+        const target = navigateToNextPrompt(
+          sessionId,
+          terminal.buffer.active.viewportY,
+        );
+        if (target !== null) {
+          terminal.scrollToLine(target);
+        }
+        event.preventDefault();
+        return false;
+      }
 
       // Cmd+C / Ctrl+C — copy selection (if any), otherwise send SIGINT
       if (isMod && !event.shiftKey && (key === "c" || event.code === "KeyC")) {

@@ -28,10 +28,6 @@ import { useSettingsStore } from "../../stores/settingsStore";
 import { useThemeStore } from "../../stores/themeStore";
 import { CommandGutter } from "./CommandGutter";
 import { CommandBlockContextMenu } from "./CommandBlockContextMenu";
-import {
-  navigateToPreviousPrompt,
-  navigateToNextPrompt,
-} from "./usePromptNavigation";
 import type { CommandBlock } from "../../stores/commandBlockStore";
 import type { GetBufferLine } from "./bufferUtils";
 import "@xterm/xterm/css/xterm.css";
@@ -151,6 +147,7 @@ export function TerminalView({
   // ── Gutter state: viewport scroll + cell height ──────────────────────
   const [viewportTop, setViewportTop] = useState(0);
   const [cellHeight, setCellHeight] = useState(17); // sensible default
+  const [rows, setRows] = useState(terminalInstance?.rows ?? 24);
   const [contextMenu, setContextMenu] = useState<{
     block: CommandBlock;
     position: { x: number; y: number };
@@ -179,9 +176,10 @@ export function TerminalView({
       setViewportTop(term.buffer.active.viewportY);
     });
 
-    // Re-measure on resize
-    const resizeDisposable = term.onResize(() => {
+    // Re-measure on resize and update row count
+    const resizeDisposable = term.onResize(({ rows: newRows }) => {
       measureCellHeight();
+      setRows(newRows);
     });
 
     return () => {
@@ -189,46 +187,6 @@ export function TerminalView({
       resizeDisposable.dispose();
     };
   }, [terminalInstance]);
-
-  // ── Prompt navigation: Cmd+↑/↓ ──────────────────────────────────────
-  useEffect(() => {
-    const term = terminalInstance;
-    if (!term) return;
-
-    // attachCustomKeyEventHandler returns void — the handler is registered
-    // for the lifetime of the terminal. This is fine because the terminal
-    // instance is disposed when the component unmounts.
-    term.attachCustomKeyEventHandler((event: KeyboardEvent): boolean => {
-      const isModifier = event.metaKey || event.ctrlKey;
-      if (!isModifier || event.type !== "keydown") return true;
-
-      if (event.key === "ArrowUp") {
-        const target = navigateToPreviousPrompt(
-          sessionId,
-          term.buffer.active.viewportY,
-        );
-        if (target !== null) {
-          term.scrollToLine(target);
-          setViewportTop(target);
-        }
-        event.preventDefault();
-        return false; // prevent xterm from processing the key
-      }
-      if (event.key === "ArrowDown") {
-        const target = navigateToNextPrompt(
-          sessionId,
-          term.buffer.active.viewportY,
-        );
-        if (target !== null) {
-          term.scrollToLine(target);
-          setViewportTop(target);
-        }
-        event.preventDefault();
-        return false;
-      }
-      return true; // let other keys through
-    });
-  }, [terminalInstance, sessionId]);
 
   // ── Context menu handlers ────────────────────────────────────────────
   const handleDotContextMenu = useCallback(
@@ -321,7 +279,7 @@ export function TerminalView({
         sessionId={sessionId}
         cellHeight={cellHeight}
         viewportTop={viewportTop}
-        rows={terminalInstance?.rows ?? 24}
+        rows={rows}
         onDotContextMenu={handleDotContextMenu}
       />
       {contextMenu && (
