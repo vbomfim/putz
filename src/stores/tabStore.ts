@@ -51,41 +51,42 @@ async function checkPerfEnabled(): Promise<boolean> {
 }
 
 /**
- * Records frontend-side spawn timing when PUTZ_PERF is enabled.
+ * Records backend-measured spawn timing when PUTZ_PERF is enabled.
  *
- * Measures the time from before the pty_spawn IPC call to the first
- * pty-output event arriving in the frontend. This captures the full
- * round-trip including IPC overhead.
- *
- * Uses setTimeout(0) to avoid interfering with the synchronous
- * control flow of mock invoke values in tests.
+ * Listens for a single `pty-perf` event emitted by the Rust reader thread
+ * when the first byte arrives on the PTY. This eliminates the frontend-
+ * listener race condition (Fix 1, PR #118) — the backend captures the
+ * timing precisely, and the frontend just logs it.
  *
  * Guarded by perf_enabled IPC check — no-op in production.
  */
-function recordSpawnTiming(sessionId: string, t0: number): void {
-  // Defer entirely so the perf_enabled check never consumes
-  // a mocked invoke value that a test set up for pty_spawn
-  setTimeout(async () => {
+function recordSpawnTiming(sessionId: string, _t0: number): void {
+  // Fire-and-forget async — perf instrumentation must never break tab creation
+  void (async () => {
     try {
       if (!(await checkPerfEnabled())) return;
 
-      const unlisten = await listen<string>(
-        `pty-output-${sessionId}`,
-        () => {
-          const t1 = performance.now();
-          const durationMs = t1 - t0;
-          const platform = navigator.platform;
-          invoke("perf_log", {
-            line: `frontend_spawn session=${sessionId.slice(0, 8)} ipc_roundtrip_ms=${durationMs.toFixed(2)} platform=${platform}`,
-          }).catch(() => {});
-          // One-shot: unlisten after first output
-          unlisten();
-        },
-      );
+      const unlisten = await listen<{
+        sessionId: string;
+        shell: string;
+        validationMs: number;
+        openptyMs: number;
+        spawnToReadyMs: number;
+        spawnToFirstByteMs: number;
+      }>("pty-perf", (event) => {
+        if (event.payload.sessionId !== sessionId) return;
+
+        const p = event.payload;
+        invoke("perf_log", {
+          line: `frontend_pty_perf session=${sessionId.slice(0, 8)} shell=${p.shell} spawn_to_first_byte_ms=${p.spawnToFirstByteMs.toFixed(2)} platform=${navigator.platform}`,
+        }).catch(() => {});
+        // One-shot: unlisten after matching event
+        unlisten();
+      });
     } catch {
       // Perf instrumentation must never break tab creation
     }
-  }, 0);
+  })();
 }
 
 /** Closes a PTY session via Tauri IPC (fire-and-forget). */

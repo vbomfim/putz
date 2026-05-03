@@ -23,12 +23,22 @@ const READ_BUFFER_SIZE: usize = 4096;
 /// Timeout for waiting for first byte (seconds).
 const FIRST_BYTE_TIMEOUT_SECS: u64 = 10;
 
-/// Single spawn timing measurement.
+/// Single spawn timing measurement with aligned subspans.
+///
+/// Subspans are aligned with `pty/manager.rs` (see Fix 3 / PR #118):
+///   - `t_validation_done` — after shell allowlist + arg validation
+///   - `t_openpty_done`    — after `openpty()` returns
+///   - `t_spawn_done`      — after `spawn_command()` returns
+///   - `t_first_byte`      — when reader sees first non-zero buffer
 #[derive(Clone)]
 struct SpawnSample {
-    /// Time from spawn start to command spawned (ms).
+    /// Time from start to validation done (ms).
+    validation_ms: f64,
+    /// Time from start to openpty done (ms).
+    openpty_ms: f64,
+    /// Time from start to command spawned (ms).
     spawn_to_ready_ms: f64,
-    /// Time from spawn start to first byte read (ms).
+    /// Time from start to first byte read (ms).
     spawn_to_first_byte_ms: f64,
 }
 
@@ -89,6 +99,10 @@ fn default_shell() -> String {
     }
 }
 
+// TODO(#121): Extract shared spawn_pty_raw helper between manager.rs
+// and measure_spawn.rs — see Fix 7 / PR #118. The PTY spawn logic here
+// intentionally duplicates manager.rs to keep the measurement binary
+// self-contained and free of Tauri dependencies.
 fn measure_single_spawn(shell: &str, login_shell: bool) -> Result<SpawnSample, String> {
     let pty_system = native_pty_system();
 
@@ -99,11 +113,18 @@ fn measure_single_spawn(shell: &str, login_shell: bool) -> Result<SpawnSample, S
         pixel_height: 0,
     };
 
-    let t_spawn_start = Instant::now();
+    // Subspan: t0 — measurement starts here (aligned with manager.rs t_spawn_start)
+    let t_start = Instant::now();
+
+    // Subspan: validation. measure_spawn has no allowlist validation,
+    // so this is effectively instant. Captured for subspan alignment.
+    let t_validation_done = Instant::now();
 
     let pair = pty_system
         .openpty(size)
         .map_err(|e| format!("openpty failed: {e}"))?;
+
+    let t_openpty_done = Instant::now();
 
     let mut cmd = CommandBuilder::new(shell);
 
@@ -148,27 +169,50 @@ fn measure_single_spawn(shell: &str, login_shell: bool) -> Result<SpawnSample, S
     });
 
     let timeout = std::time::Duration::from_secs(FIRST_BYTE_TIMEOUT_SECS);
-    let first_byte_result = rx
-        .recv_timeout(timeout)
-        .map_err(|_| "timeout waiting for first byte".to_string())?;
 
-    let t_first_read = Instant::now();
+    // RAII cleanup (Fix 4 / PR #118): helper closure ensures child is
+    // killed+waited on ALL exit paths (timeout, read error, EOF).
+    // Without this, failed samples leak shell processes that contaminate
+    // subsequent measurements via CPU contention and fd pressure.
+    let mut cleanup = || {
+        let _ = child.kill();
+        let _ = child.wait();
+    };
+
+    let first_byte_result = match rx.recv_timeout(timeout) {
+        Ok(result) => result,
+        Err(_) => {
+            cleanup();
+            return Err("timeout waiting for first byte".to_string());
+        }
+    };
+
+    let t_first_byte = Instant::now();
 
     // Check if we got data
     match first_byte_result {
         Ok(n) if n > 0 => { /* success — got first byte */ }
-        Ok(_) => return Err("PTY returned EOF before first byte".to_string()),
-        Err(e) => return Err(format!("read error: {e}")),
+        Ok(_) => {
+            cleanup();
+            return Err("PTY returned EOF before first byte".to_string());
+        }
+        Err(e) => {
+            cleanup();
+            return Err(format!("read error: {e}"));
+        }
     }
 
-    // Clean up: kill the child process
-    let _ = child.kill();
-    let _ = child.wait();
+    // Clean up: kill the child process (success path)
+    cleanup();
 
-    let spawn_to_ready_ms = t_pty_ready.duration_since(t_spawn_start).as_secs_f64() * 1000.0;
-    let spawn_to_first_byte_ms = t_first_read.duration_since(t_spawn_start).as_secs_f64() * 1000.0;
+    let validation_ms = t_validation_done.duration_since(t_start).as_secs_f64() * 1000.0;
+    let openpty_ms = t_openpty_done.duration_since(t_start).as_secs_f64() * 1000.0;
+    let spawn_to_ready_ms = t_pty_ready.duration_since(t_start).as_secs_f64() * 1000.0;
+    let spawn_to_first_byte_ms = t_first_byte.duration_since(t_start).as_secs_f64() * 1000.0;
 
     Ok(SpawnSample {
+        validation_ms,
+        openpty_ms,
         spawn_to_ready_ms,
         spawn_to_first_byte_ms,
     })
@@ -186,18 +230,22 @@ fn main() {
         match args[i].as_str() {
             "--samples" | "-n" => {
                 i += 1;
-                if i < args.len() {
-                    samples_count = args[i].parse().unwrap_or_else(|_| {
-                        eprintln!("Invalid sample count: {}", args[i]);
-                        std::process::exit(1);
-                    });
+                if i >= args.len() {
+                    eprintln!("error: --samples requires a value");
+                    std::process::exit(2);
                 }
+                samples_count = args[i].parse().unwrap_or_else(|_| {
+                    eprintln!("Invalid sample count: {}", args[i]);
+                    std::process::exit(1);
+                });
             }
             "--shell" | "-s" => {
                 i += 1;
-                if i < args.len() {
-                    shell = args[i].clone();
+                if i >= args.len() {
+                    eprintln!("error: --shell requires a value");
+                    std::process::exit(2);
                 }
+                shell = args[i].clone();
             }
             "--login" | "-l" => {
                 login_shell = true;
@@ -207,6 +255,9 @@ fn main() {
                 eprintln!("  --samples, -n  Number of spawn cycles (default: 20)");
                 eprintln!("  --shell, -s    Shell to spawn (default: $SHELL or /bin/sh)");
                 eprintln!("  --login, -l    Spawn as login shell (-l flag, matches main app)");
+                eprintln!("                 WARNING: login-shell measurement may hang if shell");
+                eprintln!("                 profiles wait for TTY input. Baseline numbers use");
+                eprintln!("                 non-login mode for reproducibility.");
                 std::process::exit(0);
             }
             other => {
@@ -217,8 +268,15 @@ fn main() {
         i += 1;
     }
 
+    // Extract shell basename for privacy-safe logging (Fix 5 / PR #118)
+    let shell_basename = std::path::Path::new(&shell)
+        .file_name()
+        .and_then(|n| n.to_str())
+        .unwrap_or("unknown")
+        .to_string();
+
     eprintln!(
-        "Measuring PTY spawn time: shell={shell}, samples={samples_count}, login={login_shell}"
+        "Measuring PTY spawn time: shell={shell_basename}, samples={samples_count}, login={login_shell}"
     );
 
     let mut samples: Vec<SpawnSample> = Vec::with_capacity(samples_count);
@@ -279,11 +337,13 @@ fn main() {
 
     let now = chrono::Utc::now().to_rfc3339();
 
-    // Build JSON output
+    // Build JSON output — includes aligned subspans (Fix 3 / PR #118)
     let samples_json: Vec<serde_json::Value> = samples
         .iter()
         .map(|s| {
             serde_json::json!({
+                "validationMs": round2(s.validation_ms),
+                "openptyMs": round2(s.openpty_ms),
                 "spawnToReadyMs": round2(s.spawn_to_ready_ms),
                 "spawnToFirstByteMs": round2(s.spawn_to_first_byte_ms),
             })
@@ -294,10 +354,10 @@ fn main() {
         "platform": platform,
         "arch": arch,
         "osVersion": os_version,
-        "shell": shell,
+        "shell": shell_basename,
         "shellVersion": shell_version,
         "loginShell": login_shell,
-        "putzVersion": "0.4.0",
+        "putzVersion": env!("CARGO_PKG_VERSION"),
         "capturedAt": now,
         "sampleCount": samples.len(),
         "errors": errors,
