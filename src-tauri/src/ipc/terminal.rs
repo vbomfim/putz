@@ -103,6 +103,9 @@ pub fn pty_close(state: State<'_, PtyManager>, session_id: String) -> Result<(),
 }
 
 /// Gets the current working directory of a PTY session's shell process.
+///
+/// TODO(#119): migrate frontend callers to subscribe to cwdRegistry / OSC 7 events,
+/// then delete this IPC. See https://github.com/vbomfim/putz/issues/119
 #[tauri::command]
 pub fn pty_cwd(state: State<'_, PtyManager>, session_id: String) -> Result<String, String> {
     let t0 = std::time::Instant::now();
@@ -116,15 +119,6 @@ pub fn pty_cwd(state: State<'_, PtyManager>, session_id: String) -> Result<Strin
         ));
     }
     result
-}
-
-/// Strict variant of `pty_cwd` — returns Err instead of falling back to
-/// USERPROFILE when the PEB read fails on Windows. Callers that record the
-/// cwd for later use (cwd registry) should prefer this to avoid polluting
-/// history with stale/fallback values.
-#[tauri::command]
-pub fn pty_cwd_strict(state: State<'_, PtyManager>, session_id: String) -> Result<String, String> {
-    state.get_cwd_strict(&session_id).map_err(|e| e.to_string())
 }
 
 /// Lists available shells on the system.
