@@ -1,6 +1,6 @@
 {
   "arch": "aarch64",
-  "capturedAt": "2026-05-03T01:20:30.362041+00:00",
+  "capturedAt": "2026-05-03T01:59:53.852297+00:00",
   "errors": 0,
   "loginShell": false,
   "osVersion": "26.4.1",
@@ -9,106 +9,146 @@
   "sampleCount": 20,
   "samples": [
     {
-      "spawnToFirstByteMs": 20.07,
-      "spawnToReadyMs": 4.18
+      "openptyMs": 0.52,
+      "spawnToFirstByteMs": 14.49,
+      "spawnToReadyMs": 2.66,
+      "validationMs": 0.0
     },
     {
-      "spawnToFirstByteMs": 26.53,
-      "spawnToReadyMs": 5.32
+      "openptyMs": 1.37,
+      "spawnToFirstByteMs": 28.1,
+      "spawnToReadyMs": 3.55,
+      "validationMs": 0.0
     },
     {
-      "spawnToFirstByteMs": 27.11,
-      "spawnToReadyMs": 4.54
+      "openptyMs": 1.52,
+      "spawnToFirstByteMs": 24.88,
+      "spawnToReadyMs": 3.7,
+      "validationMs": 0.0
     },
     {
-      "spawnToFirstByteMs": 13.04,
-      "spawnToReadyMs": 1.38
+      "openptyMs": 0.67,
+      "spawnToFirstByteMs": 14.94,
+      "spawnToReadyMs": 1.47,
+      "validationMs": 0.0
     },
     {
-      "spawnToFirstByteMs": 13.63,
-      "spawnToReadyMs": 1.31
+      "openptyMs": 1.39,
+      "spawnToFirstByteMs": 26.21,
+      "spawnToReadyMs": 4.08,
+      "validationMs": 0.0
     },
     {
-      "spawnToFirstByteMs": 14.32,
-      "spawnToReadyMs": 1.49
+      "openptyMs": 1.78,
+      "spawnToFirstByteMs": 27.19,
+      "spawnToReadyMs": 4.87,
+      "validationMs": 0.0
     },
     {
-      "spawnToFirstByteMs": 11.23,
-      "spawnToReadyMs": 1.3
+      "openptyMs": 1.55,
+      "spawnToFirstByteMs": 28.23,
+      "spawnToReadyMs": 4.23,
+      "validationMs": 0.0
     },
     {
-      "spawnToFirstByteMs": 12.92,
-      "spawnToReadyMs": 1.41
+      "openptyMs": 1.58,
+      "spawnToFirstByteMs": 27.53,
+      "spawnToReadyMs": 4.49,
+      "validationMs": 0.0
     },
     {
-      "spawnToFirstByteMs": 22.39,
-      "spawnToReadyMs": 2.76
+      "openptyMs": 1.56,
+      "spawnToFirstByteMs": 27.08,
+      "spawnToReadyMs": 4.31,
+      "validationMs": 0.0
     },
     {
-      "spawnToFirstByteMs": 12.27,
-      "spawnToReadyMs": 1.26
+      "openptyMs": 1.22,
+      "spawnToFirstByteMs": 26.23,
+      "spawnToReadyMs": 3.3,
+      "validationMs": 0.0
     },
     {
-      "spawnToFirstByteMs": 31.01,
-      "spawnToReadyMs": 5.02
+      "openptyMs": 0.73,
+      "spawnToFirstByteMs": 15.02,
+      "spawnToReadyMs": 1.53,
+      "validationMs": 0.0
     },
     {
-      "spawnToFirstByteMs": 17.75,
-      "spawnToReadyMs": 2.05
+      "openptyMs": 1.12,
+      "spawnToFirstByteMs": 22.65,
+      "spawnToReadyMs": 2.72,
+      "validationMs": 0.0
     },
     {
-      "spawnToFirstByteMs": 26.61,
-      "spawnToReadyMs": 3.58
+      "openptyMs": 1.64,
+      "spawnToFirstByteMs": 28.46,
+      "spawnToReadyMs": 4.78,
+      "validationMs": 0.0
     },
     {
-      "spawnToFirstByteMs": 27.8,
-      "spawnToReadyMs": 4.43
+      "openptyMs": 1.56,
+      "spawnToFirstByteMs": 27.78,
+      "spawnToReadyMs": 4.44,
+      "validationMs": 0.0
     },
     {
-      "spawnToFirstByteMs": 22.43,
-      "spawnToReadyMs": 2.8
+      "openptyMs": 1.74,
+      "spawnToFirstByteMs": 30.74,
+      "spawnToReadyMs": 4.8,
+      "validationMs": 0.0
     },
     {
-      "spawnToFirstByteMs": 25.54,
-      "spawnToReadyMs": 3.84
+      "openptyMs": 1.55,
+      "spawnToFirstByteMs": 28.96,
+      "spawnToReadyMs": 4.31,
+      "validationMs": 0.0
     },
     {
-      "spawnToFirstByteMs": 27.51,
-      "spawnToReadyMs": 4.27
+      "openptyMs": 1.76,
+      "spawnToFirstByteMs": 30.77,
+      "spawnToReadyMs": 4.72,
+      "validationMs": 0.0
     },
     {
-      "spawnToFirstByteMs": 31.62,
-      "spawnToReadyMs": 4.98
+      "openptyMs": 1.72,
+      "spawnToFirstByteMs": 28.68,
+      "spawnToReadyMs": 4.72,
+      "validationMs": 0.0
     },
     {
-      "spawnToFirstByteMs": 29.62,
-      "spawnToReadyMs": 4.76
+      "openptyMs": 1.09,
+      "spawnToFirstByteMs": 23.07,
+      "spawnToReadyMs": 2.6,
+      "validationMs": 0.0
     },
     {
-      "spawnToFirstByteMs": 14.76,
-      "spawnToReadyMs": 1.41
+      "openptyMs": 1.07,
+      "spawnToFirstByteMs": 21.99,
+      "spawnToReadyMs": 2.61,
+      "validationMs": 0.0
     }
   ],
-  "shell": "/bin/zsh",
+  "shell": "zsh",
   "shellVersion": "zsh 5.9 (arm64-apple-darwin25.0)",
   "stats": {
     "spawnToFirstByte": {
-      "max": 31.62,
-      "mean": 21.41,
-      "min": 11.23,
-      "p50": 22.41,
-      "p95": 31.04,
-      "p99": 31.51,
-      "stddev": 6.88
+      "max": 30.77,
+      "mean": 25.15,
+      "min": 14.49,
+      "p50": 27.13,
+      "p95": 30.74,
+      "p99": 30.76,
+      "stddev": 4.92
     },
     "spawnToReady": {
-      "max": 5.32,
-      "mean": 3.11,
-      "min": 1.26,
-      "p50": 3.19,
-      "p95": 5.04,
-      "p99": 5.27,
-      "stddev": 1.49
+      "max": 4.87,
+      "mean": 3.69,
+      "min": 1.47,
+      "p50": 4.15,
+      "p95": 4.8,
+      "p99": 4.85,
+      "stddev": 1.06
     }
   }
 }
