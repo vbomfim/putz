@@ -627,10 +627,11 @@ export function TerminalBackground({
       style={{
         position: "absolute",
         inset: 0,
-        zIndex: 10,
+        zIndex: 0,
         opacity,
         pointerEvents: "none",
       }}
+      data-testid="terminal-background-canvas"
     />
   );
 }

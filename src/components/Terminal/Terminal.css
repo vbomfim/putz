@@ -24,6 +24,10 @@
   min-height: 0;
   overflow: hidden;
   padding: 4px;
+  /* Stack above the animated background canvas (z-index: 0).
+     Without this, the canvas with z-index: 10 sat over the shell content. */
+  position: relative;
+  z-index: 1;
 }
 
 /* Ensure xterm.js terminal fills its container */
