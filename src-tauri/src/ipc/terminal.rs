@@ -21,8 +21,9 @@ use crate::pty::PtyError;
 /// Returns the UUID session ID that identifies this session for
 /// all subsequent operations (write, resize, close).
 ///
-/// If the swarm broker is enabled, injects `PUTZ_SWARM_URL`,
-/// `PUTZ_SWARM_TOKEN`, and `PUTZ_TAB_ID` env vars into the session.
+/// If the swarm is enabled, injects `PUTZ_SWARM_PATH` and `PUTZ_TAB_ID`
+/// env vars into the session. (Replaces the prior `PUTZ_SWARM_URL` /
+/// `PUTZ_SWARM_TOKEN` pair — auth is now OS file permissions.)
 #[tauri::command]
 #[allow(clippy::too_many_arguments)]
 pub async fn pty_spawn(

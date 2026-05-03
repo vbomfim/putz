@@ -36,11 +36,12 @@ tauri-plugin-dialog = "2.7.0"
 reqwest = { version = "0.13.2", features = ["stream", "json"] }
 urlencoding = "2.1.3"
 futures-util = "0.3.32"
-axum = "0.7"
 tokio-util = "0.7"
-async-stream = "0.3"
 getrandom = "0.3"
-subtle = "2"
+# T1 (#140): cross-platform local IPC (Unix socket / Windows named pipe).
+# `tokio` feature enables the async LocalSocketListener API used by swarm::socket.
+interprocess = { version = "2", features = ["tokio"] }
+thiserror = "1"
 
 [target."cfg(unix)".dependencies]
 libc = "0.2"
