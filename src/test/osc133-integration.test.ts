@@ -58,9 +58,7 @@ async function feedAndCollect(
 
   return {
     events,
-    osc133Events: events.filter(
-      (e): e is Osc133Event => e.kind === "osc-133",
-    ),
+    osc133Events: events.filter((e): e is Osc133Event => e.kind === "osc-133"),
   };
 }
 
@@ -94,9 +92,7 @@ describe("OSC 133 integration (shellCompatHarness)", () => {
       "command-end",
     ]);
 
-    const blocks = useCommandBlockStore
-      .getState()
-      .getBlocksForSession(sid);
+    const blocks = useCommandBlockStore.getState().getBlocksForSession(sid);
     expect(blocks).toHaveLength(1);
     expect(blocks[0].exitCode).toBe(0);
     expect(blocks[0].promptStart).not.toBeNull();
@@ -120,9 +116,7 @@ describe("OSC 133 integration (shellCompatHarness)", () => {
 
     await feedAndCollect(input, sid);
 
-    const blocks = useCommandBlockStore
-      .getState()
-      .getBlocksForSession(sid);
+    const blocks = useCommandBlockStore.getState().getBlocksForSession(sid);
     expect(blocks).toHaveLength(2);
     expect(blocks[0].exitCode).toBe(0);
     expect(blocks[1].exitCode).toBe(127);
@@ -142,9 +136,7 @@ describe("OSC 133 integration (shellCompatHarness)", () => {
     // No events should pass the handshake gate
     expect(osc133Events).toHaveLength(0);
 
-    const blocks = useCommandBlockStore
-      .getState()
-      .getBlocksForSession(sid);
+    const blocks = useCommandBlockStore.getState().getBlocksForSession(sid);
     expect(blocks).toHaveLength(0);
   });
 
@@ -161,15 +153,11 @@ describe("OSC 133 integration (shellCompatHarness)", () => {
 
     await feedAndCollect(input, sid);
 
-    const blocks = useCommandBlockStore
-      .getState()
-      .getBlocksForSession(sid);
+    const blocks = useCommandBlockStore.getState().getBlocksForSession(sid);
     expect(blocks).toHaveLength(1);
 
     // Handshake flag should be set
-    expect(
-      useCommandBlockStore.getState().isSessionHandshaked(sid),
-    ).toBe(true);
+    expect(useCommandBlockStore.getState().isSessionHandshaked(sid)).toBe(true);
   });
 
   it("exit code propagation through full pipeline", async () => {
@@ -183,9 +171,7 @@ describe("OSC 133 integration (shellCompatHarness)", () => {
 
     await feedAndCollect(input, sid);
 
-    const blocks = useCommandBlockStore
-      .getState()
-      .getBlocksForSession(sid);
+    const blocks = useCommandBlockStore.getState().getBlocksForSession(sid);
     expect(blocks[0].exitCode).toBe(42);
   });
 
@@ -200,9 +186,7 @@ describe("OSC 133 integration (shellCompatHarness)", () => {
 
     await feedAndCollect(input, sid);
 
-    const blocks = useCommandBlockStore
-      .getState()
-      .getBlocksForSession(sid);
+    const blocks = useCommandBlockStore.getState().getBlocksForSession(sid);
     expect(blocks[0].exitCode).toBeNull();
   });
 
@@ -225,9 +209,7 @@ describe("OSC 133 integration (shellCompatHarness)", () => {
     expect(cwdEvents).toHaveLength(2); // two OSC 7
     expect(osc133).toHaveLength(5); // handshake + A + B + C + D
 
-    const blocks = useCommandBlockStore
-      .getState()
-      .getBlocksForSession(sid);
+    const blocks = useCommandBlockStore.getState().getBlocksForSession(sid);
     expect(blocks).toHaveLength(1);
   });
 
@@ -250,9 +232,7 @@ describe("OSC 133 integration (shellCompatHarness)", () => {
       expect(event.cell.col).toBeGreaterThanOrEqual(0);
     }
 
-    const blocks = useCommandBlockStore
-      .getState()
-      .getBlocksForSession(sid);
+    const blocks = useCommandBlockStore.getState().getBlocksForSession(sid);
     expect(blocks[0].promptStart).not.toBeNull();
 
     // Output-start should be after command text; command-end after output lines
@@ -265,14 +245,10 @@ describe("OSC 133 integration (shellCompatHarness)", () => {
 
   it("independent sessions do not interfere", async () => {
     const input1 =
-      `\x1b]133;P;putz=1${BEL}` +
-      `\x1b]133;A${BEL}$ ` +
-      `\x1b]133;D;0${BEL}`;
+      `\x1b]133;P;putz=1${BEL}` + `\x1b]133;A${BEL}$ ` + `\x1b]133;D;0${BEL}`;
 
     const input2 =
-      `\x1b]133;P;putz=1${BEL}` +
-      `\x1b]133;A${BEL}$ ` +
-      `\x1b]133;D;1${BEL}`;
+      `\x1b]133;P;putz=1${BEL}` + `\x1b]133;A${BEL}$ ` + `\x1b]133;D;1${BEL}`;
 
     await feedAndCollect(input1, "int-sess-a");
     await feedAndCollect(input2, "int-sess-b");

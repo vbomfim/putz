@@ -229,17 +229,15 @@ describe("CommandBlockStore", () => {
     ingest(makeEvent(sid, "command-end", { row: 1, col: 0 }, 0));
 
     expect(blocks(sid)).toHaveLength(1);
-    expect(
-      useCommandBlockStore.getState().isSessionHandshaked(sid),
-    ).toBe(true);
+    expect(useCommandBlockStore.getState().isSessionHandshaked(sid)).toBe(true);
 
     useCommandBlockStore.getState().clearSession(sid);
 
     expect(blocks(sid)).toEqual([]);
     expect(activeBlock(sid)).toBeNull();
-    expect(
-      useCommandBlockStore.getState().isSessionHandshaked(sid),
-    ).toBe(false);
+    expect(useCommandBlockStore.getState().isSessionHandshaked(sid)).toBe(
+      false,
+    );
   });
 
   it("clearSession does not affect other sessions", () => {
@@ -272,15 +270,13 @@ describe("CommandBlockStore", () => {
 
   it("handshake event sets session as handshaked", () => {
     const sid = "sess-hs-track";
-    expect(
-      useCommandBlockStore.getState().isSessionHandshaked(sid),
-    ).toBe(false);
+    expect(useCommandBlockStore.getState().isSessionHandshaked(sid)).toBe(
+      false,
+    );
 
     ingest(makeEvent(sid, "handshake"));
 
-    expect(
-      useCommandBlockStore.getState().isSessionHandshaked(sid),
-    ).toBe(true);
+    expect(useCommandBlockStore.getState().isSessionHandshaked(sid)).toBe(true);
   });
 
   it("handshake does not create a block", () => {

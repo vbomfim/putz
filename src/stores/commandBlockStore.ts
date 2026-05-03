@@ -104,7 +104,7 @@ export const useCommandBlockStore = create<
     set((state) => {
       const sessions = new Map(state.sessions);
       const existing = sessions.get(event.sessionId);
-      let session: SessionBlockState = existing
+      const session: SessionBlockState = existing
         ? {
             handshaked: existing.handshaked,
             blocks: [...existing.blocks],
