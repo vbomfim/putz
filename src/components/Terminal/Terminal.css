@@ -30,6 +30,17 @@
   z-index: 1;
 }
 
+/* When the wrapper has an animated background, force xterm's viewport
+   layer to be transparent so the canvas shows through. xterm.css hardcodes
+   .xterm-viewport { background-color: #000 } which the theme.background
+   API cannot override. */
+.terminal-wrapper--bg-active .terminal-container .xterm,
+.terminal-wrapper--bg-active .terminal-container .xterm-viewport,
+.terminal-wrapper--bg-active .terminal-container .xterm-screen {
+  background: transparent !important;
+  background-color: transparent !important;
+}
+
 /* Ensure xterm.js terminal fills its container */
 .terminal-container .xterm {
   height: 100%;

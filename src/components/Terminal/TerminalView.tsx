@@ -266,7 +266,7 @@ export function TerminalView({
 
   return (
     <div
-      className={`terminal-wrapper${isBroadcastTarget ? " terminal-wrapper--broadcast-target" : ""}`}
+      className={`terminal-wrapper${isBroadcastTarget ? " terminal-wrapper--broadcast-target" : ""}${backgroundEffect !== "none" ? " terminal-wrapper--bg-active" : ""}`}
       data-testid="terminal-wrapper"
       data-session-id={sessionId}
     >
