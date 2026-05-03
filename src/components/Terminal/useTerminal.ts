@@ -36,9 +36,9 @@ import {
   recordSessionCwd,
   getSessionCwdAtLine,
   parseCwdFromTitle,
-  parseCwdFromOsc7,
 } from "./cwdRegistry";
 import { pasteToTerminal, createPasteGuard } from "./pasteHelper";
+import { createOscParser } from "../../lib/terminal/oscParser";
 
 interface UseTerminalOptions {
   /** UUID v4 session identifier from pty_spawn. */
@@ -647,36 +647,21 @@ export function useTerminal({
       }
     });
 
-    // OSC 7 — modern cwd notification (\e]7;file://hostname/path\a).
-    // macOS Terminal.app, iTerm2, GNOME Terminal, VS Code's terminal all use
-    // this. zsh on macOS sends it from /etc/zshrc via update_terminal_cwd.
-    // xterm.js does NOT surface OSC 7 via onTitleChange — register directly.
-    try {
-      terminal.parser.registerOscHandler(7, (data: string) => {
-        // data is everything after "7;" up to ST/BEL.
-        // Format: file://hostname/percent-encoded/path
-        const cwd = parseCwdFromOsc7(data);
-        if (cwd) {
+    // OSC parser — unified handler for OSC 7 (cwd) and OSC 1337 (iTerm2
+    // CurrentDir). Replaces the two inline registerOscHandler calls that
+    // were duplicating parsing logic. The parser module enforces the 8 KB
+    // payload cap, UTF-8 validation, and allowlist (only OSC 7 + 1337).
+    // See #100 and specs/modern-terminal-protocols/spec.md.
+    const oscParser = createOscParser(sessionId);
+    oscParser.attach(terminal);
+    const unsubOsc = oscParser.on((event) => {
+      if (event.kind === "cwd-updated") {
+        if (event.source === "osc-7") {
           hasReceivedOsc7 = true;
-          recordCwdAtCursor(cwd);
         }
-        return false; // let other handlers (if any) run
-      });
-    } catch {
-      // Older xterm.js versions may not expose parser.registerOscHandler
-    }
-
-    // OSC 1337 — iTerm2's CurrentDir notification (\e]1337;CurrentDir=/path\a).
-    // Used by some shell integration scripts (oh-my-zsh, iTerm2 shell integration).
-    try {
-      terminal.parser.registerOscHandler(1337, (data: string) => {
-        const m = data.match(/^CurrentDir=(.+)$/);
-        if (m) recordCwdAtCursor(m[1]);
-        return false;
-      });
-    } catch {
-      // ignore
-    }
+        recordCwdAtCursor(event.cwd);
+      }
+    });
 
     // Keyboard shortcuts: Cmd/Ctrl+C/V/A (copy/paste/select-all),
     // Ctrl+Shift+H (highlight), Ctrl+Plus/Minus/0 (font zoom)
@@ -874,6 +859,8 @@ export function useTerminal({
       highlightEngine.dispose();
       highlightEngineRef.current = null;
       pasteGuard.dispose();
+      unsubOsc();
+      oscParser.dispose();
 
       for (const unlisten of unlisteners) {
         unlisten();
