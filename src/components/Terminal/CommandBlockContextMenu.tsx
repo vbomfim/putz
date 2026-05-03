@@ -10,7 +10,13 @@
  * @module CommandBlockContextMenu
  * @see https://github.com/vbomfim/putz/issues/103
  */
-import { useEffect, useRef, useCallback } from "react";
+import {
+  useEffect,
+  useRef,
+  useCallback,
+  useState,
+  useLayoutEffect,
+} from "react";
 import type { CommandBlock } from "../../stores/commandBlockStore";
 import { extractRangeText, type GetBufferLine } from "./bufferUtils";
 
@@ -32,6 +38,23 @@ export interface CommandBlockContextMenuProps {
 }
 
 // ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+/** Safely write text to the clipboard. Failures are logged but not thrown. */
+async function safeClipboardWrite(text: string): Promise<void> {
+  try {
+    await navigator.clipboard.writeText(text);
+  } catch (err: unknown) {
+    // Permission denied or unsupported — silent failure is acceptable
+    console.debug(
+      "[CommandBlockContextMenu] clipboard write failed:",
+      err instanceof DOMException ? err.name : err,
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Component
 // ---------------------------------------------------------------------------
 
@@ -44,6 +67,34 @@ export function CommandBlockContextMenu({
   totalBufferLength,
 }: CommandBlockContextMenuProps) {
   const menuRef = useRef<HTMLDivElement>(null);
+
+  // ── Viewport clamping ──────────────────────────────────────────────
+  const [clampedPos, setClampedPos] = useState({
+    left: position.x,
+    top: position.y,
+  });
+
+  useLayoutEffect(() => {
+    const menu = menuRef.current;
+    if (!menu) return;
+
+    const rect = menu.getBoundingClientRect();
+    const margin = 8;
+
+    const clampedLeft = Math.min(
+      position.x,
+      window.innerWidth - rect.width - margin,
+    );
+    const clampedTop = Math.min(
+      position.y,
+      window.innerHeight - rect.height - margin,
+    );
+
+    setClampedPos({
+      left: Math.max(margin, clampedLeft),
+      top: Math.max(margin, clampedTop),
+    });
+  }, [position.x, position.y]);
 
   // Close when clicking outside the menu
   useEffect(() => {
@@ -71,32 +122,36 @@ export function CommandBlockContextMenu({
       block.outputStart?.row ??
       block.commandEnd?.row ??
       block.commandStart.row + 1;
-    const text = extractRangeText(
-      getBufferLine,
-      block.commandStart.row,
+    const text = extractRangeText(getBufferLine, {
+      startRow: block.commandStart.row,
+      startCol: block.commandStart.col,
       endRow,
-    );
-    await navigator.clipboard.writeText(text);
+    });
+    await safeClipboardWrite(text);
     onClose();
   }, [block, getBufferLine, onClose]);
 
   const copyOutput = useCallback(async () => {
     if (!block.outputStart) return;
     const endRow = block.commandEnd?.row ?? totalBufferLength;
-    const text = extractRangeText(getBufferLine, block.outputStart.row, endRow);
-    await navigator.clipboard.writeText(text);
+    const text = extractRangeText(getBufferLine, {
+      startRow: block.outputStart.row,
+      startCol: block.outputStart.col,
+      endRow,
+    });
+    await safeClipboardWrite(text);
     onClose();
   }, [block, getBufferLine, onClose, totalBufferLength]);
 
   const copyCommandAndOutput = useCallback(async () => {
     if (!block.commandStart) return;
     const endRow = block.commandEnd?.row ?? totalBufferLength;
-    const text = extractRangeText(
-      getBufferLine,
-      block.commandStart.row,
+    const text = extractRangeText(getBufferLine, {
+      startRow: block.commandStart.row,
+      startCol: block.commandStart.col,
       endRow,
-    );
-    await navigator.clipboard.writeText(text);
+    });
+    await safeClipboardWrite(text);
     onClose();
   }, [block, getBufferLine, onClose, totalBufferLength]);
 
@@ -109,14 +164,17 @@ export function CommandBlockContextMenu({
       ref={menuRef}
       className="command-block-context-menu"
       data-testid="command-block-context-menu"
+      role="menu"
+      aria-orientation="vertical"
       style={{
         position: "fixed",
-        left: `${position.x}px`,
-        top: `${position.y}px`,
+        left: `${clampedPos.left}px`,
+        top: `${clampedPos.top}px`,
       }}
     >
       <button
         className="context-menu-item"
+        role="menuitem"
         onClick={copyCommand}
         disabled={!canCopyCommand}
         type="button"
@@ -125,6 +183,7 @@ export function CommandBlockContextMenu({
       </button>
       <button
         className="context-menu-item"
+        role="menuitem"
         onClick={copyOutput}
         disabled={!canCopyOutput}
         type="button"
@@ -133,6 +192,7 @@ export function CommandBlockContextMenu({
       </button>
       <button
         className="context-menu-item"
+        role="menuitem"
         onClick={copyCommandAndOutput}
         disabled={!canCopyCommand}
         type="button"
@@ -142,6 +202,7 @@ export function CommandBlockContextMenu({
       <div className="context-menu-separator" />
       <button
         className="context-menu-item"
+        role="menuitem"
         disabled={!canRerun}
         title={
           canRerun
