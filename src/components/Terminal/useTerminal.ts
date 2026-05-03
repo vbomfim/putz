@@ -38,6 +38,7 @@ import {
   parseCwdFromTitle,
   parseCwdFromOsc7,
 } from "./cwdRegistry";
+import { pasteToTerminal } from "./pasteHelper";
 
 interface UseTerminalOptions {
   /** UUID v4 session identifier from pty_spawn. */
@@ -69,23 +70,11 @@ interface UseTerminalReturn {
   highlightEnabled: boolean;
 }
 
-/**
- * Writes clipboard text to the terminal and PTY.
- * Shared by right-click paste and Ctrl+Shift+V.
- */
-async function pasteToTerminal(
-  terminal: Terminal,
-  _sessionId: string,
-): Promise<void> {
-  try {
-    const text = await navigator.clipboard.readText();
-    if (!text) return;
-    // terminal.paste() triggers onData which calls pty_write — no need to write again
-    terminal.paste(text);
-  } catch {
-    // Clipboard read failed — permission denied or empty
-  }
-}
+// NOTE: pasteToTerminal() is now imported from ./pasteHelper.ts — the single
+// source of truth for all paste operations. It handles clipboard reading,
+// bracketed paste mode (via xterm.js's terminal.paste()), and deduplication
+// to prevent double-paste when multiple event handlers fire for one gesture.
+// See #99 for details.
 
 /**
  * Scan the terminal buffer upward from `startLine` for a shell prompt that
