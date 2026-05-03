@@ -22,12 +22,11 @@ use ipc::{
     git_status_summary, git_tags, git_worktree_list, highlight_create_set, highlight_delete_set,
     highlight_get_set, highlight_list_sets, highlight_update_set, history_add, history_clear,
     history_get_recent, history_search, perf_enabled, perf_log, perf_log_path, pty_close, pty_cwd,
-    pty_cwd_strict, pty_list_shells, pty_resize, pty_spawn, pty_write, script_delete, script_get,
-    script_list, script_record_start, script_record_stop, script_run, script_run_multi,
-    script_save, script_status, script_stop, swarm_get_state, swarm_set_enabled,
-    swarm_spawn_colleague, template_create, template_delete, template_execute, template_get,
-    template_list, theme_create, theme_delete, theme_export, theme_get, theme_import, theme_list,
-    theme_update,
+    pty_list_shells, pty_resize, pty_spawn, pty_write, script_delete, script_get, script_list,
+    script_record_start, script_record_stop, script_run, script_run_multi, script_save,
+    script_status, script_stop, swarm_get_state, swarm_set_enabled, swarm_spawn_colleague,
+    template_create, template_delete, template_execute, template_get, template_list, theme_create,
+    theme_delete, theme_export, theme_get, theme_import, theme_list, theme_update,
 };
 use pty::PtyManager;
 use scripting::ScriptManager;
@@ -69,7 +68,6 @@ pub fn run() {
             pty_resize,
             pty_close,
             pty_cwd,
-            pty_cwd_strict,
             pty_list_shells,
             perf_enabled,
             perf_log,

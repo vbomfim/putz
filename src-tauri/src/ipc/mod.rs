@@ -35,9 +35,7 @@ pub use swarm::{swarm_get_state, swarm_set_enabled, swarm_spawn_colleague};
 pub use templates::{
     template_create, template_delete, template_execute, template_get, template_list,
 };
-pub use terminal::{
-    pty_close, pty_cwd, pty_cwd_strict, pty_list_shells, pty_resize, pty_spawn, pty_write,
-};
+pub use terminal::{pty_close, pty_cwd, pty_list_shells, pty_resize, pty_spawn, pty_write};
 pub use theme::{
     theme_create, theme_delete, theme_export, theme_get, theme_import, theme_list, theme_update,
 };

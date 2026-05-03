@@ -52,9 +52,7 @@ describe("parseOsc7Payload", () => {
   });
 
   it("parses Windows path with backslashes after decoding", () => {
-    expect(parseOsc7Payload("file:///C%3A%5CUsers%5Cme")).toBe(
-      "C:\\Users\\me",
-    );
+    expect(parseOsc7Payload("file:///C%3A%5CUsers%5Cme")).toBe("C:\\Users\\me");
   });
 
   it("rejects path > 4096 bytes", () => {
@@ -85,15 +83,15 @@ describe("parseOsc7Payload", () => {
   });
 
   it("handles hostname with dots (macOS .local)", () => {
-    expect(
-      parseOsc7Payload("file://Mac.local/Users/foo/dev%20stuff"),
-    ).toBe("/Users/foo/dev stuff");
+    expect(parseOsc7Payload("file://Mac.local/Users/foo/dev%20stuff")).toBe(
+      "/Users/foo/dev stuff",
+    );
   });
 
   it("handles deeply nested path", () => {
-    expect(
-      parseOsc7Payload("file:///a/b/c/d/e/f/g/h/i/j/k/l"),
-    ).toBe("/a/b/c/d/e/f/g/h/i/j/k/l");
+    expect(parseOsc7Payload("file:///a/b/c/d/e/f/g/h/i/j/k/l")).toBe(
+      "/a/b/c/d/e/f/g/h/i/j/k/l",
+    );
   });
 
   it("preserves trailing path segments", () => {

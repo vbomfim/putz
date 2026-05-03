@@ -117,25 +117,18 @@ export function useTerminal({
     let disposed = false;
     // Per-instance paste guard (Fix 2) — each terminal owns its dedup state.
     const pasteGuard = createPasteGuard();
-    // Debounce pty_cwd: on Windows the backend enumerates processes and reads
-    // remote memory — each call can take 50-200ms. Burst-presses of Enter or
-    // rapid title changes would otherwise queue on the pty sessions mutex and
-    // stall pty_write. One trailing read after a quiet period is enough.
-    //
-    // IMPORTANT: the optional anchor (marker + line) lets the caller pin the
-    // cwd record at the line where the cd *was issued*, not at where the
-    // cursor happens to sit 300ms later (which is usually AFTER the command
-    // output has printed — causing clicks on listed files to walk past the
-    // record and hit a stale older entry instead).
+    // Debounce pty_cwd: after every Enter keypress and title change, poll
+    // the backend for the child process's cwd. On Linux this reads
+    // /proc/PID/cwd (cheap); on macOS it uses lsof (slower).
+    // Once OSC 7 has been received for this session, skip the probe
+    // entirely — OSC 7 is authoritative.
     let cwdProbeTimer: ReturnType<typeof setTimeout> | null = null;
     let pendingAnchor: {
       marker: import("@xterm/xterm").IMarker | null;
       line: number;
     } | null = null;
     // Once OSC 7 has been received for this session we know the shell is
-    // self-reporting its cwd reliably — skip the PEB probe entirely, since
-    // on PowerShell the PEB lags behind and would stomp the OSC 7 value
-    // with a stale directory (usually the user's home).
+    // self-reporting its cwd reliably — skip the backend probe entirely.
     let hasReceivedOsc7 = false;
     const probeSessionCwd = (anchor?: {
       marker: import("@xterm/xterm").IMarker | null;
@@ -143,8 +136,6 @@ export function useTerminal({
     }) => {
       if (hasReceivedOsc7) return;
       if (cwdProbeTimer) clearTimeout(cwdProbeTimer);
-      // Prefer the earliest anchor in the current debounce window — it's
-      // closest to when the cd was actually typed.
       if (anchor && !pendingAnchor) pendingAnchor = anchor;
       cwdProbeTimer = setTimeout(() => {
         cwdProbeTimer = null;
@@ -152,13 +143,7 @@ export function useTerminal({
         pendingAnchor = null;
         if (disposed) return;
 
-        // STRICT PEB read. PowerShell emits OSC 7 via our injected prompt
-        // wrapper (see pty/manager.rs), which is authoritative — we do NOT
-        // buffer-scan here anymore because scanning upward from the cursor
-        // can find an OLD prompt (e.g. after `cd ..` the prompt above the
-        // cursor still shows the previous directory) and stomp on the
-        // correct OSC 7 value.
-        invoke<string>("pty_cwd_strict", { sessionId })
+        invoke<string>("pty_cwd", { sessionId })
           .then((processCwd) => {
             if (!processCwd || disposed) return;
             if (anchor) {
@@ -173,7 +158,7 @@ export function useTerminal({
             }
           })
           .catch(() => {
-            /* strict failure — rely on OSC 7 / title */
+            /* pty_cwd failure — rely on OSC 7 / title */
           });
       }, 300);
     };

@@ -118,15 +118,6 @@ pub fn pty_cwd(state: State<'_, PtyManager>, session_id: String) -> Result<Strin
     result
 }
 
-/// Strict variant of `pty_cwd` — returns Err instead of falling back to
-/// USERPROFILE when the PEB read fails on Windows. Callers that record the
-/// cwd for later use (cwd registry) should prefer this to avoid polluting
-/// history with stale/fallback values.
-#[tauri::command]
-pub fn pty_cwd_strict(state: State<'_, PtyManager>, session_id: String) -> Result<String, String> {
-    state.get_cwd_strict(&session_id).map_err(|e| e.to_string())
-}
-
 /// Lists available shells on the system.
 /// Returns a list of {name, path} objects for shells that exist.
 #[tauri::command]
