@@ -580,6 +580,89 @@ mod tests {
         let _ = server.await;
     }
 
+    /// [EDGE] Client writes a length prefix then disconnects mid-frame.
+    /// The listener must NOT panic — the per-connection task closes
+    /// cleanly and the listener keeps accepting.
+    #[tokio::test]
+    async fn partial_frame_then_eof_does_not_crash_listener() {
+        let coord = SwarmCoordinator::new();
+        let dir = tempfile::tempdir().unwrap();
+        #[cfg(unix)]
+        let path = dir.path().join("partial.sock");
+        #[cfg(windows)]
+        let path = PathBuf::from(format!("putz-swarm-partial-{}", std::process::id()));
+        let _ = &dir;
+
+        let listener = Listener::bind(path.clone()).unwrap();
+        let cancel = CancellationToken::new();
+        let server = tokio::spawn({
+            let coord = coord.clone();
+            let cancel = cancel.clone();
+            async move { listener.run(coord, cancel).await }
+        });
+
+        // Client 1: send length=64 then only 8 bytes, then drop.
+        let mut bad = connect(&path).await.unwrap();
+        bad.write_all(&64u32.to_be_bytes()).await.unwrap();
+        bad.write_all(b"only8byt").await.unwrap();
+        bad.flush().await.unwrap();
+        drop(bad); // mid-frame disconnect
+
+        // Client 2: a well-behaved connection must still succeed —
+        // proves the listener didn't crash or stop accepting.
+        let mut good = connect(&path).await.unwrap();
+        write_frame(
+            &mut good,
+            &Frame::Register {
+                tab_id: "ok".into(),
+                colleague_id: "ok-1".into(),
+                name: "ok".into(),
+                parent: None,
+                pid: None,
+            },
+        )
+        .await
+        .unwrap();
+        let ack = tokio::time::timeout(Duration::from_secs(2), read_frame(&mut good))
+            .await
+            .expect("listener stopped accepting after partial-frame client")
+            .unwrap()
+            .unwrap();
+        assert!(matches!(ack, Frame::RegisterAck { .. }));
+
+        cancel.cancel();
+        drop(good);
+        let _ = server.await;
+    }
+
+    /// [AC-1] After the listener's run loop exits (cancel fired), the
+    /// Unix socket file is unlinked. Covers AC1 "removed at shutdown".
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn shutdown_removes_socket_file() {
+        let coord = SwarmCoordinator::new();
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("shutdown.sock");
+
+        let listener = Listener::bind(path.clone()).unwrap();
+        assert!(path.exists(), "socket file must exist after bind");
+        let cancel = CancellationToken::new();
+        let server = tokio::spawn({
+            let coord = coord.clone();
+            let cancel = cancel.clone();
+            async move { listener.run(coord, cancel).await }
+        });
+
+        // Give accept loop a moment to enter select!.
+        tokio::time::sleep(Duration::from_millis(50)).await;
+        cancel.cancel();
+        let _ = server.await;
+        assert!(
+            !path.exists(),
+            "socket file must be unlinked on shutdown, still present at {path:?}"
+        );
+    }
+
     /// Connection that never sends `register` is closed by the deadline.
     #[tokio::test]
     async fn register_or_die_closes_silent_connection() {

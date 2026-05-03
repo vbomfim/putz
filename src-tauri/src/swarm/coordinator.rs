@@ -637,6 +637,59 @@ mod tests {
         assert_eq!(c.roster().await.len(), 0);
     }
 
+    /// [AC-4] Sweep marks Stale (not Dead) when last_seen is between the
+    /// stale and dead thresholds — colleague stays in roster.
+    #[tokio::test]
+    async fn sweep_marks_stale_without_eviction_in_intermediate_window() {
+        let c = SwarmCoordinator::new();
+        let (tx, _rx) = mpsc::channel(8);
+        let (_cid, _) = c
+            .register("tab".into(), "alice".into(), "alice".into(), None, None, tx)
+            .await
+            .unwrap();
+        // Backdate to STALE_TIMEOUT + 1s, well below DEAD_TIMEOUT.
+        {
+            let mut inner = c.inner.write().await;
+            let col = inner.by_id.get_mut("alice").unwrap();
+            col.last_seen = Instant::now() - STALE_TIMEOUT - Duration::from_secs(1);
+        }
+        let changed = sweep_once(&c).await;
+        assert!(changed, "stale transition should report changed=true");
+        let roster = c.roster().await;
+        assert_eq!(roster.len(), 1, "stale colleague must NOT be evicted");
+        assert_eq!(roster[0].status, "stale", "status must transition to stale");
+
+        // A second sweep at the same instant must NOT re-report changed
+        // (idempotent — guards against spammy state-changed emissions).
+        let changed_again = sweep_once(&c).await;
+        assert!(!changed_again, "no-op sweep must not report change");
+    }
+
+    /// [BOUNDARY] send_to a nonexistent colleague is a silent no-op.
+    /// Defends against panic-on-missing-key bug if HashMap lookup ever
+    /// changes shape.
+    #[tokio::test]
+    async fn send_to_unknown_target_is_silent_noop() {
+        let c = SwarmCoordinator::new();
+        let (tx_a, _rx_a) = mpsc::channel(8);
+        let (cid_a, _) = c
+            .register(
+                "ta".into(),
+                "alice".into(),
+                "alice".into(),
+                None,
+                None,
+                tx_a,
+            )
+            .await
+            .unwrap();
+        // No `bob` registered. Must not panic, must not error visibly.
+        c.send_to(&cid_a, "alice", "ghost", serde_json::json!({"x": 1}))
+            .await;
+        // Roster still intact, no side effect.
+        assert_eq!(c.roster().await.len(), 1);
+    }
+
     #[test]
     fn validate_ident_accepts_safe_chars_rejects_others() {
         assert!(validate_ident("alice-1.2_x", "x").is_ok());
