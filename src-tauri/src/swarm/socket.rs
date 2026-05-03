@@ -151,7 +151,10 @@ impl Listener {
         // This closes the TOCTOU window where another process could
         // open the socket between bind() and chmod().
         #[cfg(unix)]
-        let inner = with_strict_umask(|| ListenerOptions::new().name(name).create_tokio())?;
+        let inner = {
+            let _umask_guard = UmaskGuard::strict();
+            ListenerOptions::new().name(name).create_tokio()?
+        };
         #[cfg(not(unix))]
         let inner = ListenerOptions::new().name(name).create_tokio()?;
 
@@ -245,36 +248,95 @@ fn chmod_600(path: &std::path::Path) -> io::Result<()> {
     std::fs::set_permissions(path, perms)
 }
 
-/// Run `f` with `umask(0o077)` set, restoring the previous umask afterward.
-/// Closes the TOCTOU window between `bind()` and `chmod()` — the socket
-/// file is created with mode 0o600 atomically (modulo filesystems that
-/// ignore umask, which is why `chmod_600` runs as belt-and-braces).
+/// RAII guard that sets `umask(0o077)` on construction and restores the
+/// previous value on `Drop`. Replaces the prior `with_strict_umask`
+/// closure helper so that a panic inside the bind call cannot leave a
+/// strict umask leaking process-wide for the rest of the process
+/// lifetime (Sec pass-2 N1 / CR-Opus pass-2 N2).
+///
+/// SAFETY: `umask(2)` is a process-global, non-thread-safe POSIX call.
+/// The unsafe blocks here cannot cause undefined behaviour — they
+/// simply mutate a process-wide value. The race window is purely a
+/// "permissions-of-other-files-created-concurrently" concern, not a
+/// memory-safety one. Production callers serialize bind through the
+/// coordinator's `lifecycle` mutex; tests that bind in parallel are
+/// also protected because each call's prev-value is captured atomically
+/// by `umask()` itself, so the worst case is brief, fail-safe-tighter
+/// inheritance, never a fail-open one (we *narrow* permissions, never
+/// widen). The Drop fires even on panic — that is the whole point.
 #[cfg(unix)]
-fn with_strict_umask<F, T>(f: F) -> io::Result<T>
-where
-    F: FnOnce() -> io::Result<T>,
-{
-    // SAFETY: `umask(2)` is process-global and not thread-safe. The swarm
-    // listener is bound exactly once per process inside a coordinator
-    // lifecycle mutex, so we are not racing another swarm bind. We are
-    // racing arbitrary other code in this process that might also call
-    // umask — but since we restore promptly, the worst case is a brief
-    // window where unrelated file creates inherit our 0o077.
-    let prev = unsafe { libc::umask(0o077) };
-    let result = f();
-    unsafe {
-        libc::umask(prev);
+struct UmaskGuard {
+    prev: libc::mode_t,
+}
+
+#[cfg(unix)]
+impl UmaskGuard {
+    fn strict() -> Self {
+        // SAFETY: see type-level SAFETY comment.
+        let prev = unsafe { libc::umask(0o077) };
+        Self { prev }
     }
-    result
+}
+
+#[cfg(unix)]
+impl Drop for UmaskGuard {
+    fn drop(&mut self) {
+        // SAFETY: see type-level SAFETY comment.
+        unsafe {
+            libc::umask(self.prev);
+        }
+    }
+}
+
+/// RAII guard for the pre-register inflight counter. Increments the
+/// caller-supplied counter on construction (caller must have already
+/// reserved a slot via `fetch_add`) and decrements on `Drop` unless
+/// `disarm()` is called first. This replaces the prior bool + closure
+/// pattern with one that survives an unexpected panic in the
+/// pre-register window — without it, a panic between `fetch_add` and
+/// the manual decrement would leak the slot forever and, over many
+/// panics, saturate the inflight cap into a silent listener DoS
+/// (Sec pass-2 N2 / CR-Opus pass-2 N3, defense-in-depth — no obvious
+/// panic source today).
+///
+/// Usage: construct *after* a successful `fetch_add` on the counter.
+/// Call `disarm()` once the connection has graduated out of the
+/// pre-register window (i.e., register succeeded and the long-lived
+/// per-connection tasks own their own lifecycle); otherwise let Drop
+/// fire on every early-return / panic path to settle the counter.
+struct InflightGuard {
+    counter: Arc<AtomicUsize>,
+    armed: bool,
+}
+
+impl InflightGuard {
+    fn new(counter: Arc<AtomicUsize>) -> Self {
+        Self {
+            counter,
+            armed: true,
+        }
+    }
+    fn disarm(&mut self) {
+        self.armed = false;
+    }
+}
+
+impl Drop for InflightGuard {
+    fn drop(&mut self) {
+        if self.armed {
+            self.counter.fetch_sub(1, Ordering::AcqRel);
+        }
+    }
 }
 
 /// Handle one accepted connection: enforce register-or-die, then spin up
 /// the read/write tasks and bridge them through the coordinator.
 ///
-/// `inflight` is decremented exactly once — when this connection's
-/// register-or-die outcome is decided (success or failure). Inflight
-/// accounting only covers the pre-register window; once registered, the
-/// MAX_COLLEAGUES cap takes over.
+/// `inflight` is decremented exactly once via [`InflightGuard`] — when
+/// this connection's register-or-die outcome is decided (success or
+/// failure, including panic). Inflight accounting only covers the
+/// pre-register window; once registered, the MAX_COLLEAGUES cap takes
+/// over and the guard is `disarm()`ed.
 async fn handle_connection(
     stream: LocalStream,
     coordinator: SwarmCoordinator,
@@ -282,15 +344,9 @@ async fn handle_connection(
     inflight: Arc<AtomicUsize>,
 ) {
     let (mut reader, mut writer) = tokio::io::split(stream);
-    // Decrement inflight when the pre-register window closes. Wrapped in
-    // a closure so every early-return path settles the counter.
-    let mut inflight_decremented = false;
-    let decrement_inflight = |dec: &mut bool| {
-        if !*dec {
-            inflight.fetch_sub(1, Ordering::AcqRel);
-            *dec = true;
-        }
-    };
+    // RAII: decrement inflight on every early-return / panic until we
+    // explicitly disarm after a successful register.
+    let mut inflight_guard = InflightGuard::new(inflight);
 
     // ── Register-or-die handshake ────────────────────────────────
     let register = match tokio::time::timeout(REGISTER_DEADLINE, read_frame(&mut reader)).await {
@@ -301,22 +357,14 @@ async fn handle_connection(
             parent,
             pid,
         }))) => (tab_id, colleague_id, name, parent, pid),
-        Ok(Ok(Some(_))) => {
-            decrement_inflight(&mut inflight_decremented);
-            return;
-        }
-        Ok(Ok(None)) => {
-            decrement_inflight(&mut inflight_decremented);
-            return;
-        }
+        Ok(Ok(Some(_))) => return,
+        Ok(Ok(None)) => return,
         Ok(Err(e)) => {
             tracing_warn(&format!("swarm: bad register frame: {e}"));
-            decrement_inflight(&mut inflight_decremented);
             return;
         }
         Err(_) => {
             // Timeout — slow-loris defense.
-            decrement_inflight(&mut inflight_decremented);
             return;
         }
     };
@@ -332,13 +380,15 @@ async fn handle_connection(
         Ok(pair) => pair,
         Err(e) => {
             tracing_warn(&format!("swarm: register rejected: {e}"));
-            decrement_inflight(&mut inflight_decremented);
             return;
         }
     };
 
-    // Successful register — exit the pre-register window.
-    decrement_inflight(&mut inflight_decremented);
+    // Successful register — exit the pre-register window. Drop the
+    // guard's responsibility to settle the counter (long-lived
+    // per-connection state takes over from here).
+    inflight_guard.disarm();
+    drop(inflight_guard);
 
     // Send the ack synchronously so the client sees roster on return.
     if write_frame(&mut writer, &ack).await.is_err() {
@@ -882,8 +932,15 @@ mod tests {
     /// 0o600-mode socket file — proves the umask scope around bind closes
     /// the TOCTOU window between bind() and chmod(). We assert mode
     /// strictly equals 0o600.
+    ///
+    /// CR-Opus pass-2 N1: serialized because this test mutates the
+    /// process-global umask; running it in parallel with other bind
+    /// tests (each of which sets/restores umask via `UmaskGuard`) could
+    /// otherwise produce read-back races even though the file mode
+    /// itself is fixed up by the explicit `chmod_600` belt-and-braces.
     #[cfg(unix)]
     #[tokio::test]
+    #[serial_test::serial]
     async fn bind_under_permissive_umask_still_chmod_600() {
         use std::os::unix::fs::PermissionsExt;
         // Set a wide-open umask (allow all bits — would otherwise produce
@@ -968,5 +1025,108 @@ mod tests {
         cancel.cancel();
         drop(held);
         let _ = server.await;
+    }
+
+    /// Sec pass-2 N1 / CR-Opus pass-2 N2: `UmaskGuard` MUST restore the
+    /// previous umask even when the protected scope panics. Without the
+    /// RAII restoration, a panic between bind setup and `Drop` would
+    /// leak `umask(0o077)` process-wide for the rest of the process —
+    /// fail-safe (more restrictive) but a correctness regression.
+    ///
+    /// Serialized because we mutate the process-global umask.
+    #[cfg(unix)]
+    #[tokio::test]
+    #[serial_test::serial]
+    async fn umask_guard_restores_on_panic() {
+        // Capture caller's current umask by setting a known wide value
+        // and re-reading it (umask() returns the previous value).
+        let original = unsafe { libc::umask(0o022) };
+        let baseline = unsafe { libc::umask(0o022) };
+        assert_eq!(baseline, 0o022, "test setup: failed to seed umask");
+
+        let result = std::panic::catch_unwind(|| {
+            let _guard = UmaskGuard::strict();
+            // Inside the guard, umask is 0o077.
+            let now = unsafe { libc::umask(0o077) };
+            assert_eq!(now, 0o077, "guard should have set umask to 0o077");
+            panic!("simulated panic inside guarded scope");
+        });
+        assert!(result.is_err(), "test scaffolding: panic should propagate");
+
+        // After the panic + Drop, umask must be back to the seeded value.
+        let after = unsafe { libc::umask(0o022) };
+        assert_eq!(
+            after, 0o022,
+            "UmaskGuard::Drop must restore prev umask even on panic (got {after:o})"
+        );
+
+        // Restore caller's true original umask.
+        unsafe { libc::umask(original) };
+    }
+
+    /// Sec pass-2 N2 / CR-Opus pass-2 N3: `InflightGuard` MUST decrement
+    /// the counter on Drop unless explicitly disarmed. Direct unit test
+    /// of the guard primitive — the production path that benefits from
+    /// this (a panic inside `handle_connection`'s pre-register window)
+    /// is hard to trigger without dependency injection, so we exercise
+    /// the guard contract directly here. The guard is correct ⇒ the
+    /// production usage is correct.
+    #[test]
+    fn inflight_guard_decrements_on_drop() {
+        let counter = Arc::new(AtomicUsize::new(0));
+        // Simulate the production fetch_add that precedes guard
+        // construction.
+        counter.fetch_add(1, Ordering::AcqRel);
+        assert_eq!(counter.load(Ordering::Acquire), 1);
+
+        {
+            let _g = InflightGuard::new(counter.clone());
+            assert_eq!(
+                counter.load(Ordering::Acquire),
+                1,
+                "guard ctor should NOT mutate the counter"
+            );
+        }
+        assert_eq!(
+            counter.load(Ordering::Acquire),
+            0,
+            "Drop must decrement the counter when armed"
+        );
+    }
+
+    #[test]
+    fn inflight_guard_does_not_decrement_when_disarmed() {
+        let counter = Arc::new(AtomicUsize::new(0));
+        counter.fetch_add(1, Ordering::AcqRel);
+        {
+            let mut g = InflightGuard::new(counter.clone());
+            g.disarm();
+        }
+        assert_eq!(
+            counter.load(Ordering::Acquire),
+            1,
+            "disarmed guard must NOT decrement on Drop (long-lived owner takes over)"
+        );
+    }
+
+    /// The panic-safety story for `InflightGuard`. Wraps a closure that
+    /// constructs the guard and then panics — Drop must still fire and
+    /// settle the counter. Defends against a future refactor that
+    /// accidentally regresses to a manual-decrement pattern.
+    #[test]
+    fn inflight_guard_decrements_on_panic() {
+        let counter = Arc::new(AtomicUsize::new(0));
+        counter.fetch_add(1, Ordering::AcqRel);
+        let counter_for_panic = counter.clone();
+        let result = std::panic::catch_unwind(move || {
+            let _g = InflightGuard::new(counter_for_panic);
+            panic!("simulated panic in pre-register window");
+        });
+        assert!(result.is_err(), "panic should propagate");
+        assert_eq!(
+            counter.load(Ordering::Acquire),
+            0,
+            "Drop on panic must decrement the counter — otherwise repeated panics would saturate the inflight cap and silently DoS the listener"
+        );
     }
 }

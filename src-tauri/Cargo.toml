@@ -58,4 +58,8 @@ path = "src/bin/measure_spawn.rs"
 
 [dev-dependencies]
 tempfile = "3"
+# Enables `tauri::test::mock_app()` for swarm coordinator lifecycle tests
+# (T1 fixup #2 — restart_does_not_unlink_new_socket regression test).
+tauri = { version = "2", features = ["test"] }
+serial_test = "3"
 

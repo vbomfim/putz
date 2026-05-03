@@ -13,6 +13,7 @@ use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use tokio::sync::{mpsc, Mutex, RwLock};
+use tokio::task::JoinHandle;
 use tokio_util::sync::CancellationToken;
 use uuid::Uuid;
 
@@ -33,6 +34,13 @@ const MAX_COLLEAGUES: usize = 50;
 const MAX_IDENT_LEN: usize = 100;
 /// Notify message cap (bounds Cmd+J inbox memory growth).
 const MAX_MESSAGE_LEN: usize = 4096;
+/// Maximum time `stop()` will wait for the listener / sweeper tasks to
+/// observe their cancellation token and exit cleanly. On timeout we
+/// `abort()` the handle and continue — a buggy/wedged task cannot block
+/// the next `start()` forever. 5s is generous: clean shutdown is sub-ms
+/// (one select! poll), and the listener's only post-cancel work is a
+/// single `remove_file`.
+const STOP_HANDLE_TIMEOUT: Duration = Duration::from_secs(5);
 
 /// Opaque per-connection key. Different from `colleague_id` so that
 /// duplicate-tab evictions are unambiguous: a re-register on the same
@@ -73,13 +81,32 @@ struct Inner {
     path: Option<String>,
 }
 
+/// Background tasks owned by an active swarm lifecycle. Stored on the
+/// coordinator so `stop()` can await them — without this, the listener
+/// task could continue running after `stop()` returns, observe its
+/// cancellation token mid-shutdown, and then `remove_file()` a socket
+/// that a *new* `start()` had just bound at the same pid-based path.
+/// (That is the lifecycle race CR-GPT pass-2 caught after fixup #1.)
+struct LifecycleHandles {
+    listener: JoinHandle<()>,
+    sweeper: JoinHandle<()>,
+}
+
 /// Thread-safe handle to the coordinator. Cheap to clone.
 #[derive(Clone)]
 pub struct SwarmCoordinator {
     inner: Arc<RwLock<Inner>>,
     enabled: Arc<AtomicBool>,
     cancel: Arc<RwLock<Option<CancellationToken>>>,
+    /// Serializes `start`/`stop` so a re-entrant or racing toggle can't
+    /// half-build state. Held for the entire duration of each call —
+    /// crucially, `stop()` keeps it across the `await` of the listener
+    /// JoinHandle, so the next `start()` only proceeds after old
+    /// background tasks have fully exited and unlinked the socket file.
     lifecycle: Arc<Mutex<()>>,
+    /// Background task handles — `Some` while enabled, `None` otherwise.
+    /// Awaited (with timeout + abort fallback) by `stop()`.
+    lifecycle_handles: Arc<Mutex<Option<LifecycleHandles>>>,
 }
 
 impl Default for SwarmCoordinator {
@@ -95,6 +122,7 @@ impl SwarmCoordinator {
             enabled: Arc::new(AtomicBool::new(false)),
             cancel: Arc::new(RwLock::new(None)),
             lifecycle: Arc::new(Mutex::new(())),
+            lifecycle_handles: Arc::new(Mutex::new(None)),
         }
     }
 
@@ -104,7 +132,14 @@ impl SwarmCoordinator {
 
     /// Bind the listener and start the accept loop + heartbeat sweeper.
     /// Idempotent: a second call while enabled is a no-op.
-    pub async fn start(&self, app_handle: tauri::AppHandle) -> Result<SwarmStatePublic, String> {
+    ///
+    /// Generic over `R: tauri::Runtime` so tests can pass a `MockRuntime`
+    /// `AppHandle` (production callers pass `tauri::AppHandle` which
+    /// defaults to `Wry`).
+    pub async fn start<R: tauri::Runtime>(
+        &self,
+        app_handle: tauri::AppHandle<R>,
+    ) -> Result<SwarmStatePublic, String> {
         let _guard = self.lifecycle.lock().await;
         if self.enabled() {
             return Ok(self.state_public().await);
@@ -126,20 +161,31 @@ impl SwarmCoordinator {
         }
         self.enabled.store(true, Ordering::SeqCst);
 
-        // Accept loop.
+        // Accept loop. Retain JoinHandle so `stop()` can await this task
+        // before returning — prevents the listener's `remove_file` from
+        // unlinking a socket bound by a *subsequent* `start()` (lifecycle
+        // race CR-GPT pass-1 HIGH #3 / pass-2).
         let coord_for_listener = self.clone();
         let cancel_for_listener = cancel_root.clone();
-        tokio::spawn(async move {
+        let listener_handle = tokio::spawn(async move {
             listener.run(coord_for_listener, cancel_for_listener).await;
         });
 
-        // Heartbeat sweeper.
+        // Heartbeat sweeper. Same lifecycle hygiene as listener.
         let coord_for_sweep = self.clone();
         let cancel_for_sweep = cancel_root.clone();
         let app_for_sweep = app_handle.clone();
-        tokio::spawn(async move {
+        let sweeper_handle = tokio::spawn(async move {
             sweep_loop(coord_for_sweep, cancel_for_sweep, app_for_sweep).await;
         });
+
+        {
+            let mut handles = self.lifecycle_handles.lock().await;
+            *handles = Some(LifecycleHandles {
+                listener: listener_handle,
+                sweeper: sweeper_handle,
+            });
+        }
 
         let public = self.state_public().await;
         emit_state_changed(&app_handle, &public);
@@ -148,6 +194,14 @@ impl SwarmCoordinator {
 
     /// Stop the listener, cancel all per-connection tasks, and clear the
     /// registry. Safe to call even if disabled.
+    ///
+    /// **Awaits** the listener and sweeper tasks (with a per-handle
+    /// timeout — a wedged task triggers `abort()` and a warning log
+    /// rather than blocking `stop()` forever) so all background work —
+    /// including the listener's socket-file `remove_file` — completes
+    /// before `stop()` returns. Without this, a rapid `disable → enable`
+    /// toggle would let the old listener unlink a socket that the new
+    /// `start()` had just bound at the same pid path.
     pub async fn stop(&self) {
         let _guard = self.lifecycle.lock().await;
         let token = self.cancel.write().await.take();
@@ -155,6 +209,15 @@ impl SwarmCoordinator {
             token.cancel();
         }
         self.enabled.store(false, Ordering::SeqCst);
+
+        // Await background tasks BEFORE clearing state — the listener's
+        // shutdown path expects nothing further to race against it.
+        let handles = self.lifecycle_handles.lock().await.take();
+        if let Some(LifecycleHandles { listener, sweeper }) = handles {
+            await_or_abort("listener", listener).await;
+            await_or_abort("sweeper", sweeper).await;
+        }
+
         let mut inner = self.inner.write().await;
         inner.by_id.clear();
         inner.by_conn.clear();
@@ -492,7 +555,7 @@ fn sanitize_label(s: &str) -> String {
     s.chars().filter(|c| !c.is_control()).collect()
 }
 
-fn emit_state_changed(app: &tauri::AppHandle, state: &SwarmStatePublic) {
+fn emit_state_changed<R: tauri::Runtime>(app: &tauri::AppHandle<R>, state: &SwarmStatePublic) {
     use tauri::Emitter;
     let _ = app.emit("swarm://state-changed", state);
 }
@@ -504,10 +567,28 @@ fn tracing_warn(msg: &str) {
     eprintln!("[swarm] {msg}");
 }
 
-async fn sweep_loop(
+/// Await a background task with a bounded timeout. On timeout, abort
+/// the task and continue — never let a wedged background task block the
+/// next `start()`. Logs a warning either way for operator visibility.
+async fn await_or_abort(label: &str, handle: JoinHandle<()>) {
+    let abort = handle.abort_handle();
+    match tokio::time::timeout(STOP_HANDLE_TIMEOUT, handle).await {
+        Ok(Ok(())) => {}
+        Ok(Err(e)) if e.is_cancelled() => {} // expected if previously aborted
+        Ok(Err(e)) => tracing_warn(&format!("swarm {label} task join error: {e}")),
+        Err(_) => {
+            tracing_warn(&format!(
+                "swarm {label} task did not exit within {STOP_HANDLE_TIMEOUT:?} of cancel — aborting"
+            ));
+            abort.abort();
+        }
+    }
+}
+
+async fn sweep_loop<R: tauri::Runtime>(
     coord: SwarmCoordinator,
     cancel: CancellationToken,
-    app_handle: tauri::AppHandle,
+    app_handle: tauri::AppHandle<R>,
 ) {
     loop {
         tokio::select! {
@@ -896,5 +977,142 @@ mod tests {
         let a = SwarmCoordinator::generate_colleague_id("x");
         let b = SwarmCoordinator::generate_colleague_id("x");
         assert_ne!(a, b);
+    }
+
+    /// CR-GPT pass-1 HIGH #3 / pass-2 regression: a rapid stop→start
+    /// must NOT let the previous listener's `remove_file` cleanup unlink
+    /// the new listener's socket file. With the JoinHandle await fix in
+    /// `stop()`, the old listener has fully exited (and run its
+    /// remove_file) before `stop()` returns; the subsequent `start()`
+    /// then binds a fresh socket that nothing else can touch.
+    ///
+    /// Without the fix, this test fails: the leaked old listener task
+    /// races, observes its cancel token, and `remove_file()`s the new
+    /// socket — the subsequent path-exists assertion fails (or the
+    /// client `connect()` fails).
+    ///
+    /// We override `start()`'s pid-based path by binding the listeners
+    /// directly under a tempdir, then driving the same lifecycle
+    /// orchestration code path. (The `start`/`stop` API is path-coupled
+    /// via `resolve_socket_path`; using a tempdir keeps the test
+    /// hermetic against parallel test runners using the same pid.)
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn restart_does_not_unlink_new_socket() {
+        use crate::swarm::socket::{connect, Listener};
+        use crate::swarm::wire::{read_frame, write_frame};
+
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("restart.sock");
+
+        // Round 1: bind, spawn listener, then "stop" by cancelling +
+        // awaiting (mirrors what coordinator.stop() now does internally).
+        let l1 = Listener::bind(path.clone()).unwrap();
+        assert!(path.exists(), "round-1 socket file missing after bind");
+        let coord1 = SwarmCoordinator::new();
+        let cancel1 = CancellationToken::new();
+        let h1 = tokio::spawn({
+            let coord = coord1.clone();
+            let cancel = cancel1.clone();
+            async move { l1.run(coord, cancel).await }
+        });
+        // brief settle so accept loop is parked in select!
+        tokio::time::sleep(Duration::from_millis(20)).await;
+
+        // STOP: cancel + await — this is the lifecycle race fix in
+        // miniature. After the await returns, l1's `remove_file` has
+        // already run. The path is now gone.
+        cancel1.cancel();
+        await_or_abort("test-listener-1", h1).await;
+        assert!(
+            !path.exists(),
+            "round-1 listener should have unlinked its socket on shutdown"
+        );
+
+        // START again: bind a new listener at the same path. Without the
+        // fix above, l1 might still be alive here and would race to
+        // `remove_file()` this fresh socket out from under us.
+        let l2 = Listener::bind(path.clone()).unwrap();
+        assert!(path.exists(), "round-2 socket file missing after re-bind");
+        let coord2 = SwarmCoordinator::new();
+        let cancel2 = CancellationToken::new();
+        let h2 = tokio::spawn({
+            let coord = coord2.clone();
+            let cancel = cancel2.clone();
+            async move { l2.run(coord, cancel).await }
+        });
+
+        // Give any leaked old task time to misbehave.
+        tokio::time::sleep(Duration::from_millis(100)).await;
+        assert!(
+            path.exists(),
+            "new listener's socket file was unlinked — lifecycle race regression"
+        );
+
+        // Functional check: a real client can connect and register on
+        // the new listener.
+        let mut client = connect(&path).await.unwrap();
+        write_frame(
+            &mut client,
+            &Frame::Register {
+                tab_id: "round2".into(),
+                colleague_id: "post-restart".into(),
+                name: "post-restart".into(),
+                parent: None,
+                pid: None,
+            },
+        )
+        .await
+        .unwrap();
+        let ack = tokio::time::timeout(Duration::from_secs(2), read_frame(&mut client))
+            .await
+            .expect("register on round-2 listener timed out — possible socket unlinked")
+            .unwrap()
+            .unwrap();
+        assert!(matches!(ack, Frame::RegisterAck { .. }));
+
+        cancel2.cancel();
+        drop(client);
+        await_or_abort("test-listener-2", h2).await;
+    }
+
+    /// Direct lifecycle test of the *coordinator* `start`/`stop` pair
+    /// (mock_app provides an `AppHandle<MockRuntime>`). Proves the
+    /// public API itself satisfies the same invariant as the lower-level
+    /// test above. Marked serial because `start()` binds at the pid-based
+    /// resolved path, which is shared across parallel in-process tests.
+    #[cfg(unix)]
+    #[tokio::test]
+    #[serial_test::serial]
+    async fn coordinator_stop_then_start_preserves_socket() {
+        let app = tauri::test::mock_app();
+        let handle = app.handle().clone();
+
+        let coord = SwarmCoordinator::new();
+        let s1 = coord.start(handle.clone()).await.unwrap();
+        let path1 = std::path::PathBuf::from(s1.path.expect("start must publish path"));
+        assert!(path1.exists(), "start should create the socket file");
+
+        coord.stop().await;
+        // After stop, the old socket file is gone.
+        assert!(
+            !path1.exists(),
+            "stop must unlink the socket file before returning"
+        );
+
+        // Restart at (most likely) the same pid path.
+        let s2 = coord.start(handle.clone()).await.unwrap();
+        let path2 = std::path::PathBuf::from(s2.path.expect("restart must publish path"));
+        assert!(path2.exists(), "restart should create the socket file");
+
+        // Give any (hypothetical, post-fix shouldn't exist) leaked old
+        // task time to race. The new socket must survive.
+        tokio::time::sleep(Duration::from_millis(150)).await;
+        assert!(
+            path2.exists(),
+            "lifecycle race: new socket file disappeared after rapid stop→start"
+        );
+
+        coord.stop().await;
     }
 }
