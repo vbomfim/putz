@@ -1,0 +1,3 @@
+PS [33mC:\Users\dev[0m> Write-Host "colored" -ForegroundColor Green
+[38;5;82mcolored[0m
+PS [33mC:\Users\dev[0m> 
