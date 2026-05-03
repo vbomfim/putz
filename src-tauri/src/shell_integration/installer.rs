@@ -11,12 +11,14 @@
 /// - Creates backup before first write (`<dotfile>.putz-backup-<ISO timestamp>`)
 /// - Idempotent: replaces existing block, never duplicates
 /// - Surgical uninstall: removes only the marker block
-/// - Path traversal prevention: dotfile path must be canonical
-/// - No symlink follow for backup files
+/// - Path traversal prevention: rejects `..` components, canonicalizes via
+///   deepest existing ancestor, and enforces strict `$HOME` containment
+/// - Symlink-safe writes: `O_NOFOLLOW` on Unix, symlink metadata check on Windows
+/// - Atomic writes: temp file + rename pattern
 use serde::Serialize;
 use std::fs;
 use std::io::Write;
-use std::path::{Path, PathBuf};
+use std::path::{Component, Path, PathBuf};
 
 /// Start marker for shell integration block.
 pub const MARKER_START: &str = "# === putz shell integration (do not edit between markers) ===";
@@ -141,10 +143,8 @@ pub fn install(shell_id: &str, dotfile_path: &Path) -> Result<InstallResult, Str
         append_marker_block(&existing_content, snippet, start_marker, end_marker)
     };
 
-    // Write atomically (write to temp + rename would be ideal, but
-    // for dotfiles on the same filesystem, direct write is acceptable).
-    fs::write(dotfile_path, &new_content)
-        .map_err(|e| format!("Failed to write {}: {e}", dotfile_path.display()))?;
+    // Write atomically — temp file + rename for crash safety.
+    atomic_write_dotfile(dotfile_path, &new_content)?;
 
     Ok(InstallResult {
         success: true,
@@ -176,8 +176,7 @@ pub fn uninstall(shell_id: &str, dotfile_path: &Path) -> Result<InstallResult, S
 
     let new_content = remove_marker_block(&content, start_marker, end_marker);
 
-    fs::write(dotfile_path, &new_content)
-        .map_err(|e| format!("Failed to write {}: {e}", dotfile_path.display()))?;
+    atomic_write_dotfile(dotfile_path, &new_content)?;
 
     Ok(InstallResult {
         success: true,
@@ -190,8 +189,12 @@ pub fn uninstall(shell_id: &str, dotfile_path: &Path) -> Result<InstallResult, S
 // ── Marker block operations ──────────────────────────────────────────
 
 /// Checks whether a marker block exists in the content.
+/// Verifies start marker appears before end marker.
 fn has_marker_block(content: &str, start: &str, end: &str) -> bool {
-    content.contains(start) && content.contains(end)
+    content
+        .find(start)
+        .and_then(|start_idx| content[start_idx..].find(end))
+        .is_some()
 }
 
 /// Extracts the content between markers (exclusive of the markers themselves).
@@ -279,7 +282,7 @@ fn remove_marker_block(content: &str, start: &str, end: &str) -> String {
 
 // ── Backup ───────────────────────────────────────────────────────────
 
-/// Creates a backup of the dotfile with ISO timestamp suffix.
+/// Creates a backup of the dotfile with ISO timestamp + random suffix.
 ///
 /// Uses `create_new(true)` to refuse to overwrite existing backups
 /// (no symlink follow). Returns the backup path.
@@ -289,7 +292,22 @@ fn create_backup(dotfile_path: &Path) -> Result<PathBuf, String> {
         .file_name()
         .unwrap_or_default()
         .to_string_lossy();
-    let backup_name = format!("{file_name}.putz-backup-{timestamp}");
+    // 4-char hex suffix avoids collisions when multiple operations
+    // occur within the same second.
+    let suffix: String = {
+        let mut buf = [0u8; 2];
+        // Best-effort randomness — fall back to timestamp-based if getrandom fails.
+        if getrandom::fill(&mut buf).is_ok() {
+            format!("{:02x}{:02x}", buf[0], buf[1])
+        } else {
+            let t = std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .map(|d| d.subsec_nanos())
+                .unwrap_or(0);
+            format!("{:04x}", t & 0xFFFF)
+        }
+    };
+    let backup_name = format!("{file_name}.putz-backup-{timestamp}-{suffix}");
     let backup_path = dotfile_path
         .parent()
         .unwrap_or(dotfile_path)
@@ -314,33 +332,54 @@ fn create_backup(dotfile_path: &Path) -> Result<PathBuf, String> {
 
 // ── Path validation ──────────────────────────────────────────────────
 
+/// Errors specific to shell integration path validation and I/O.
+#[derive(Debug)]
+pub enum ShellIntegrationError {
+    /// Path contains `..` components — potential traversal attack.
+    PathTraversal { attempted: String },
+    /// Canonicalized path falls outside user's home directory.
+    OutsideHome { attempted: String },
+    /// Could not resolve path to any existing ancestor.
+    PathNotResolvable,
+    /// I/O error during canonicalization or write.
+    Io(std::io::Error),
+}
+
+impl std::fmt::Display for ShellIntegrationError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::PathTraversal { attempted } => {
+                write!(f, "Path traversal rejected: {attempted}")
+            }
+            Self::OutsideHome { attempted } => {
+                write!(f, "Path outside home directory: {attempted}")
+            }
+            Self::PathNotResolvable => write!(f, "Path has no resolvable ancestor"),
+            Self::Io(e) => write!(f, "I/O error: {e}"),
+        }
+    }
+}
+
 /// Validates that a dotfile path is safe to write to.
 ///
-/// Prevents path traversal attacks by ensuring the path is under
-/// the user's home directory or a known config directory.
+/// 1. Rejects any path containing `..` components (traversal attack).
+/// 2. Walks up to the deepest existing ancestor and canonicalizes it,
+///    then re-appends remaining non-existent components.
+/// 3. Verifies the resulting canonical path is under `$HOME`.
 fn validate_dotfile_path(path: &Path) -> Result<(), String> {
-    // Canonicalize to resolve symlinks and `..`.
-    let canonical = if path.exists() {
-        path.canonicalize()
-            .map_err(|e| format!("Failed to canonicalize path: {e}"))?
-    } else {
-        // File doesn't exist yet — canonicalize parent.
-        let parent = path
-            .parent()
-            .ok_or_else(|| "Invalid path: no parent directory".to_string())?;
-        if parent.exists() {
-            let canonical_parent = parent
-                .canonicalize()
-                .map_err(|e| format!("Failed to canonicalize parent: {e}"))?;
-            canonical_parent.join(path.file_name().unwrap_or_default())
-        } else {
-            // Parent also doesn't exist — we'll create it, but verify the
-            // grandparent is under home.
-            path.to_path_buf()
-        }
-    };
+    // Step 1: Reject `..` components outright.
+    if path.components().any(|c| matches!(c, Component::ParentDir)) {
+        return Err(format!(
+            "Path traversal rejected — path contains '..' components: {}",
+            path.display()
+        ));
+    }
 
-    // Must be under user's home directory or known config locations.
+    // Step 2: Walk up to deepest existing ancestor and canonicalize.
+    let canonical =
+        canonicalize_with_nonexistent(path).map_err(|e| format!("Failed to resolve path: {e}"))?;
+
+    // Step 3: Must be under user's home directory.
     let home = dirs::home_dir().ok_or("Cannot determine home directory")?;
     let home_canonical = if home.exists() {
         home.canonicalize().unwrap_or(home)
@@ -355,6 +394,102 @@ fn validate_dotfile_path(path: &Path) -> Result<(), String> {
         ));
     }
 
+    Ok(())
+}
+
+/// Canonicalizes a path that may not fully exist on disk.
+///
+/// Walks up the ancestor chain until an existing directory is found,
+/// canonicalizes that, then re-appends the remaining components.
+fn canonicalize_with_nonexistent(path: &Path) -> Result<PathBuf, ShellIntegrationError> {
+    if path.exists() {
+        return path.canonicalize().map_err(ShellIntegrationError::Io);
+    }
+
+    let mut existing_ancestor = path.parent();
+    let mut suffix_components = Vec::new();
+    if let Some(name) = path.file_name() {
+        suffix_components.push(name);
+    }
+
+    while let Some(ancestor) = existing_ancestor {
+        if ancestor.exists() {
+            let canonical_ancestor = ancestor.canonicalize().map_err(ShellIntegrationError::Io)?;
+            let mut canonical = canonical_ancestor;
+            for component in suffix_components.iter().rev() {
+                canonical.push(component);
+            }
+            return Ok(canonical);
+        }
+        if let Some(name) = ancestor.file_name() {
+            suffix_components.push(name);
+        }
+        existing_ancestor = ancestor.parent();
+    }
+
+    Err(ShellIntegrationError::PathNotResolvable)
+}
+
+// ── Symlink-safe file writing ────────────────────────────────────────
+
+/// Opens a dotfile for writing without following symlinks (Unix).
+///
+/// Uses `O_NOFOLLOW` to prevent symlink TOCTOU attacks where a symlink
+/// is swapped between validation and write.
+#[cfg(unix)]
+fn open_dotfile_for_write(path: &Path) -> std::io::Result<fs::File> {
+    use std::os::unix::fs::OpenOptionsExt;
+    fs::OpenOptions::new()
+        .write(true)
+        .truncate(true)
+        .create(true)
+        .custom_flags(libc::O_NOFOLLOW)
+        .open(path)
+}
+
+/// Opens a dotfile for writing with symlink safety check (Windows).
+///
+/// Checks `symlink_metadata()` immediately before write; if the target
+/// is a symlink, refuses to write.
+#[cfg(windows)]
+fn open_dotfile_for_write(path: &Path) -> std::io::Result<fs::File> {
+    if let Ok(m) = fs::symlink_metadata(path) {
+        if m.file_type().is_symlink() {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidInput,
+                "refusing to follow symlink for dotfile write",
+            ));
+        }
+    }
+    fs::OpenOptions::new()
+        .write(true)
+        .truncate(true)
+        .create(true)
+        .open(path)
+}
+
+/// Writes content to a dotfile atomically (temp file + rename).
+///
+/// 1. Writes to a `.putz-tmp` sibling file (symlink-safe).
+/// 2. Flushes to disk with `sync_all()`.
+/// 3. Renames over the target (atomic on POSIX same-filesystem).
+fn atomic_write_dotfile(path: &Path, content: &str) -> Result<(), String> {
+    let tmp_path = path.with_extension("putz-tmp");
+    {
+        let mut f = open_dotfile_for_write(&tmp_path)
+            .map_err(|e| format!("Failed to open temp file {}: {e}", tmp_path.display()))?;
+        f.write_all(content.as_bytes())
+            .map_err(|e| format!("Failed to write temp file: {e}"))?;
+        f.sync_all()
+            .map_err(|e| format!("Failed to sync temp file: {e}"))?;
+    }
+    fs::rename(&tmp_path, path).map_err(|e| {
+        format!(
+            "Failed to rename {} → {}: {e}",
+            tmp_path.display(),
+            path.display()
+        )
+    })?;
     Ok(())
 }
 
@@ -484,7 +619,7 @@ mod tests {
         let content = fs::read_to_string(&dotfile).unwrap();
         assert!(content.contains(MARKER_START));
         assert!(content.contains(MARKER_END));
-        assert!(content.contains("__putz_osc7_cwd"));
+        assert!(content.contains("__putz_emit_cwd"));
     }
 
     #[test]
@@ -558,7 +693,7 @@ mod tests {
         install("bash", &dotfile).unwrap();
         // Modify the block content.
         let content = fs::read_to_string(&dotfile).unwrap();
-        let modified = content.replace("__putz_osc7_cwd", "__my_custom_osc7");
+        let modified = content.replace("__putz_emit_cwd", "__my_custom_osc7");
         fs::write(&dotfile, modified).unwrap();
         assert_eq!(
             check_status("bash", &dotfile),
@@ -589,6 +724,40 @@ mod tests {
         assert!(result.is_ok());
     }
 
+    #[test]
+    fn validate_path_rejects_dotdot_components() {
+        let home = dirs::home_dir().expect("Need home dir");
+        let path = home.join("..").join("..").join("etc").join("passwd");
+        let result = validate_dotfile_path(&path);
+        assert!(result.is_err());
+        assert!(
+            result.unwrap_err().contains("traversal"),
+            "Error should mention traversal"
+        );
+    }
+
+    #[test]
+    fn validate_path_rejects_nonexistent_grandparent_bypass() {
+        // The original bug: XDG_CONFIG_HOME=/nonexistent/../../../etc
+        let path = PathBuf::from("/nonexistent/../../../etc/profile.d/putz.sh");
+        let result = validate_dotfile_path(&path);
+        assert!(result.is_err(), "Grandparent bypass must be rejected");
+    }
+
+    #[test]
+    fn validate_path_accepts_nonexistent_subdir_of_home() {
+        let home = dirs::home_dir().expect("Need home dir");
+        let path = home
+            .join(".config")
+            .join("putz-test-nonexistent")
+            .join(".zshrc");
+        let result = validate_dotfile_path(&path);
+        assert!(
+            result.is_ok(),
+            "Non-existent subdir of home should be accepted"
+        );
+    }
+
     // ── Bat marker tests ─────────────────────────────────────────────
 
     #[test]
@@ -614,5 +783,116 @@ mod tests {
         let a = "line1  \nline2\n";
         let b = "line1\nline2";
         assert_eq!(normalize_whitespace(a), normalize_whitespace(b));
+    }
+
+    // ── Marker block order ──────────────────────────────────────────
+
+    #[test]
+    fn has_marker_block_rejects_reversed_markers() {
+        let content = format!("{MARKER_END}\nstuff\n{MARKER_START}\n");
+        assert!(
+            !has_marker_block(&content, MARKER_START, MARKER_END),
+            "Reversed markers should not be detected"
+        );
+    }
+
+    // ── Full lifecycle ──────────────────────────────────────────────
+
+    #[test]
+    fn full_lifecycle_install_uninstall_reinstall() {
+        let dir = test_dir();
+        let dotfile = write_dotfile(
+            &dir,
+            ".bashrc",
+            "# user's custom content\nalias ll='ls -la'\n",
+        );
+        let original_content = "# user's custom content\nalias ll='ls -la'\n";
+
+        // Install
+        install("bash", &dotfile).unwrap();
+        let after_install = fs::read_to_string(&dotfile).unwrap();
+        assert!(after_install.contains(MARKER_START));
+        assert!(after_install.contains(original_content));
+
+        // Uninstall — original content must be preserved
+        uninstall("bash", &dotfile).unwrap();
+        let after_uninstall = fs::read_to_string(&dotfile).unwrap();
+        assert!(!after_uninstall.contains(MARKER_START));
+        assert!(
+            after_uninstall.trim().contains(original_content.trim()),
+            "Original content must survive uninstall"
+        );
+
+        // Reinstall with (implicitly different compile-time snippet)
+        install("bash", &dotfile).unwrap();
+        let after_reinstall = fs::read_to_string(&dotfile).unwrap();
+        assert!(after_reinstall.contains(MARKER_START));
+        assert!(
+            after_reinstall.matches(MARKER_START).count() == 1,
+            "Must have exactly one marker block after reinstall"
+        );
+    }
+
+    // ── Subprocess snippet tests (Fix 19) ───────────────────────────
+
+    #[cfg(unix)]
+    #[test]
+    fn bash_snippet_emits_osc7_on_prompt() {
+        if std::process::Command::new("bash")
+            .arg("--version")
+            .output()
+            .is_err()
+        {
+            eprintln!("bash not available — skipping");
+            return;
+        }
+
+        let snippet = include_str!("../../../assets/shell-integration/bash.sh");
+        // Write snippet to a temp file, source it, then trigger PROMPT_COMMAND.
+        let dir = tempfile::tempdir().expect("tmpdir");
+        let snippet_path = dir.path().join("putz-bash-test.sh");
+        fs::write(&snippet_path, snippet).unwrap();
+
+        let script = format!(". '{}' && eval \"$PROMPT_COMMAND\"", snippet_path.display());
+        let output = std::process::Command::new("bash")
+            .args(["--norc", "--noprofile", "-c", &script])
+            .output()
+            .expect("Failed to run bash");
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        assert!(
+            stdout.contains("\x1b]7;file://"),
+            "OSC 7 not emitted.\nstdout: {stdout}\nstderr: {stderr}"
+        );
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn fish_snippet_emits_osc7_on_prompt() {
+        if std::process::Command::new("fish")
+            .arg("--version")
+            .output()
+            .is_err()
+        {
+            eprintln!("fish not available — skipping");
+            return;
+        }
+
+        let snippet = include_str!("../../../assets/shell-integration/fish.fish");
+        // Write snippet to a temp file, source it, then emit fish_prompt.
+        let dir = tempfile::tempdir().expect("tmpdir");
+        let snippet_path = dir.path().join("putz-fish-test.fish");
+        fs::write(&snippet_path, snippet).unwrap();
+
+        let script = format!("source '{}'; emit fish_prompt", snippet_path.display());
+        let output = std::process::Command::new("fish")
+            .args(["--no-config", "-c", &script])
+            .output()
+            .expect("Failed to run fish");
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        assert!(
+            stdout.contains("\x1b]7;file://"),
+            "OSC 7 not emitted by fish snippet.\nstdout: {stdout}"
+        );
     }
 }

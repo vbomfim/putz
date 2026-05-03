@@ -3,16 +3,32 @@
 # Compatible with bash 3.2+ (macOS default) and bash 5+.
 # Do NOT add OSC 133 ;A/B/C/D markers here — that is S4 scope.
 
-__putz_osc7_cwd() {
-    printf '\e]7;file://%s%s\a' "${HOSTNAME:-localhost}" "$PWD"
-}
+# Sentinel variable prevents double-execution when this snippet
+# is sourced multiple times (e.g., subshells, re-sourced rc files).
+if [ -z "${__PUTZ_SHELL_INTEGRATION_LOADED:-}" ]; then
+  __PUTZ_SHELL_INTEGRATION_LOADED=1
 
-__putz_handshake() {
+  __putz_urlencode() {
+    local s="$1" out="" i c
+    for ((i = 0; i < ${#s}; i++)); do
+      c="${s:i:1}"
+      case "$c" in
+        [a-zA-Z0-9._~/-]) out+="$c" ;;
+        *) printf -v c '%%%02X' "'$c"; out+="$c" ;;
+      esac
+    done
+    printf '%s' "$out"
+  }
+
+  __putz_emit_cwd() {
+    # OSC 7 + putz handshake — emitted on every prompt
+    printf '\e]7;file://%s%s\a' "${HOSTNAME:-localhost}" "$(__putz_urlencode "$PWD")"
     printf '\e]133;P;putz=1\a'
-}
+  }
 
-# Append to PROMPT_COMMAND without clobbering existing hooks.
-# Guard against double-sourcing by checking for our function.
-if [[ "$(type -t __putz_osc7_cwd)" != "function" ]] 2>/dev/null; then
-    PROMPT_COMMAND="__putz_osc7_cwd; __putz_handshake${PROMPT_COMMAND:+; $PROMPT_COMMAND}"
+  # Append to PROMPT_COMMAND, preserving existing hooks
+  case ":${PROMPT_COMMAND:-}:" in
+    *":__putz_emit_cwd:"*) ;;  # already in chain
+    *) PROMPT_COMMAND="__putz_emit_cwd${PROMPT_COMMAND:+;${PROMPT_COMMAND}}" ;;
+  esac
 fi
