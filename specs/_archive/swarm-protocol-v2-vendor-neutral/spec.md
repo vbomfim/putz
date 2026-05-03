@@ -1,8 +1,20 @@
+> # ⚠️ SUPERSEDED
+>
+> **This spec has been superseded by [`specs/putz-copilot-swarm/spec.md`](../../putz-copilot-swarm/spec.md).**
+>
+> The Swarm v2 design below was scoped as a vendor-neutral, multi-language, public open standard with an HTTP broker, bearer-token auth, SSE, and reference SDKs across npm/PyPI/crates.io. After implementation began, the user clarified that the *only* in-scope integration is **Putz ↔ GitHub Copilot CLI** on the same machine, same user. Vendor neutrality, multi-language SDKs, the HTTP broker, the public protocol, and the cross-network trust model are all explicitly out of scope.
+>
+> The replacement spec collapses the design to: a Unix-socket / Windows-named-pipe IPC between Putz (Tauri/Rust host) and Copilot CLI extensions (Node) running inside Putz tabs. The UX layer (notification rings, Cmd+J inbox, Cmd+K spawn palette, sidebar colleague rows, OSC 133-derived status) survives intact and was the well-decided part of this document.
+>
+> Epic [#127](https://github.com/vbomfim/putz/issues/127) and tickets W1–W9 (#129–#137) were closed as superseded when the new spec landed. This file is retained for historical context — *why* the over-engineering was abandoned — and should not be implemented from.
+
+---
+
 # Feature Specification: Swarm Protocol v2 — Open Multi-Agent Terminal Protocol
 
 **Feature Branch**: `docs/spec-swarm-v2`
 **Created**: 2026-05-03
-**Status**: Draft
+**Status**: Superseded — see top of file
 **Input**: Redesign of the Putz Swarm subsystem from Phase 1 HTTP-only broker to an open, vendor-neutral multi-agent terminal protocol.
 
 **Owner**: PO Guardian via Copilot
