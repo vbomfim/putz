@@ -1,0 +1,15 @@
+{
+  "platform": "linux",
+  "arch": "x86_64",
+  "osVersion": null,
+  "shell": null,
+  "shellVersion": null,
+  "loginShell": false,
+  "putzVersion": "0.4.0",
+  "capturedAt": null,
+  "sampleCount": 0,
+  "errors": 0,
+  "samples": [],
+  "stats": null,
+  "_note": "Placeholder — run `cargo run --bin measure_spawn --release -- --samples 20` on a Linux x86_64 machine to populate."
+}

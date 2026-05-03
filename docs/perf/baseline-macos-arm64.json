@@ -1,0 +1,154 @@
+{
+  "arch": "aarch64",
+  "capturedAt": "2026-05-03T01:59:53.852297+00:00",
+  "errors": 0,
+  "loginShell": false,
+  "osVersion": "26.4.1",
+  "platform": "macos",
+  "putzVersion": "0.4.0",
+  "sampleCount": 20,
+  "samples": [
+    {
+      "openptyMs": 0.52,
+      "spawnToFirstByteMs": 14.49,
+      "spawnToReadyMs": 2.66,
+      "validationMs": 0.0
+    },
+    {
+      "openptyMs": 1.37,
+      "spawnToFirstByteMs": 28.1,
+      "spawnToReadyMs": 3.55,
+      "validationMs": 0.0
+    },
+    {
+      "openptyMs": 1.52,
+      "spawnToFirstByteMs": 24.88,
+      "spawnToReadyMs": 3.7,
+      "validationMs": 0.0
+    },
+    {
+      "openptyMs": 0.67,
+      "spawnToFirstByteMs": 14.94,
+      "spawnToReadyMs": 1.47,
+      "validationMs": 0.0
+    },
+    {
+      "openptyMs": 1.39,
+      "spawnToFirstByteMs": 26.21,
+      "spawnToReadyMs": 4.08,
+      "validationMs": 0.0
+    },
+    {
+      "openptyMs": 1.78,
+      "spawnToFirstByteMs": 27.19,
+      "spawnToReadyMs": 4.87,
+      "validationMs": 0.0
+    },
+    {
+      "openptyMs": 1.55,
+      "spawnToFirstByteMs": 28.23,
+      "spawnToReadyMs": 4.23,
+      "validationMs": 0.0
+    },
+    {
+      "openptyMs": 1.58,
+      "spawnToFirstByteMs": 27.53,
+      "spawnToReadyMs": 4.49,
+      "validationMs": 0.0
+    },
+    {
+      "openptyMs": 1.56,
+      "spawnToFirstByteMs": 27.08,
+      "spawnToReadyMs": 4.31,
+      "validationMs": 0.0
+    },
+    {
+      "openptyMs": 1.22,
+      "spawnToFirstByteMs": 26.23,
+      "spawnToReadyMs": 3.3,
+      "validationMs": 0.0
+    },
+    {
+      "openptyMs": 0.73,
+      "spawnToFirstByteMs": 15.02,
+      "spawnToReadyMs": 1.53,
+      "validationMs": 0.0
+    },
+    {
+      "openptyMs": 1.12,
+      "spawnToFirstByteMs": 22.65,
+      "spawnToReadyMs": 2.72,
+      "validationMs": 0.0
+    },
+    {
+      "openptyMs": 1.64,
+      "spawnToFirstByteMs": 28.46,
+      "spawnToReadyMs": 4.78,
+      "validationMs": 0.0
+    },
+    {
+      "openptyMs": 1.56,
+      "spawnToFirstByteMs": 27.78,
+      "spawnToReadyMs": 4.44,
+      "validationMs": 0.0
+    },
+    {
+      "openptyMs": 1.74,
+      "spawnToFirstByteMs": 30.74,
+      "spawnToReadyMs": 4.8,
+      "validationMs": 0.0
+    },
+    {
+      "openptyMs": 1.55,
+      "spawnToFirstByteMs": 28.96,
+      "spawnToReadyMs": 4.31,
+      "validationMs": 0.0
+    },
+    {
+      "openptyMs": 1.76,
+      "spawnToFirstByteMs": 30.77,
+      "spawnToReadyMs": 4.72,
+      "validationMs": 0.0
+    },
+    {
+      "openptyMs": 1.72,
+      "spawnToFirstByteMs": 28.68,
+      "spawnToReadyMs": 4.72,
+      "validationMs": 0.0
+    },
+    {
+      "openptyMs": 1.09,
+      "spawnToFirstByteMs": 23.07,
+      "spawnToReadyMs": 2.6,
+      "validationMs": 0.0
+    },
+    {
+      "openptyMs": 1.07,
+      "spawnToFirstByteMs": 21.99,
+      "spawnToReadyMs": 2.61,
+      "validationMs": 0.0
+    }
+  ],
+  "shell": "zsh",
+  "shellVersion": "zsh 5.9 (arm64-apple-darwin25.0)",
+  "stats": {
+    "spawnToFirstByte": {
+      "max": 30.77,
+      "mean": 25.15,
+      "min": 14.49,
+      "p50": 27.13,
+      "p95": 30.74,
+      "p99": 30.76,
+      "stddev": 4.92
+    },
+    "spawnToReady": {
+      "max": 4.87,
+      "mean": 3.69,
+      "min": 1.47,
+      "p50": 4.15,
+      "p95": 4.8,
+      "p99": 4.85,
+      "stddev": 1.06
+    }
+  }
+}

@@ -94,7 +94,8 @@ impl PtyManager {
     /// that reads PTY output and emits Tauri events.
     ///
     /// Validates shell path, working directory, and environment variables
-    /// before spawning.
+    /// before spawning. When `PUTZ_PERF=1`, emits a `pty-perf` event with
+    /// spawn timing data (time to first byte from PTY).
     #[allow(clippy::too_many_arguments)]
     pub fn spawn(
         &self,
@@ -105,6 +106,7 @@ impl PtyManager {
         rows: u16,
         env: Option<HashMap<String, String>>,
     ) -> Result<String, PtyError> {
+        let t_spawn_start = std::time::Instant::now();
         // Check session limit before doing anything else
         {
             let sessions = self
@@ -135,6 +137,11 @@ impl PtyManager {
             validate_env_vars(vars)?;
         }
 
+        // Subspan: validation complete — PTY syscalls start after this point.
+        // This boundary is aligned with measure_spawn.rs so timings are
+        // comparable across both paths (see Fix 3 / PR #118).
+        let t_validation_done = std::time::Instant::now();
+
         let pty_system = native_pty_system();
 
         let size = PtySize {
@@ -147,6 +154,8 @@ impl PtyManager {
         let pair = pty_system
             .openpty(size)
             .map_err(|e| PtyError::SpawnFailed(e.to_string()))?;
+
+        let t_openpty_done = std::time::Instant::now();
 
         let mut cmd = CommandBuilder::new(&shell_path);
 
@@ -198,6 +207,8 @@ impl PtyManager {
             .spawn_command(cmd)
             .map_err(|e| PtyError::SpawnFailed(e.to_string()))?;
 
+        let t_pty_ready = std::time::Instant::now();
+
         // Drop the slave — we only need the master side
         drop(pair.slave);
 
@@ -231,7 +242,17 @@ impl PtyManager {
 
         // Start the output reader on an OS thread (blocking I/O).
         // This thread lives until the PTY process exits (reader returns EOF).
-        self.start_reader_thread(app.clone(), session_id.clone(), reader);
+        let shell_basename = shell_basename_from(&shell_path);
+        self.start_reader_thread(
+            app.clone(),
+            session_id.clone(),
+            reader,
+            t_spawn_start,
+            t_validation_done,
+            t_openpty_done,
+            t_pty_ready,
+            shell_basename,
+        );
 
         Ok(session_id)
     }
@@ -393,23 +414,77 @@ impl PtyManager {
     /// Output bytes are base64-encoded before emission to avoid the
     /// overhead of serializing Vec<u8> as a JSON array of numbers.
     ///
+    /// When `PUTZ_PERF=1`, emits a `pty-perf` event on the first read
+    /// with spawn-to-first-byte timing data and aligned subspans.
+    ///
     /// Reads PTY output in a blocking loop and emits it to the frontend.
+    #[allow(clippy::too_many_arguments)]
     fn start_reader_thread(
         &self,
         app: AppHandle,
         session_id: String,
         mut reader: Box<dyn Read + Send>,
+        t_spawn_start: std::time::Instant,
+        t_validation_done: std::time::Instant,
+        t_openpty_done: std::time::Instant,
+        t_pty_ready: std::time::Instant,
+        shell_basename: String,
     ) {
         let sessions = self.sessions.clone();
         let b64_engine = base64::engine::general_purpose::STANDARD;
 
         std::thread::spawn(move || {
             let mut buf = [0u8; READ_BUFFER_SIZE];
+            let mut first_read = true;
 
             loop {
                 match reader.read(&mut buf) {
                     Ok(0) => break, // EOF — child process exited
                     Ok(n) => {
+                        // Emit spawn-to-first-byte timing on the first read
+                        if first_read {
+                            first_read = false;
+                            let t_first_byte = std::time::Instant::now();
+
+                            // Aligned subspans (see Fix 3 / PR #118):
+                            //   t_validation_done — after shell allowlist + arg validation
+                            //   t_openpty_done    — after openpty() returns
+                            //   t_pty_ready       — after spawn_command() returns
+                            //   t_first_byte      — when reader sees first non-zero buffer
+                            let validation_ms = t_validation_done
+                                .duration_since(t_spawn_start)
+                                .as_secs_f64()
+                                * 1000.0;
+                            let openpty_ms =
+                                t_openpty_done.duration_since(t_spawn_start).as_secs_f64() * 1000.0;
+                            let spawn_to_ready_ms =
+                                t_pty_ready.duration_since(t_spawn_start).as_secs_f64() * 1000.0;
+                            let spawn_to_first_byte_ms =
+                                t_first_byte.duration_since(t_spawn_start).as_secs_f64() * 1000.0;
+
+                            if crate::perf::is_enabled() {
+                                crate::perf::log(&format!(
+                                    "pty_spawn session={} shell={} validation_ms={:.2} openpty_ms={:.2} spawn_to_ready_ms={:.2} spawn_to_first_byte_ms={:.2}",
+                                    &session_id[..8.min(session_id.len())],
+                                    shell_basename,
+                                    validation_ms,
+                                    openpty_ms,
+                                    spawn_to_ready_ms,
+                                    spawn_to_first_byte_ms,
+                                ));
+
+                                let perf_payload = serde_json::json!({
+                                    "sessionId": session_id,
+                                    "shell": shell_basename,
+                                    "validationMs": validation_ms,
+                                    "openptyMs": openpty_ms,
+                                    "spawnToReadyMs": spawn_to_ready_ms,
+                                    "spawnToFirstByteMs": spawn_to_first_byte_ms,
+                                });
+                                let _ = app.emit("pty-perf", perf_payload);
+                            }
+                        }
+
                         let data = &buf[..n];
 
                         // Emit to frontend (base64-encoded)
@@ -468,6 +543,19 @@ fn default_shell() -> String {
     {
         std::env::var("COMSPEC").unwrap_or_else(|_| "powershell.exe".to_string())
     }
+}
+
+/// Extracts the basename from a shell path for safe logging.
+///
+/// Avoids leaking full filesystem paths (e.g. `/Users/john/.nix/bin/zsh`)
+/// in perf logs and `pty-perf` events. Returns `"unknown"` if the path
+/// cannot be parsed.
+fn shell_basename_from(shell_path: &str) -> String {
+    std::path::Path::new(shell_path)
+        .file_name()
+        .and_then(|n| n.to_str())
+        .unwrap_or("unknown")
+        .to_string()
 }
 
 /// Validates that a session ID is a valid UUID v4 format.
