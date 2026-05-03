@@ -4,10 +4,11 @@
  * Single source of truth for clipboard → PTY paste operations.
  * Handles:
  *  - Reading the clipboard
+ *  - Sanitizing bracketed-paste escape markers from clipboard content
  *  - Delegating to xterm.js's `terminal.paste()` (which respects bracketed
  *    paste mode and emits `\x1b[200~`/`\x1b[201~` markers when enabled)
- *  - Deduplication guard to prevent double-paste when multiple event paths
- *    fire for the same user gesture (e.g., contextmenu + native paste event)
+ *  - Per-instance deduplication guard using event-source identity to prevent
+ *    double-paste when multiple event handlers fire for one user gesture
  *
  * Design decision: we rely on xterm.js's `terminal.paste()` rather than
  * writing directly to the PTY. This is intentional — xterm.js knows whether
@@ -22,45 +23,130 @@
 import type { Terminal } from "@xterm/xterm";
 
 // ---------------------------------------------------------------------------
-// Paste deduplication guard
+// Security: bracketed-paste marker sanitization (Fix 1)
 // ---------------------------------------------------------------------------
-// Prevents the same clipboard content from being pasted twice within a short
-// window. This handles the class of bugs where two event paths (contextmenu +
-// Ctrl+V, or contextmenu + native browser paste) fire for a single user
-// gesture and both call pasteToTerminal().
-//
-// Guard window: 200ms — long enough to catch double-fires from the same
-// gesture, short enough to allow intentional rapid re-pastes.
+// Defense against bracketed-paste-marker injection (CVE-class):
+// If clipboard contains \x1b[201~, the shell sees a premature paste-end
+// and treats following bytes as raw keystrokes (arbitrary command execution
+// from a malicious clipboard). Strip both open and close markers.
+// eslint-disable-next-line no-control-regex
+export const STRIP_PASTE_MARKERS_RE = /\x1b\[20[01]~/g;
 
-const PASTE_GUARD_WINDOW_MS = 200;
+// ---------------------------------------------------------------------------
+// Per-instance paste deduplication guard (Fix 2 + Fix 3)
+// ---------------------------------------------------------------------------
+// Each terminal gets its own PasteGuard via createPasteGuard().
+// Uses event-source identity (event timestamp) as primary dedup signal,
+// with content-based fallback for legacy callers without timestamps.
 
-let lastPasteContent = "";
-let lastPasteTime = 0;
+/** Guard window for content-based fallback dedup. */
+const PASTE_GUARD_WINDOW_MS = 50;
+
+/** Jitter tolerance for event timestamp matching. */
+const TIMESTAMP_JITTER_MS = 5;
 
 /**
- * Check whether a paste with the given content should be allowed.
- * Returns true if the paste is fresh (different content or enough time elapsed).
+ * Per-instance paste deduplication guard.
+ * Create one per terminal via `createPasteGuard()`.
  */
-function shouldAllowPaste(content: string): boolean {
-  const now = Date.now();
-  if (
-    content === lastPasteContent &&
-    now - lastPasteTime < PASTE_GUARD_WINDOW_MS
-  ) {
-    return false;
-  }
-  lastPasteContent = content;
-  lastPasteTime = now;
-  return true;
+export interface PasteGuard {
+  /** Returns true if the paste should proceed; false if it's a duplicate. */
+  shouldAllow(content: string, eventTimestamp?: number): boolean;
+  /** Reset all guard state. Exported for testing. */
+  reset(): void;
+  /** Clean up timers and clear cached content (privacy hygiene). */
+  dispose(): void;
 }
 
 /**
- * Reset the paste guard state. Exported only for testing.
+ * Factory for per-instance paste guards.
+ *
+ * Primary dedup: event timestamp identity — two handlers from a single
+ * gesture share the same `MouseEvent.timeStamp` (or within ~5ms jitter).
+ * Fallback dedup: content equality within a tight 50ms window for legacy
+ * callers that don't pass timestamps.
+ *
+ * Privacy: cached clipboard content is cleared after the guard window
+ * expires (Fix 5).
+ */
+export function createPasteGuard(): PasteGuard {
+  let lastContent = "";
+  let lastTime = 0;
+  let lastTimestamp = 0;
+  let cleanupTimer: ReturnType<typeof setTimeout> | null = null;
+
+  return {
+    shouldAllow(content: string, eventTimestamp?: number): boolean {
+      const now = Date.now();
+
+      // Primary: same gesture if eventTimestamp matches within jitter
+      if (
+        eventTimestamp != null &&
+        lastTimestamp !== 0 &&
+        Math.abs(eventTimestamp - lastTimestamp) < TIMESTAMP_JITTER_MS
+      ) {
+        return false;
+      }
+
+      // Fallback: if no timestamp provided (legacy callers), use content
+      // equality within a tight window
+      if (
+        eventTimestamp == null &&
+        content === lastContent &&
+        now - lastTime < PASTE_GUARD_WINDOW_MS
+      ) {
+        return false;
+      }
+
+      // Allow — update state
+      lastContent = content;
+      lastTime = now;
+      lastTimestamp = eventTimestamp ?? 0;
+
+      // Privacy (Fix 5): clear cached clipboard content after guard window.
+      // Only clear if no newer paste has replaced it (check via lastTime).
+      if (cleanupTimer) clearTimeout(cleanupTimer);
+      const tokenAtSchedule = lastTime;
+      cleanupTimer = setTimeout(() => {
+        if (lastTime === tokenAtSchedule) {
+          lastContent = "";
+        }
+      }, PASTE_GUARD_WINDOW_MS);
+
+      return true;
+    },
+
+    reset(): void {
+      lastContent = "";
+      lastTime = 0;
+      lastTimestamp = 0;
+      if (cleanupTimer) clearTimeout(cleanupTimer);
+      cleanupTimer = null;
+    },
+
+    dispose(): void {
+      if (cleanupTimer) clearTimeout(cleanupTimer);
+      cleanupTimer = null;
+      lastContent = "";
+      lastTime = 0;
+      lastTimestamp = 0;
+    },
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Synchronous entry guard (Fix 6)
+// ---------------------------------------------------------------------------
+// Prevents TOCTOU race between concurrent `await readText()` calls.
+// Module-level since it guards the async function entry, not per-instance state.
+let pasteInFlight = false;
+
+/**
+ * Reset pasteInFlight flag. Exported only for testing.
  * @internal
  */
-export function _resetPasteGuard(): void {
-  lastPasteContent = "";
-  lastPasteTime = 0;
+export function _resetPasteInFlight(): void {
+  pasteInFlight = false;
 }
 
 // ---------------------------------------------------------------------------
@@ -81,22 +167,41 @@ export function _resetPasteGuard(): void {
  * (contextmenu, Ctrl+V, Ctrl+Shift+V) must call this function.
  *
  * @param terminal - The xterm.js Terminal instance
- * @param _sessionId - The PTY session ID (reserved for future use)
+ * @param guard - Per-instance PasteGuard for deduplication
+ * @param eventTimestamp - The triggering event's timeStamp for gesture identity
  */
 export async function pasteToTerminal(
   terminal: Terminal,
-  _sessionId: string,
+  guard: PasteGuard,
+  eventTimestamp?: number,
 ): Promise<void> {
+  // Synchronous entry guard (Fix 6): prevent concurrent clipboard reads
+  if (pasteInFlight) return;
+  pasteInFlight = true;
   try {
     const text = await navigator.clipboard.readText();
     if (!text) return;
 
-    // Deduplication: reject if this exact content was just pasted
-    if (!shouldAllowPaste(text)) return;
+    // Deduplication via per-instance guard with event-source identity
+    if (!guard.shouldAllow(text, eventTimestamp)) return;
 
-    // Delegate to xterm.js — it handles bracketed paste markers
-    terminal.paste(text);
-  } catch {
-    // Clipboard read failed — permission denied or empty. Silent no-op.
+    // Security (Fix 1): strip bracketed-paste markers from clipboard content
+    const sanitized = text.replace(STRIP_PASTE_MARKERS_RE, "");
+
+    // Delegate to xterm.js — it handles bracketed paste wrapping
+    terminal.paste(sanitized);
+  } catch (err: unknown) {
+    // Fix 7: distinguish clipboard failure modes.
+    // Permission denied or unsupported is a normal user-initiated outcome.
+    // Other errors deserve debug visibility. NEVER log clipboard content.
+    if (
+      err instanceof DOMException &&
+      (err.name === "NotAllowedError" || err.name === "NotFoundError")
+    ) {
+      return;
+    }
+    console.debug("[pasteToTerminal] unexpected clipboard error:", err);
+  } finally {
+    pasteInFlight = false;
   }
 }

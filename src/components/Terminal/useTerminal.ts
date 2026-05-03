@@ -38,7 +38,7 @@ import {
   parseCwdFromTitle,
   parseCwdFromOsc7,
 } from "./cwdRegistry";
-import { pasteToTerminal } from "./pasteHelper";
+import { pasteToTerminal, createPasteGuard } from "./pasteHelper";
 
 interface UseTerminalOptions {
   /** UUID v4 session identifier from pty_spawn. */
@@ -74,6 +74,7 @@ interface UseTerminalReturn {
 // source of truth for all paste operations. It handles clipboard reading,
 // bracketed paste mode (via xterm.js's terminal.paste()), and deduplication
 // to prevent double-paste when multiple event handlers fire for one gesture.
+// Each terminal instance gets its own PasteGuard — see createPasteGuard().
 // See #99 for details.
 
 /**
@@ -209,6 +210,8 @@ export function useTerminal({
     const container = terminalRef.current;
     const unlisteners: UnlistenFn[] = [];
     let disposed = false;
+    // Per-instance paste guard (Fix 2) — each terminal owns its dedup state.
+    const pasteGuard = createPasteGuard();
     // Debounce pty_cwd: on Windows the backend enumerates processes and reads
     // remote memory — each call can take 50-200ms. Burst-presses of Enter or
     // rapid title changes would otherwise queue on the pty sessions mutex and
@@ -560,7 +563,7 @@ export function useTerminal({
     const handleContextMenu = (e: MouseEvent) => {
       e.preventDefault();
       if (disposed) return;
-      pasteToTerminal(terminal, sessionId);
+      pasteToTerminal(terminal, pasteGuard, e.timeStamp);
     };
     container.addEventListener("contextmenu", handleContextMenu);
 
@@ -697,7 +700,7 @@ export function useTerminal({
       // Cmd+V / Ctrl+V — paste from clipboard
       if (isMod && !event.shiftKey && (key === "v" || event.code === "KeyV")) {
         event.preventDefault();
-        pasteToTerminal(terminal, sessionId);
+        pasteToTerminal(terminal, pasteGuard, event.timeStamp);
         return false;
       }
 
@@ -719,7 +722,7 @@ export function useTerminal({
       // Ctrl+Shift+V — paste (Linux-style)
       if (event.ctrlKey && event.shiftKey && event.key === "V") {
         event.preventDefault();
-        pasteToTerminal(terminal, sessionId);
+        pasteToTerminal(terminal, pasteGuard, event.timeStamp);
         return false;
       }
 
@@ -870,6 +873,7 @@ export function useTerminal({
 
       highlightEngine.dispose();
       highlightEngineRef.current = null;
+      pasteGuard.dispose();
 
       for (const unlisten of unlisteners) {
         unlisten();
