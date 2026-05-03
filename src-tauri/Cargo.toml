@@ -43,6 +43,9 @@ subtle = "2"
 [target."cfg(not(any(target_os = \"android\", target_os = \"ios\")))".dependencies]
 tauri-plugin-process = "2"
 
+[target."cfg(windows)".dependencies]
+winreg = "0.55"
+
 [[bin]]
 name = "measure_spawn"
 path = "src/bin/measure_spawn.rs"

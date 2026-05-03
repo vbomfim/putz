@@ -4,6 +4,7 @@
 /// `@tauri-apps/api/core`'s `invoke()`.
 use std::path::PathBuf;
 
+use crate::shell_integration::cmd_autorun::{self, CmdPreview, RegistryChange};
 use crate::shell_integration::detector;
 use crate::shell_integration::installer::{self, InstallResult, InstallStatus};
 
@@ -104,4 +105,34 @@ pub struct ShellInfo {
     pub dotfile_path: String,
     pub dotfile_exists: bool,
     pub status: InstallStatus,
+}
+
+// ── cmd.exe AutoRun commands ─────────────────────────────────────────
+
+/// Preview what a cmd.exe install would do — no side effects.
+///
+/// Returns the current and proposed AutoRun registry values so the
+/// frontend can show a confirmation dialog before any registry write.
+#[tauri::command]
+pub fn shell_integration_cmd_preview() -> Result<CmdPreview, String> {
+    cmd_autorun::preview()
+}
+
+/// Install cmd.exe shell integration after explicit user confirmation.
+///
+/// The frontend MUST call `shell_integration_cmd_preview()` first,
+/// show the user the proposed change, and only call this after
+/// the user clicks "Install" in the confirmation dialog.
+#[tauri::command]
+pub fn shell_integration_cmd_install_confirmed() -> Result<RegistryChange, String> {
+    cmd_autorun::install_confirmed()
+}
+
+/// Uninstall cmd.exe shell integration.
+///
+/// Surgically removes only Putz's segment from the AutoRun chain.
+/// Preserves other applications' AutoRun entries.
+#[tauri::command]
+pub fn shell_integration_cmd_uninstall() -> Result<RegistryChange, String> {
+    cmd_autorun::uninstall()
 }

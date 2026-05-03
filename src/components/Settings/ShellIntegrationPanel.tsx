@@ -10,6 +10,7 @@
  */
 import { useCallback, useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import { CmdRegistryConfirmDialog } from "./CmdRegistryConfirmDialog";
 
 // ── Types ────────────────────────────────────────────────────────────
 
@@ -82,6 +83,9 @@ export function ShellIntegrationPanel() {
     {},
   );
   const [bulkBusy, setBulkBusy] = useState(false);
+  const [cmdDialogMode, setCmdDialogMode] = useState<
+    "install" | "uninstall" | null
+  >(null);
 
   // ── Detection ────────────────────────────────────────────────────
 
@@ -182,6 +186,20 @@ export function ShellIntegrationPanel() {
     setBulkBusy(false);
   }, [shells, handleInstall]);
 
+  const handleCmdDialogClose = useCallback(
+    async (result?: { action: string }) => {
+      setCmdDialogMode(null);
+      if (result && result.action !== "noop") {
+        setActionMessage((m) => ({
+          ...m,
+          cmd: `Registry ${result.action} successfully`,
+        }));
+        await detectShells();
+      }
+    },
+    [detectShells],
+  );
+
   // ── Render ───────────────────────────────────────────────────────
 
   if (loading) {
@@ -250,12 +268,22 @@ export function ShellIntegrationPanel() {
             onInstall={handleInstall}
             onUninstall={handleUninstall}
             onShowSnippet={handleShowSnippet}
+            onCmdInstall={() => setCmdDialogMode("install")}
+            onCmdUninstall={() => setCmdDialogMode("uninstall")}
           />
         ))}
       </div>
 
       {shells.length === 0 && (
         <p style={subtextStyle}>No tier-1 shells detected on this system.</p>
+      )}
+
+      {/* cmd.exe confirmation dialog */}
+      {cmdDialogMode && (
+        <CmdRegistryConfirmDialog
+          mode={cmdDialogMode}
+          onClose={handleCmdDialogClose}
+        />
       )}
     </section>
   );
@@ -272,6 +300,8 @@ interface ShellCardProps {
   onInstall: (id: string) => void;
   onUninstall: (id: string) => void;
   onShowSnippet: (id: string) => void;
+  onCmdInstall: () => void;
+  onCmdUninstall: () => void;
 }
 
 function ShellCard({
@@ -283,6 +313,8 @@ function ShellCard({
   onInstall,
   onUninstall,
   onShowSnippet,
+  onCmdInstall,
+  onCmdUninstall,
 }: ShellCardProps) {
   const badge = statusBadge(shell.status);
   const isCmd = shell.id === "cmd";
@@ -377,6 +409,15 @@ function ShellCard({
             {busy ? "Installing…" : "Install"}
           </button>
         )}
+        {shell.status === "NotInstalled" && isCmd && (
+          <button
+            onClick={onCmdInstall}
+            style={actionButtonStyle}
+            data-testid="install-btn-cmd"
+          >
+            Install (with confirmation)…
+          </button>
+        )}
         {shell.status === "CustomModification" && !isCmd && (
           <button
             onClick={() => onInstall(shell.id)}
@@ -400,6 +441,20 @@ function ShellCard({
               data-testid={`uninstall-btn-${shell.id}`}
             >
               {busy ? "Removing…" : "Uninstall"}
+            </button>
+          )}
+        {(shell.status === "Installed" ||
+          shell.status === "CustomModification") &&
+          isCmd && (
+            <button
+              onClick={onCmdUninstall}
+              style={{
+                ...actionButtonStyle,
+                background: "var(--bg-danger, #f44336)",
+              }}
+              data-testid="uninstall-btn-cmd"
+            >
+              Uninstall (with confirmation)…
             </button>
           )}
         <button

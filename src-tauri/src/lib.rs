@@ -25,11 +25,12 @@ use ipc::{
     history_get_recent, history_search, perf_enabled, perf_log, perf_log_path, pty_close, pty_cwd,
     pty_list_shells, pty_resize, pty_spawn, pty_write, script_delete, script_get, script_list,
     script_record_start, script_record_stop, script_run, script_run_multi, script_save,
-    script_status, script_stop, shell_integration_detect, shell_integration_install,
-    shell_integration_show_snippet, shell_integration_status, shell_integration_uninstall,
-    swarm_get_state, swarm_set_enabled, swarm_spawn_colleague, template_create, template_delete,
-    template_execute, template_get, template_list, theme_create, theme_delete, theme_export,
-    theme_get, theme_import, theme_list, theme_update,
+    script_status, script_stop, shell_integration_cmd_install_confirmed,
+    shell_integration_cmd_preview, shell_integration_cmd_uninstall, shell_integration_detect,
+    shell_integration_install, shell_integration_show_snippet, shell_integration_status,
+    shell_integration_uninstall, swarm_get_state, swarm_set_enabled, swarm_spawn_colleague,
+    template_create, template_delete, template_execute, template_get, template_list, theme_create,
+    theme_delete, theme_export, theme_get, theme_import, theme_list, theme_update,
 };
 use pty::PtyManager;
 use scripting::ScriptManager;
@@ -137,6 +138,9 @@ pub fn run() {
             shell_integration_uninstall,
             shell_integration_status,
             shell_integration_show_snippet,
+            shell_integration_cmd_preview,
+            shell_integration_cmd_install_confirmed,
+            shell_integration_cmd_uninstall,
         ])
         // Fix 8: Graceful app exit — clean up PTY sessions
         .on_window_event(|window, event| {

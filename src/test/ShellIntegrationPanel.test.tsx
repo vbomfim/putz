@@ -300,7 +300,7 @@ describe("ShellIntegrationPanel", () => {
       });
     });
 
-    it("does not show Install button for cmd.exe", async () => {
+    it("shows Install with confirmation button for cmd.exe", async () => {
       mockInvoke.mockImplementation((cmd: string) => {
         if (cmd === "shell_integration_detect") {
           return Promise.resolve(mockShellsWithCmd);
@@ -309,7 +309,8 @@ describe("ShellIntegrationPanel", () => {
       });
       render(<ShellIntegrationPanel />);
       await waitFor(() => screen.getByTestId("shell-card-cmd"));
-      expect(screen.queryByTestId("install-btn-cmd")).toBeNull();
+      expect(screen.getByTestId("install-btn-cmd")).toBeTruthy();
+      expect(screen.getByText(/with confirmation/)).toBeTruthy();
     });
 
     it("excludes cmd from bulk install count", async () => {
@@ -344,6 +345,136 @@ describe("ShellIntegrationPanel", () => {
       await waitFor(() => {
         expect(screen.getByTestId("reinstall-btn-zsh")).toBeTruthy();
         expect(screen.getByText(/Custom modification/)).toBeTruthy();
+      });
+    });
+  });
+
+  describe("cmd.exe confirmation dialog", () => {
+    const cmdMockInvoke = (cmd: string, args?: Record<string, unknown>) => {
+      if (cmd === "shell_integration_detect") {
+        return Promise.resolve(mockShellsWithCmd);
+      }
+      if (cmd === "shell_integration_cmd_preview") {
+        return Promise.resolve({
+          existing_autorun: "chcp 65001",
+          proposed_autorun:
+            'chcp 65001 & "C:\\Users\\test\\AppData\\Local\\putz\\cmd-init.bat"',
+          snippet_path: "C:\\Users\\test\\AppData\\Local\\putz\\cmd-init.bat",
+          explanation:
+            "The AutoRun registry value already contains other entries.",
+        });
+      }
+      if (cmd === "shell_integration_cmd_install_confirmed") {
+        return Promise.resolve({
+          previous: "chcp 65001",
+          new: 'chcp 65001 & "C:\\Users\\test\\AppData\\Local\\putz\\cmd-init.bat"',
+          action: "installed",
+          snippet_path: "C:\\Users\\test\\AppData\\Local\\putz\\cmd-init.bat",
+        });
+      }
+      if (cmd === "shell_integration_cmd_uninstall") {
+        return Promise.resolve({
+          previous:
+            'chcp 65001 & "C:\\Users\\test\\AppData\\Local\\putz\\cmd-init.bat"',
+          new: "chcp 65001",
+          action: "uninstalled",
+          snippet_path: "C:\\Users\\test\\AppData\\Local\\putz\\cmd-init.bat",
+        });
+      }
+      if (cmd === "shell_integration_show_snippet") {
+        return Promise.resolve(`# snippet for ${args?.shellId}`);
+      }
+      return Promise.resolve(undefined);
+    };
+
+    it("opens confirmation dialog when cmd Install clicked", async () => {
+      mockInvoke.mockImplementation(cmdMockInvoke);
+      render(<ShellIntegrationPanel />);
+      await waitFor(() => screen.getByTestId("install-btn-cmd"));
+      fireEvent.click(screen.getByTestId("install-btn-cmd"));
+      await waitFor(() => {
+        expect(screen.getByTestId("cmd-confirm-dialog")).toBeTruthy();
+      });
+    });
+
+    it("dialog shows existing and proposed values", async () => {
+      mockInvoke.mockImplementation(cmdMockInvoke);
+      render(<ShellIntegrationPanel />);
+      await waitFor(() => screen.getByTestId("install-btn-cmd"));
+      fireEvent.click(screen.getByTestId("install-btn-cmd"));
+      await waitFor(() => {
+        // Proposed is open by default
+        expect(screen.getByTestId("cmd-proposed-value")).toBeTruthy();
+      });
+      // Expand existing value
+      fireEvent.click(screen.getByTestId("cmd-existing-toggle"));
+      await waitFor(() => {
+        expect(screen.getByTestId("cmd-existing-value")).toBeTruthy();
+      });
+    });
+
+    it("dialog shows explanation text", async () => {
+      mockInvoke.mockImplementation(cmdMockInvoke);
+      render(<ShellIntegrationPanel />);
+      await waitFor(() => screen.getByTestId("install-btn-cmd"));
+      fireEvent.click(screen.getByTestId("install-btn-cmd"));
+      await waitFor(() => {
+        expect(screen.getByTestId("cmd-dialog-explanation")).toBeTruthy();
+        expect(screen.getByText(/already contains other entries/)).toBeTruthy();
+      });
+    });
+
+    it("Cancel closes dialog without calling install IPC", async () => {
+      mockInvoke.mockImplementation(cmdMockInvoke);
+      render(<ShellIntegrationPanel />);
+      await waitFor(() => screen.getByTestId("install-btn-cmd"));
+      fireEvent.click(screen.getByTestId("install-btn-cmd"));
+      await waitFor(() => screen.getByTestId("cmd-cancel-btn"));
+      fireEvent.click(screen.getByTestId("cmd-cancel-btn"));
+      await waitFor(() => {
+        expect(screen.queryByTestId("cmd-confirm-dialog")).toBeNull();
+      });
+      // Confirm IPC was NOT called.
+      const installCalls = mockInvoke.mock.calls.filter(
+        (c) => c[0] === "shell_integration_cmd_install_confirmed",
+      );
+      expect(installCalls.length).toBe(0);
+    });
+
+    it("Install button calls confirmed IPC and closes dialog", async () => {
+      mockInvoke.mockImplementation(cmdMockInvoke);
+      render(<ShellIntegrationPanel />);
+      await waitFor(() => screen.getByTestId("install-btn-cmd"));
+      fireEvent.click(screen.getByTestId("install-btn-cmd"));
+      await waitFor(() => screen.getByTestId("cmd-confirm-btn"));
+      fireEvent.click(screen.getByTestId("cmd-confirm-btn"));
+      await waitFor(() => {
+        expect(mockInvoke).toHaveBeenCalledWith(
+          "shell_integration_cmd_install_confirmed",
+        );
+      });
+      // Dialog should close.
+      await waitFor(() => {
+        expect(screen.queryByTestId("cmd-confirm-dialog")).toBeNull();
+      });
+    });
+
+    it("shows error in dialog on preview failure", async () => {
+      mockInvoke.mockImplementation((cmd: string) => {
+        if (cmd === "shell_integration_detect") {
+          return Promise.resolve(mockShellsWithCmd);
+        }
+        if (cmd === "shell_integration_cmd_preview") {
+          return Promise.reject("cmd.exe is only supported on Windows");
+        }
+        return Promise.resolve(undefined);
+      });
+      render(<ShellIntegrationPanel />);
+      await waitFor(() => screen.getByTestId("install-btn-cmd"));
+      fireEvent.click(screen.getByTestId("install-btn-cmd"));
+      await waitFor(() => {
+        expect(screen.getByTestId("cmd-dialog-error")).toBeTruthy();
+        expect(screen.getByText(/only supported on Windows/)).toBeTruthy();
       });
     });
   });
