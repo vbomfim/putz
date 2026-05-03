@@ -493,7 +493,7 @@ describe("VT Corpus: OSC sequences", () => {
       const events: OscEvent[] = [];
       parser.on((e) => events.push(e));
 
-      // Only OSC 7 and 1337 are registered by our parser
+      // Only OSC 7, 133, and 1337 are registered by our parser
       fireOsc(99, "arbitrary data");
       expect(events).toHaveLength(0);
       parser.dispose();

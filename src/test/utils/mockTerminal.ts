@@ -9,8 +9,11 @@
  * - Stores multiple handlers per OSC code (mirrors xterm.js behavior).
  * - Exposes `fireOsc(code, data)` to simulate parser delivery.
  * - Exposes `registeredCodes()` to verify allowlist behavior.
+ * - Exposes `setCursor(row, col)` to set the mock buffer cursor position
+ *   (needed for OSC 133 cell-position tracking).
  *
- * Used by `src/test/oscParser.test.ts` and `src/test/vt-corpus/osc.test.ts`.
+ * Used by `src/test/oscParser.test.ts`, `src/test/oscParser-osc133.test.ts`,
+ * and `src/test/vt-corpus/osc.test.ts`.
  *
  * @module mockTerminal
  */
@@ -22,6 +25,9 @@ import { vi } from "vitest";
  */
 export function createMockTerminal() {
   const handlers = new Map<number, ((data: string) => boolean | void)[]>();
+  let cursorX = 0;
+  let cursorY = 0;
+  let baseY = 0;
 
   return {
     terminal: {
@@ -37,6 +43,19 @@ export function createMockTerminal() {
           };
         },
       },
+      buffer: {
+        active: {
+          get cursorX() {
+            return cursorX;
+          },
+          get cursorY() {
+            return cursorY;
+          },
+          get baseY() {
+            return baseY;
+          },
+        },
+      },
     } as unknown as import("@xterm/xterm").Terminal,
 
     /** Fire an OSC handler by code, simulating xterm.js parser delivery. */
@@ -50,6 +69,20 @@ export function createMockTerminal() {
     /** Check which OSC codes have registered handlers. */
     registeredCodes(): number[] {
       return Array.from(handlers.keys());
+    },
+
+    /** Set the mock cursor position (for OSC 133 cell tracking). */
+    setCursor(row: number, col: number): void {
+      cursorY = row;
+      cursorX = col;
+    },
+
+    /**
+     * Set the mock base Y offset (scrollback).
+     * When baseY > 0, the absolute row = baseY + cursorY.
+     */
+    setBaseY(value: number): void {
+      baseY = value;
     },
   };
 }
