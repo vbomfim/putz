@@ -24,6 +24,7 @@ import {
   type BackgroundEffect,
 } from "./TerminalBackground";
 import { BELL_FLASH_CLASS, BELL_FLASH_DURATION_MS } from "./terminalPolish";
+import { DEFAULT_TERMINAL_THEME } from "./types";
 import { useSettingsStore } from "../../stores/settingsStore";
 import { useThemeStore } from "../../stores/themeStore";
 import { CommandGutter } from "./CommandGutter";
@@ -144,11 +145,28 @@ export function TerminalView({
 
   const search = useSearch({ terminal: terminalInstance });
 
-  // Note: terminal background transparency is now handled purely by CSS
-  // (.terminal-wrapper--bg-active overrides .xterm-viewport background to
-  // transparent). We deliberately do NOT mutate term.options.theme here —
-  // doing so triggers xterm to repaint every cell, causing a visible flash
-  // when the user drags the opacity slider.
+  // Sync xterm theme.background transparency to the animated-effect setting.
+  // When an effect is active, override the theme's background to a semi-transparent
+  // value so the canvas behind shows through. When 'none', restore the theme bg.
+  // IMPORTANT: derive themeBase from the STABLE theme store (never from
+  // term.options.theme), otherwise after the first override the next render
+  // reads back the override as the "base" and the original opaque bg is lost.
+  useEffect(() => {
+    const term = terminalInstance;
+    if (!term) return;
+    const themeBase = termColors || DEFAULT_TERMINAL_THEME;
+    if (backgroundEffect === "none") {
+      term.options.theme = { ...themeBase };
+    } else {
+      term.options.theme = {
+        ...themeBase,
+        // Semi-transparent dark scrim — canvas shows through but text remains
+        // legible even if the user's animated effect is subtle. Tune via
+        // backgroundOpacity setting on the canvas itself.
+        background: "rgba(0, 0, 0, 0.4)",
+      };
+    }
+  }, [terminalInstance, backgroundEffect, termColors]);
 
   // ── Gutter state: viewport scroll + cell height ──────────────────────
   const [viewportTop, setViewportTop] = useState(0);

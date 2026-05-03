@@ -629,9 +629,6 @@ export function TerminalBackground({
         inset: 0,
         zIndex: 0,
         opacity,
-        // Smooth slider drags — prevents perceived "blink" when opacity
-        // jumps frame-to-frame during interaction.
-        transition: "opacity 120ms linear",
         pointerEvents: "none",
       }}
       data-testid="terminal-background-canvas"
