@@ -23,6 +23,7 @@ interface PersistedSettings {
   backgroundSize: string;
   defaultShell: string;
   swarmEnabled: boolean;
+  copilotCardDismissed: boolean;
 }
 
 /** Loads persisted settings from localStorage, returning defaults on failure. */
@@ -42,6 +43,7 @@ function loadPersistedSettings(): PersistedSettings {
         backgroundSize: parsed.backgroundSize ?? "large",
         defaultShell: parsed.defaultShell ?? "",
         swarmEnabled: parsed.swarmEnabled ?? false,
+        copilotCardDismissed: parsed.copilotCardDismissed ?? false,
       };
     }
   } catch {
@@ -58,6 +60,7 @@ function loadPersistedSettings(): PersistedSettings {
     backgroundSize: "large",
     defaultShell: "",
     swarmEnabled: false,
+    copilotCardDismissed: false,
   };
 }
 
@@ -106,6 +109,9 @@ interface SettingsState {
   /** Whether the Copilot swarm broker is enabled. */
   swarmEnabled: boolean;
 
+  /** Whether the user has dismissed the Copilot integration discovery card. */
+  copilotCardDismissed: boolean;
+
   /** Toggles the workspace bar visibility and persists to localStorage. */
   toggleWorkspaceBar: () => void;
 
@@ -144,6 +150,9 @@ interface SettingsState {
 
   /** Sets the swarm enabled state. */
   setSwarmEnabled: (enabled: boolean) => void;
+
+  /** Persistently dismiss (or restore) the Copilot integration discovery card. */
+  setCopilotCardDismissed: (dismissed: boolean) => void;
 }
 
 export const useSettingsStore = create<SettingsState>((set, get) => {
@@ -162,6 +171,7 @@ export const useSettingsStore = create<SettingsState>((set, get) => {
       backgroundSize: s.backgroundSize,
       defaultShell: s.defaultShell,
       swarmEnabled: s.swarmEnabled,
+      copilotCardDismissed: s.copilotCardDismissed,
     });
   };
 
@@ -176,6 +186,7 @@ export const useSettingsStore = create<SettingsState>((set, get) => {
     backgroundSize: persisted.backgroundSize,
     defaultShell: persisted.defaultShell,
     swarmEnabled: persisted.swarmEnabled,
+    copilotCardDismissed: persisted.copilotCardDismissed,
     shortcutsPanelOpen: false,
 
     toggleWorkspaceBar: () => {
@@ -238,6 +249,11 @@ export const useSettingsStore = create<SettingsState>((set, get) => {
 
     setSwarmEnabled: (enabled: boolean) => {
       set({ swarmEnabled: enabled });
+      persist();
+    },
+
+    setCopilotCardDismissed: (dismissed: boolean) => {
+      set({ copilotCardDismissed: dismissed });
       persist();
     },
   };

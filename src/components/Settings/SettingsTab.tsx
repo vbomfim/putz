@@ -11,6 +11,7 @@ import { useSettingsStore } from "../../stores/settingsStore";
 import { useThemeStore } from "../../stores/themeStore";
 import type { BackgroundEffect } from "../Terminal/TerminalBackground";
 import { ShellIntegrationPanel } from "./ShellIntegrationPanel";
+import { CopilotIntegrationCard } from "./CopilotIntegrationCard";
 import "../../styles/tab-list.css";
 
 interface Theme {
@@ -59,6 +60,12 @@ export function SettingsTab() {
   const setDefaultShell = useSettingsStore((s) => s.setDefaultShell);
   const swarmEnabled = useSettingsStore((s) => s.swarmEnabled);
   const setSwarmEnabled = useSettingsStore((s) => s.setSwarmEnabled);
+  const copilotCardDismissed = useSettingsStore(
+    (s) => s.copilotCardDismissed,
+  );
+  const setCopilotCardDismissed = useSettingsStore(
+    (s) => s.setCopilotCardDismissed,
+  );
   const activeThemeId = useThemeStore((s) => s.activeThemeId);
   const setActiveTheme = useThemeStore((s) => s.setActiveTheme);
   const [themes, setThemes] = useState<Theme[]>([]);
@@ -572,6 +579,12 @@ export function SettingsTab() {
             externally, but exercise caution when using agent prompts that
             reference personal or confidential information.
           </p>
+
+          {/* First-run discovery: bundled Copilot CLI extension */}
+          <CopilotIntegrationCard
+            dismissed={copilotCardDismissed}
+            onDismiss={() => setCopilotCardDismissed(true)}
+          />
         </section>
 
         {/* ── Shell Integration ────────────────────────── */}

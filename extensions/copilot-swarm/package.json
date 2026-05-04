@@ -1,0 +1,21 @@
+{
+  "name": "@putz/copilot-swarm",
+  "version": "0.4.0",
+  "description": "Putz colleague shim for the GitHub Copilot CLI. Auto-registers a Copilot session with Putz's local swarm coordinator over the per-instance Unix socket / Windows named pipe.",
+  "private": true,
+  "type": "module",
+  "license": "MIT",
+  "main": "index.mjs",
+  "exports": {
+    ".": "./index.mjs",
+    "./api": "./src/api.mjs",
+    "./wire": "./src/wire.mjs"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "start": "node index.mjs",
+    "test": "node --test --test-timeout=8000 tests/wire.test.mjs tests/integration.test.mjs"
+  }
+}
