@@ -10,8 +10,9 @@
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
-use std::time::{Duration, Instant};
+use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
+use serde::Serialize;
 use tokio::sync::{mpsc, Mutex, RwLock};
 use tokio::task::JoinHandle;
 use tokio_util::sync::CancellationToken;
@@ -23,6 +24,28 @@ use super::types::{
     SwarmStatePublic,
 };
 use super::wire::Frame;
+
+/// Payload for the `swarm://notify` Tauri event (T4 / FR-014, FR-016).
+///
+/// Emitted to the frontend whenever a `Frame::Notify` is dispatched by
+/// a connected colleague. Drives the per-tab notification ring and the
+/// Cmd+J inbox panel.
+///
+/// @privacy Tier-2 — `message` carries arbitrary user-authored content
+/// from the colleague's PTY context. NEVER log, NEVER persist to disk,
+/// NEVER forward to telemetry. The frontend stores it in-memory only
+/// (clears on app restart, per spec PRI-001).
+#[derive(Debug, Clone, Serialize)]
+pub struct NotifyEvent {
+    pub colleague_id: String,
+    pub tab_id: String,
+    pub severity: Severity,
+    /// @privacy Tier-2 PII — see struct doc.
+    pub message: String,
+    /// Unix epoch milliseconds at the moment the notify was received
+    /// by the coordinator. Frontend uses this for "2 min ago" rendering.
+    pub timestamp_ms: u64,
+}
 
 /// No heartbeat for this long → status moves to `Stale`. Spec FR (heartbeat sweep).
 const STALE_TIMEOUT: Duration = Duration::from_secs(30);
@@ -141,6 +164,16 @@ struct Inner {
     /// `update_status` call so a pending broadcast knows fresh data is
     /// waiting; cleared just before the broadcast goes out.
     roster_dirty: bool,
+    /// T4 / FR-014, FR-016: type-erased emitter for `swarm://notify` Tauri
+    /// events. Set inside [`SwarmCoordinator::start`] from the
+    /// caller-provided `app_handle` and cleared on `stop()`. The closure
+    /// captures `AppHandle<R>` so the runtime generic does not leak into
+    /// the coordinator's struct definition (keeps the per-method generic
+    /// from infecting every helper).
+    ///
+    /// @privacy Tier-2 — payloads carry user-authored notify messages.
+    /// The closure body MUST emit-and-forget; never log payloads.
+    notify_emitter: Option<Arc<dyn Fn(NotifyEvent) + Send + Sync>>,
 }
 
 /// Background tasks owned by an active swarm lifecycle. Stored on the
@@ -227,6 +260,18 @@ impl SwarmCoordinator {
         {
             let mut inner = self.inner.write().await;
             inner.path = Some(path_string.clone());
+            // Install the type-erased notify emitter so dispatch_frame
+            // can fan a `Frame::Notify` out to the frontend without
+            // knowing the runtime generic. Cleared in `stop()`.
+            let emit_app = app_handle.clone();
+            inner.notify_emitter = Some(Arc::new(move |event: NotifyEvent| {
+                use tauri::Emitter;
+                // Best-effort fire-and-forget. Frontend may not be
+                // listening yet during early boot — that's acceptable
+                // (notifies that arrive before the listener mounts are
+                // dropped, matching the in-memory-only PRI-001 model).
+                let _ = emit_app.emit("swarm://notify", &event);
+            }));
         }
         {
             let mut cancel_guard = self.cancel.write().await;
@@ -301,6 +346,7 @@ impl SwarmCoordinator {
             handle.abort();
         }
         inner.roster_dirty = false;
+        inner.notify_emitter = None;
         inner.by_id.clear();
         inner.by_conn.clear();
         inner.by_tab.clear();
@@ -535,7 +581,7 @@ impl SwarmCoordinator {
         &self,
         conn_id: &ConnectionId,
         colleague_id: &str,
-        _severity: Severity,
+        severity: Severity,
         message: String,
     ) {
         if message.len() > MAX_MESSAGE_LEN {
@@ -547,15 +593,89 @@ impl SwarmCoordinator {
             ));
             return;
         }
-        let mut inner = self.inner.write().await;
-        let bound_id = match inner.by_conn.get(conn_id) {
-            Some(id) if id == colleague_id => id.clone(),
-            _ => return,
+        // Sec F8: strip control characters (BEL, ESC, NUL, etc.) at
+        // ingress so a hostile colleague cannot smuggle ANSI escape
+        // sequences or terminal-confusing bytes into the inbox UI.
+        // Keeps `\t` / `\n` (legible whitespace authors may use).
+        let message = sanitize_notify_message(&message);
+        // Snapshot the data we need (tab_id, emitter clone) under the
+        // lock, then drop the lock before invoking the emitter — the
+        // closure may call into Tauri's runtime and we never want to
+        // hold a lock across an unknown-cost callback.
+        let event_and_emitter = {
+            let mut inner = self.inner.write().await;
+            let bound_id = match inner.by_conn.get(conn_id) {
+                Some(id) if id == colleague_id => id.clone(),
+                _ => return,
+            };
+            let tab_id_opt = inner.by_id.get(&bound_id).map(|c| c.tab_id.clone());
+            if let Some(c) = inner.by_id.get_mut(&bound_id) {
+                c.last_seen = Instant::now();
+            }
+            let emitter = inner.notify_emitter.clone();
+            tab_id_opt.zip(emitter).map(|(tab_id, emitter)| {
+                let event = NotifyEvent {
+                    colleague_id: bound_id,
+                    tab_id,
+                    severity,
+                    message,
+                    timestamp_ms: now_unix_millis(),
+                };
+                (event, emitter)
+            })
         };
-        if let Some(c) = inner.by_id.get_mut(&bound_id) {
-            c.last_seen = Instant::now();
+        if let Some((event, emitter)) = event_and_emitter {
+            emitter(event);
         }
-        // T4 will hook the inbox emitter here.
+    }
+
+    /// T4 / F9 — send a notify message to a target colleague's inbox.
+    ///
+    /// Used by the right-click "Send notify…" UI in the sidebar.
+    /// The message is sanitized + capped server-side and emitted
+    /// directly via the same path as wire-frame `Notify` so the
+    /// target's UI cannot tell it apart from a peer-originated
+    /// notification.
+    ///
+    /// Returns `Err(String)` only on hard validation failure
+    /// (oversize); a missing target is silently dropped (UI may have
+    /// raced a disconnect).
+    pub async fn send_notify_to(
+        &self,
+        app: tauri::AppHandle,
+        target_colleague_id: &str,
+        message: String,
+    ) -> Result<(), String> {
+        use tauri::Emitter;
+
+        if message.is_empty() {
+            return Err("Notify message is empty".into());
+        }
+        if message.len() > MAX_MESSAGE_LEN {
+            return Err(format!(
+                "Notify message too long ({} bytes; max {MAX_MESSAGE_LEN})",
+                message.len()
+            ));
+        }
+        let message = sanitize_notify_message(&message);
+
+        // Snapshot tab_id under lock; emit outside the lock.
+        let tab_id = {
+            let inner = self.inner.read().await;
+            match inner.by_id.get(target_colleague_id) {
+                Some(c) => c.tab_id.clone(),
+                None => return Ok(()), // target gone — best-effort
+            }
+        };
+        let event = NotifyEvent {
+            colleague_id: target_colleague_id.to_string(),
+            tab_id,
+            severity: Severity::Normal,
+            message,
+            timestamp_ms: now_unix_millis(),
+        };
+        let _ = app.emit("swarm://notify", &event);
+        Ok(())
     }
 
     /// Route a message from `from` to `to`. Best-effort — if `to` has a
@@ -819,6 +939,17 @@ fn sanitize_label(s: &str) -> String {
     s.chars().filter(|c| !c.is_control()).collect()
 }
 
+/// Strip dangerous control characters from a notify message at the
+/// coordinator ingress. Mirrors [`sanitize_label`]'s posture but
+/// preserves `\t` and `\n` so legible whitespace authored by the
+/// sender survives. Defends against ANSI escape injection / bell
+/// flooding into the inbox UI.
+fn sanitize_notify_message(s: &str) -> String {
+    s.chars()
+        .filter(|c| !c.is_control() || *c == '\t' || *c == '\n')
+        .collect()
+}
+
 fn emit_state_changed<R: tauri::Runtime>(app: &tauri::AppHandle<R>, state: &SwarmStatePublic) {
     use tauri::Emitter;
     let _ = app.emit("swarm://state-changed", state);
@@ -829,6 +960,16 @@ fn emit_state_changed<R: tauri::Runtime>(app: &tauri::AppHandle<R>, state: &Swar
 /// to cross the module boundary. Never log frame contents (PRI-002).
 fn tracing_warn(msg: &str) {
     eprintln!("[swarm] {msg}");
+}
+
+/// Current time as Unix epoch milliseconds. Centralized so tests can
+/// (in the future) stub via a trait if we need replay determinism;
+/// callers should not call `SystemTime::now()` directly.
+fn now_unix_millis() -> u64 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|d| d.as_millis() as u64)
+        .unwrap_or(0)
 }
 
 /// Await a background task with a bounded timeout. On timeout, abort
@@ -1346,6 +1487,14 @@ mod tests {
     fn sanitize_label_strips_control_chars() {
         assert_eq!(sanitize_label("alice\u{1b}[31m"), "alice[31m");
         assert_eq!(sanitize_label("plain"), "plain");
+    }
+
+    #[test]
+    fn sanitize_notify_message_strips_dangerous_controls_keeps_whitespace() {
+        // BEL, NUL, ESC stripped; tab + newline preserved.
+        let dirty = "hi\u{0007}there\u{001b}[31m\nline\u{0000}two\tend";
+        let clean = sanitize_notify_message(dirty);
+        assert_eq!(clean, "hithere[31m\nlinetwo\tend");
     }
 
     #[test]

@@ -12,8 +12,12 @@
 pub mod coordinator;
 pub mod lifecycle;
 pub mod socket;
+pub mod spawn_recipe;
 pub mod types;
 pub mod wire;
 
 pub use coordinator::SwarmCoordinator;
+pub use spawn_recipe::{
+    load_workspace_recipes, ErrorKind as RecipeErrorKind, LoadRecipeError, LoadResult, SpawnRecipe,
+};
 pub use types::SwarmStatePublic;

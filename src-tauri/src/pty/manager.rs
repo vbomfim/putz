@@ -105,6 +105,7 @@ impl PtyManager {
         cols: u16,
         rows: u16,
         env: Option<HashMap<String, String>>,
+        args: Option<Vec<String>>,
     ) -> Result<String, PtyError> {
         let t_spawn_start = std::time::Instant::now();
         // Check session limit before doing anything else
@@ -118,10 +119,18 @@ impl PtyManager {
             }
         }
 
-        // Validate and resolve shell path
+        // Validate and resolve shell path.
+        // T4: when `args` are explicitly supplied (recipe-driven spawn,
+        // e.g., `gh copilot`) the executable is NOT a login shell — it's
+        // an arbitrary program already validated by the recipe loader
+        // (`spawn_recipe::validate_for_spawn`). Skip the shell allowlist
+        // check in that case; otherwise enforce it for free-form shells.
+        let has_explicit_args = args.as_ref().map(|a| !a.is_empty()).unwrap_or(false);
         let shell_path = match shell {
             Some(path) => {
-                validate_shell(&path)?;
+                if !has_explicit_args {
+                    validate_shell(&path)?;
+                }
                 path
             }
             None => default_shell(),
@@ -159,11 +168,25 @@ impl PtyManager {
 
         let mut cmd = CommandBuilder::new(&shell_path);
 
+        // T4 / FR-019: when a recipe supplies explicit `args`, the
+        // caller is invoking a specific program (e.g., `gh copilot`)
+        // and we MUST NOT inject login-shell flags or PowerShell
+        // bootstrap scripts that would replace those args. The
+        // `args` path is mutually exclusive with the login-shell /
+        // OSC 7 wrappers below.
+        if let Some(a) = &args {
+            for arg in a {
+                cmd.arg(arg);
+            }
+        }
+
         // Spawn as login shell so it sources ~/.zprofile / ~/.bash_profile
         // This ensures the full PATH is available (Homebrew, cargo, nvm, etc.)
         // Without this, macOS GUI apps get a minimal PATH (/usr/bin:/bin only)
         #[cfg(unix)]
-        cmd.arg("-l");
+        if !has_explicit_args {
+            cmd.arg("-l");
+        }
 
         // Windows: inject OSC 7 cwd notification into PowerShell so the
         // frontend can track `cd` reliably. PowerShell does NOT sync the
@@ -175,7 +198,7 @@ impl PtyManager {
         // profile paths (so Oh-My-Posh etc. still install their prompt),
         // then wrap the user's `prompt` function with an OSC 7 emitter.
         #[cfg(windows)]
-        {
+        if !has_explicit_args {
             let shell_lower = shell_path.to_lowercase();
             if shell_lower.ends_with("powershell.exe") || shell_lower.ends_with("pwsh.exe") {
                 let script = r#"foreach ($p in @($PROFILE.AllUsersAllHosts, $PROFILE.AllUsersCurrentHost, $PROFILE.CurrentUserAllHosts, $PROFILE.CurrentUserCurrentHost)) { if ($p -and (Test-Path $p)) { . $p } }; $global:__putzOrigPrompt = $function:prompt; function global:prompt { try { [Console]::Write([char]27 + ']7;file://' + [System.Net.Dns]::GetHostName() + ($PWD.ProviderPath -replace '\\','/') + [char]27 + '\') } catch {}; & $global:__putzOrigPrompt }"#;

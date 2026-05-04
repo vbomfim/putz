@@ -60,6 +60,12 @@ export function SettingsTab() {
   const setDefaultShell = useSettingsStore((s) => s.setDefaultShell);
   const swarmEnabled = useSettingsStore((s) => s.swarmEnabled);
   const setSwarmEnabled = useSettingsStore((s) => s.setSwarmEnabled);
+  const swarmSidebarPosition = useSettingsStore(
+    (s) => s.swarmSidebarPosition,
+  );
+  const setSwarmSidebarPosition = useSettingsStore(
+    (s) => s.setSwarmSidebarPosition,
+  );
   const copilotCardDismissed = useSettingsStore(
     (s) => s.copilotCardDismissed,
   );
@@ -579,6 +585,47 @@ export function SettingsTab() {
             externally, but exercise caution when using agent prompts that
             reference personal or confidential information.
           </p>
+
+          {/* Sidebar position control */}
+          <div
+            data-testid="swarm-sidebar-position-group"
+            style={{
+              marginTop: 16,
+              display: "flex",
+              flexDirection: "column",
+              gap: 6,
+            }}
+          >
+            <label
+              htmlFor="swarm-sidebar-position"
+              style={{ fontSize: 11, color: "var(--text-secondary)" }}
+            >
+              Colleague sidebar position
+            </label>
+            <select
+              id="swarm-sidebar-position"
+              data-testid="swarm-sidebar-position"
+              value={swarmSidebarPosition}
+              onChange={(e) =>
+                setSwarmSidebarPosition(
+                  e.target.value as "left" | "right" | "hidden",
+                )
+              }
+              style={{
+                width: "fit-content",
+                padding: "4px 8px",
+                background: "var(--bg-secondary)",
+                color: "var(--text-primary)",
+                border: "1px solid var(--hover-bg)",
+                borderRadius: 4,
+                fontSize: 12,
+              }}
+            >
+              <option value="left">Left</option>
+              <option value="right">Right</option>
+              <option value="hidden">Hidden</option>
+            </select>
+          </div>
 
           {/* First-run discovery: bundled Copilot CLI extension */}
           <CopilotIntegrationCard

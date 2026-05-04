@@ -22,6 +22,7 @@ import {
   getFocusedTerminalSessionId,
   setAddBookmarkFromTabCallback,
 } from "./utils/bookmarkHelpers";
+import { getSessionCwd } from "./components/Terminal/cwdRegistry";
 import { RegionContainer } from "./components/Region";
 import { BroadcastBar } from "./components/BroadcastBar";
 import { PathBar } from "./components/PathBar";
@@ -40,6 +41,15 @@ import { WorkspaceBar } from "./components/Workspace";
 import { BookmarksBar } from "./components/BookmarksBar";
 import { useThemeStore } from "./stores/themeStore";
 import { useSettingsStore } from "./stores/settingsStore";
+import {
+  SwarmSidebar,
+  InboxPanel,
+  SpawnPalette,
+} from "./components/Swarm";
+import { useSwarmShortcuts } from "./hooks/useSwarmShortcuts";
+import { useSwarmNotifyListener } from "./hooks/useSwarmNotifyListener";
+import { useSwarmAmbientProducer } from "./hooks/useSwarmAmbientProducer";
+import { useSwarmInboxStore } from "./stores/swarmInboxStore";
 import type { Theme } from "./components/Terminal/themeTypes";
 import type { RegionTab } from "./types";
 import "./styles/App.css";
@@ -61,11 +71,114 @@ function App() {
   const toggleWorkspaceBar = useSettingsStore((s) => s.toggleWorkspaceBar);
   const bookmarksBarVisible = useSettingsStore((s) => s.bookmarksBarVisible);
   const toggleBookmarksBar = useSettingsStore((s) => s.toggleBookmarksBar);
+  const swarmEnabled = useSettingsStore((s) => s.swarmEnabled);
+  const swarmSidebarPosition = useSettingsStore(
+    (s) => s.swarmSidebarPosition,
+  );
+  const swarmSidebarCollapsed = useSettingsStore(
+    (s) => s.swarmSidebarCollapsed,
+  );
+  const toggleSwarmSidebarCollapsed = useSettingsStore(
+    (s) => s.toggleSwarmSidebarCollapsed,
+  );
   const hasInitialized = useRef(false);
   const [themeEditorOpen, setThemeEditorOpen] = useState(false);
   const [fontConfigOpen, setFontConfigOpen] = useState(false);
   const [availableThemes, setAvailableThemes] = useState<Theme[]>([]);
   const [toastMessage, showToast, dismissToast] = useToast();
+  const [inboxOpen, setInboxOpen] = useState(false);
+  const [paletteOpen, setPaletteOpen] = useState(false);
+
+  // Swarm: keyboard shortcuts (Cmd+J inbox, Cmd+K palette).
+  // D3: gated by `swarmEnabled` so the user can opt out and let
+  // xterm receive Ctrl+J / Ctrl+K natively.
+  useSwarmShortcuts(
+    {
+      onToggleInbox: useCallback(() => setInboxOpen((v) => !v), []),
+      onTogglePalette: useCallback(() => setPaletteOpen((v) => !v), []),
+    },
+    { enabled: swarmEnabled },
+  );
+
+  // Swarm: subscribe to swarm://notify events.
+  useSwarmNotifyListener();
+
+  // B3: bump per-tab ambient counter when swarm-registered, unfocused
+  // tabs emit PTY output. Throttled at one bump per
+  // `SWARM_AMBIENT_THROTTLE_MS` per tab (see hook). Gated by
+  // `swarmEnabled` so opt-out users don't pay the listener cost.
+  useSwarmAmbientProducer(swarmEnabled);
+
+  // Focus-tab callback used by inbox + sidebar rows. Resolves the
+  // tab id within the layout store and switches the active tab in the
+  // first matching region. Also clears that tab's unread inbox count.
+  // F9: Send-notify callback. Calls the backend `swarm_send_notify`
+  // command, which sanitizes the message and emits a `swarm://notify`
+  // event to the local UI. The local inbox listener (already mounted
+  // via `useSwarmNotifyListener`) appends it; the sidebar/inbox light
+  // up identically to a peer-originated notify.
+  //
+  // Fire-and-forget on success; surface failures via a toast so the
+  // user knows their message didn't go through.
+  const onSendNotifyToColleague = useCallback(
+    (colleague: { tab_id: string; name: string }, message: string) => {
+      void invoke<void>("swarm_send_notify", {
+        targetColleagueId: colleague.tab_id,
+        message,
+      }).catch((err: unknown) => {
+        const m = err instanceof Error ? err.message : String(err);
+        showToast(`Notify failed: ${m}`);
+      });
+    },
+    [showToast],
+  );
+
+  const focusSwarmTab = useCallback((tabId: string) => {
+    const state = useLayoutStore.getState();
+    for (const [regionId, region] of Object.entries(state.regions)) {
+      if (region.tabs.some((t) => t.id === tabId)) {
+        // B2: mark-read is now handled centrally by the subscription
+        // below, which fires whenever ANY code path activates a tab.
+        // We still call it here for synchronous UX in tests that don't
+        // wait for the subscription microtask.
+        useSwarmInboxStore.getState().markAllReadForTab(tabId);
+        // D4: `activateTab(regionId, tabId)` is the canonical store
+        // action. The previous code looked for a non-existent
+        // `setActiveTab` via unsafe cast and silently no-op'd —
+        // focusing a tab from the inbox/sidebar never actually moved
+        // the active tab. Fixed.
+        state.activateTab(regionId, tabId);
+        return;
+      }
+    }
+  }, []);
+
+  // B2: any time a region's `activeTabId` changes (clicked tab, ⌘1-9
+  // shortcut, programmatic activate from anywhere), mark that tab's
+  // notify entries read AND clear its ambient counter. This is the
+  // canonical subscription: focusSwarmTab is one path; user clicks +
+  // keyboard shortcuts are others. Subscribing once means every path
+  // benefits without per-call wiring.
+  useEffect(() => {
+    let prev: Record<string, string | null> = {};
+    const snap = useLayoutStore.getState().regions;
+    for (const [rid, region] of Object.entries(snap)) {
+      prev[rid] = region.activeTabId ?? null;
+    }
+    const unsubscribe = useLayoutStore.subscribe((state) => {
+      const next: Record<string, string | null> = {};
+      for (const [rid, region] of Object.entries(state.regions)) {
+        next[rid] = region.activeTabId ?? null;
+        if (next[rid] && next[rid] !== prev[rid]) {
+          const tabId = next[rid] as string;
+          // Mark read + clear ambient counter for the newly-focused tab.
+          useSwarmInboxStore.getState().clearAmbient(tabId);
+        }
+      }
+      prev = next;
+    });
+    return unsubscribe;
+  }, []);
 
   // ─── Bookmark: core "add bookmark" logic ─────────────────────────
   /**
@@ -236,21 +349,39 @@ function App() {
     }
   }, [addTerminalTab, regions]);
 
-  // Swarm event listeners — handle spawn-tab requests from the broker
+  // Swarm event listeners — handle spawn-tab requests from the broker.
+  // T4 / FR-019, FR-020: the wire payload (emitted by the Rust
+  // `swarm_spawn_from_recipe` / `swarm_spawn_colleague` commands)
+  // carries the resolved recipe along with a stable `tab_id` so the
+  // swarm coordinator can route notify/control frames to the new
+  // colleague. We forward those into `addTerminalTab` so the new tab
+  // launches the recipe executable directly (NOT a login shell).
   useEffect(() => {
     const unlistenSpawn = listen<{
       name: string;
       env: Record<string, string>;
+      command: string;
+      args: string[];
+      cwd?: string | null;
+      title?: string;
       tab_id: string;
       colleague_id: string;
     }>("swarm://spawn-tab", (event) => {
-      // TODO: Phase 2+ — spawn a colleague tab with the given env vars
-      // For now, just log the event for verification
-      // H3: Log event receipt without full payload (may contain token in env)
+      // H3: never log the env (may carry tokens or @privacy Tier-2
+      // recipe-supplied values). Log just the colleague id.
       console.info(
         "[App] swarm://spawn-tab event received, colleague:",
         event.payload.colleague_id,
       );
+      const p = event.payload;
+      void useLayoutStore.getState().addTerminalTab(undefined, {
+        shell: p.command,
+        args: p.args,
+        cwd: p.cwd ?? undefined,
+        env: p.env,
+        title: p.title ?? p.name,
+        tabId: p.tab_id,
+      });
     });
 
     return () => {
@@ -294,13 +425,57 @@ function App() {
           />
         )}
         <div style={{ display: "flex", flex: 1, minHeight: 0 }}>
+          {swarmEnabled && swarmSidebarPosition === "left" && (
+            <SwarmSidebar
+              position="left"
+              collapsed={swarmSidebarCollapsed}
+              onToggleCollapsed={toggleSwarmSidebarCollapsed}
+              onFocusTab={focusSwarmTab}
+              onSendNotify={onSendNotifyToColleague}
+            />
+          )}
           <div className="app-content">
             <RegionContainer />
           </div>
+          {swarmEnabled && swarmSidebarPosition === "right" && (
+            <SwarmSidebar
+              position="right"
+              collapsed={swarmSidebarCollapsed}
+              onToggleCollapsed={toggleSwarmSidebarCollapsed}
+              onFocusTab={focusSwarmTab}
+              onSendNotify={onSendNotifyToColleague}
+            />
+          )}
         </div>
         <PathBar />
         <BroadcastBar />
         <ShortcutsPanel />
+
+        {/* Swarm modals — Cmd+J inbox + Cmd+K spawn palette */}
+        <InboxPanel
+          open={inboxOpen}
+          onClose={() => setInboxOpen(false)}
+          onFocusTab={(tabId) => {
+            focusSwarmTab(tabId);
+            setInboxOpen(false);
+          }}
+        />
+        <SpawnPalette
+          open={paletteOpen}
+          onClose={() => setPaletteOpen(false)}
+          workspaceRoot={(() => {
+            // A1 (FR-019): the recipe loader needs the workspace root
+            // (`.putz/spawn.json` lives there). Resolve from the active
+            // terminal tab's tracked cwd. If no terminal is active or
+            // its cwd isn't yet known, returning null is safe — the
+            // palette still opens but loads no recipes; the built-in
+            // "Spawn: gh copilot" entry remains available.
+            const sessionId = getFocusedTerminalSessionId();
+            return sessionId ? getSessionCwd(sessionId) ?? null : null;
+          })()}
+          invoke={invoke}
+          onSpawnError={(_, msg) => showToast(`Spawn failed: ${msg}`)}
+        />
 
         {/* Font Config overlay */}
         {fontConfigOpen && (

@@ -24,6 +24,10 @@ use crate::pty::PtyError;
 /// If the swarm is enabled, injects `PUTZ_SWARM_PATH` and `PUTZ_TAB_ID`
 /// env vars into the session. (Replaces the prior `PUTZ_SWARM_URL` /
 /// `PUTZ_SWARM_TOKEN` pair — auth is now OS file permissions.)
+/// T4 / FR-019: `args` is the optional explicit argv for recipe-driven
+/// spawns (e.g., `["copilot"]` for the `gh copilot` recipe). When
+/// present, the PTY launches the executable directly with these args
+/// instead of as a login shell.
 #[tauri::command]
 #[allow(clippy::too_many_arguments)]
 pub async fn pty_spawn(
@@ -36,6 +40,7 @@ pub async fn pty_spawn(
     rows: u16,
     env: Option<HashMap<String, String>>,
     tab_id: Option<String>,
+    args: Option<Vec<String>>,
 ) -> Result<String, String> {
     // H6: Use .await instead of block_on() to avoid deadlock risk
     let merged_env = if swarm.enabled() {
@@ -50,7 +55,7 @@ pub async fn pty_spawn(
     };
 
     state
-        .spawn(&app, shell, cwd, cols, rows, merged_env)
+        .spawn(&app, shell, cwd, cols, rows, merged_env, args)
         .map_err(|e| e.to_string())
 }
 

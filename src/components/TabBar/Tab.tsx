@@ -10,6 +10,7 @@ import { useState, useCallback, useRef } from "react";
 import type { Tab as TabType } from "../../types";
 import { MAX_TITLE_LENGTH } from "../../stores/tabStore";
 import { useBroadcastStore } from "../../stores/broadcastStore";
+import { TabNotificationRing } from "../Swarm/TabNotificationRing";
 
 interface TabProps {
   /** Tab data. */
@@ -171,6 +172,7 @@ export function Tab({
       ) : (
         <span className="tab__title">{tab.title}</span>
       )}
+      <TabNotificationRing tabId={tab.id} />
 
       {(isHovered || isActive) && (
         <button

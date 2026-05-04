@@ -28,14 +28,57 @@ function generateId(): string {
   return crypto.randomUUID();
 }
 
-/** Spawns a new PTY session via Tauri IPC. */
-async function spawnPtySession(): Promise<string> {
+/**
+ * Optional spawn options for `addTerminalTab`.
+ *
+ * Used by the T4 swarm `swarm://spawn-tab` handler to spawn a
+ * pre-configured colleague tab (recipe `cmd` + `args` + `env` + `cwd`)
+ * with a custom title and a stable `tab_id` that the swarm coordinator
+ * uses to route notify/control frames.
+ */
+export interface SpawnTabOptions {
+  /** Override the executable launched in the PTY (e.g., `gh`). */
+  shell?: string;
+  /** Optional argv passed to the executable. */
+  args?: ReadonlyArray<string>;
+  /** Working directory; falls back to PtyManager default. */
+  cwd?: string;
+  /** Env vars merged into the spawned process. */
+  env?: Readonly<Record<string, string>>;
+  /** Display title for the tab. */
+  title?: string;
+  /** Stable swarm tab id (PUTZ_TAB_ID); auto-generated if omitted. */
+  tabId?: string;
+}
+
+/** Spawns a new PTY session via Tauri IPC.
+ *
+ * When `options` are provided, forwards `shell`, `args`, `cwd`, `env`,
+ * and `tab_id` straight through. The Rust `pty_spawn` skips the
+ * login-shell allowlist when `args` are explicitly supplied (the
+ * recipe loader has already validated them — see
+ * `src-tauri/src/swarm/spawn_recipe.rs::validate_for_spawn`).
+ */
+async function spawnPtySession(
+  options?: SpawnTabOptions,
+): Promise<string> {
   const { defaultShell } = useSettingsStore.getState();
-  return invoke<string>("pty_spawn", {
+  // Build the IPC payload, omitting fields that are undefined/empty.
+  // Empty `defaultShell` ("") must NOT be forwarded — it's a sentinel
+  // for "use the system default", not an actual shell path.
+  const payload: Record<string, unknown> = {
     cols: TERMINAL_CONFIG.defaultCols,
     rows: TERMINAL_CONFIG.defaultRows,
-    shell: defaultShell || undefined,
-  });
+  };
+  const shell = options?.shell ?? (defaultShell || undefined);
+  if (shell) payload.shell = shell;
+  if (options?.cwd) payload.cwd = options.cwd;
+  if (options?.env) payload.env = { ...options.env };
+  if (options?.args && options.args.length > 0) {
+    payload.args = [...options.args];
+  }
+  if (options?.tabId) payload.tabId = options.tabId;
+  return invoke<string>("pty_spawn", payload);
 }
 
 /** Closes a PTY session via Tauri IPC (fire-and-forget). */
@@ -164,7 +207,10 @@ interface LayoutState {
   // ─── Region Tab Actions ───────────────────────────────────────────
 
   /** Adds a terminal tab to a region (defaults to focused region). */
-  addTerminalTab: (regionId?: string) => Promise<void>;
+  addTerminalTab: (
+    regionId?: string,
+    options?: SpawnTabOptions,
+  ) => Promise<void>;
 
   /** Adds an editor tab to a region (defaults to focused region). */
   addEditorTab: (
@@ -290,14 +336,14 @@ export const useLayoutStore = create<LayoutState>((set, get) => ({
 
   // ─── Tab Management ─────────────────────────────────────────────────
 
-  addTerminalTab: async (regionId?: string) => {
+  addTerminalTab: async (regionId?: string, options?: SpawnTabOptions) => {
     const targetRegionId = regionId || get().focusedRegionId;
     const region = get().regions[targetRegionId];
     if (!region) return;
 
     let sessionId: string;
     try {
-      sessionId = await spawnPtySession();
+      sessionId = await spawnPtySession(options);
     } catch (err: unknown) {
       const message =
         err instanceof Error ? err.message : "Unknown PTY spawn error";
@@ -308,7 +354,7 @@ export const useLayoutStore = create<LayoutState>((set, get) => ({
     const nextCounter = get().tabCounter + 1;
     const tab: RegionTab = {
       id: generateId(),
-      title: `Terminal ${nextCounter}`,
+      title: options?.title ?? `Terminal ${nextCounter}`,
       type: "terminal",
       sessionId,
     };

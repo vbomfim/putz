@@ -46,6 +46,17 @@ pub async fn swarm_get_state(
     Ok(state.state_public().await)
 }
 
+/// T4 — full roster snapshot for the sidebar / inbox. Returns the same
+/// `ColleagueView` shape that peer colleagues see over the wire via
+/// `roster_update`. Cheap to call (no I/O); the sidebar refreshes on
+/// every `swarm://state-changed` event.
+#[tauri::command]
+pub async fn swarm_get_roster(
+    state: State<'_, SwarmCoordinator>,
+) -> Result<Vec<crate::swarm::types::ColleagueView>, String> {
+    Ok(state.roster().await)
+}
+
 /// Spawn a colleague tab. Fire-and-forget — the actual tab creation
 /// happens in the frontend in response to the `swarm://spawn-tab` event.
 #[tauri::command]
@@ -80,8 +91,9 @@ pub async fn swarm_spawn_colleague(
     let payload = serde_json::json!({
         "name": name,
         "env": env,
-        "shell": "copilot",
+        "command": "copilot",
         "args": ["--yolo", "--experimental"],
+        "title": name,
         "colleague_id": colleague_id,
         "tab_id": tab_id,
     });
@@ -119,4 +131,123 @@ pub async fn swarm_update_status(
     snapshot: crate::swarm::types::StatusSnapshot,
 ) -> Result<(), String> {
     state.update_status(app, &tab_id, snapshot).await
+}
+
+/// T4 / FR-019 — read & validate `<workspace_root>/.putz/spawn.json`.
+///
+/// Returns the recipes plus an optional one-line UI-renderable error.
+/// Never throws on a missing or malformed file — the palette is
+/// expected to render the error inline rather than crashing.
+#[tauri::command]
+pub async fn swarm_read_workspace_recipes(
+    workspace_root: std::path::PathBuf,
+) -> Result<crate::swarm::LoadResult, String> {
+    crate::swarm::load_workspace_recipes(&workspace_root)
+}
+
+/// T4 / FR-019 — spawn a colleague tab from a recipe (Cmd+K palette).
+///
+/// Reuses the existing `swarm://spawn-tab` event surface as
+/// [`swarm_spawn_colleague`]. The recipe's `cmd` / `args` / `env`
+/// override the defaults; Putz's identity vars (`PUTZ_SWARM_PATH`,
+/// `PUTZ_TAB_ID`, etc.) are merged on top per FR-020 — the recipe
+/// cannot shadow them.
+///
+/// **Security:** the recipe is re-validated server-side via
+/// [`crate::swarm::spawn_recipe::validate_for_spawn`] — untrusted IPC
+/// must not assume the renderer already validated. Free-form / inline
+/// commands (palette text input) are wrapped in a recipe with
+/// `cmd = <input>`, `args = []` and run through the same validator.
+///
+/// Returns a [`crate::swarm::LoadRecipeError`] on validation failure
+/// so the frontend can branch on `kind` for tailored error UI.
+#[tauri::command]
+pub async fn swarm_spawn_from_recipe(
+    state: State<'_, SwarmCoordinator>,
+    app: tauri::AppHandle,
+    recipe: crate::swarm::SpawnRecipe,
+) -> Result<(), crate::swarm::LoadRecipeError> {
+    use tauri::Emitter;
+
+    if !state.enabled() {
+        return Err(crate::swarm::LoadRecipeError {
+            kind: crate::swarm::RecipeErrorKind::InvalidRecipe,
+            message: "Swarm is not enabled".into(),
+        });
+    }
+
+    // Re-validate recipe at the trust boundary. The renderer may have
+    // bypassed its own validation (different code path, future bug,
+    // malicious extension surface). The validator returns a typed
+    // error so the frontend can tailor messaging.
+    crate::swarm::spawn_recipe::validate_for_spawn(&recipe)?;
+
+    let colleague_id = SwarmCoordinator::generate_colleague_id(&recipe.name);
+    let tab_id = uuid::Uuid::new_v4().to_string();
+
+    // Merge: start with the recipe's env, then layer Putz's identity
+    // vars on top so they win on collision (FR-020).
+    let mut env: std::collections::HashMap<String, String> = recipe.env.into_iter().collect();
+    let putz_env = state
+        .colleague_env_vars(
+            &tab_id,
+            &colleague_id,
+            &recipe.name,
+            "self",
+            recipe.initial_prompt.as_deref(),
+        )
+        .await
+        .ok_or(crate::swarm::LoadRecipeError {
+            kind: crate::swarm::RecipeErrorKind::InvalidRecipe,
+            message: "Swarm not configured".into(),
+        })?;
+    for (k, v) in putz_env {
+        env.insert(k, v);
+    }
+
+    let payload = serde_json::json!({
+        "name": recipe.name,
+        "env": env,
+        "command": recipe.cmd,
+        "args": recipe.args,
+        "cwd": recipe.cwd,
+        "title": recipe.name,
+        "colleague_id": colleague_id,
+        "tab_id": tab_id,
+    });
+
+    app.emit("swarm://spawn-tab", &payload)
+        .map_err(|e| crate::swarm::LoadRecipeError {
+            kind: crate::swarm::RecipeErrorKind::InvalidRecipe,
+            message: format!("emit failed: {e}"),
+        })?;
+    Ok(())
+}
+
+/// T4 / F9 — send a `notify` message to a target colleague's socket.
+///
+/// Used by the "Send notify…" UI in the sidebar context menu. The
+/// message is delivered as a `Frame::Notify` via the coordinator's
+/// existing notify path (which dispatches the `swarm://notify` event
+/// to subscribers, including the local UI).
+///
+/// **Privacy:** `message` is **@privacy Tier-2** PII (PRI-001/002).
+/// Forwarded verbatim to the target's inbox; never logged, never
+/// persisted server-side.
+///
+/// **Security:** caps the message length server-side (mirrors the
+/// wire-protocol cap in [`crate::swarm::coordinator`]).
+#[tauri::command]
+pub async fn swarm_send_notify(
+    state: State<'_, SwarmCoordinator>,
+    app: tauri::AppHandle,
+    target_colleague_id: String,
+    message: String,
+) -> Result<(), String> {
+    if !state.enabled() {
+        return Err("Swarm is not enabled".into());
+    }
+    state
+        .send_notify_to(app, &target_colleague_id, message)
+        .await
 }

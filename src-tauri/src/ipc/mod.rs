@@ -33,7 +33,10 @@ pub use git::{
     git_repo_root, git_rev_parse_head, git_show, git_stash_list, git_status, git_status_summary,
     git_tags, git_worktree_list,
 };
-pub use swarm::{swarm_get_state, swarm_set_enabled, swarm_spawn_colleague, swarm_update_status};
+pub use swarm::{
+    swarm_get_roster, swarm_get_state, swarm_read_workspace_recipes, swarm_send_notify,
+    swarm_set_enabled, swarm_spawn_colleague, swarm_spawn_from_recipe, swarm_update_status,
+};
 pub use terminal::{pty_close, pty_cwd, pty_list_shells, pty_resize, pty_spawn, pty_write};
 pub use theme::{
     theme_create, theme_delete, theme_export, theme_get, theme_import, theme_list, theme_update,
