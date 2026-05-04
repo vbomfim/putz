@@ -35,7 +35,7 @@ describe("colleagueStatus.projectFromBlocks", () => {
     expect(p.status).toBe("unknown");
     expect(p.cwd).toBeNull();
     expect(p.lastExitCode).toBeNull();
-    expect(p.lastCommandAt).toBeNull();
+    expect(p.lastCommandStartedAt).toBeNull();
   });
 
   it("returns running when an active block is in flight", () => {
@@ -54,7 +54,7 @@ describe("colleagueStatus.projectFromBlocks", () => {
     const p = projectFromBlocks([finished], null, "/p");
     expect(p.status).toBe("done");
     expect(p.lastExitCode).toBe(0);
-    expect(p.lastCommandAt).toBe(42);
+    expect(p.lastCommandStartedAt).toBe(42);
   });
 
   it("returns error after non-zero exit", () => {
@@ -85,7 +85,7 @@ describe("colleagueStatus.projectFromBlocks", () => {
     const p = projectFromBlocks([finished], active, undefined);
     expect(p.status).toBe("running");
     expect(p.lastExitCode).toBe(0);
-    expect(p.lastCommandAt).toBe(100);
+    expect(p.lastCommandStartedAt).toBe(100);
   });
 
   it("surfaces cwd in degraded shape when OSC 7 seen but no OSC 133", () => {
@@ -104,7 +104,7 @@ describe("colleagueStatus.projectFromBlocks", () => {
     });
     const p = projectFromBlocks([abandoned, finished], null, undefined);
     expect(p.status).toBe("done");
-    expect(p.lastCommandAt).toBe(7);
+    expect(p.lastCommandStartedAt).toBe(7);
   });
 
   it("returns unknown when finished block has no exit code (D without N)", () => {
@@ -115,6 +115,47 @@ describe("colleagueStatus.projectFromBlocks", () => {
     const p = projectFromBlocks([finished], null, undefined);
     expect(p.status).toBe("unknown");
     expect(p.lastExitCode).toBeNull();
+  });
+
+  // ─── lastTenExitCodes (ticket #142 AC3) ────────────────────────────
+
+  it("returns empty lastTenExitCodes when no blocks exist", () => {
+    const p = projectFromBlocks([], null, undefined);
+    expect(p.lastTenExitCodes).toEqual([]);
+  });
+
+  it("returns lastTenExitCodes in chronological order (oldest → newest)", () => {
+    const blocks = [
+      block({ id: "1", commandEnd: { x: 0, y: 0 }, exitCode: 0 }),
+      block({ id: "2", commandEnd: { x: 0, y: 1 }, exitCode: 1 }),
+      block({ id: "3", commandEnd: { x: 0, y: 2 }, exitCode: 0 }),
+    ];
+    const p = projectFromBlocks(blocks, null, undefined);
+    expect(p.lastTenExitCodes).toEqual([0, 1, 0]);
+  });
+
+  it("preserves null entries for in-flight or abandoned blocks", () => {
+    const blocks = [
+      block({ id: "1", commandEnd: { x: 0, y: 0 }, exitCode: 0 }),
+      block({ id: "2", commandEnd: null, exitCode: null }), // abandoned
+      block({ id: "3", commandEnd: { x: 0, y: 2 }, exitCode: 2 }),
+    ];
+    const p = projectFromBlocks(blocks, null, undefined);
+    expect(p.lastTenExitCodes).toEqual([0, null, 2]);
+  });
+
+  it("trims lastTenExitCodes to the 10 most recent when more exist", () => {
+    const blocks = Array.from({ length: 15 }, (_, i) =>
+      block({
+        id: `b${i}`,
+        commandEnd: { x: 0, y: i },
+        exitCode: i,
+      }),
+    );
+    const p = projectFromBlocks(blocks, null, undefined);
+    expect(p.lastTenExitCodes).toHaveLength(10);
+    // Must keep the *latest* 10 (5..14), not the first 10.
+    expect(p.lastTenExitCodes).toEqual([5, 6, 7, 8, 9, 10, 11, 12, 13, 14]);
   });
 });
 

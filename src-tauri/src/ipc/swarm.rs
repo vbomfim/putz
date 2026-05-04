@@ -91,39 +91,32 @@ pub async fn swarm_spawn_colleague(
     Ok(())
 }
 
-/// T3 / FR-011 — push an OSC-derived status update from the frontend
-/// projection layer into the coordinator. Fields are all optional so
-/// callers can push only what changed (e.g., a cwd change without
-/// touching the command status).
+/// T3 / FR-011 — push an OSC-derived **full status snapshot** from the
+/// frontend projection layer into the coordinator.
+///
+/// **Full-snapshot semantics** (CR-GPT pass-2 #2): the renderer always
+/// sends every field on every push. `Option::None` means "this field is
+/// genuinely unset" — NOT "skip update". This lets the renderer clear
+/// previously-populated fields (e.g., reset `cwd` to `None` after a
+/// session reset). The "no change → no broadcast" check inside
+/// `update_status` keeps the wire calm.
 ///
 /// **Security:** the coordinator validates `tab_id` against its known
 /// roster — unknown tabs are rejected with `unknown_tab`. This is the
 /// primary defense against a buggy renderer or compromised content
 /// pushing bogus status updates for unrelated tabs.
 ///
-/// **Privacy:** `cwd` is **@privacy Tier-2** (quasi-identifier — see
-/// PRI-001/002). The coordinator stores it in-process only and forwards
-/// it to peer colleagues over the local socket per FR-011. It is NEVER
-/// logged to stderr / persisted / forwarded to telemetry.
+/// **Privacy:** `cwd` (inside `snapshot`) is **@privacy Tier-2**
+/// (quasi-identifier — see PRI-001/002). The coordinator stores it
+/// in-process only and forwards it to peer colleagues over the local
+/// socket per FR-011. It is NEVER logged to stderr / persisted /
+/// forwarded to telemetry.
 #[tauri::command]
 pub async fn swarm_update_status(
     state: State<'_, SwarmCoordinator>,
     app: tauri::AppHandle,
     tab_id: String,
-    command_status: Option<crate::swarm::types::CommandStatus>,
-    // @privacy Tier-2 — quasi-identifier (working directory). PRI-001/002.
-    cwd: Option<String>,
-    last_command_exit: Option<i32>,
-    last_command_at: Option<u64>,
+    snapshot: crate::swarm::types::StatusSnapshot,
 ) -> Result<(), String> {
-    state
-        .update_status(
-            app,
-            &tab_id,
-            command_status,
-            cwd,
-            last_command_exit,
-            last_command_at,
-        )
-        .await
+    state.update_status(app, &tab_id, snapshot).await
 }

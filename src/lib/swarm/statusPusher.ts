@@ -33,10 +33,20 @@ import {
   type ColleagueStatusProjection,
 } from "./colleagueStatus";
 
-/** Trailing-edge debounce window for IPC pushes. Tuned to match the
- *  coordinator's own broadcast debounce so the wire stays calm under
- *  bursty OSC streams. */
-export const PUSH_DEBOUNCE_MS = 100;
+/** Coalescing-throttle window for IPC pushes (at-most-once-per-window;
+ *  see CR-Opus pass-2 #10 for the naming clarification — the previous
+ *  comment called this "trailing-edge debounce", which would imply
+ *  resetting the timer on every event. The actual behavior is "fire one
+ *  flush per window after the first event arrives", which is correct
+ *  for keeping a steady stream calm without starving on a continuous
+ *  burst). Tuned to match the coordinator's own broadcast throttle. */
+export const PUSH_THROTTLE_MS = 100;
+
+/**
+ * @deprecated Use {@link PUSH_THROTTLE_MS}. Kept for one release as a
+ * re-export so any third-party importer doesn't break in lockstep.
+ */
+export const PUSH_DEBOUNCE_MS = PUSH_THROTTLE_MS;
 
 type InvokeFn = <T = unknown>(cmd: string, args?: InvokeArgs) => Promise<T>;
 
@@ -87,14 +97,22 @@ export function subscribeStatusPusher(
     const next = getColleagueStatus(sessionId);
     if (lastSent !== null && projectionsEqual(lastSent, next)) return;
     lastSent = next;
-    // Map the TS projection 1:1 onto the Rust command. `undefined` means
-    // "don't touch this field" on the backend (serde Option<T>).
+    // Full-snapshot semantics (CR-GPT pass-2 #2): the renderer ALWAYS
+    // sends every field on every push. `null` means "this field is
+    // genuinely unset" (e.g., cwd never observed) — NOT "skip update".
+    // Without this, fields like `cwd` could never be cleared on the
+    // backend after they were once populated. The "no change → no
+    // broadcast" check above keeps the wire calm.
+    const snapshot: Record<string, unknown> = {
+      commandStatus: next.status,
+      cwd: next.cwd,
+      lastCommandExit: next.lastExitCode,
+      lastCommandStartedAt: next.lastCommandStartedAt,
+      lastTenExitCodes: next.lastTenExitCodes,
+    };
     const args: InvokeArgs = {
       tabId,
-      commandStatus: next.status === "unknown" ? undefined : next.status,
-      cwd: next.cwd ?? undefined,
-      lastCommandExit: next.lastExitCode ?? undefined,
-      lastCommandAt: next.lastCommandAt ?? undefined,
+      snapshot,
     };
     // Fire-and-forget: a transient IPC failure (e.g., Tauri shutting
     // down) must NOT crash the renderer. Errors are swallowed silently
@@ -104,8 +122,8 @@ export function subscribeStatusPusher(
 
   const schedule = (): void => {
     if (disposed) return;
-    if (timer !== null) return; // coalesce
-    timer = setTimeoutFn(flush, PUSH_DEBOUNCE_MS);
+    if (timer !== null) return; // coalescing throttle: at most one timer in flight
+    timer = setTimeoutFn(flush, PUSH_THROTTLE_MS);
   };
 
   const cwdHandler = (e: Event): void => {
@@ -152,8 +170,21 @@ function projectionsEqual(
     a.status === b.status &&
     a.cwd === b.cwd &&
     a.lastExitCode === b.lastExitCode &&
-    a.lastCommandAt === b.lastCommandAt
+    a.lastCommandStartedAt === b.lastCommandStartedAt &&
+    exitCodesEqual(a.lastTenExitCodes, b.lastTenExitCodes)
   );
+}
+
+function exitCodesEqual(
+  a: ReadonlyArray<number | null>,
+  b: ReadonlyArray<number | null>,
+): boolean {
+  if (a === b) return true;
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i++) {
+    if (a[i] !== b[i]) return false;
+  }
+  return true;
 }
 
 /**

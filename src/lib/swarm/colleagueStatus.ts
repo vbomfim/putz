@@ -51,16 +51,40 @@ export interface ColleagueStatusProjection {
   readonly cwd: string | null;
   /** Exit code from last OSC 133;D, or null if no command finished yet. */
   readonly lastExitCode: number | null;
-  /** Unix epoch milliseconds when the last command finished, or null. */
-  readonly lastCommandAt: number | null;
+  /**
+   * Unix epoch milliseconds when the last command **started** (OSC 133;B).
+   *
+   * Renamed from `lastCommandAt` (CR-GPT pass-2 #5) — the previous name
+   * was ambiguous between "started" and "finished". Semantics unchanged:
+   * the value is the latest finished block's `startedAt` timestamp.
+   */
+  readonly lastCommandStartedAt: number | null;
+  /**
+   * Exit codes from the last ≤10 command blocks in chronological order
+   * (oldest → newest). Required by ticket #142 AC3 — the sidebar
+   * renders these as a row of 10 dots so a user can spot a streak of
+   * failures at a glance.
+   *
+   * `null` entries appear for in-flight or abandoned blocks (commands
+   * that started but never produced an OSC 133;D — e.g., the user
+   * pressed Enter on an empty prompt, or the shell rotated past the
+   * block before it finished).
+   */
+  readonly lastTenExitCodes: ReadonlyArray<number | null>;
 }
+
+const EMPTY_EXIT_CODES: ReadonlyArray<number | null> = Object.freeze([]);
 
 const EMPTY: ColleagueStatusProjection = Object.freeze({
   status: "unknown",
   cwd: null,
   lastExitCode: null,
-  lastCommandAt: null,
+  lastCommandStartedAt: null,
+  lastTenExitCodes: EMPTY_EXIT_CODES,
 });
+
+/** Cap on how many trailing exit codes the sidebar dot-row renders. */
+const EXIT_CODE_HISTORY = 10;
 
 /**
  * Derive the projection from a session's command-block history.
@@ -80,18 +104,20 @@ export function projectFromBlocks(
   //   4. No active block, no finished blocks, but OSC 7 cwd present →
   //      degraded `unknown` shape with cwd surfaced (FR-012).
   //   5. Otherwise → `unknown` (initial state, no OSC 133 ever seen).
+  const lastTen = lastTenExitCodesFromBlocks(blocks);
   if (activeBlock !== null) {
     return {
       status: "running",
       cwd: cwd ?? null,
       lastExitCode: lastExitCodeFromBlocks(blocks),
-      lastCommandAt: lastCommandAtFromBlocks(blocks),
+      lastCommandStartedAt: lastCommandStartedAtFromBlocks(blocks),
+      lastTenExitCodes: lastTen,
     };
   }
   const last = lastFinishedBlock(blocks);
   if (last === null) {
     if (cwd !== undefined) {
-      return { ...EMPTY, cwd };
+      return { ...EMPTY, cwd, lastTenExitCodes: lastTen };
     }
     return EMPTY;
   }
@@ -100,7 +126,8 @@ export function projectFromBlocks(
     status: exit === null ? "unknown" : exit === 0 ? "done" : "error",
     cwd: cwd ?? null,
     lastExitCode: exit,
-    lastCommandAt: last.commandEnd ? last.startedAt : null,
+    lastCommandStartedAt: last.commandEnd ? last.startedAt : null,
+    lastTenExitCodes: lastTen,
   };
 }
 
@@ -132,7 +159,26 @@ function lastExitCodeFromBlocks(blocks: readonly CommandBlock[]): number | null 
   return last?.exitCode ?? null;
 }
 
-function lastCommandAtFromBlocks(blocks: readonly CommandBlock[]): number | null {
+function lastCommandStartedAtFromBlocks(blocks: readonly CommandBlock[]): number | null {
   const last = lastFinishedBlock(blocks);
   return last ? last.startedAt : null;
+}
+
+/**
+ * Trailing window of exit codes for the sidebar dot-row (ticket #142 AC3).
+ * Returns the last [`EXIT_CODE_HISTORY`] block exit codes in chronological
+ * order. `null` is preserved for blocks that never produced an OSC 133;D
+ * (in-flight or abandoned). The returned array is frozen so consumers
+ * don't mutate the projection.
+ */
+function lastTenExitCodesFromBlocks(
+  blocks: readonly CommandBlock[],
+): ReadonlyArray<number | null> {
+  if (blocks.length === 0) return EMPTY_EXIT_CODES;
+  const start = Math.max(0, blocks.length - EXIT_CODE_HISTORY);
+  const out: Array<number | null> = [];
+  for (let i = start; i < blocks.length; i++) {
+    out.push(blocks[i].exitCode);
+  }
+  return Object.freeze(out);
 }

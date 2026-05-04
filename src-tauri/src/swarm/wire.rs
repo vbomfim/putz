@@ -85,6 +85,11 @@ pub enum Frame {
     /// changed (T3 / FR-011). Sent debounced — see
     /// [`crate::swarm::coordinator::SwarmCoordinator::update_status`].
     ///
+    /// @privacy Tier-2 — contains `cwd` inside each `ColleagueView`.
+    /// NEVER debug-log this frame in full (PRI-002). The coordinator's
+    /// observability calls log identity (`colleague_id`) only, never
+    /// the frame body.
+    ///
     /// The full roster is sent (not a delta) for two reasons:
     /// (1) consumers stay stateless — they overwrite their local view
     ///     without merging deltas, eliminating an entire class of
@@ -309,7 +314,8 @@ mod tests {
                 command_status: Some(CommandStatus::Running),
                 cwd: Some("/home/alice/proj".into()),
                 last_command_exit: Some(0),
-                last_command_at: Some(1_700_000_000_000),
+                last_command_started_at: Some(1_700_000_000_000),
+                last_ten_exit_codes: vec![Some(0), Some(0), Some(1), None],
             }],
         };
         write_frame(&mut a, &frame).await.unwrap();
@@ -334,7 +340,8 @@ mod tests {
                 assert!(colleagues[0].command_status.is_none());
                 assert!(colleagues[0].cwd.is_none());
                 assert!(colleagues[0].last_command_exit.is_none());
-                assert!(colleagues[0].last_command_at.is_none());
+                assert!(colleagues[0].last_command_started_at.is_none());
+                assert!(colleagues[0].last_ten_exit_codes.is_empty());
             }
             other => panic!("expected RosterUpdate, got {other:?}"),
         }

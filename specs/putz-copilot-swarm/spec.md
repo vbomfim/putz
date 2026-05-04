@@ -6,7 +6,7 @@
 **Input**: Replace the over-engineered Swarm v2 (vendor-neutral public protocol, HTTP broker, multi-language SDKs) with a narrowly-scoped local IPC integration between Putz and GitHub Copilot CLI extensions running in Putz PTY tabs.
 
 **Owner**: PO Guardian via Copilot
-**Last updated**: 2026-05-04 (SEC-007 + SEC-008 added — eviction rate-limit + Windows DACL hardening; PR #145 fixup #2 ext)
+**Last updated**: 2026-05-15 (T3 PR #155 fixup — full-snapshot status semantics + `lastTenExitCodes` field; FR-012 latency contract clarified; SC-004 LOC budget revised to ≤2500 test LOC.)
 **Issue tracker**: [Epic — to be created on landing this spec](https://github.com/vbomfim/putz/issues)
 **Tickets**: T1–T5 — created from the Decomposition section below
 **Supersedes**: [`specs/_archive/swarm-protocol-v2-vendor-neutral/spec.md`](../_archive/swarm-protocol-v2-vendor-neutral/spec.md) (Epic #127, tickets #129–#137 — all closed)
@@ -105,7 +105,7 @@ As a developer, I press Cmd+K and can spawn a new Copilot CLI tab from a list of
 #### FR-Status — OSC 133-Derived Per-Colleague Status
 
 - **FR-011**: Per-colleague status (last exit code, current cwd, command running flag) MUST be derived from existing `commandBlockStore` (OSC 133) and `cwdRegistry` (OSC 7), not pushed by the agent.
-- **FR-012**: When `commandBlockStore` records a new command boundary in a tab with a registered colleague, the colleague's badge MUST update within 1 frame (≤ 16 ms).
+- **FR-012**: When `commandBlockStore` records a new command boundary in a tab with a registered colleague, the colleague's badge MUST update within 1 frame (≤ 16 ms). *Latency contract — two paths:* (a) the **local UI badge** uses the synchronous TS selector (`getColleagueStatus`) and updates within one frame (≤ 16 ms) of the OSC marker landing in `commandBlockStore`; (b) **peer roster sync** via `RosterUpdate` is eventual, with up to ~350 ms cumulative latency (100 ms frontend coalescing throttle in `statusPusher` + 250 ms backend coalescing throttle in `coordinator`). The two-stage throttle intentionally trades a small amount of peer-update lag for a calm wire under bursty OSC streams (e.g., a `make -j` that emits hundreds of prompt boundaries per second).
 - **FR-013**: If a tab has no OSC 133 shell integration, the badge MUST gracefully degrade to heartbeat-only state (no exit-code dots).
 
 #### FR-UX — Notification Rings + Inbox + Sidebar + Spawn Palette
@@ -134,7 +134,7 @@ As a developer, I press Cmd+K and can spawn a new Copilot CLI tab from a list of
 - **SC-001**: From `gh copilot` process start to colleague visible in the Putz roster: < 2 s p95 on a developer laptop (M-series Mac, Linux x86_64, Windows 11).
 - **SC-002**: Heartbeat round-trip latency: < 5 ms p95 measured at the Rust coordinator.
 - **SC-003**: Notification ring appears within 1 frame (≤ 16 ms) of `notify` arrival on a 60 Hz display.
-- **SC-004**: Total Rust LOC for the swarm subsystem after implementation: ≤ 1500 production LOC (excludes test code) and ≤ 1200 test LOC. Down from 3,019 in the prior HTTP-broker design. Zero LOC of HTTP server code. *Rationale: revised from the initial ≤ 600 estimate after T1 implementation. Cross-platform path resolution, chmod/ACL logic, lifecycle wiring, and Tauri emit glue legitimately consume more lines than the initial estimate. Production-vs-test split documented separately so substantial regression test coverage (a project goal) does not push back against the size budget.*
+- **SC-004**: Total Rust LOC for the swarm subsystem after implementation: ≤ 1500 production LOC (excludes test code) and ≤ 2500 test LOC. Down from 3,019 in the prior HTTP-broker design. Zero LOC of HTTP server code. *Rationale: revised twice from the initial ≤ 600 estimate — first to ≤ 1200 after T1, then to ≤ 2500 after T3 PR #155 fixup. High-confidence concurrency tests (lifecycle race, debounce burst collapse, full-snapshot clear semantics, sentinel-cwd log redaction) and cross-platform path tests genuinely consume more lines than the initial estimate. Production-vs-test split documented separately so substantial regression test coverage (a project goal) does not push back against the size budget.*
 - **SC-005**: Total Node LOC for the bundled Copilot CLI extension: ≤ 250.
 - **SC-006**: A user with `gh copilot` installed can open Putz, accept the "install Copilot integration" prompt, open a new tab, and see the colleague appear without ever opening a config file or reading documentation.
 - **SC-007**: Zero open-network ports introduced by the swarm subsystem (verified via integration test that opens a tab, registers a colleague, then asserts no listening TCP/UDP socket appears in `lsof`/`netstat` for the Putz process other than what existed before the test).

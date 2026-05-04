@@ -75,4 +75,8 @@ tempfile = "3"
 # (T1 fixup #2 — restart_does_not_unlink_new_socket regression test).
 tauri = { version = "2", features = ["test"] }
 serial_test = "3"
+# `test-util` enables `tokio::time::pause()` / `advance()` for
+# deterministic time control in flaky-prone debounce tests
+# (T3 PR #155 fixup — CR-Opus pass-2 #12).
+tokio = { version = "1", features = ["test-util"] }
 
