@@ -120,3 +120,84 @@ pub async fn swarm_update_status(
 ) -> Result<(), String> {
     state.update_status(app, &tab_id, snapshot).await
 }
+
+/// T4 / FR-019 — read & validate `<workspace_root>/.putz/spawn.json`.
+///
+/// Returns the recipes plus an optional one-line UI-renderable error.
+/// Never throws on a missing or malformed file — the palette is
+/// expected to render the error inline rather than crashing.
+#[tauri::command]
+pub async fn swarm_read_workspace_recipes(
+    workspace_root: std::path::PathBuf,
+) -> Result<crate::swarm::LoadResult, String> {
+    crate::swarm::load_workspace_recipes(&workspace_root)
+}
+
+/// T4 / FR-019 — spawn a colleague tab from a recipe (Cmd+K palette).
+///
+/// Reuses the existing `swarm://spawn-tab` event surface as
+/// [`swarm_spawn_colleague`]. The recipe's `command` / `args` / `env`
+/// override the defaults; Putz's identity vars (`PUTZ_SWARM_PATH`,
+/// `PUTZ_TAB_ID`, etc.) are merged on top per FR-020 — the recipe
+/// cannot shadow them.
+///
+/// **Security:** the recipe is re-validated server-side via
+/// [`crate::swarm::spawn_recipe::load_workspace_recipes`]'s validator —
+/// untrusted IPC must not assume the renderer already validated.
+/// Free-form / inline commands (palette text input) are wrapped in a
+/// recipe with `command = <input>`, `args = []` and run through the
+/// same validator.
+#[tauri::command]
+pub async fn swarm_spawn_from_recipe(
+    state: State<'_, SwarmCoordinator>,
+    app: tauri::AppHandle,
+    recipe: crate::swarm::SpawnRecipe,
+) -> Result<(), String> {
+    use tauri::Emitter;
+
+    if !state.enabled() {
+        return Err("Swarm is not enabled".into());
+    }
+
+    // Re-validate recipe at the trust boundary. The renderer may have
+    // bypassed its own validation (different code path, future bug,
+    // malicious extension surface). The validator returns a
+    // user-renderable reason on failure.
+    if let Err(msg) = crate::swarm::spawn_recipe::validate_for_spawn(&recipe) {
+        return Err(format!("Invalid recipe: {msg}"));
+    }
+
+    let colleague_id = SwarmCoordinator::generate_colleague_id(&recipe.name);
+    let tab_id = uuid::Uuid::new_v4().to_string();
+
+    // Merge: start with the recipe's env, then layer Putz's identity
+    // vars on top so they win on collision (FR-020).
+    let mut env: std::collections::HashMap<String, String> = recipe.env.into_iter().collect();
+    let putz_env = state
+        .colleague_env_vars(
+            &tab_id,
+            &colleague_id,
+            &recipe.name,
+            "self",
+            recipe.initial_prompt.as_deref(),
+        )
+        .await
+        .ok_or("Swarm not configured")?;
+    for (k, v) in putz_env {
+        env.insert(k, v);
+    }
+
+    let payload = serde_json::json!({
+        "name": recipe.name,
+        "env": env,
+        "shell": recipe.command,
+        "args": recipe.args,
+        "cwd": recipe.cwd,
+        "colleague_id": colleague_id,
+        "tab_id": tab_id,
+    });
+
+    app.emit("swarm://spawn-tab", &payload)
+        .map_err(|e| e.to_string())?;
+    Ok(())
+}

@@ -27,8 +27,9 @@ use ipc::{
     shell_integration_cmd_preview, shell_integration_cmd_show_existing,
     shell_integration_cmd_uninstall, shell_integration_detect, shell_integration_install,
     shell_integration_show_snippet, shell_integration_status, shell_integration_uninstall,
-    swarm_get_state, swarm_set_enabled, swarm_spawn_colleague, swarm_update_status, theme_create,
-    theme_delete, theme_export, theme_get, theme_import, theme_list, theme_update,
+    swarm_get_state, swarm_read_workspace_recipes, swarm_set_enabled, swarm_spawn_colleague,
+    swarm_spawn_from_recipe, swarm_update_status, theme_create, theme_delete, theme_export,
+    theme_get, theme_import, theme_list, theme_update,
 };
 use pty::PtyManager;
 use scripting::ScriptManager;
@@ -117,6 +118,8 @@ pub fn run() {
             swarm_set_enabled,
             swarm_get_state,
             swarm_spawn_colleague,
+            swarm_spawn_from_recipe,
+            swarm_read_workspace_recipes,
             swarm_update_status,
             shell_integration_detect,
             shell_integration_install,
