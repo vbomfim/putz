@@ -186,12 +186,6 @@ interface LayoutState {
   /** Adds a search & replace tab. */
   addSearchTab: (regionId?: string, directory?: string) => void;
 
-  /** Adds a command history tab. */
-  addHistoryTab: (regionId?: string) => void;
-
-  /** Adds a command templates tab. */
-  addTemplateTab: (regionId?: string) => void;
-
   /** Adds a settings tab. */
   addSettingsTab: (regionId?: string) => void;
 
@@ -489,78 +483,6 @@ export const useLayoutStore = create<LayoutState>((set, get) => ({
         },
       },
       tabCounter: nextCounter,
-    }));
-  },
-
-  addHistoryTab: (regionId?: string) => {
-    const targetRegionId = regionId || get().focusedRegionId;
-    const region = get().regions[targetRegionId];
-    if (!region) return;
-    const existing = region.tabs.find((t) => t.type === "history");
-    if (existing) {
-      set((state) => ({
-        regions: {
-          ...state.regions,
-          [targetRegionId]: {
-            ...state.regions[targetRegionId],
-            activeTabId: existing.id,
-          },
-        },
-      }));
-      return;
-    }
-    const tab: RegionTab = {
-      id: generateId(),
-      title: "History",
-      type: "history",
-      sessionId: `${EDITOR_SESSION_PREFIX}hist-${generateId()}`,
-    };
-    set((state) => ({
-      regions: {
-        ...state.regions,
-        [targetRegionId]: {
-          ...state.regions[targetRegionId],
-          tabs: [...state.regions[targetRegionId].tabs, tab],
-          activeTabId: tab.id,
-        },
-      },
-      tabCounter: state.tabCounter + 1,
-    }));
-  },
-
-  addTemplateTab: (regionId?: string) => {
-    const targetRegionId = regionId || get().focusedRegionId;
-    const region = get().regions[targetRegionId];
-    if (!region) return;
-    const existing = region.tabs.find((t) => t.type === "templates");
-    if (existing) {
-      set((state) => ({
-        regions: {
-          ...state.regions,
-          [targetRegionId]: {
-            ...state.regions[targetRegionId],
-            activeTabId: existing.id,
-          },
-        },
-      }));
-      return;
-    }
-    const tab: RegionTab = {
-      id: generateId(),
-      title: "Templates",
-      type: "templates",
-      sessionId: `${EDITOR_SESSION_PREFIX}tmpl-${generateId()}`,
-    };
-    set((state) => ({
-      regions: {
-        ...state.regions,
-        [targetRegionId]: {
-          ...state.regions[targetRegionId],
-          tabs: [...state.regions[targetRegionId].tabs, tab],
-          activeTabId: tab.id,
-        },
-      },
-      tabCounter: state.tabCounter + 1,
     }));
   },
 

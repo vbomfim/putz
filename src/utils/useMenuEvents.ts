@@ -24,8 +24,6 @@ interface MenuEventPayload {
 export interface MenuEventCallbacks {
   onToggleThemeEditor?: () => void;
   onToggleFontConfig?: () => void;
-  onToggleTemplates?: () => void;
-  onToggleHistory?: () => void;
   onToggleScript?: () => void;
   onOpenSettings?: () => void;
   onToggleWorkspaceBar?: () => void;
@@ -178,14 +176,6 @@ export function useMenuEvents(): void {
 
         case "menu-font-config":
           menuCallbacks.onToggleFontConfig?.();
-          break;
-
-        case "menu-command-templates":
-          menuCallbacks.onToggleTemplates?.();
-          break;
-
-        case "menu-command-history":
-          menuCallbacks.onToggleHistory?.();
           break;
 
         case "menu-script-editor":

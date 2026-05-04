@@ -227,20 +227,16 @@ describe("useMenuEvents", () => {
     expect(() => emitMenuEvent("menu-config-diff")).not.toThrow();
   });
 
-  it("menu-command-templates calls onToggleTemplates callback", () => {
-    const onToggleTemplates = vi.fn();
-    setMenuEventCallbacks({ onToggleTemplates });
+  it("menu-command-templates is handled as unknown event without error", () => {
     renderHook(() => useMenuEvents());
-    emitMenuEvent("menu-command-templates");
-    expect(onToggleTemplates).toHaveBeenCalledTimes(1);
+    // menu-command-templates was removed when Command Templates was decommissioned
+    expect(() => emitMenuEvent("menu-command-templates")).not.toThrow();
   });
 
-  it("menu-command-history calls onToggleHistory callback", () => {
-    const onToggleHistory = vi.fn();
-    setMenuEventCallbacks({ onToggleHistory });
+  it("menu-command-history is handled as unknown event without error", () => {
     renderHook(() => useMenuEvents());
-    emitMenuEvent("menu-command-history");
-    expect(onToggleHistory).toHaveBeenCalledTimes(1);
+    // menu-command-history was removed when Command History was decommissioned
+    expect(() => emitMenuEvent("menu-command-history")).not.toThrow();
   });
 
   it("menu-sftp is handled as unknown event without error", () => {

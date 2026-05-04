@@ -4,9 +4,7 @@
  * Renders a region-based terminal interface with:
  * - RegionContainer for the window layout (regions with tab bars)
  * - ShortcutsPanel modal for keyboard shortcuts reference
- * - HistoryPanel (Ctrl+R) for cross-session command history search
  * - Empty state with "New Terminal" prompt when no tabs exist
- * - Command Templates panel (Ctrl+Shift+T)
  */
 import { useCallback, useEffect, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
@@ -57,8 +55,6 @@ function App() {
   const regions = useLayoutStore((s) => s.regions);
   const addTerminalTab = useLayoutStore((s) => s.addTerminalTab);
   const addEditorTab = useLayoutStore((s) => s.addEditorTab);
-  const addHistoryTab = useLayoutStore((s) => s.addHistoryTab);
-  const addTemplateTab = useLayoutStore((s) => s.addTemplateTab);
   const addSettingsTab = useLayoutStore((s) => s.addSettingsTab);
   const addBookmarksTab = useLayoutStore((s) => s.addBookmarksTab);
   const workspaceBarVisible = useSettingsStore((s) => s.workspaceBarVisible);
@@ -186,8 +182,6 @@ function App() {
     setMenuEventCallbacks({
       onToggleThemeEditor: () => setThemeEditorOpen((prev) => !prev),
       onToggleFontConfig: () => setFontConfigOpen((prev) => !prev),
-      onToggleTemplates: () => addTemplateTab(),
-      onToggleHistory: () => addHistoryTab(),
       onToggleScript: () => addEditorTab(),
       onOpenSettings: () => addSettingsTab(),
       onToggleWorkspaceBar: () => toggleWorkspaceBar(),
@@ -198,8 +192,6 @@ function App() {
     return () => setMenuEventCallbacks({});
   }, [
     addEditorTab,
-    addHistoryTab,
-    addTemplateTab,
     addSettingsTab,
     addBookmarksTab,
     toggleWorkspaceBar,
@@ -266,26 +258,6 @@ function App() {
     };
   }, []);
 
-  // Global keyboard shortcuts for History (Ctrl+R)
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      const modifier = e.ctrlKey || e.metaKey;
-      if (!modifier) return;
-
-      const key = e.key.toLowerCase();
-
-      // Ctrl+R — Open command history tab
-      if (key === "r" && !e.shiftKey) {
-        e.preventDefault();
-        addHistoryTab();
-        return;
-      }
-    };
-
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [addHistoryTab]);
-
   // Global Escape key — close overlay panels
   useEffect(() => {
     const handleEscape = (e: KeyboardEvent) => {
@@ -308,20 +280,6 @@ function App() {
   // Empty state — all regions are empty
   // Note: don't render empty state here — RegionContainer handles all workspaces.
   // Switching to an empty workspace shouldn't unmount other workspace terminals.
-
-  /** Global keyboard shortcut: Ctrl+Shift+T → Templates tab. */
-  useEffect(() => {
-    const handler = (e: KeyboardEvent) => {
-      const modifier = e.ctrlKey || e.metaKey;
-      if (!modifier || !e.shiftKey) return;
-      if (e.key.toLowerCase() === "t") {
-        e.preventDefault();
-        addTemplateTab();
-      }
-    };
-    window.addEventListener("keydown", handler);
-    return () => window.removeEventListener("keydown", handler);
-  }, [addTemplateTab]);
 
   return (
     <div className="app-shell" data-testid="app-root">

@@ -25,8 +25,6 @@ export interface BookmarkableItem {
 /** Tab types that are never bookmarkable. */
 const NON_BOOKMARKABLE_TYPES = new Set([
   "settings",
-  "history",
-  "templates",
   "diff",
   "search",
 ]);
