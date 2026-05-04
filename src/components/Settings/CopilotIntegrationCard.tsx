@@ -141,10 +141,10 @@ export function CopilotIntegrationCard({ dismissed, onDismiss }: Props) {
       {status.ghCopilotAvailable ? (
         <>
           <p style={pStyle}>
-            Putz can install a small shim into your Copilot CLI extensions
-            directory. Once GitHub Copilot CLI gains an auto-load mechanism
-            (or you wire it via shell integration — see T3), Copilot
-            sessions inside Putz tabs will appear in the swarm. No data
+            Putz installs a small extension into your Copilot CLI
+            extensions directory. Once installed, every <code>gh
+            copilot</code> session you start inside a Putz tab
+            auto-loads the extension and appears in the swarm. No data
             leaves your machine.
           </p>
           {status.installed && status.extensionDir && (

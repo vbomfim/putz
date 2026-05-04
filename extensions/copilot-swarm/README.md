@@ -1,19 +1,32 @@
 # @putz/copilot-swarm
 
-Putz colleague shim for the GitHub Copilot CLI. Auto-registers a Copilot session with Putz's local swarm coordinator over the per-instance Unix socket / Windows named pipe.
+Putz colleague extension for the GitHub Copilot CLI. Bridges a Copilot session to Putz's local swarm coordinator so peers can see and talk to each other across tabs.
 
 ## What it does
 
-When this script runs **inside a Putz tab** (detected via the `PUTZ_SWARM_PATH` and `PUTZ_TAB_ID` env vars Putz injects into every PTY), it:
+The extension runs in **two modes** automatically:
 
-1. Connects to the per-Putz-instance local socket (`net.connect({path})`).
-2. Sends a `register` frame with a stable `tab_id` and a generated `colleague_id`.
-3. Receives `register_ack` and starts a 10-second heartbeat loop.
-4. Forwards `recv_from` deliveries to a user-supplied handler.
-5. Exposes a small API for `notify(message, severity)` and `sendTo(colleagueId, payload)`.
-6. Sends a `disconnect` frame on `SIGTERM` / `SIGINT` and exits cleanly.
+### Mode 1 — Copilot SDK extension (preferred)
 
-When run **outside a Putz tab** (env vars not set), it exits silently with code 0. Running outside Putz is **not** an error — the script is meant to be safe to leave installed.
+When `gh copilot` starts a session and finds this directory at `~/.copilot/extensions/putz-colleague/`, it auto-loads the extension via `@github/copilot-sdk`'s `joinSession`. The extension then:
+
+1. On `onSessionStart` — boots the swarm registry (connects to the per-Putz-instance Unix socket / Windows named pipe), registers the tab, announces *"copilot session started"* as an ambient notify to peers.
+2. On `onPostToolUse` — forwards just the **tool name** as an ambient notify (never the args/output — Tier-2 PII per spec PRI-002).
+3. On `session.idle` — announces *"copilot session idle"* as an ambient notify.
+
+### Mode 2 — Standalone Node script (fallback / manual)
+
+When run directly as `node extension.mjs` (without the Copilot SDK present, or outside a `gh copilot` session), the script falls back to standalone boot: same socket connection + registration, just without SDK lifecycle hooks. This is what tests use, and what manual diagnosis can use.
+
+In both modes:
+- Connects via `net.connect({path})` to the local socket.
+- Sends a `register` frame with a stable `tab_id` and a generated `colleague_id`.
+- Receives `register_ack` and starts a 10-second heartbeat loop.
+- Forwards `recv_from` deliveries to a user-supplied handler.
+- Exposes a small API for `notify(message, severity)` and `sendTo(colleagueId, payload)`.
+- Sends a `disconnect` frame on `SIGTERM` / `SIGINT` and exits cleanly.
+
+If `PUTZ_SWARM_PATH` and `PUTZ_TAB_ID` are not in the environment (running outside a Putz tab), the extension exits silently with code 0. Running outside Putz is **not** an error — the script is safe to leave installed.
 
 ## Install path
 
@@ -28,12 +41,16 @@ The exact path can be overridden by `PUTZ_COLLEAGUE_DIR`. Putz never overwrites 
 
 ## Usage
 
+Once installed, just run `gh copilot` from inside a Putz tab — the extension auto-loads.
+
+For manual / standalone testing:
+
 ```bash
-# Auto-detect (no-op outside Putz):
+# Standalone (no-op outside Putz):
 node /path/to/putz-colleague/extension.mjs
 ```
 
-Programmatic use (e.g., from a Copilot CLI hook):
+Programmatic use (from your own scripts that don't go through `gh copilot`):
 
 ```js
 import { boot } from "@putz/copilot-swarm";
