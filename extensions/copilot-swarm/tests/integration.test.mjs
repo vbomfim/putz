@@ -295,3 +295,123 @@ test("server-initiated disconnect stops reconnect loop", async () => {
     await stopMock(mock);
   }
 });
+
+test("forward-compat: unknown frame type is consumed, no crash, no disconnect", async () => {
+  // A future Putz coordinator may ship new frame types. The decoder
+  // accepts them (they have a string `type`), and the registry
+  // ignores them via the default switch arm. Behavior must remain:
+  // no error event, no disconnect, no closed event, registration intact.
+  const sockPath = mkSocketPath();
+  const mock = await startMock(sockPath);
+  try {
+    const reg = new ClientRegistry({
+      path: sockPath,
+      tabId: "t",
+      colleagueId: "c",
+      name: "c",
+      heartbeatMs: 1_000_000,
+      autoReconnect: false,
+    });
+    let errored = false;
+    let disconnected = false;
+    reg.on("error", () => { errored = true; });
+    reg.on("disconnect", () => { disconnected = true; });
+    reg.on("closed", () => { disconnected = true; });
+    reg.start();
+    await once(reg, "registered");
+
+    // Synthetic future frame the registry doesn't know about. Bypass
+    // `encodeFrame` because outgoing validation would reject an
+    // unknown type — the coordinator side has no such restriction.
+    const body = Buffer.from(JSON.stringify({ type: "future_frame_xyz" }), "utf8");
+    const wire = Buffer.allocUnsafe(4 + body.length);
+    wire.writeUInt32BE(body.length, 0);
+    body.copy(wire, 4);
+    mock.sockets[0].write(wire);
+
+    await new Promise((r) => setTimeout(r, 30));
+    assert.equal(errored, false, "unknown frame must not emit error");
+    assert.equal(disconnected, false, "unknown frame must not disconnect");
+    assert.equal(reg.registered, true, "registration must remain");
+    await reg.shutdown();
+  } finally {
+    await stopMock(mock);
+  }
+});
+
+test("roster_update frame updates roster and emits 'roster' event", async () => {
+  // T3 introduces this frame; T2 must consume it gracefully and surface
+  // the new colleagues array via a `roster` event for downstream UI.
+  const sockPath = mkSocketPath();
+  const mock = await startMock(sockPath);
+  try {
+    const reg = new ClientRegistry({
+      path: sockPath,
+      tabId: "t",
+      colleagueId: "c",
+      name: "c",
+      heartbeatMs: 1_000_000,
+      autoReconnect: false,
+    });
+    reg.start();
+    await once(reg, "registered");
+
+    const newColleagues = [
+      { id: "alice-1", name: "alice", tab_id: "t1", status: "idle" },
+      { id: "bob-1", name: "bob", tab_id: "t2", status: "active" },
+    ];
+    // Bypass outgoing validation — coordinator emits this; wire codec
+    // FRAME_SPECS only constrains what *we* send, not what we accept.
+    const body = Buffer.from(
+      JSON.stringify({ type: "roster_update", colleagues: newColleagues }),
+      "utf8",
+    );
+    const wire = Buffer.allocUnsafe(4 + body.length);
+    wire.writeUInt32BE(body.length, 0);
+    body.copy(wire, 4);
+    mock.sockets[0].write(wire);
+
+    const [received] = await once(reg, "roster");
+    assert.deepEqual(received, newColleagues);
+    assert.deepEqual(reg.roster, newColleagues);
+    await reg.shutdown();
+  } finally {
+    await stopMock(mock);
+  }
+});
+
+test("notify rejects severity outside the allowed lowercase set", async () => {
+  // Rust enum (`Severity` in src-tauri/src/swarm/types.rs) accepts only
+  // urgent | normal | ambient — anything else closes the connection.
+  // Validate at the API boundary so we throw a typed error instead.
+  const sockPath = mkSocketPath();
+  const mock = await startMock(sockPath);
+  try {
+    const reg = new ClientRegistry({
+      path: sockPath,
+      tabId: "t",
+      colleagueId: "c",
+      name: "c",
+      heartbeatMs: 1_000_000,
+      autoReconnect: false,
+    });
+    reg.start();
+    await once(reg, "registered");
+    assert.throws(
+      () => reg.notify("hello", "warn"),
+      (e) => e.name === "WireError" && e.code === "BAD_SEVERITY",
+    );
+    assert.throws(
+      () => reg.notify("hello", "Normal"),
+      (e) => e.name === "WireError" && e.code === "BAD_SEVERITY",
+    );
+    // The valid values must still pass.
+    reg.notify("hi", "urgent");
+    reg.notify("hi", "normal");
+    reg.notify("hi", "ambient");
+    reg.notify("hi"); // omitted is OK
+    await reg.shutdown();
+  } finally {
+    await stopMock(mock);
+  }
+});

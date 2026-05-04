@@ -30,7 +30,11 @@
     "targets": "all",
     "createUpdaterArtifacts": false,
     "resources": [
-      "../extensions/copilot-swarm/**/*"
+      "../extensions/copilot-swarm/index.mjs",
+      "../extensions/copilot-swarm/package.json",
+      "../extensions/copilot-swarm/manifest.json",
+      "../extensions/copilot-swarm/README.md",
+      "../extensions/copilot-swarm/src/**/*.mjs"
     ],
     "icon": [
       "icons/32x32.png",

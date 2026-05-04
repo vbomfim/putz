@@ -220,10 +220,13 @@ export class FrameDecoder {
       if (frame === null || typeof frame !== "object" || Array.isArray(frame)) {
         throw new WireError("frame body must be a json object", "BAD_FRAME");
       }
-      // Don't validate inbound shape exhaustively — coordinator is trusted
-      // (same-uid, OS-perm-protected socket). We just need a shape we can
-      // dispatch on. But we MUST reject unknown `type`, since the dispatch
-      // table (registry) keys off it.
+      // Inbound frames with unknown `type` are ACCEPTED by the decoder
+      // and ignored downstream by the registry — forward-compat policy
+      // for future Putz frame types like `roster_update`. We only
+      // reject when `type` itself is missing or non-string, since the
+      // dispatch tables key off it.
+      // The Rust side enforces `deny_unknown_fields` for OUTGOING
+      // frames; we deliberately do NOT enforce it inbound.
       if (typeof frame.type !== "string") {
         throw new WireError("frame missing type field", "BAD_FRAME");
       }

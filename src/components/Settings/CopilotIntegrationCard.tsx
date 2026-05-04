@@ -14,7 +14,6 @@
  */
 import { useCallback, useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { resolveResource } from "@tauri-apps/api/path";
 
 interface CopilotIntegrationStatus {
   ghCopilotAvailable: boolean;
@@ -25,8 +24,22 @@ interface CopilotIntegrationStatus {
 const DOCS_URL =
   "https://docs.github.com/en/copilot/github-copilot-in-the-cli";
 
-/** Bundle layout — set in tauri.conf.json `bundle.resources`. */
-const BUNDLED_EXTENSION_RESOURCE = "../extensions/copilot-swarm";
+/**
+ * Replace the user's home dir prefix with `~` in error strings before
+ * rendering, so absolute paths leaked from filesystem errors don't
+ * appear in the UI. Best-effort — we don't have `os.homedir()` in the
+ * browser, so we sniff `HOME`/`USERPROFILE` from common error patterns.
+ *
+ * @privacy Tier-2 — paths can encode usernames.
+ */
+function sanitizeUserPath(message: string): string {
+  // Tauri error strings sometimes embed `/Users/<name>/...` or
+  // `/home/<name>/...` or `C:\Users\<name>\...`. Collapse them to `~`.
+  return message
+    .replace(/\/Users\/[^/\s"']+/g, "~")
+    .replace(/\/home\/[^/\s"']+/g, "~")
+    .replace(/[A-Z]:\\Users\\[^\\\s"']+/gi, "~");
+}
 
 interface Props {
   /** Whether the user has previously dismissed the card. */
@@ -48,7 +61,7 @@ export function CopilotIntegrationCard({ dismissed, onDismiss }: Props) {
       setStatus(next);
       setError(null);
     } catch (err) {
-      setError(String(err));
+      setError(sanitizeUserPath(String(err)));
     }
   }, []);
 
@@ -61,15 +74,13 @@ export function CopilotIntegrationCard({ dismissed, onDismiss }: Props) {
       setBusy(true);
       setError(null);
       try {
-        // Resolve the bundled extension dir from the app's resources.
-        const sourceDir = await resolveResource(BUNDLED_EXTENSION_RESOURCE);
-        await invoke<string>("copilot_install_extension", {
-          sourceDir,
-          overwrite,
-        });
+        // Backend resolves the bundled extension dir from its own
+        // resource_dir() — frontend cannot influence the source path
+        // (defense against a frontend bug pointing at an arbitrary dir).
+        await invoke<string>("copilot_install_extension", { overwrite });
         await refresh();
       } catch (err) {
-        setError(String(err));
+        setError(sanitizeUserPath(String(err)));
       } finally {
         setBusy(false);
       }
@@ -84,7 +95,7 @@ export function CopilotIntegrationCard({ dismissed, onDismiss }: Props) {
       await invoke("copilot_uninstall_extension");
       await refresh();
     } catch (err) {
-      setError(String(err));
+      setError(sanitizeUserPath(String(err)));
     } finally {
       setBusy(false);
     }
@@ -131,9 +142,20 @@ export function CopilotIntegrationCard({ dismissed, onDismiss }: Props) {
         <>
           <p style={pStyle}>
             Putz can install a small shim into your Copilot CLI extensions
-            directory so each <code>gh copilot</code> session auto-registers
-            as a colleague in this Putz instance. No data leaves your machine.
+            directory. Once GitHub Copilot CLI gains an auto-load mechanism
+            (or you wire it via shell integration — see T3), Copilot
+            sessions inside Putz tabs will appear in the swarm. No data
+            leaves your machine.
           </p>
+          {status.installed && status.extensionDir && (
+            <p style={pStyle}>
+              Manual run for testing:{" "}
+              <code style={{ fontSize: 10 }}>
+                node {status.extensionDir}/putz-colleague/index.mjs
+              </code>{" "}
+              inside a Putz tab.
+            </p>
+          )}
           {status.extensionDir && (
             <p style={pathStyle}>
               <span aria-hidden>📂</span> {status.extensionDir}

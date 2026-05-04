@@ -34,10 +34,14 @@ function readPutzEnv(env = process.env) {
   return { path, tabId };
 }
 
-/** Generate a stable colleague_id for this process. */
+/** Generate a stable colleague_id for this process.
+ *
+ * Format: `<name>-<pid>-<short-uuid12>`. Including PID gives operator
+ * context when reading logs and widens the collision domain — 12 hex
+ * chars of UUID = ~48 bits, ~16M before birthday collisions vs. ~65k
+ * for an 8-hex slice, and the PID further isolates concurrent runs. */
 function colleagueId(name = "copilot") {
-  // Match the Rust convention: `<name>-<short-uuid>`.
-  return `${name}-${randomUUID().slice(0, 8)}`;
+  return `${name}-${process.pid}-${randomUUID().slice(0, 12)}`;
 }
 
 /**
@@ -65,15 +69,20 @@ export async function boot(env = process.env) {
   });
 
   // Privacy: only log metadata, never frame contents.
+  // Rate-limit: only log on transition to a new error code, not every retry.
+  let lastErrorCode = null;
   registry.on("registered", ({ colleagueId: id, roster }) => {
     process.stderr.write(
       `[putz-colleague] registered id=${id} peers=${roster.length}\n`,
     );
+    lastErrorCode = null; // recovery — reset error log dedupe
   });
   registry.on("error", (err) => {
-    // Log error code/name only; not the message (could include path).
+    const code = (err && err.code) || (err && err.name) || "n/a";
+    if (code === lastErrorCode) return;
+    lastErrorCode = code;
     process.stderr.write(
-      `[putz-colleague] error name=${err && err.name} code=${err && err.code || "n/a"}\n`,
+      `[putz-colleague] error name=${err && err.name} code=${code}\n`,
     );
   });
   registry.on("disconnect", () => {

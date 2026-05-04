@@ -10,6 +10,7 @@
 
 import { EventEmitter } from "node:events";
 import { SwarmSocket } from "./socket.mjs";
+import { WireError } from "./wire.mjs";
 
 /** Heartbeat interval in milliseconds — spec FR-013. */
 export const HEARTBEAT_INTERVAL_MS = 10_000;
@@ -20,6 +21,15 @@ export const RECONNECT_MAX_MS = 30_000;
 export const RECONNECT_MULTIPLIER = 2;
 
 /**
+ * Allowed values for `notify` frame `severity`. Mirrors the Rust
+ * `Severity` enum (`src-tauri/src/swarm/types.rs`) which uses
+ * `#[serde(rename_all = "lowercase")]`. Sending any other value
+ * causes the Rust side to drop the frame and close the connection,
+ * so we validate at the API boundary and throw a typed error.
+ */
+export const ALLOWED_SEVERITIES = Object.freeze(["urgent", "normal", "ambient"]);
+
+/**
  * @typedef {object} RegistryOpts
  * @property {string} path - Socket / pipe path.
  * @property {string} tabId
@@ -28,7 +38,6 @@ export const RECONNECT_MULTIPLIER = 2;
  * @property {string} [parent]
  * @property {number} [pid]
  * @property {() => SwarmSocket} [socketFactory] - Test seam.
- * @property {(ms: number) => Promise<void>} [sleep] - Test seam.
  * @property {number} [heartbeatMs] - Test seam.
  * @property {boolean} [autoReconnect] - Default true.
  */
@@ -57,7 +66,6 @@ export class ClientRegistry extends EventEmitter {
     /** @private */ this._opts = opts;
     /** @private */ this._socketFactory =
       opts.socketFactory ?? (() => new SwarmSocket({ path: opts.path }));
-    /** @private */ this._sleep = opts.sleep ?? defaultSleep;
     /** @private */ this._heartbeatMs = opts.heartbeatMs ?? HEARTBEAT_INTERVAL_MS;
     /** @private */ this._autoReconnect = opts.autoReconnect !== false;
     /** @private @type {SwarmSocket | null} */ this._sock = null;
@@ -67,6 +75,8 @@ export class ClientRegistry extends EventEmitter {
     /** @private */ this._stopped = false;
     /** @private */ this._reconnectMs = RECONNECT_INITIAL_MS;
     /** @private @type {NodeJS.Timeout | null} */ this._reconnectTimer = null;
+    /** @private @type {string | null} Last error code we logged — used to suppress floods. */
+    this._lastErrorCode = null;
   }
 
   /** Current peer roster (excluding self). Snapshot — caller may not mutate. */
@@ -139,6 +149,15 @@ export class ClientRegistry extends EventEmitter {
         }
         return;
       }
+      case "roster_update": {
+        // T3 introduces this frame: the coordinator pushes a fresh
+        // colleague roster whenever a peer joins / leaves / updates.
+        // Update local cache and emit `roster` so consumers can refresh.
+        this._roster = Array.isArray(frame.colleagues) ? frame.colleagues : [];
+        this.emit("roster", this.roster);
+        this.emit("peer-update", { roster: this.roster });
+        return;
+      }
       case "disconnect": {
         // Server-initiated; do not auto-reconnect on a clean kick.
         this.emit("disconnect", { reason: frame.reason });
@@ -147,7 +166,12 @@ export class ClientRegistry extends EventEmitter {
         return;
       }
       default:
-        // Unknown server frames are ignored — forward-compat policy.
+        // Inbound frames with unknown `type` are accepted by the decoder
+        // and ignored here — forward-compat for future Putz frame types.
+        // The Rust side enforces `deny_unknown_fields` for OUTGOING
+        // frames; we deliberately do NOT enforce it inbound, so a
+        // newer coordinator can ship a new frame type without breaking
+        // older colleagues.
         return;
     }
   }
@@ -216,12 +240,22 @@ export class ClientRegistry extends EventEmitter {
 
   /**
    * Send a `notify` frame.
-   * @param {string} message - @privacy Tier-2 PII; never logged here.
+   * @param {string} message
+   *   @privacy Tier-2 PII — never logged here.
    * @param {"urgent"|"normal"|"ambient"} [severity]
+   *   Validated against {@link ALLOWED_SEVERITIES}; throws WireError
+   *   `BAD_SEVERITY` if outside the allowed set, since the Rust side
+   *   would otherwise close the connection on receipt.
    */
   notify(message, severity) {
     if (typeof message !== "string") {
       throw new TypeError("notify: message must be a string");
+    }
+    if (severity !== undefined && !ALLOWED_SEVERITIES.includes(severity)) {
+      throw new WireError(
+        `notify: severity must be one of ${ALLOWED_SEVERITIES.join("|")}, got ${String(severity)}`,
+        "BAD_SEVERITY",
+      );
     }
     this._requireRegistered();
     /** @type {{type:'notify',colleague_id:string,message:string,severity?:string}} */
@@ -283,11 +317,4 @@ export class ClientRegistry extends EventEmitter {
     }
     if (this._sock) this._sock.end();
   }
-}
-
-function defaultSleep(ms) {
-  return new Promise((resolve) => {
-    const t = setTimeout(resolve, ms);
-    if (t && typeof t.unref === "function") t.unref();
-  });
 }
