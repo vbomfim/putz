@@ -20,6 +20,7 @@ import {
   useSwarmSpawnStore,
   recipeFromFreeFormInput,
   toWireRecipe,
+  DEFAULT_SPAWN_GH_COPILOT,
   type SpawnRecipe,
 } from "../../stores/swarmSpawnStore";
 
@@ -54,6 +55,19 @@ export function SpawnPalette({
   const [activeIndex, setActiveIndex] = useState(0);
   const [spawning, setSpawning] = useState(false);
   const inputRef = useRef<HTMLInputElement | null>(null);
+  // D1: remember the element that had focus when we opened, so we can
+  // restore it on close (modal a11y best-practice — WAI-ARIA APG).
+  const previousFocusRef = useRef<HTMLElement | null>(null);
+
+  // A4 (FR-019): the built-in "Spawn: gh copilot" entry MUST always be
+  // available, regardless of `.putz/spawn.json`. Prepend it but de-dupe
+  // if a user-defined recipe already uses the same name.
+  const allRecipes = useMemo<ReadonlyArray<SpawnRecipe>>(() => {
+    const hasOverride = recipes.some(
+      (r) => r.name === DEFAULT_SPAWN_GH_COPILOT.name,
+    );
+    return hasOverride ? recipes : [DEFAULT_SPAWN_GH_COPILOT, ...recipes];
+  }, [recipes]);
 
   // Refresh on open so .putz/spawn.json edits take effect without restart.
   useEffect(() => {
@@ -62,14 +76,22 @@ export function SpawnPalette({
     }
   }, [open, workspaceRoot, refresh]);
 
-  // Reset query + selection on open.
+  // Reset query + selection on open. Capture previous focus so we can
+  // restore it on close (D1 — focus restoration).
   useEffect(() => {
     if (open) {
+      previousFocusRef.current =
+        (document.activeElement as HTMLElement | null) ?? null;
       setQuery("");
       setActiveIndex(0);
       setSpawning(false);
       // Defer focus until the input mounts.
       queueMicrotask(() => inputRef.current?.focus());
+    } else if (previousFocusRef.current) {
+      // On close, restore focus to the trigger.
+      const prev = previousFocusRef.current;
+      previousFocusRef.current = null;
+      queueMicrotask(() => prev.focus?.());
     }
   }, [open]);
 
@@ -88,21 +110,33 @@ export function SpawnPalette({
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    if (!q) return recipes;
-    return recipes.filter(
+    if (!q) return allRecipes;
+    return allRecipes.filter(
       (r) =>
-        r.name.toLowerCase().includes(q) ||
-        r.command.toLowerCase().includes(q),
+        r.name.toLowerCase().includes(q) || r.cmd.toLowerCase().includes(q),
     );
-  }, [recipes, query]);
+  }, [allRecipes, query]);
 
+  // E3 (FR-015): the free-form item is always reachable when the user
+  // typed something — not only when filtered.length === 0. It appears
+  // as the LAST option, so keyboard nav can always reach it.
   const freeFormCandidate = useMemo(
-    () =>
-      filtered.length === 0 && query.trim().length > 0
-        ? recipeFromFreeFormInput(query)
-        : null,
-    [filtered.length, query],
+    () => (query.trim().length > 0 ? recipeFromFreeFormInput(query) : null),
+    [query],
   );
+
+  /** Combined option list for keyboard navigation. */
+  const navOptions = useMemo<ReadonlyArray<SpawnRecipe>>(() => {
+    if (freeFormCandidate) return [...filtered, freeFormCandidate];
+    return filtered;
+  }, [filtered, freeFormCandidate]);
+
+  // Clamp activeIndex when the option list shrinks.
+  useEffect(() => {
+    if (activeIndex >= navOptions.length) {
+      setActiveIndex(Math.max(0, navOptions.length - 1));
+    }
+  }, [navOptions.length, activeIndex]);
 
   const ffArgs: ReadonlyArray<string> = freeFormCandidate?.args ?? [];
 
@@ -129,22 +163,18 @@ export function SpawnPalette({
     (e: React.KeyboardEvent) => {
       if (e.key === "ArrowDown") {
         e.preventDefault();
-        setActiveIndex((i) => Math.min(filtered.length - 1, i + 1));
+        setActiveIndex((i) => Math.min(navOptions.length - 1, i + 1));
       } else if (e.key === "ArrowUp") {
         e.preventDefault();
         setActiveIndex((i) => Math.max(0, i - 1));
       } else if (e.key === "Enter") {
         e.preventDefault();
         if (spawning) return;
-        if (filtered.length > 0) {
-          const target = filtered[activeIndex] ?? filtered[0];
-          if (target) void spawn(target);
-        } else if (freeFormCandidate) {
-          void spawn(freeFormCandidate);
-        }
+        const target = navOptions[activeIndex] ?? navOptions[0];
+        if (target) void spawn(target);
       }
     },
-    [activeIndex, filtered, freeFormCandidate, spawn, spawning],
+    [activeIndex, navOptions, spawn, spawning],
   );
 
   if (!open) return null;
@@ -216,7 +246,7 @@ export function SpawnPalette({
               borderBottom: "1px solid var(--border-color, #2a2a2a)",
             }}
           >
-            {error}
+            {error.message}
           </div>
         )}
         <ul
@@ -229,64 +259,73 @@ export function SpawnPalette({
             overflowY: "auto",
           }}
         >
-          {filtered.length > 0 ? (
-            filtered.map((r, idx) => (
-              <li key={r.name} role="option" aria-selected={idx === activeIndex}>
-                <button
-                  type="button"
-                  data-testid="swarm-spawn-item"
-                  data-recipe-name={r.name}
-                  data-active={idx === activeIndex ? "true" : "false"}
-                  onMouseEnter={() => setActiveIndex(idx)}
-                  onClick={() => void spawn(r)}
-                  disabled={spawning}
+          {filtered.map((r, idx) => (
+            <li key={r.name} role="option" aria-selected={idx === activeIndex}>
+              <button
+                type="button"
+                data-testid="swarm-spawn-item"
+                data-recipe-name={r.name}
+                data-active={idx === activeIndex ? "true" : "false"}
+                onMouseEnter={() => setActiveIndex(idx)}
+                onClick={() => void spawn(r)}
+                disabled={spawning}
+                style={{
+                  width: "100%",
+                  textAlign: "left",
+                  padding: "8px 14px",
+                  background:
+                    idx === activeIndex
+                      ? "var(--bg-secondary, #15171a)"
+                      : "transparent",
+                  color: "inherit",
+                  border: "none",
+                  cursor: spawning ? "wait" : "pointer",
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: "2px",
+                }}
+              >
+                <span style={{ fontSize: "13px", fontWeight: 600 }}>
+                  {r.name}
+                </span>
+                <span
                   style={{
-                    width: "100%",
-                    textAlign: "left",
-                    padding: "8px 14px",
-                    background:
-                      idx === activeIndex
-                        ? "var(--bg-secondary, #15171a)"
-                        : "transparent",
-                    color: "inherit",
-                    border: "none",
-                    cursor: spawning ? "wait" : "pointer",
-                    display: "flex",
-                    flexDirection: "column",
-                    gap: "2px",
+                    fontSize: "11px",
+                    opacity: 0.7,
+                    fontFamily: "monospace",
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                    whiteSpace: "nowrap",
                   }}
                 >
-                  <span style={{ fontSize: "13px", fontWeight: 600 }}>
-                    {r.name}
-                  </span>
-                  <span
-                    style={{
-                      fontSize: "11px",
-                      opacity: 0.7,
-                      fontFamily: "monospace",
-                      overflow: "hidden",
-                      textOverflow: "ellipsis",
-                      whiteSpace: "nowrap",
-                    }}
-                  >
-                    {r.command}
-                    {r.args && r.args.length > 0 ? " " + r.args.join(" ") : ""}
-                  </span>
-                </button>
-              </li>
-            ))
-          ) : freeFormCandidate ? (
-            <li role="option" aria-selected="true">
+                  {r.cmd}
+                  {r.args && r.args.length > 0 ? " " + r.args.join(" ") : ""}
+                </span>
+              </button>
+            </li>
+          ))}
+          {freeFormCandidate && (
+            <li
+              role="option"
+              aria-selected={activeIndex === filtered.length}
+            >
               <button
                 type="button"
                 data-testid="swarm-spawn-freeform"
+                data-active={
+                  activeIndex === filtered.length ? "true" : "false"
+                }
+                onMouseEnter={() => setActiveIndex(filtered.length)}
                 onClick={() => void spawn(freeFormCandidate)}
                 disabled={spawning}
                 style={{
                   width: "100%",
                   textAlign: "left",
                   padding: "8px 14px",
-                  background: "var(--bg-secondary, #15171a)",
+                  background:
+                    activeIndex === filtered.length
+                      ? "var(--bg-secondary, #15171a)"
+                      : "transparent",
                   color: "inherit",
                   border: "none",
                   cursor: spawning ? "wait" : "pointer",
@@ -305,12 +344,13 @@ export function SpawnPalette({
                     fontFamily: "monospace",
                   }}
                 >
-                  {freeFormCandidate.command}
+                  {freeFormCandidate.cmd}
                   {ffArgs.length > 0 ? " " + ffArgs.join(" ") : ""}
                 </span>
               </button>
             </li>
-          ) : (
+          )}
+          {filtered.length === 0 && !freeFormCandidate && (
             <li
               data-testid="swarm-spawn-empty"
               style={{
@@ -321,7 +361,7 @@ export function SpawnPalette({
               }}
             >
               {recipes.length === 0
-                ? "No recipes in .putz/spawn.json — type a command and press Enter."
+                ? "Type a command and press Enter to spawn free-form."
                 : "No matches. Type a command and press Enter to spawn free-form."}
             </li>
           )}

@@ -71,8 +71,16 @@ export interface NotifyEntry {
  */
 export const MAX_INBOX_ENTRIES = 500;
 
-interface SwarmInboxState {
+export interface SwarmInboxState {
   readonly entries: ReadonlyArray<NotifyEntry>;
+  /**
+   * B3: per-tab ambient activity counters — bumped when a watched
+   * background tab produces output (or any other low-priority signal
+   * the UI wants to surface as a soft ring). Distinct from notify
+   * entries because ambient activity has no message body — only a
+   * count + the fact that the tab moved. Keyed by `tabId`.
+   */
+  readonly ambientCounts: Readonly<Record<string, number>>;
   /**
    * Add one notification. Assigns an id, appends, and trims the
    * oldest if over [`MAX_INBOX_ENTRIES`]. Caller does not need to
@@ -85,15 +93,40 @@ interface SwarmInboxState {
   markAllRead: () => void;
   /** Remove every entry. */
   clear: () => void;
+  /**
+   * B3: increment the ambient counter for `tabId`. Idempotent ceiling
+   * applied to defend against runaway producers.
+   */
+  bumpAmbient: (tabId: string) => void;
+  /**
+   * B3: clear the ambient counter for `tabId` (e.g., on focus). Also
+   * clears notify-unread for that tab via [`markAllReadForTab`] so
+   * focus is the canonical "I've seen this" signal.
+   */
+  clearAmbient: (tabId: string) => void;
 }
 
-let nextId = 1;
+/**
+ * Generate a stable, collision-resistant inbox entry id.
+ *
+ * F2: previously a module-level `nextId` counter — that was reset
+ * whenever the JS module re-evaluated (HMR) and could collide across
+ * concurrent stores in tests. `crypto.randomUUID()` is portable
+ * (Node 14.17+, all evergreen browsers, jsdom in test) and gives
+ * a much stronger uniqueness guarantee at no perf cost.
+ */
 function makeId(): string {
-  return `notify-${nextId++}`;
+  return `notify-${crypto.randomUUID()}`;
 }
+
+/** B3: hard ceiling on a per-tab ambient counter to defend against
+ *  runaway producers (e.g., a tail-f-like loop). Display caps to
+ *  "99+" anyway; rendering anything bigger is wasted work. */
+export const MAX_AMBIENT_COUNT = 999;
 
 export const useSwarmInboxStore = create<SwarmInboxState>((set) => ({
   entries: [],
+  ambientCounts: {},
 
   addNotification: (input) =>
     set((state) => {
@@ -125,7 +158,36 @@ export const useSwarmInboxStore = create<SwarmInboxState>((set) => ({
       entries: state.entries.map((e) => (e.read ? e : { ...e, read: true })),
     })),
 
-  clear: () => set({ entries: [] }),
+  clear: () => set({ entries: [], ambientCounts: {} }),
+
+  bumpAmbient: (tabId) =>
+    set((state) => {
+      const cur = state.ambientCounts[tabId] ?? 0;
+      if (cur >= MAX_AMBIENT_COUNT) return state;
+      return {
+        ambientCounts: { ...state.ambientCounts, [tabId]: cur + 1 },
+      };
+    }),
+
+  clearAmbient: (tabId) =>
+    set((state) => {
+      if (!(tabId in state.ambientCounts)) {
+        // Still clear notify-unread for this tab — focus is canonical.
+        return {
+          entries: state.entries.map((e) =>
+            e.tabId === tabId && !e.read ? { ...e, read: true } : e,
+          ),
+        };
+      }
+      const next = { ...state.ambientCounts };
+      delete next[tabId];
+      return {
+        ambientCounts: next,
+        entries: state.entries.map((e) =>
+          e.tabId === tabId && !e.read ? { ...e, read: true } : e,
+        ),
+      };
+    }),
 }));
 
 // ─── Pure selectors (no React) ────────────────────────────────────────
@@ -167,10 +229,45 @@ export function highestSeverityForTab(
 }
 
 /**
- * Group entries by `colleagueId`, most recent first within each group,
- * groups sorted by recency of their newest entry. Drives the Cmd+J
- * inbox panel layout.
+ * B1: most recent unread (or read, falls through) notify entry for a
+ * tab — drives the truncated last-message preview shown in
+ * `ColleagueRow`. Returns `null` when the tab has no entries at all.
+ *
+ * @privacy Tier-2 — the entry's `message` is user-authored. Callers
+ * MUST truncate / NEVER log.
  */
+export function lastNotifyForTab(
+  entries: ReadonlyArray<NotifyEntry>,
+  tabId: string,
+): NotifyEntry | null {
+  let best: NotifyEntry | null = null;
+  for (const e of entries) {
+    if (e.tabId !== tabId) continue;
+    if (!best || e.timestampMs > best.timestampMs) best = e;
+  }
+  return best;
+}
+
+/**
+ * F4: zustand selector factory that returns ONLY the unread count for
+ * `tabId`. Use as `useSwarmInboxStore(unreadCountForTabSelector(id))`
+ * so the component re-renders only when its tab's count changes —
+ * narrows re-render scope vs subscribing to the entire entries array.
+ */
+export function unreadCountForTabSelector(tabId: string) {
+  return (state: SwarmInboxState): number =>
+    unreadCountForTab(state.entries, tabId);
+}
+
+/**
+ * F4: zustand selector factory for the per-tab ambient counter. Same
+ * narrowing rationale as [`unreadCountForTabSelector`].
+ */
+export function ambientCountForTabSelector(tabId: string) {
+  return (state: SwarmInboxState): number => state.ambientCounts[tabId] ?? 0;
+}
+
+
 export interface InboxGroup {
   readonly colleagueId: string;
   readonly entries: ReadonlyArray<NotifyEntry>;
@@ -204,12 +301,12 @@ export function getEntriesByColleague(
 }
 
 /**
- * Test-only reset hook. Clears entries AND resets the id counter so
- * tests starting with a known empty state have deterministic ids.
+ * Test-only reset hook. Clears entries.
+ *
+ * F2: id counter no longer exists — entry ids are random UUIDs.
  *
  * @internal
  */
 export function _resetSwarmInboxStoreForTests(): void {
-  nextId = 1;
   useSwarmInboxStore.setState({ entries: [] });
 }

@@ -593,6 +593,11 @@ impl SwarmCoordinator {
             ));
             return;
         }
+        // Sec F8: strip control characters (BEL, ESC, NUL, etc.) at
+        // ingress so a hostile colleague cannot smuggle ANSI escape
+        // sequences or terminal-confusing bytes into the inbox UI.
+        // Keeps `\t` / `\n` (legible whitespace authors may use).
+        let message = sanitize_notify_message(&message);
         // Snapshot the data we need (tab_id, emitter clone) under the
         // lock, then drop the lock before invoking the emitter — the
         // closure may call into Tauri's runtime and we never want to
@@ -622,6 +627,55 @@ impl SwarmCoordinator {
         if let Some((event, emitter)) = event_and_emitter {
             emitter(event);
         }
+    }
+
+    /// T4 / F9 — send a notify message to a target colleague's inbox.
+    ///
+    /// Used by the right-click "Send notify…" UI in the sidebar.
+    /// The message is sanitized + capped server-side and emitted
+    /// directly via the same path as wire-frame `Notify` so the
+    /// target's UI cannot tell it apart from a peer-originated
+    /// notification.
+    ///
+    /// Returns `Err(String)` only on hard validation failure
+    /// (oversize); a missing target is silently dropped (UI may have
+    /// raced a disconnect).
+    pub async fn send_notify_to(
+        &self,
+        app: tauri::AppHandle,
+        target_colleague_id: &str,
+        message: String,
+    ) -> Result<(), String> {
+        use tauri::Emitter;
+
+        if message.is_empty() {
+            return Err("Notify message is empty".into());
+        }
+        if message.len() > MAX_MESSAGE_LEN {
+            return Err(format!(
+                "Notify message too long ({} bytes; max {MAX_MESSAGE_LEN})",
+                message.len()
+            ));
+        }
+        let message = sanitize_notify_message(&message);
+
+        // Snapshot tab_id under lock; emit outside the lock.
+        let tab_id = {
+            let inner = self.inner.read().await;
+            match inner.by_id.get(target_colleague_id) {
+                Some(c) => c.tab_id.clone(),
+                None => return Ok(()), // target gone — best-effort
+            }
+        };
+        let event = NotifyEvent {
+            colleague_id: target_colleague_id.to_string(),
+            tab_id,
+            severity: Severity::Normal,
+            message,
+            timestamp_ms: now_unix_millis(),
+        };
+        let _ = app.emit("swarm://notify", &event);
+        Ok(())
     }
 
     /// Route a message from `from` to `to`. Best-effort — if `to` has a
@@ -883,6 +937,17 @@ fn parse_status(s: Option<&str>) -> Option<ColleagueStatus> {
 /// rendering even if escaped.
 fn sanitize_label(s: &str) -> String {
     s.chars().filter(|c| !c.is_control()).collect()
+}
+
+/// Strip dangerous control characters from a notify message at the
+/// coordinator ingress. Mirrors [`sanitize_label`]'s posture but
+/// preserves `\t` and `\n` so legible whitespace authored by the
+/// sender survives. Defends against ANSI escape injection / bell
+/// flooding into the inbox UI.
+fn sanitize_notify_message(s: &str) -> String {
+    s.chars()
+        .filter(|c| !c.is_control() || *c == '\t' || *c == '\n')
+        .collect()
 }
 
 fn emit_state_changed<R: tauri::Runtime>(app: &tauri::AppHandle<R>, state: &SwarmStatePublic) {
@@ -1422,6 +1487,14 @@ mod tests {
     fn sanitize_label_strips_control_chars() {
         assert_eq!(sanitize_label("alice\u{1b}[31m"), "alice[31m");
         assert_eq!(sanitize_label("plain"), "plain");
+    }
+
+    #[test]
+    fn sanitize_notify_message_strips_dangerous_controls_keeps_whitespace() {
+        // BEL, NUL, ESC stripped; tab + newline preserved.
+        let dirty = "hi\u{0007}there\u{001b}[31m\nline\u{0000}two\tend";
+        let clean = sanitize_notify_message(dirty);
+        assert_eq!(clean, "hithere[31m\nlinetwo\tend");
     }
 
     #[test]

@@ -7,8 +7,8 @@ import {
   type SpawnRecipe,
 } from "../stores/swarmSpawnStore";
 
-function makeRecipe(name: string, command = "echo"): SpawnRecipe {
-  return { name, command, args: ["hi"] };
+function makeRecipe(name: string, cmd = "echo"): SpawnRecipe {
+  return { name, cmd, args: ["hi"] };
 }
 
 describe("SpawnPalette", () => {
@@ -54,7 +54,7 @@ describe("SpawnPalette", () => {
     setSpawnStoreInvokeFn(null);
   });
 
-  it("lists recipes from the store", () => {
+  it("lists recipes from the store (default gh-copilot prepended)", () => {
     useSwarmSpawnStore.setState({
       recipes: [makeRecipe("alpha"), makeRecipe("beta")],
       error: null,
@@ -69,8 +69,31 @@ describe("SpawnPalette", () => {
       />,
     );
     const items = screen.getAllByTestId("swarm-spawn-item");
-    expect(items).toHaveLength(2);
-    expect(items[0]).toHaveAttribute("data-recipe-name", "alpha");
+    // A4 (FR-019): the default "Spawn: gh copilot" entry is always
+    // prepended, ahead of user-defined recipes.
+    expect(items).toHaveLength(3);
+    expect(items[0]).toHaveAttribute("data-recipe-name", "Spawn: gh copilot");
+    expect(items[1]).toHaveAttribute("data-recipe-name", "alpha");
+    expect(items[2]).toHaveAttribute("data-recipe-name", "beta");
+  });
+
+  it("default 'Spawn: gh copilot' is available even when .putz/spawn.json is missing (A4 / FR-019)", () => {
+    useSwarmSpawnStore.setState({
+      recipes: [],
+      error: null,
+      loading: false,
+    });
+    render(
+      <SpawnPalette
+        open={true}
+        onClose={vi.fn()}
+        workspaceRoot={null}
+        invoke={vi.fn().mockResolvedValue({ recipes: [], error: null })}
+      />,
+    );
+    const items = screen.getAllByTestId("swarm-spawn-item");
+    expect(items).toHaveLength(1);
+    expect(items[0]).toHaveAttribute("data-recipe-name", "Spawn: gh copilot");
   });
 
   it("filters by query", () => {
@@ -93,6 +116,30 @@ describe("SpawnPalette", () => {
     const items = screen.getAllByTestId("swarm-spawn-item");
     expect(items).toHaveLength(1);
     expect(items[0]).toHaveAttribute("data-recipe-name", "beta");
+  });
+
+  it("offers free-form spawn alongside recipe matches when query has content (E3 / FR-015)", () => {
+    useSwarmSpawnStore.setState({
+      recipes: [makeRecipe("alpha")],
+      error: null,
+      loading: false,
+    });
+    render(
+      <SpawnPalette
+        open={true}
+        onClose={vi.fn()}
+        workspaceRoot={null}
+        invoke={vi.fn().mockResolvedValue({ recipes: [], error: null })}
+      />,
+    );
+    // "alpha" matches recipe "alpha" — but free-form must STILL be
+    // reachable (E3: spec drift fix; previously only shown when zero
+    // recipe matches).
+    fireEvent.change(screen.getByTestId("swarm-spawn-input"), {
+      target: { value: "alpha" },
+    });
+    expect(screen.getAllByTestId("swarm-spawn-item")).toHaveLength(1);
+    expect(screen.getByTestId("swarm-spawn-freeform")).toBeInTheDocument();
   });
 
   it("offers free-form spawn when no recipe matches", () => {
@@ -128,14 +175,21 @@ describe("SpawnPalette", () => {
         onSpawned={onSpawned}
       />,
     );
+    // Click the user recipe specifically (default gh-copilot is also
+    // present at index 0 thanks to A4).
     await act(async () => {
-      fireEvent.click(screen.getByTestId("swarm-spawn-item"));
+      const items = screen.getAllByTestId("swarm-spawn-item");
+      const alpha = items.find(
+        (el) => el.getAttribute("data-recipe-name") === "alpha",
+      );
+      if (!alpha) throw new Error("alpha recipe not found");
+      fireEvent.click(alpha);
     });
     await waitFor(() => expect(onSpawned).toHaveBeenCalled());
     expect(invoke).toHaveBeenCalledWith(
       "swarm_spawn_from_recipe",
       expect.objectContaining({
-        recipe: expect.objectContaining({ name: "alpha", command: "echo" }),
+        recipe: expect.objectContaining({ name: "alpha", cmd: "echo" }),
       }),
     );
     expect(onClose).toHaveBeenCalled();
@@ -160,7 +214,12 @@ describe("SpawnPalette", () => {
       />,
     );
     await act(async () => {
-      fireEvent.click(screen.getByTestId("swarm-spawn-item"));
+      const items = screen.getAllByTestId("swarm-spawn-item");
+      const alpha = items.find(
+        (el) => el.getAttribute("data-recipe-name") === "alpha",
+      );
+      if (!alpha) throw new Error("alpha recipe not found");
+      fireEvent.click(alpha);
     });
     await waitFor(() => expect(onSpawnError).toHaveBeenCalled());
     expect(onSpawnError.mock.calls[0][1]).toBe("boom");
@@ -183,10 +242,10 @@ describe("SpawnPalette", () => {
     expect(onClose).toHaveBeenCalled();
   });
 
-  it("renders error from store", () => {
+  it("renders typed error.message from store", () => {
     useSwarmSpawnStore.setState({
       recipes: [],
-      error: "Malformed .putz/spawn.json",
+      error: { kind: "malformed_json", message: "Malformed .putz/spawn.json" },
       loading: false,
     });
     render(

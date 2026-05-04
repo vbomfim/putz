@@ -9,7 +9,7 @@
 //!   "recipes": [
 //!     {
 //!       "name": "review",
-//!       "command": "gh",
+//!       "cmd": "gh",
 //!       "args": ["copilot", "--mode", "review"],
 //!       "cwd": "./packages/api",
 //!       "env": { "REVIEW": "1" },
@@ -18,6 +18,10 @@
 //!   ]
 //! }
 //! ```
+//!
+//! The legacy field name `command` is accepted as an alias for backwards
+//! compatibility with any in-flight recipes authored before the rename
+//! to match spec FR-019.
 //!
 //! ## Trust model
 //!
@@ -65,7 +69,7 @@ const MAX_RECIPES: usize = 100;
 /// Maximum chars in a recipe name (palette display).
 const MAX_NAME_LEN: usize = 80;
 
-/// Maximum chars in a recipe `command` (the executable path or name).
+/// Maximum chars in a recipe `cmd` (the executable path or name).
 const MAX_COMMAND_LEN: usize = 512;
 
 /// Maximum number of args per recipe (bound UI + spawn payload size).
@@ -83,17 +87,27 @@ const MAX_PATH_LEN: usize = 4096;
 /// length to bound memory but never inspect contents.
 const MAX_PROMPT_LEN: usize = 4096;
 
+/// Maximum chars in an env var key. Defends against pathological keys
+/// (single-key DoS via long strings; the OS limit is much higher).
+const MAX_ENV_KEY_LEN: usize = 256;
+
 /// One quick-spawn recipe.
 ///
 /// `deny_unknown_fields` keeps the wire schema tight — a typo in a
 /// recipe is a hard error, not a silent ignore.
+///
+/// The `cmd` field matches spec FR-019 wording. The legacy alias
+/// `command` is accepted on input for back-compat with recipes
+/// authored against the prior schema; both names parse to the same
+/// in-memory shape and the canonical wire shape uses `cmd`.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(deny_unknown_fields)]
 pub struct SpawnRecipe {
     /// Display name shown in the palette. Required.
     pub name: String,
     /// Executable to spawn. Required.
-    pub command: String,
+    #[serde(rename = "cmd", alias = "command")]
+    pub cmd: String,
     /// Optional args. Defaults to empty.
     #[serde(default)]
     pub args: Vec<String>,
@@ -119,15 +133,58 @@ struct RecipeFile {
     recipes: Vec<SpawnRecipe>,
 }
 
+/// Categories of recipe-loader failure surfaced to the frontend.
+///
+/// Frontends branch on `kind` for tailored error UI (e.g., "Open editor"
+/// for `MalformedJson`, "Open settings" for `PermissionDenied`); the
+/// `message` field carries a short user-facing string for display.
+#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum ErrorKind {
+    /// `.putz/spawn.json` does not exist.
+    MissingFile,
+    /// File is malformed JSON, contains unknown fields, or is not UTF-8.
+    MalformedJson,
+    /// File exceeds [`MAX_RECIPE_FILE_BYTES`].
+    OversizedFile,
+    /// I/O failure other than NotFound (typically permission denied).
+    PermissionDenied,
+    /// A recipe failed structural validation (empty name/cmd, oversize, …).
+    InvalidRecipe,
+    /// A displayable identifier contained bidi-control characters
+    /// (Trojan-Source class). See [`has_bidi_control`].
+    BidiControlRejected,
+    /// File contained more than [`MAX_RECIPES`] entries.
+    TooManyRecipes,
+}
+
+/// Typed error surfaced as part of [`LoadResult`]. The `message` is a
+/// short user-facing string (no PII, no full paths beyond the
+/// caller-supplied workspace root).
+#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
+pub struct LoadRecipeError {
+    pub kind: ErrorKind,
+    pub message: String,
+}
+
+impl LoadRecipeError {
+    fn new(kind: ErrorKind, message: impl Into<String>) -> Self {
+        Self {
+            kind,
+            message: message.into(),
+        }
+    }
+}
+
 /// Result of loading the recipes file. Always returns a value — even
 /// errors are surfaced as a UI-renderable shape, not a thrown error.
 #[derive(Debug, Clone, Serialize, PartialEq)]
 pub struct LoadResult {
     /// Valid recipes, empty if file missing.
     pub recipes: Vec<SpawnRecipe>,
-    /// One-line user-facing error message if the file existed but was
-    /// invalid. `None` when the file is missing or valid.
-    pub error: Option<String>,
+    /// Typed error if the file existed but was invalid. `None` when
+    /// the file is missing or valid.
+    pub error: Option<LoadRecipeError>,
 }
 
 impl LoadResult {
@@ -138,10 +195,10 @@ impl LoadResult {
         }
     }
 
-    fn error(msg: impl Into<String>) -> Self {
+    fn error(kind: ErrorKind, msg: impl Into<String>) -> Self {
         Self {
             recipes: vec![],
-            error: Some(msg.into()),
+            error: Some(LoadRecipeError::new(kind, msg)),
         }
     }
 }
@@ -155,37 +212,58 @@ pub fn load_workspace_recipes(workspace_root: &Path) -> Result<LoadResult, Strin
     let bytes = match std::fs::read(&path) {
         Ok(b) => b,
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(LoadResult::missing()),
+        Err(e) if e.kind() == std::io::ErrorKind::PermissionDenied => {
+            return Ok(LoadResult::error(
+                ErrorKind::PermissionDenied,
+                format!("Cannot read .putz/spawn.json: {e}"),
+            ));
+        }
         Err(e) => return Err(format!("read .putz/spawn.json: {e}")),
     };
     if bytes.len() > MAX_RECIPE_FILE_BYTES {
-        return Ok(LoadResult::error(format!(
-            "Recipes file too large ({} bytes; max {})",
-            bytes.len(),
-            MAX_RECIPE_FILE_BYTES
-        )));
+        return Ok(LoadResult::error(
+            ErrorKind::OversizedFile,
+            format!(
+                "Recipes file too large ({} bytes; max {})",
+                bytes.len(),
+                MAX_RECIPE_FILE_BYTES
+            ),
+        ));
     }
     let s = match std::str::from_utf8(&bytes) {
         Ok(s) => s,
-        Err(_) => return Ok(LoadResult::error("Recipes file is not valid UTF-8")),
+        Err(_) => {
+            return Ok(LoadResult::error(
+                ErrorKind::MalformedJson,
+                "Recipes file is not valid UTF-8",
+            ))
+        }
     };
     let parsed: RecipeFile = match serde_json::from_str(s) {
         Ok(v) => v,
-        Err(e) => return Ok(LoadResult::error(format!("JSON parse error: {e}"))),
+        Err(e) => {
+            return Ok(LoadResult::error(
+                ErrorKind::MalformedJson,
+                format!("JSON parse error: {e}"),
+            ))
+        }
     };
     if parsed.recipes.len() > MAX_RECIPES {
-        return Ok(LoadResult::error(format!(
-            "Too many recipes ({}; max {})",
-            parsed.recipes.len(),
-            MAX_RECIPES
-        )));
+        return Ok(LoadResult::error(
+            ErrorKind::TooManyRecipes,
+            format!(
+                "Too many recipes ({}; max {})",
+                parsed.recipes.len(),
+                MAX_RECIPES
+            ),
+        ));
     }
     for recipe in &parsed.recipes {
-        if let Err(msg) = validate(recipe) {
-            return Ok(LoadResult::error(format!(
-                "Recipe '{}': {}",
-                truncate_for_msg(&recipe.name, 40),
-                msg
-            )));
+        if let Err((kind, msg)) = validate(recipe) {
+            return Ok(LoadResult::error(
+                kind,
+                format!("Recipe '{}': {}", truncate_for_msg(&recipe.name, 40), msg),
+            ));
         }
     }
     Ok(LoadResult {
@@ -195,58 +273,155 @@ pub fn load_workspace_recipes(workspace_root: &Path) -> Result<LoadResult, Strin
 }
 
 /// Return `Ok(())` if the recipe is structurally valid; else a
-/// short user-facing reason. Validation is an allow-list:
+/// `(kind, message)` pair where `kind` is the failure category and
+/// `message` is a short user-facing reason. Validation is an
+/// allow-list:
 ///   * required strings non-empty + length-capped;
-///   * no bidi control chars in displayable identifiers;
-///   * arg count + per-arg length capped.
-fn validate(recipe: &SpawnRecipe) -> Result<(), String> {
+///   * no bidi control / control chars in displayable identifiers;
+///   * arg count + per-arg length capped;
+///   * env keys + values capped, no control chars in either;
+///   * cwd capped, no control chars.
+fn validate(recipe: &SpawnRecipe) -> Result<(), (ErrorKind, String)> {
     if recipe.name.trim().is_empty() {
-        return Err("name is empty".into());
+        return Err((ErrorKind::InvalidRecipe, "name is empty".into()));
     }
     if recipe.name.chars().count() > MAX_NAME_LEN {
-        return Err(format!("name too long (max {MAX_NAME_LEN} chars)"));
+        return Err((
+            ErrorKind::InvalidRecipe,
+            format!("name too long (max {MAX_NAME_LEN} chars)"),
+        ));
     }
     if has_bidi_control(&recipe.name) {
-        return Err("name contains disallowed control characters".into());
+        return Err((
+            ErrorKind::BidiControlRejected,
+            "name contains disallowed control characters".into(),
+        ));
     }
-    if recipe.command.trim().is_empty() {
-        return Err("command is empty".into());
+    if recipe.cmd.trim().is_empty() {
+        return Err((ErrorKind::InvalidRecipe, "cmd is empty".into()));
     }
-    if recipe.command.chars().count() > MAX_COMMAND_LEN {
-        return Err(format!("command too long (max {MAX_COMMAND_LEN} chars)"));
+    if recipe.cmd.chars().count() > MAX_COMMAND_LEN {
+        return Err((
+            ErrorKind::InvalidRecipe,
+            format!("cmd too long (max {MAX_COMMAND_LEN} chars)"),
+        ));
     }
-    if has_bidi_control(&recipe.command) {
-        return Err("command contains disallowed control characters".into());
+    if has_bidi_control(&recipe.cmd) {
+        return Err((
+            ErrorKind::BidiControlRejected,
+            "cmd contains disallowed control characters".into(),
+        ));
     }
     if recipe.args.len() > MAX_ARGS {
-        return Err(format!("too many args (max {MAX_ARGS})"));
+        return Err((
+            ErrorKind::InvalidRecipe,
+            format!("too many args (max {MAX_ARGS})"),
+        ));
     }
     for (i, arg) in recipe.args.iter().enumerate() {
         if arg.chars().count() > MAX_ARG_LEN {
-            return Err(format!("arg #{i} too long (max {MAX_ARG_LEN} chars)"));
+            return Err((
+                ErrorKind::InvalidRecipe,
+                format!("arg #{i} too long (max {MAX_ARG_LEN} chars)"),
+            ));
+        }
+        if has_bidi_control(arg) {
+            return Err((
+                ErrorKind::BidiControlRejected,
+                format!("arg #{i} contains disallowed bidi-control characters"),
+            ));
+        }
+        if has_control_chars(arg) {
+            return Err((
+                ErrorKind::InvalidRecipe,
+                format!("arg #{i} contains disallowed control characters"),
+            ));
         }
     }
     if let Some(cwd) = &recipe.cwd {
         if cwd.chars().count() > MAX_PATH_LEN {
-            return Err(format!("cwd too long (max {MAX_PATH_LEN} chars)"));
+            return Err((
+                ErrorKind::InvalidRecipe,
+                format!("cwd too long (max {MAX_PATH_LEN} chars)"),
+            ));
+        }
+        if has_bidi_control(cwd) {
+            return Err((
+                ErrorKind::BidiControlRejected,
+                "cwd contains disallowed bidi-control characters".into(),
+            ));
+        }
+        if has_control_chars(cwd) {
+            return Err((
+                ErrorKind::InvalidRecipe,
+                "cwd contains disallowed control characters".into(),
+            ));
         }
     }
     for (k, v) in &recipe.env {
         if k.is_empty() {
-            return Err("env key is empty".into());
+            return Err((ErrorKind::InvalidRecipe, "env key is empty".into()));
+        }
+        if k.chars().count() > MAX_ENV_KEY_LEN {
+            return Err((
+                ErrorKind::InvalidRecipe,
+                format!(
+                    "env key '{}' too long (max {MAX_ENV_KEY_LEN} chars)",
+                    truncate_for_msg(k, 32)
+                ),
+            ));
+        }
+        if has_bidi_control(k) || has_control_chars(k) {
+            return Err((
+                ErrorKind::BidiControlRejected,
+                "env key contains disallowed control characters".into(),
+            ));
         }
         if v.chars().count() > MAX_PATH_LEN {
-            return Err(format!("env value for '{k}' too long"));
+            return Err((
+                ErrorKind::InvalidRecipe,
+                format!("env value for '{}' too long", truncate_for_msg(k, 32)),
+            ));
+        }
+        if has_bidi_control(v) {
+            return Err((
+                ErrorKind::BidiControlRejected,
+                format!(
+                    "env value for '{}' contains disallowed bidi-control characters",
+                    truncate_for_msg(k, 32)
+                ),
+            ));
+        }
+        if has_control_chars(v) {
+            return Err((
+                ErrorKind::InvalidRecipe,
+                format!(
+                    "env value for '{}' contains disallowed control characters",
+                    truncate_for_msg(k, 32)
+                ),
+            ));
         }
     }
     if let Some(p) = &recipe.initial_prompt {
         if p.chars().count() > MAX_PROMPT_LEN {
-            return Err(format!(
-                "initial_prompt too long (max {MAX_PROMPT_LEN} chars)"
+            return Err((
+                ErrorKind::InvalidRecipe,
+                format!("initial_prompt too long (max {MAX_PROMPT_LEN} chars)"),
             ));
         }
     }
     Ok(())
+}
+
+/// True if `s` contains any character classified by Rust as control
+/// (other than the regular-text whitespace `\t`). Used as a defense
+/// against embedded escape sequences in env/args/cwd that could
+/// confuse downstream loggers, sub-shells, or terminal display.
+///
+/// Allows `\t` (tab) because some legitimate paths/values may contain
+/// it; rejects newlines, NULs, BEL, escape, etc.
+fn has_control_chars(s: &str) -> bool {
+    s.chars().any(|c| c.is_control() && c != '\t')
 }
 
 /// True if `s` contains any unicode bidi-control / right-to-left-override
@@ -290,8 +465,11 @@ pub fn resolve_workspace_root(workspace_root: PathBuf) -> PathBuf {
 
 /// Public re-export of the per-recipe validator for the spawn-from-recipe
 /// command — same allow-list applied to recipes loaded from disk.
-pub fn validate_for_spawn(recipe: &SpawnRecipe) -> Result<(), String> {
-    validate(recipe)
+///
+/// Returns `Err(LoadRecipeError)` so callers can surface the typed
+/// error kind to the frontend (see [`ErrorKind`]).
+pub fn validate_for_spawn(recipe: &SpawnRecipe) -> Result<(), LoadRecipeError> {
+    validate(recipe).map_err(|(kind, msg)| LoadRecipeError::new(kind, msg))
 }
 
 #[cfg(test)]
@@ -321,16 +499,37 @@ mod tests {
     #[test]
     fn parses_minimal_valid_recipe() {
         let dir = temp_dir();
-        write_recipes(
-            dir.path(),
-            r#"{"recipes":[{"name":"review","command":"gh"}]}"#,
-        );
+        write_recipes(dir.path(), r#"{"recipes":[{"name":"review","cmd":"gh"}]}"#);
         let result = load_workspace_recipes(dir.path()).unwrap();
         assert!(result.error.is_none());
         assert_eq!(result.recipes.len(), 1);
         assert_eq!(result.recipes[0].name, "review");
-        assert_eq!(result.recipes[0].command, "gh");
+        assert_eq!(result.recipes[0].cmd, "gh");
         assert!(result.recipes[0].args.is_empty());
+    }
+
+    #[test]
+    fn parses_spec_example_with_cmd_field() {
+        // Verbatim from spec.md FR-019 acceptance criterion.
+        let dir = temp_dir();
+        write_recipes(
+            dir.path(),
+            r#"{"recipes":[{"name":"review","cmd":"gh","args":["copilot"]}]}"#,
+        );
+        let result = load_workspace_recipes(dir.path()).unwrap();
+        assert!(result.error.is_none(), "got {:?}", result.error);
+        assert_eq!(result.recipes[0].cmd, "gh");
+        assert_eq!(result.recipes[0].args, vec!["copilot"]);
+    }
+
+    #[test]
+    fn legacy_command_alias_still_parses() {
+        // Back-compat for recipes authored before the rename.
+        let dir = temp_dir();
+        write_recipes(dir.path(), r#"{"recipes":[{"name":"x","command":"gh"}]}"#);
+        let result = load_workspace_recipes(dir.path()).unwrap();
+        assert!(result.error.is_none());
+        assert_eq!(result.recipes[0].cmd, "gh");
     }
 
     #[test]
@@ -341,7 +540,7 @@ mod tests {
             r#"{
               "recipes": [{
                 "name": "review",
-                "command": "gh",
+                "cmd": "gh",
                 "args": ["copilot", "--mode", "review"],
                 "cwd": "./api",
                 "env": {"REVIEW": "1"},
@@ -363,7 +562,8 @@ mod tests {
         let dir = temp_dir();
         write_recipes(dir.path(), "not json at all");
         let result = load_workspace_recipes(dir.path()).unwrap();
-        assert!(result.error.is_some());
+        let err = result.error.expect("expected error");
+        assert_eq!(err.kind, ErrorKind::MalformedJson);
         assert!(result.recipes.is_empty());
     }
 
@@ -372,40 +572,85 @@ mod tests {
         let dir = temp_dir();
         write_recipes(
             dir.path(),
-            r#"{"recipes":[{"name":"x","command":"y","unknown_field":1}]}"#,
+            r#"{"recipes":[{"name":"x","cmd":"y","unknown_field":1}]}"#,
         );
         let result = load_workspace_recipes(dir.path()).unwrap();
-        assert!(result.error.is_some());
+        let err = result.error.expect("expected error");
+        assert_eq!(err.kind, ErrorKind::MalformedJson);
     }
 
     #[test]
     fn empty_name_rejected() {
         let dir = temp_dir();
-        write_recipes(dir.path(), r#"{"recipes":[{"name":"   ","command":"gh"}]}"#);
+        write_recipes(dir.path(), r#"{"recipes":[{"name":"   ","cmd":"gh"}]}"#);
         let result = load_workspace_recipes(dir.path()).unwrap();
-        assert!(result.error.as_ref().unwrap().contains("name is empty"));
+        let err = result.error.expect("expected error");
+        assert_eq!(err.kind, ErrorKind::InvalidRecipe);
+        assert!(err.message.contains("name is empty"));
     }
 
     #[test]
-    fn empty_command_rejected() {
+    fn empty_cmd_rejected() {
         let dir = temp_dir();
-        write_recipes(dir.path(), r#"{"recipes":[{"name":"x","command":""}]}"#);
+        write_recipes(dir.path(), r#"{"recipes":[{"name":"x","cmd":""}]}"#);
         let result = load_workspace_recipes(dir.path()).unwrap();
-        assert!(result.error.as_ref().unwrap().contains("command is empty"));
+        let err = result.error.expect("expected error");
+        assert_eq!(err.kind, ErrorKind::InvalidRecipe);
+        assert!(err.message.contains("cmd is empty"));
     }
 
     #[test]
     fn bidi_control_in_name_rejected() {
         // RLO between "ev" and "iew" — Trojan Source class attack.
         let dir = temp_dir();
-        let payload = r#"{"recipes":[{"name":"rev\u202Eiew","command":"gh"}]}"#;
+        let payload = r#"{"recipes":[{"name":"rev\u202Eiew","cmd":"gh"}]}"#;
         write_recipes(dir.path(), payload);
         let result = load_workspace_recipes(dir.path()).unwrap();
-        assert!(
-            result.error.as_ref().unwrap().contains("control"),
-            "got: {:?}",
-            result.error
-        );
+        let err = result.error.expect("expected error");
+        assert_eq!(err.kind, ErrorKind::BidiControlRejected);
+    }
+
+    #[test]
+    fn bidi_control_in_env_value_rejected() {
+        let dir = temp_dir();
+        let payload = r#"{"recipes":[{"name":"x","cmd":"y","env":{"K":"v\u202Eal"}}]}"#;
+        write_recipes(dir.path(), payload);
+        let result = load_workspace_recipes(dir.path()).unwrap();
+        let err = result.error.expect("expected error");
+        assert_eq!(err.kind, ErrorKind::BidiControlRejected);
+    }
+
+    #[test]
+    fn control_char_in_arg_rejected() {
+        // \x07 (BEL) embedded in an arg.
+        let dir = temp_dir();
+        let payload = r#"{"recipes":[{"name":"x","cmd":"y","args":["abc\u0007def"]}]}"#;
+        write_recipes(dir.path(), payload);
+        let result = load_workspace_recipes(dir.path()).unwrap();
+        let err = result.error.expect("expected error");
+        assert_eq!(err.kind, ErrorKind::InvalidRecipe);
+    }
+
+    #[test]
+    fn newline_in_cwd_rejected() {
+        let dir = temp_dir();
+        let payload = r#"{"recipes":[{"name":"x","cmd":"y","cwd":"./a\nb"}]}"#;
+        write_recipes(dir.path(), payload);
+        let result = load_workspace_recipes(dir.path()).unwrap();
+        let err = result.error.expect("expected error");
+        assert_eq!(err.kind, ErrorKind::InvalidRecipe);
+    }
+
+    #[test]
+    fn long_env_key_rejected() {
+        let dir = temp_dir();
+        let big_key: String = "K".repeat(MAX_ENV_KEY_LEN + 1);
+        let payload =
+            format!(r#"{{"recipes":[{{"name":"x","cmd":"y","env":{{"{big_key}":"v"}}}}]}}"#);
+        write_recipes(dir.path(), &payload);
+        let result = load_workspace_recipes(dir.path()).unwrap();
+        let err = result.error.expect("expected error");
+        assert_eq!(err.kind, ErrorKind::InvalidRecipe);
     }
 
     #[test]
@@ -414,7 +659,8 @@ mod tests {
         let big = "x".repeat(MAX_RECIPE_FILE_BYTES + 1);
         write_recipes(dir.path(), &big);
         let result = load_workspace_recipes(dir.path()).unwrap();
-        assert!(result.error.as_ref().unwrap().contains("too large"));
+        let err = result.error.expect("expected error");
+        assert_eq!(err.kind, ErrorKind::OversizedFile);
     }
 
     #[test]
@@ -425,21 +671,24 @@ mod tests {
             if i > 0 {
                 recipes.push(',');
             }
-            recipes.push_str(&format!(r#"{{"name":"r{i}","command":"x"}}"#));
+            recipes.push_str(&format!(r#"{{"name":"r{i}","cmd":"x"}}"#));
         }
         recipes.push_str("]}");
         write_recipes(dir.path(), &recipes);
         let result = load_workspace_recipes(dir.path()).unwrap();
-        assert!(result.error.as_ref().unwrap().contains("Too many"));
+        let err = result.error.expect("expected error");
+        assert_eq!(err.kind, ErrorKind::TooManyRecipes);
     }
 
     #[test]
     fn long_name_rejected() {
         let dir = temp_dir();
         let long = "n".repeat(MAX_NAME_LEN + 1);
-        let payload = format!(r#"{{"recipes":[{{"name":"{long}","command":"gh"}}]}}"#);
+        let payload = format!(r#"{{"recipes":[{{"name":"{long}","cmd":"gh"}}]}}"#);
         write_recipes(dir.path(), &payload);
         let result = load_workspace_recipes(dir.path()).unwrap();
-        assert!(result.error.as_ref().unwrap().contains("name too long"));
+        let err = result.error.expect("expected error");
+        assert_eq!(err.kind, ErrorKind::InvalidRecipe);
+        assert!(err.message.contains("name too long"));
     }
 }

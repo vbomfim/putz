@@ -20,10 +20,15 @@
  */
 import { create } from "zustand";
 
-/** Mirror of the Rust `SpawnRecipe` shape (`spawn_recipe.rs`). */
+/** Mirror of the Rust `SpawnRecipe` shape (`spawn_recipe.rs`).
+ *
+ * Field naming: `cmd` matches spec FR-019 wording. The Rust loader
+ * accepts the legacy `command` alias for back-compat but the TS
+ * surface only exposes `cmd`.
+ */
 export interface SpawnRecipe {
   readonly name: string;
-  readonly command: string;
+  readonly cmd: string;
   readonly args?: ReadonlyArray<string>;
   readonly cwd?: string | null;
   readonly env?: Readonly<Record<string, string>>;
@@ -31,12 +36,32 @@ export interface SpawnRecipe {
   readonly initialPrompt?: string | null;
 }
 
+/**
+ * Categories of recipe-loader failure the backend can return. Mirror
+ * of Rust [`crate::swarm::RecipeErrorKind`]. The frontend branches on
+ * `kind` for tailored error UI.
+ */
+export type RecipeErrorKind =
+  | "missing_file"
+  | "malformed_json"
+  | "oversized_file"
+  | "permission_denied"
+  | "invalid_recipe"
+  | "bidi_control_rejected"
+  | "too_many_recipes";
+
+/** Mirror of Rust [`crate::swarm::LoadRecipeError`]. */
+export interface LoadRecipeError {
+  readonly kind: RecipeErrorKind;
+  readonly message: string;
+}
+
 /** Mirror of the Rust `LoadResult` wire shape (consumed inline below). */
 
 interface SwarmSpawnState {
   readonly recipes: ReadonlyArray<SpawnRecipe>;
-  /** One-line user-facing error if `.putz/spawn.json` is malformed. */
-  readonly error: string | null;
+  /** Typed error if `.putz/spawn.json` is malformed. */
+  readonly error: LoadRecipeError | null;
   /** True while a `refresh` is in flight. */
   readonly loading: boolean;
   /** Re-read `.putz/spawn.json` from `workspaceRoot`. */
@@ -78,7 +103,7 @@ async function lazyInvoke<T>(
  */
 interface WireRecipe {
   name: string;
-  command: string;
+  cmd: string;
   args?: string[];
   cwd?: string | null;
   env?: Record<string, string>;
@@ -88,7 +113,7 @@ interface WireRecipe {
 function fromWire(r: WireRecipe): SpawnRecipe {
   return {
     name: r.name,
-    command: r.command,
+    cmd: r.cmd,
     args: r.args ?? [],
     cwd: r.cwd ?? null,
     env: r.env ?? {},
@@ -100,7 +125,7 @@ function fromWire(r: WireRecipe): SpawnRecipe {
 export function toWireRecipe(recipe: SpawnRecipe): WireRecipe {
   return {
     name: recipe.name,
-    command: recipe.command,
+    cmd: recipe.cmd,
     args: recipe.args ? [...recipe.args] : [],
     cwd: recipe.cwd ?? null,
     env: recipe.env ? { ...recipe.env } : {},
@@ -118,7 +143,7 @@ export const useSwarmSpawnStore = create<SwarmSpawnState>((set) => ({
     try {
       const result = await lazyInvoke<{
         recipes: WireRecipe[];
-        error: string | null;
+        error: LoadRecipeError | null;
       }>("swarm_read_workspace_recipes", {
         workspaceRoot,
       });
@@ -130,10 +155,13 @@ export const useSwarmSpawnStore = create<SwarmSpawnState>((set) => ({
     } catch (err) {
       // Malformed-file errors come back inside `result.error`; we only
       // hit this branch for actual IPC / permission failures. Surface
-      // a short, non-PII-leaking message to the UI.
+      // a typed error so the UI can branch by `kind`.
       set({
         recipes: [],
-        error: err instanceof Error ? err.message : String(err),
+        error: {
+          kind: "permission_denied",
+          message: err instanceof Error ? err.message : String(err),
+        },
         loading: false,
       });
     }
@@ -169,15 +197,29 @@ export function recipeFromFreeFormInput(line: string): SpawnRecipe | null {
   const trimmed = line.trim();
   if (!trimmed) return null;
   const parts = trimmed.split(/\s+/);
-  const command = parts[0];
+  const cmd = parts[0];
   const args = parts.slice(1);
   return {
     // Use the first token as the display name for the spawned tab.
-    name: command,
-    command,
+    name: cmd,
+    cmd,
     args,
     env: {},
     cwd: null,
     initialPrompt: null,
   };
 }
+
+/**
+ * Built-in default spawn entry — always available regardless of
+ * `.putz/spawn.json` presence. Mirrors spec FR-019: "the palette
+ * MUST list a default 'Spawn: gh copilot' entry".
+ */
+export const DEFAULT_SPAWN_GH_COPILOT: SpawnRecipe = Object.freeze({
+  name: "Spawn: gh copilot",
+  cmd: "gh",
+  args: Object.freeze(["copilot"]) as ReadonlyArray<string>,
+  cwd: null,
+  env: Object.freeze({}),
+  initialPrompt: null,
+});

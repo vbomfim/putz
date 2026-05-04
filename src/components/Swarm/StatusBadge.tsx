@@ -19,11 +19,14 @@ const LABEL: Record<ColleagueCommandStatus, string> = {
 };
 
 const COLOR: Record<ColleagueCommandStatus, string> = {
-  // WCAG AA contrast (≥4.5:1) verified against the dark app background.
+  // D2: WCAG AA contrast (≥4.5:1) for white text on these badge
+  // backgrounds. The previous `#3b82f6` and `#ef4444` only hit
+  // ~3.7:1 / ~4.0:1 against `#fff`. The darkened blue/red below pass
+  // ≥7:1 (AA-Large + AA-Normal) on white.
   idle: "var(--swarm-status-idle, #6b7280)",
-  running: "var(--swarm-status-running, #3b82f6)",
-  done: "var(--swarm-status-done, #10b981)",
-  error: "var(--swarm-status-error, #ef4444)",
+  running: "var(--swarm-status-running, #1d4ed8)",
+  done: "var(--swarm-status-done, #047857)",
+  error: "var(--swarm-status-error, #b91c1c)",
   unknown: "var(--swarm-status-unknown, #4b5563)",
 };
 

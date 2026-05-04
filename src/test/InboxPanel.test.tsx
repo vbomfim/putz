@@ -1,9 +1,7 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent, act } from "@testing-library/react";
-import {
-  InboxPanel,
-  formatRelativeTime,
-} from "../components/Swarm/InboxPanel";
+import { InboxPanel } from "../components/Swarm/InboxPanel";
+import { formatRelativeTime } from "../lib/swarm/formatters";
 import {
   useSwarmInboxStore,
   _resetSwarmInboxStoreForTests,

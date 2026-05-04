@@ -63,10 +63,24 @@ export function useSwarmNotifyListener(deps: ListenerDeps = {}): void {
       ) {
         return;
       }
-      const severity: NotifySeverity =
-        p.severity === "urgent" || p.severity === "ambient"
-          ? p.severity
-          : "normal";
+      // F3: log when severity normalizes a non-canonical value, so a
+      // misconfigured peer is observable in dev without leaking the
+      // notify message body. Only the severity field is logged — the
+      // message itself stays @privacy Tier-2 (never log).
+      let severity: NotifySeverity;
+      if (p.severity === "urgent" || p.severity === "ambient") {
+        severity = p.severity;
+      } else if (p.severity === "normal" || p.severity == null) {
+        severity = "normal";
+      } else {
+        if (typeof console !== "undefined") {
+          console.debug(
+            "[swarm] notify with unknown severity; defaulting to 'normal':",
+            p.severity,
+          );
+        }
+        severity = "normal";
+      }
       useSwarmInboxStore.getState().addNotification({
         colleagueId: p.colleague_id,
         tabId: p.tab_id,

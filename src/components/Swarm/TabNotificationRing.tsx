@@ -26,8 +26,10 @@ interface Props {
 }
 
 const COLOR: Record<NotifySeverity, string> = {
-  urgent: "var(--swarm-ring-urgent, #ef4444)",
-  normal: "var(--swarm-ring-normal, #3b82f6)",
+  // D2: WCAG AA-compliant fallbacks (≥4.5:1 vs white text). See
+  // matching reasoning in `StatusBadge.tsx`.
+  urgent: "var(--swarm-ring-urgent, #b91c1c)",
+  normal: "var(--swarm-ring-normal, #1d4ed8)",
   ambient: "var(--swarm-ring-ambient, #6b7280)",
 };
 

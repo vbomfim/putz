@@ -91,8 +91,9 @@ pub async fn swarm_spawn_colleague(
     let payload = serde_json::json!({
         "name": name,
         "env": env,
-        "shell": "copilot",
+        "command": "copilot",
         "args": ["--yolo", "--experimental"],
+        "title": name,
         "colleague_id": colleague_id,
         "tab_id": tab_id,
     });
@@ -147,36 +148,39 @@ pub async fn swarm_read_workspace_recipes(
 /// T4 / FR-019 — spawn a colleague tab from a recipe (Cmd+K palette).
 ///
 /// Reuses the existing `swarm://spawn-tab` event surface as
-/// [`swarm_spawn_colleague`]. The recipe's `command` / `args` / `env`
+/// [`swarm_spawn_colleague`]. The recipe's `cmd` / `args` / `env`
 /// override the defaults; Putz's identity vars (`PUTZ_SWARM_PATH`,
 /// `PUTZ_TAB_ID`, etc.) are merged on top per FR-020 — the recipe
 /// cannot shadow them.
 ///
 /// **Security:** the recipe is re-validated server-side via
-/// [`crate::swarm::spawn_recipe::load_workspace_recipes`]'s validator —
-/// untrusted IPC must not assume the renderer already validated.
-/// Free-form / inline commands (palette text input) are wrapped in a
-/// recipe with `command = <input>`, `args = []` and run through the
-/// same validator.
+/// [`crate::swarm::spawn_recipe::validate_for_spawn`] — untrusted IPC
+/// must not assume the renderer already validated. Free-form / inline
+/// commands (palette text input) are wrapped in a recipe with
+/// `cmd = <input>`, `args = []` and run through the same validator.
+///
+/// Returns a [`crate::swarm::LoadRecipeError`] on validation failure
+/// so the frontend can branch on `kind` for tailored error UI.
 #[tauri::command]
 pub async fn swarm_spawn_from_recipe(
     state: State<'_, SwarmCoordinator>,
     app: tauri::AppHandle,
     recipe: crate::swarm::SpawnRecipe,
-) -> Result<(), String> {
+) -> Result<(), crate::swarm::LoadRecipeError> {
     use tauri::Emitter;
 
     if !state.enabled() {
-        return Err("Swarm is not enabled".into());
+        return Err(crate::swarm::LoadRecipeError {
+            kind: crate::swarm::RecipeErrorKind::InvalidRecipe,
+            message: "Swarm is not enabled".into(),
+        });
     }
 
     // Re-validate recipe at the trust boundary. The renderer may have
     // bypassed its own validation (different code path, future bug,
-    // malicious extension surface). The validator returns a
-    // user-renderable reason on failure.
-    if let Err(msg) = crate::swarm::spawn_recipe::validate_for_spawn(&recipe) {
-        return Err(format!("Invalid recipe: {msg}"));
-    }
+    // malicious extension surface). The validator returns a typed
+    // error so the frontend can tailor messaging.
+    crate::swarm::spawn_recipe::validate_for_spawn(&recipe)?;
 
     let colleague_id = SwarmCoordinator::generate_colleague_id(&recipe.name);
     let tab_id = uuid::Uuid::new_v4().to_string();
@@ -193,7 +197,10 @@ pub async fn swarm_spawn_from_recipe(
             recipe.initial_prompt.as_deref(),
         )
         .await
-        .ok_or("Swarm not configured")?;
+        .ok_or(crate::swarm::LoadRecipeError {
+            kind: crate::swarm::RecipeErrorKind::InvalidRecipe,
+            message: "Swarm not configured".into(),
+        })?;
     for (k, v) in putz_env {
         env.insert(k, v);
     }
@@ -201,14 +208,46 @@ pub async fn swarm_spawn_from_recipe(
     let payload = serde_json::json!({
         "name": recipe.name,
         "env": env,
-        "shell": recipe.command,
+        "command": recipe.cmd,
         "args": recipe.args,
         "cwd": recipe.cwd,
+        "title": recipe.name,
         "colleague_id": colleague_id,
         "tab_id": tab_id,
     });
 
     app.emit("swarm://spawn-tab", &payload)
-        .map_err(|e| e.to_string())?;
+        .map_err(|e| crate::swarm::LoadRecipeError {
+            kind: crate::swarm::RecipeErrorKind::InvalidRecipe,
+            message: format!("emit failed: {e}"),
+        })?;
     Ok(())
+}
+
+/// T4 / F9 — send a `notify` message to a target colleague's socket.
+///
+/// Used by the "Send notify…" UI in the sidebar context menu. The
+/// message is delivered as a `Frame::Notify` via the coordinator's
+/// existing notify path (which dispatches the `swarm://notify` event
+/// to subscribers, including the local UI).
+///
+/// **Privacy:** `message` is **@privacy Tier-2** PII (PRI-001/002).
+/// Forwarded verbatim to the target's inbox; never logged, never
+/// persisted server-side.
+///
+/// **Security:** caps the message length server-side (mirrors the
+/// wire-protocol cap in [`crate::swarm::coordinator`]).
+#[tauri::command]
+pub async fn swarm_send_notify(
+    state: State<'_, SwarmCoordinator>,
+    app: tauri::AppHandle,
+    target_colleague_id: String,
+    message: String,
+) -> Result<(), String> {
+    if !state.enabled() {
+        return Err("Swarm is not enabled".into());
+    }
+    state
+        .send_notify_to(app, &target_colleague_id, message)
+        .await
 }

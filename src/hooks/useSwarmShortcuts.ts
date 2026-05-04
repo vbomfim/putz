@@ -16,7 +16,7 @@
  *
  * @module hooks/useSwarmShortcuts
  */
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 
 interface ShortcutCallbacks {
   /** Fired on Cmd+J / Ctrl+J. */
@@ -25,15 +25,42 @@ interface ShortcutCallbacks {
   onTogglePalette: () => void;
 }
 
+interface ShortcutOptions {
+  /**
+   * D3: gating flag. When `false` the shortcuts MUST NOT intercept
+   * Ctrl+J / Ctrl+K — that lets xterm.js receive Ctrl+J as line-feed
+   * and Ctrl+K as kill-to-EOL when the user has opted out of the
+   * swarm. Defaults to `true` for callers that don't pass the flag
+   * (back-compat with the original signature).
+   */
+  enabled?: boolean;
+}
+
 /**
  * Register the swarm keyboard shortcuts. Cleans up on unmount.
  *
- * Returns nothing — pure side effect. The hook is keyed on the
- * callback identities so memoize them at the call site if you don't
- * want re-registration churn.
+ * Returns nothing — pure side effect.
+ *
+ * **Stable callbacks required:** the hook destructures the callbacks
+ * into local refs and re-reads them on every keystroke, so callers
+ * may pass freshly-created closures without causing the listener to
+ * re-register on each render. Only `enabled` triggers re-registration.
  */
-export function useSwarmShortcuts(callbacks: ShortcutCallbacks): void {
+export function useSwarmShortcuts(
+  callbacks: ShortcutCallbacks,
+  options: ShortcutOptions = {},
+): void {
+  const { enabled = true } = options;
+  // D3: keep the latest callbacks in a ref so the listener stays
+  // stable across renders. Previously, every parent re-render created
+  // new callback identities, which re-ran the effect and removed +
+  // re-added the global listener — wasted work and a subtle race
+  // window where a key dispatched mid-replace could be lost.
+  const callbacksRef = useRef(callbacks);
+  callbacksRef.current = callbacks;
+
   useEffect(() => {
+    if (!enabled) return; // D3: opt-out — let xterm see Ctrl+J / Ctrl+K.
     const handler = (e: KeyboardEvent) => {
       const modifier = e.ctrlKey || e.metaKey;
       if (!modifier) return;
@@ -42,15 +69,15 @@ export function useSwarmShortcuts(callbacks: ShortcutCallbacks): void {
       if (key === "j") {
         e.preventDefault();
         e.stopPropagation();
-        callbacks.onToggleInbox();
+        callbacksRef.current.onToggleInbox();
       } else if (key === "k") {
         e.preventDefault();
         e.stopPropagation();
-        callbacks.onTogglePalette();
+        callbacksRef.current.onTogglePalette();
       }
     };
     // Capture phase so we win against xterm's own listeners.
     window.addEventListener("keydown", handler, true);
     return () => window.removeEventListener("keydown", handler, true);
-  }, [callbacks]);
+  }, [enabled]);
 }

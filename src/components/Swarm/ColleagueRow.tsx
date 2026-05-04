@@ -19,6 +19,10 @@ import { heartbeatFor } from "../../hooks/useSwarmRoster";
 import { StatusBadge } from "./StatusBadge";
 import { ExitCodeDots } from "./ExitCodeDots";
 import { HeartbeatIndicator } from "./HeartbeatIndicator";
+import {
+  useSwarmInboxStore,
+  lastNotifyForTab,
+} from "../../stores/swarmInboxStore";
 
 interface Props {
   colleague: Colleague;
@@ -30,20 +34,9 @@ interface Props {
   collapsed?: boolean;
 }
 
-/**
- * Truncate a cwd to its last `n` path segments, prefixed with `…/`.
- *
- * @privacy Tier-2 — cwd is a quasi-identifier; truncation is for UI
- * brevity, not for redaction. The full cwd is still in the data model.
- */
-export function truncateCwd(cwd: string | null | undefined, n = 2): string {
-  if (!cwd) return "";
-  // Normalize Windows backslashes for splitting.
-  const norm = cwd.replace(/\\/g, "/");
-  const segs = norm.split("/").filter((s) => s.length > 0);
-  if (segs.length <= n) return cwd;
-  return "…/" + segs.slice(-n).join("/");
-}
+// F5: `truncateCwd` lives in `lib/swarm/formatters` so this component
+// module exports ONLY React components (react-refresh / HMR).
+import { truncateCwd } from "../../lib/swarm/formatters";
 
 export function ColleagueRow({
   colleague,
@@ -52,6 +45,13 @@ export function ColleagueRow({
   collapsed = false,
 }: Props) {
   const heartbeat = heartbeatFor(colleague.status);
+  // B1: most-recent notify for this colleague's tab — drives the
+  // truncated last-message preview line.
+  // @privacy Tier-2: only the truncated text is rendered; full body
+  // stays in-store and is shown only in the inbox panel.
+  const lastNotify = useSwarmInboxStore((s) =>
+    lastNotifyForTab(s.entries, colleague.tab_id),
+  );
 
   const handleClick = useCallback(() => {
     onFocus(colleague.tab_id);
@@ -168,6 +168,27 @@ export function ColleagueRow({
           title={colleague.cwd}
         >
           {truncateCwd(colleague.cwd)}
+        </div>
+      )}
+      {/* B1: last-notify preview (truncated). Hidden when there's no
+          activity. The full message is available in the Cmd+J inbox. */}
+      {lastNotify && (
+        <div
+          className="swarm-colleague-row__last-notify"
+          data-testid="colleague-row-last-notify"
+          style={{
+            fontSize: "11px",
+            opacity: lastNotify.read ? 0.55 : 0.85,
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            whiteSpace: "nowrap",
+            fontStyle: lastNotify.read ? "normal" : "italic",
+          }}
+          title={lastNotify.message}
+        >
+          {lastNotify.message.length > 80
+            ? lastNotify.message.slice(0, 79) + "…"
+            : lastNotify.message}
         </div>
       )}
       <ExitCodeDots codes={colleague.last_ten_exit_codes} />

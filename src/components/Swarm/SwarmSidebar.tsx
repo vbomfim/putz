@@ -14,7 +14,7 @@
  *
  * @module components/Swarm/SwarmSidebar
  */
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useSwarmRoster, type Colleague } from "../../hooks/useSwarmRoster";
 import { ColleagueRow } from "./ColleagueRow";
 
@@ -232,17 +232,71 @@ function ColleagueContextMenu({
   onEnterNotifyMode,
 }: MenuProps) {
   const stop = (e: React.MouseEvent) => e.stopPropagation();
+  const menuRef = useRef<HTMLDivElement | null>(null);
+  const firstItemRef = useRef<HTMLButtonElement | null>(null);
+  // F1: viewport clamp — measure menu after mount and shift x/y so it
+  // never spills off-screen. Initial position is the right-click
+  // coordinates from `state.x`/`state.y`; we adjust via inline style.
+  const [pos, setPos] = useState<{ x: number; y: number }>({
+    x: state.x,
+    y: state.y,
+  });
+  useLayoutEffect(() => {
+    if (!menuRef.current) return;
+    const rect = menuRef.current.getBoundingClientRect();
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
+    const margin = 4;
+    let x = state.x;
+    let y = state.y;
+    if (x + rect.width + margin > vw) x = Math.max(margin, vw - rect.width - margin);
+    if (y + rect.height + margin > vh) y = Math.max(margin, vh - rect.height - margin);
+    if (x !== pos.x || y !== pos.y) setPos({ x, y });
+    // intentionally only on mount + when source coords change
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state.x, state.y, state.mode]);
+
+  // F1: ESC closes; outside-click closes. Both in capture phase so
+  // they win against bubbling listeners on inner content.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        e.preventDefault();
+        e.stopPropagation();
+        onClose();
+      }
+    };
+    const onDown = (e: MouseEvent) => {
+      if (!menuRef.current) return;
+      if (e.target instanceof Node && menuRef.current.contains(e.target)) return;
+      onClose();
+    };
+    window.addEventListener("keydown", onKey, true);
+    window.addEventListener("mousedown", onDown, true);
+    return () => {
+      window.removeEventListener("keydown", onKey, true);
+      window.removeEventListener("mousedown", onDown, true);
+    };
+  }, [onClose]);
+
+  // F1: autoFocus first menu item (when in "menu" mode) for keyboard a11y.
+  useEffect(() => {
+    if (state.mode === "menu" && firstItemRef.current) {
+      firstItemRef.current.focus();
+    }
+  }, [state.mode]);
 
   return (
     <div
+      ref={menuRef}
       data-testid="swarm-colleague-menu"
       role="menu"
       onClick={stop}
       onContextMenu={(e) => e.preventDefault()}
       style={{
         position: "fixed",
-        top: state.y,
-        left: state.x,
+        top: pos.y,
+        left: pos.x,
         background: "var(--bg-primary, #1a1a1a)",
         border: "1px solid var(--border-color, #2a2a2a)",
         borderRadius: "4px",
@@ -260,6 +314,7 @@ function ColleagueContextMenu({
             onClick={onEnterNotifyMode}
             data-testid="menu-send-notify"
             style={menuItemStyle}
+            ref={firstItemRef}
           >
             Send notify…
           </button>
@@ -307,6 +362,10 @@ function ColleagueContextMenu({
           >
             Notify {state.colleague.name}
           </label>
+          {/* F6: notify input handler.
+              @privacy Tier-2 — `state.notifyText` is user-authored
+              content forwarded to the peer's inbox verbatim. Capped at
+              `MAX_INLINE_NOTIFY_LEN`. NEVER log this value. */}
           <input
             id="colleague-notify-input"
             data-testid="menu-notify-input"
@@ -314,6 +373,7 @@ function ColleagueContextMenu({
             onChange={(e) => onUpdateText(e.target.value)}
             maxLength={MAX_INLINE_NOTIFY_LEN}
             ref={(el) => el?.focus()}
+            aria-describedby="colleague-notify-help"
             style={{
               width: "100%",
               padding: "4px 6px",
@@ -324,6 +384,21 @@ function ColleagueContextMenu({
               borderRadius: "3px",
             }}
           />
+          {/* F6: helper text — sets expectation that delivery is
+              immediate, in-memory only (PRI-001), so the user knows
+              there's no retention story to worry about. */}
+          <div
+            id="colleague-notify-help"
+            style={{
+              fontSize: "10px",
+              opacity: 0.7,
+              marginTop: "3px",
+              lineHeight: 1.3,
+            }}
+          >
+            Will appear in their inbox immediately. Not persisted —
+            clears on app restart.
+          </div>
           <div
             style={{
               display: "flex",

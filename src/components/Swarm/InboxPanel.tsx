@@ -19,6 +19,10 @@ import {
   type NotifyEntry,
   type NotifySeverity,
 } from "../../stores/swarmInboxStore";
+// F5: `formatRelativeTime` lives in `lib/swarm/formatters` so this
+// component module exports ONLY React components — required for
+// react-refresh / HMR stability.
+import { formatRelativeTime } from "../../lib/swarm/formatters";
 
 interface Props {
   open: boolean;
@@ -29,27 +33,12 @@ interface Props {
 }
 
 const SEVERITY_COLOR: Record<NotifySeverity, string> = {
-  urgent: "var(--swarm-ring-urgent, #ef4444)",
-  normal: "var(--swarm-ring-normal, #3b82f6)",
+  // D2: WCAG AA-compliant fallbacks (≥4.5:1 vs white text on these
+  // accent backgrounds in the InboxPanel rows).
+  urgent: "var(--swarm-ring-urgent, #b91c1c)",
+  normal: "var(--swarm-ring-normal, #1d4ed8)",
   ambient: "var(--swarm-ring-ambient, #6b7280)",
 };
-
-/**
- * Render an absolute timestamp as "Xs/Xm/Xh/Xd ago".
- * Any future timestamp clamps to "just now" — clock skew across hosts
- * is not a UI bug.
- */
-export function formatRelativeTime(timestampMs: number, nowMs: number): string {
-  const delta = Math.max(0, nowMs - timestampMs);
-  const sec = Math.floor(delta / 1000);
-  if (sec < 60) return sec <= 1 ? "just now" : `${sec}s ago`;
-  const min = Math.floor(sec / 60);
-  if (min < 60) return `${min}m ago`;
-  const hr = Math.floor(min / 60);
-  if (hr < 24) return `${hr}h ago`;
-  const day = Math.floor(hr / 24);
-  return `${day}d ago`;
-}
 
 export function InboxPanel({ open, onClose, onFocusTab, nowMs }: Props) {
   const allEntries = useSwarmInboxStore((s) => s.entries);

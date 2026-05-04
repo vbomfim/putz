@@ -31,7 +31,7 @@ describe("swarmSpawnStore — refresh", () => {
         recipes: [
           {
             name: "review",
-            command: "gh",
+            cmd: "gh",
             args: ["copilot", "--mode", "review"],
             cwd: null,
             env: { REVIEW: "1" },
@@ -47,6 +47,7 @@ describe("swarmSpawnStore — refresh", () => {
     expect(state.loading).toBe(false);
     expect(state.recipes).toHaveLength(1);
     expect(state.recipes[0].name).toBe("review");
+    expect(state.recipes[0].cmd).toBe("gh");
     expect(state.recipes[0].args).toEqual(["copilot", "--mode", "review"]);
     expect(state.recipes[0].env).toEqual({ REVIEW: "1" });
     // snake_case → camelCase round-trip
@@ -57,22 +58,28 @@ describe("swarmSpawnStore — refresh", () => {
     setSpawnStoreInvokeFn(
       vi.fn().mockResolvedValue({
         recipes: [],
-        error: "JSON parse error: trailing comma at line 3",
+        error: {
+          kind: "malformed_json",
+          message: "JSON parse error: trailing comma at line 3",
+        },
       }),
     );
     await useSwarmSpawnStore.getState().refresh("/work/root");
     const state = useSwarmSpawnStore.getState();
     expect(state.recipes).toHaveLength(0);
-    expect(state.error).toMatch(/JSON parse error/);
+    expect(state.error).not.toBeNull();
+    expect(state.error?.kind).toBe("malformed_json");
+    expect(state.error?.message).toMatch(/JSON parse error/);
   });
 
-  it("captures rejected invoke as a string error (no throw)", async () => {
+  it("captures rejected invoke as a typed permission_denied error (no throw)", async () => {
     setSpawnStoreInvokeFn(
       vi.fn().mockRejectedValue(new Error("permission denied")),
     );
     await useSwarmSpawnStore.getState().refresh("/work/root");
     const state = useSwarmSpawnStore.getState();
-    expect(state.error).toMatch(/permission denied/);
+    expect(state.error?.kind).toBe("permission_denied");
+    expect(state.error?.message).toMatch(/permission denied/);
     expect(state.recipes).toHaveLength(0);
   });
 
@@ -88,7 +95,7 @@ describe("swarmSpawnStore — refresh", () => {
   it("clear resets recipes and error", async () => {
     setSpawnStoreInvokeFn(
       vi.fn().mockResolvedValue({
-        recipes: [{ name: "x", command: "y" }],
+        recipes: [{ name: "x", cmd: "y" }],
         error: null,
       }),
     );
@@ -105,10 +112,10 @@ describe("recipeFromFreeFormInput", () => {
     expect(recipeFromFreeFormInput("   ")).toBeNull();
   });
 
-  it("splits on whitespace and uses the first token as command + name", () => {
+  it("splits on whitespace and uses the first token as cmd + name", () => {
     const r = recipeFromFreeFormInput("ls -la /tmp");
     expect(r).not.toBeNull();
-    expect(r!.command).toBe("ls");
+    expect(r!.cmd).toBe("ls");
     expect(r!.name).toBe("ls");
     expect(r!.args).toEqual(["-la", "/tmp"]);
   });
@@ -125,7 +132,7 @@ describe("toWireRecipe", () => {
   it("converts camelCase back to snake_case for invoke", () => {
     const w = toWireRecipe({
       name: "x",
-      command: "y",
+      cmd: "y",
       args: ["a"],
       cwd: "/p",
       env: { K: "V" },
@@ -133,7 +140,7 @@ describe("toWireRecipe", () => {
     });
     expect(w).toEqual({
       name: "x",
-      command: "y",
+      cmd: "y",
       args: ["a"],
       cwd: "/p",
       env: { K: "V" },
@@ -142,7 +149,7 @@ describe("toWireRecipe", () => {
   });
 
   it("fills defaults for absent optional fields", () => {
-    const w = toWireRecipe({ name: "x", command: "y" });
+    const w = toWireRecipe({ name: "x", cmd: "y" });
     expect(w.args).toEqual([]);
     expect(w.env).toEqual({});
     expect(w.cwd).toBeNull();

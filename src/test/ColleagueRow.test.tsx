@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
-import { ColleagueRow, truncateCwd } from "../components/Swarm/ColleagueRow";
+import { ColleagueRow } from "../components/Swarm/ColleagueRow";
+import { truncateCwd } from "../lib/swarm/formatters";
 import type { Colleague } from "../hooks/useSwarmRoster";
 
 function makeColleague(overrides: Partial<Colleague> = {}): Colleague {
