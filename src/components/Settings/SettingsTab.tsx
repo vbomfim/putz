@@ -11,6 +11,7 @@ import { useSettingsStore } from "../../stores/settingsStore";
 import { useThemeStore } from "../../stores/themeStore";
 import type { BackgroundEffect } from "../Terminal/TerminalBackground";
 import { ShellIntegrationPanel } from "./ShellIntegrationPanel";
+import { CopilotIntegrationCard } from "./CopilotIntegrationCard";
 import "../../styles/tab-list.css";
 
 interface Theme {
@@ -59,6 +60,12 @@ export function SettingsTab() {
   const setDefaultShell = useSettingsStore((s) => s.setDefaultShell);
   const swarmEnabled = useSettingsStore((s) => s.swarmEnabled);
   const setSwarmEnabled = useSettingsStore((s) => s.setSwarmEnabled);
+  const copilotCardDismissed = useSettingsStore(
+    (s) => s.copilotCardDismissed,
+  );
+  const setCopilotCardDismissed = useSettingsStore(
+    (s) => s.setCopilotCardDismissed,
+  );
   const activeThemeId = useThemeStore((s) => s.activeThemeId);
   const setActiveTheme = useThemeStore((s) => s.setActiveTheme);
   const [themes, setThemes] = useState<Theme[]>([]);
@@ -526,9 +533,9 @@ export function SettingsTab() {
               margin: "0 0 12px",
             }}
           >
-            Enable a local HTTP broker so Copilot CLI agents running in terminal
-            tabs can discover, message, and coordinate with each other. The
-            broker binds to 127.0.0.1 only — no external network access.
+            Enable a local swarm coordinator. Putz hosts a Unix domain
+            socket (macOS/Linux) or Windows named pipe; only your user
+            can connect. No external network access.
           </p>
           <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
             <button
@@ -553,7 +560,7 @@ export function SettingsTab() {
             </button>
             {swarmState && swarmEnabled && swarmState.path && (
               <span style={{ fontSize: 11, color: "var(--text-secondary)" }}>
-                Broker: {swarmState.path} · {swarmState.colleague_count}{" "}
+                Socket: {swarmState.path} · {swarmState.colleague_count}{" "}
                 colleague{swarmState.colleague_count !== 1 ? "s" : ""}
               </span>
             )}
@@ -568,10 +575,16 @@ export function SettingsTab() {
             }}
           >
             ⚠ Messages exchanged between swarm agents may contain prompts with
-            sensitive data. The broker runs locally and does not transmit data
+            sensitive data. The coordinator runs locally and does not transmit data
             externally, but exercise caution when using agent prompts that
             reference personal or confidential information.
           </p>
+
+          {/* First-run discovery: bundled Copilot CLI extension */}
+          <CopilotIntegrationCard
+            dismissed={copilotCardDismissed}
+            onDismiss={() => setCopilotCardDismissed(true)}
+          />
         </section>
 
         {/* ── Shell Integration ────────────────────────── */}

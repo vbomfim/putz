@@ -1,0 +1,9 @@
+{
+  "name": "putz-colleague",
+  "version": "0.4.0",
+  "description": "Putz colleague shim — auto-registers a Copilot CLI session with the Putz swarm coordinator.",
+  "main": "index.mjs",
+  "engines": { "node": ">=18" },
+  "publisher": "putz",
+  "license": "MIT"
+}

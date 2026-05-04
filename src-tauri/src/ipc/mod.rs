@@ -22,7 +22,12 @@ pub use scripting::{
     script_delete, script_get, script_list, script_record_start, script_record_stop, script_run,
     script_run_multi, script_save, script_status, script_stop,
 };
+pub mod copilot;
 pub mod swarm;
+pub use copilot::{
+    copilot_check_installed, copilot_get_extension_dir, copilot_get_status,
+    copilot_install_extension, copilot_uninstall_extension,
+};
 pub use git::{
     git_branches, git_checkout, git_file_at_commit, git_log, git_pull, git_push, git_remotes,
     git_repo_root, git_rev_parse_head, git_show, git_stash_list, git_status, git_status_summary,
