@@ -29,7 +29,6 @@ chrono = { version = "0.4", features = ["serde"] }
 regex = "1"
 boa_engine = "0.20"
 dirs = "6"
-rusqlite = { version = "0.31", features = ["bundled"] }
 url = "2"
 walkdir = "2.5.0"
 tauri-plugin-dialog = "2.7.0"

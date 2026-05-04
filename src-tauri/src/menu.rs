@@ -180,19 +180,6 @@ pub fn build_menu(app: &AppHandle<Wry>) -> Result<tauri::menu::Menu<Wry>, tauri:
         .build()?;
 
     let tools_menu = SubmenuBuilder::new(app, "Tools")
-        .item(&menu_item!(
-            app,
-            "menu-command-history",
-            "Command History",
-            "CmdOrCtrl+R"
-        ))
-        .item(&menu_item!(
-            app,
-            "menu-command-templates",
-            "Command Templates",
-            "CmdOrCtrl+Shift+T"
-        ))
-        .separator()
         .item(&menu_item!(app, "menu-script-editor", "Script Editor"))
         .separator()
         .item(&menu_item!(
