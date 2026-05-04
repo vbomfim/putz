@@ -17,6 +17,7 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useSwarmRoster, type Colleague } from "../../hooks/useSwarmRoster";
 import { ColleagueRow } from "./ColleagueRow";
+import { useFocusTrap } from "../../hooks/useFocusTrap";
 
 export type SidebarPosition = "left" | "right" | "hidden";
 
@@ -87,8 +88,6 @@ export function SwarmSidebar({
 
   if (position === "hidden") return null;
 
-  const width = collapsed ? "44px" : "240px";
-
   return (
     <aside
       className={`swarm-sidebar swarm-sidebar--${position} swarm-sidebar--${
@@ -99,33 +98,16 @@ export function SwarmSidebar({
       data-collapsed={collapsed ? "true" : "false"}
       aria-label="Swarm colleagues"
       style={{
-        width,
-        flex: `0 0 ${width}`,
-        borderRight:
-          position === "left" ? "1px solid var(--border-color, #2a2a2a)" : undefined,
-        borderLeft:
-          position === "right" ? "1px solid var(--border-color, #2a2a2a)" : undefined,
-        background: "var(--bg-secondary, #15171a)",
-        color: "var(--text-primary, #e1e4e8)",
-        display: "flex",
-        flexDirection: "column",
-        minWidth: 0,
-        overflow: "hidden",
+        // Width depends on `collapsed` — kept inline because it drives
+        // the parent flex layout (`flex: 0 0 <width>`) and changes at
+        // runtime. CSS class can't compute the matching `flex` shorthand.
+        width: collapsed ? "44px" : "240px",
+        flex: `0 0 ${collapsed ? "44px" : "240px"}`,
       }}
     >
-      <header
-        className="swarm-sidebar__header"
-        style={{
-          padding: "8px 10px",
-          borderBottom: "1px solid var(--border-color, #2a2a2a)",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          gap: "6px",
-        }}
-      >
+      <header className="swarm-sidebar__header">
         {!collapsed && (
-          <span style={{ fontSize: "12px", fontWeight: 600 }}>
+          <span className="swarm-sidebar__title">
             Swarm ({roster.length})
           </span>
         )}
@@ -136,36 +118,17 @@ export function SwarmSidebar({
             data-testid="swarm-sidebar-collapse"
             onClick={onToggleCollapsed}
             aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-            style={{
-              background: "transparent",
-              color: "inherit",
-              border: "1px solid var(--border-color, #2a2a2a)",
-              borderRadius: "3px",
-              fontSize: "11px",
-              padding: "1px 6px",
-              cursor: "pointer",
-            }}
           >
             {collapsed ? "›" : "‹"}
           </button>
         )}
       </header>
 
-      <div
-        className="swarm-sidebar__list"
-        role="list"
-        style={{ flex: 1, overflowY: "auto" }}
-      >
+      <div className="swarm-sidebar__list" role="list">
         {roster.length === 0 ? (
           <div
             className="swarm-sidebar__empty"
             data-testid="swarm-sidebar-empty"
-            style={{
-              padding: "16px 10px",
-              fontSize: "12px",
-              opacity: 0.65,
-              lineHeight: 1.4,
-            }}
           >
             {collapsed
               ? "—"
@@ -234,6 +197,9 @@ function ColleagueContextMenu({
   const stop = (e: React.MouseEvent) => e.stopPropagation();
   const menuRef = useRef<HTMLDivElement | null>(null);
   const firstItemRef = useRef<HTMLButtonElement | null>(null);
+  // D1: trap Tab focus inside the context menu while it is open
+  // (WAI-ARIA APG menu pattern). Always-on while the menu is mounted.
+  useFocusTrap(menuRef, true);
   // F1: viewport clamp — measure menu after mount and shift x/y so it
   // never spills off-screen. Initial position is the right-click
   // coordinates from `state.x`/`state.y`; we adjust via inline style.
@@ -289,21 +255,18 @@ function ColleagueContextMenu({
   return (
     <div
       ref={menuRef}
+      className="swarm-colleague-menu"
       data-testid="swarm-colleague-menu"
       role="menu"
       onClick={stop}
       onContextMenu={(e) => e.preventDefault()}
       style={{
-        position: "fixed",
+        // Dynamic position from runtime cursor coords + viewport clamp
+        // (see useLayoutEffect above). Kept inline because values
+        // come from state and would require per-render CSS variable
+        // assignment otherwise.
         top: pos.y,
         left: pos.x,
-        background: "var(--bg-primary, #1a1a1a)",
-        border: "1px solid var(--border-color, #2a2a2a)",
-        borderRadius: "4px",
-        padding: "4px",
-        minWidth: "180px",
-        zIndex: 1000,
-        boxShadow: "0 4px 12px rgba(0,0,0,0.4)",
       }}
     >
       {state.mode === "menu" ? (
@@ -313,7 +276,7 @@ function ColleagueContextMenu({
             role="menuitem"
             onClick={onEnterNotifyMode}
             data-testid="menu-send-notify"
-            style={menuItemStyle}
+            className="swarm-colleague-menu__item"
             ref={firstItemRef}
           >
             Send notify…
@@ -323,7 +286,7 @@ function ColleagueContextMenu({
             role="menuitem"
             onClick={onDisconnect}
             data-testid="menu-disconnect"
-            style={menuItemStyle}
+            className="swarm-colleague-menu__item"
           >
             Disconnect colleague
           </button>
@@ -335,7 +298,7 @@ function ColleagueContextMenu({
               onClose();
             }}
             data-testid="menu-copy-id"
-            style={menuItemStyle}
+            className="swarm-colleague-menu__item"
           >
             Copy colleague ID
           </button>
@@ -343,7 +306,7 @@ function ColleagueContextMenu({
             type="button"
             role="menuitem"
             onClick={onClose}
-            style={menuItemStyle}
+            className="swarm-colleague-menu__item"
           >
             Cancel
           </button>
@@ -358,7 +321,7 @@ function ColleagueContextMenu({
         >
           <label
             htmlFor="colleague-notify-input"
-            style={{ fontSize: "11px", display: "block", marginBottom: "4px" }}
+            className="swarm-colleague-menu__notify-label"
           >
             Notify {state.colleague.name}
           </label>
@@ -374,56 +337,30 @@ function ColleagueContextMenu({
             maxLength={MAX_INLINE_NOTIFY_LEN}
             ref={(el) => el?.focus()}
             aria-describedby="colleague-notify-help"
-            style={{
-              width: "100%",
-              padding: "4px 6px",
-              fontSize: "12px",
-              background: "var(--bg-secondary, #15171a)",
-              color: "var(--text-primary, #e1e4e8)",
-              border: "1px solid var(--border-color, #2a2a2a)",
-              borderRadius: "3px",
-            }}
+            className="swarm-colleague-menu__notify-input"
           />
           {/* F6: helper text — sets expectation that delivery is
               immediate, in-memory only (PRI-001), so the user knows
               there's no retention story to worry about. */}
           <div
             id="colleague-notify-help"
-            style={{
-              fontSize: "10px",
-              opacity: 0.7,
-              marginTop: "3px",
-              lineHeight: 1.3,
-            }}
+            className="swarm-colleague-menu__notify-help"
           >
             Will appear in their inbox immediately. Not persisted —
             clears on app restart.
           </div>
-          <div
-            style={{
-              display: "flex",
-              gap: "4px",
-              marginTop: "6px",
-              justifyContent: "flex-end",
-            }}
-          >
+          <div className="swarm-colleague-menu__notify-actions">
             <button
               type="button"
               onClick={onClose}
-              style={{ ...menuItemStyle, padding: "3px 8px", width: "auto" }}
+              className="swarm-colleague-menu__action"
             >
               Cancel
             </button>
             <button
               type="submit"
               data-testid="menu-notify-submit"
-              style={{
-                ...menuItemStyle,
-                padding: "3px 8px",
-                width: "auto",
-                background: "var(--accent, #3b82f6)",
-                color: "#fff",
-              }}
+              className="swarm-colleague-menu__action swarm-colleague-menu__action--primary"
             >
               Send
             </button>
@@ -433,16 +370,3 @@ function ColleagueContextMenu({
     </div>
   );
 }
-
-const menuItemStyle: React.CSSProperties = {
-  display: "block",
-  width: "100%",
-  padding: "5px 8px",
-  background: "transparent",
-  color: "inherit",
-  border: "none",
-  textAlign: "left",
-  fontSize: "12px",
-  cursor: "pointer",
-  borderRadius: "3px",
-};

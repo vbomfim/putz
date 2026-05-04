@@ -15,11 +15,12 @@ interface Props {
   heartbeat: Heartbeat;
 }
 
-const COLOR: Record<Heartbeat, string> = {
-  active: "var(--swarm-heart-active, #10b981)",
-  stale: "var(--swarm-heart-stale, #f59e0b)",
-  dead: "var(--swarm-heart-dead, #6b7280)",
-};
+// Documentation only — actual colors are applied by
+// `.swarm-heartbeat--${heartbeat}` in `Swarm.css`. Kept inline so the
+// design-token mapping is co-located with the `Heartbeat` enum.
+//   active → var(--swarm-heart-active, #10b981)  + 4px glow
+//   stale  → var(--swarm-heart-stale,  #f59e0b)
+//   dead   → var(--swarm-heart-dead,   #6b7280)
 
 const LABEL: Record<Heartbeat, string> = {
   active: "Active",
@@ -36,17 +37,6 @@ export function HeartbeatIndicator({ heartbeat }: Props) {
       role="img"
       aria-label={`Heartbeat: ${LABEL[heartbeat]}`}
       title={LABEL[heartbeat]}
-      style={{
-        width: "8px",
-        height: "8px",
-        borderRadius: "50%",
-        background: COLOR[heartbeat],
-        display: "inline-block",
-        boxShadow:
-          heartbeat === "active"
-            ? "0 0 4px var(--swarm-heart-active, #10b981)"
-            : undefined,
-      }}
     />
   );
 }

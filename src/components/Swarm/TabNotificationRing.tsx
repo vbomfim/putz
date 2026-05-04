@@ -25,13 +25,12 @@ interface Props {
   tabId: string;
 }
 
-const COLOR: Record<NotifySeverity, string> = {
-  // D2: WCAG AA-compliant fallbacks (≥4.5:1 vs white text). See
-  // matching reasoning in `StatusBadge.tsx`.
-  urgent: "var(--swarm-ring-urgent, #b91c1c)",
-  normal: "var(--swarm-ring-normal, #1d4ed8)",
-  ambient: "var(--swarm-ring-ambient, #6b7280)",
-};
+// D2: WCAG AA-compliant fallbacks (≥4.5:1 vs white text). Documentation
+// only — actual colors live in `.swarm-tab-ring--${severity}` in
+// `Swarm.css`. See matching reasoning in `StatusBadge.tsx`.
+//   urgent  → var(--swarm-ring-urgent,  #b91c1c)
+//   normal  → var(--swarm-ring-normal,  #1d4ed8)
+//   ambient → var(--swarm-ring-ambient, #6b7280)
 
 const LABEL: Record<NotifySeverity, string> = {
   urgent: "urgent",
@@ -57,21 +56,6 @@ export function TabNotificationRing({ tabId }: Props) {
         count === 1 ? "" : "s"
       }`}
       title={`${count} unread (${LABEL[severity]})`}
-      style={{
-        display: "inline-flex",
-        alignItems: "center",
-        justifyContent: "center",
-        minWidth: "16px",
-        height: "16px",
-        padding: "0 4px",
-        marginLeft: "6px",
-        borderRadius: "8px",
-        background: COLOR[severity],
-        color: "#fff",
-        fontSize: "10px",
-        fontWeight: 700,
-        lineHeight: 1,
-      }}
     >
       {display}
     </span>

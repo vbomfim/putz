@@ -88,21 +88,9 @@ export function ColleagueRow({
         onContextMenu={handleContextMenu}
         aria-label={`Focus ${colleague.name}`}
         title={colleague.name}
-        style={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          gap: "4px",
-          width: "100%",
-          padding: "8px 4px",
-          background: "transparent",
-          border: "none",
-          color: "inherit",
-          cursor: "pointer",
-        }}
       >
         <HeartbeatIndicator heartbeat={heartbeat} />
-        <span aria-hidden="true" style={{ fontSize: "12px", fontWeight: 600 }}>
+        <span aria-hidden="true" className="swarm-colleague-row__initial">
           {colleague.name.slice(0, 1).toUpperCase()}
         </span>
       </button>
@@ -120,51 +108,16 @@ export function ColleagueRow({
       onKeyDown={handleKeyDown}
       onContextMenu={handleContextMenu}
       aria-label={`Focus ${colleague.name}`}
-      style={{
-        display: "flex",
-        flexDirection: "column",
-        gap: "4px",
-        padding: "8px 10px",
-        cursor: "pointer",
-        borderRadius: "4px",
-      }}
     >
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          gap: "6px",
-          minWidth: 0,
-        }}
-      >
+      <div className="swarm-colleague-row__header">
         <HeartbeatIndicator heartbeat={heartbeat} />
-        <span
-          className="swarm-colleague-row__name"
-          style={{
-            fontWeight: 600,
-            overflow: "hidden",
-            textOverflow: "ellipsis",
-            whiteSpace: "nowrap",
-            flex: "1 1 auto",
-            minWidth: 0,
-          }}
-        >
-          {colleague.name}
-        </span>
+        <span className="swarm-colleague-row__name">{colleague.name}</span>
         <StatusBadge status={colleague.command_status} />
       </div>
       {colleague.cwd && (
         <div
           className="swarm-colleague-row__cwd"
           data-testid="colleague-row-cwd"
-          style={{
-            fontSize: "11px",
-            opacity: 0.75,
-            overflow: "hidden",
-            textOverflow: "ellipsis",
-            whiteSpace: "nowrap",
-            fontFamily: "monospace",
-          }}
           title={colleague.cwd}
         >
           {truncateCwd(colleague.cwd)}
@@ -174,16 +127,10 @@ export function ColleagueRow({
           activity. The full message is available in the Cmd+J inbox. */}
       {lastNotify && (
         <div
-          className="swarm-colleague-row__last-notify"
+          className={`swarm-colleague-row__last-notify${
+            lastNotify.read ? " swarm-colleague-row__last-notify--read" : ""
+          }`}
           data-testid="colleague-row-last-notify"
-          style={{
-            fontSize: "11px",
-            opacity: lastNotify.read ? 0.55 : 0.85,
-            overflow: "hidden",
-            textOverflow: "ellipsis",
-            whiteSpace: "nowrap",
-            fontStyle: lastNotify.read ? "normal" : "italic",
-          }}
           title={lastNotify.message}
         >
           {lastNotify.message.length > 80

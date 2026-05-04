@@ -7,6 +7,8 @@
  *
  * @module components/Swarm
  */
+import "./Swarm.css";
+
 export { StatusBadge } from "./StatusBadge";
 export { ExitCodeDots } from "./ExitCodeDots";
 export { HeartbeatIndicator } from "./HeartbeatIndicator";

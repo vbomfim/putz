@@ -48,6 +48,7 @@ import {
 } from "./components/Swarm";
 import { useSwarmShortcuts } from "./hooks/useSwarmShortcuts";
 import { useSwarmNotifyListener } from "./hooks/useSwarmNotifyListener";
+import { useSwarmAmbientProducer } from "./hooks/useSwarmAmbientProducer";
 import { useSwarmInboxStore } from "./stores/swarmInboxStore";
 import type { Theme } from "./components/Terminal/themeTypes";
 import type { RegionTab } from "./types";
@@ -101,6 +102,12 @@ function App() {
 
   // Swarm: subscribe to swarm://notify events.
   useSwarmNotifyListener();
+
+  // B3: bump per-tab ambient counter when swarm-registered, unfocused
+  // tabs emit PTY output. Throttled at one bump per
+  // `SWARM_AMBIENT_THROTTLE_MS` per tab (see hook). Gated by
+  // `swarmEnabled` so opt-out users don't pay the listener cost.
+  useSwarmAmbientProducer(swarmEnabled);
 
   // Focus-tab callback used by inbox + sidebar rows. Resolves the
   // tab id within the layout store and switches the active tab in the

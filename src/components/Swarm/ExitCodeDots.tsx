@@ -20,13 +20,9 @@ interface Props {
 
 const TOTAL_DOTS = 10;
 
-function colorFor(code: number | null | undefined): string {
-  if (code === null || code === undefined) {
-    return "var(--swarm-dot-pending, #4b5563)"; // gray
-  }
-  return code === 0
-    ? "var(--swarm-dot-success, #10b981)" // green
-    : "var(--swarm-dot-failure, #ef4444)"; // red
+function colorClassFor(code: number | null | undefined): string {
+  if (code === null || code === undefined) return "pending";
+  return code === 0 ? "success" : "failure";
 }
 
 function labelFor(code: number | null | undefined, idx: number): string {
@@ -51,40 +47,19 @@ export function ExitCodeDots({ codes }: Props) {
       role="img"
       aria-label={`Last ${TOTAL_DOTS} command exit codes`}
       data-testid="swarm-exit-dots"
-      style={{
-        display: "inline-flex",
-        gap: "3px",
-        alignItems: "center",
-      }}
     >
-      {padded.map((code, idx) => (
-        <span
-          key={idx}
-          className={`swarm-exit-dots__dot swarm-exit-dots__dot--${
-            code === null || code === undefined
-              ? "pending"
-              : code === 0
-                ? "success"
-                : "failure"
-          }`}
-          data-testid={`swarm-exit-dot-${idx}`}
-          data-state={
-            code === null || code === undefined
-              ? "pending"
-              : code === 0
-                ? "success"
-                : "failure"
-          }
-          title={labelFor(code, idx)}
-          style={{
-            width: "8px",
-            height: "8px",
-            borderRadius: "50%",
-            background: colorFor(code),
-            display: "inline-block",
-          }}
-        />
-      ))}
+      {padded.map((code, idx) => {
+        const state = colorClassFor(code);
+        return (
+          <span
+            key={idx}
+            className={`swarm-exit-dots__dot swarm-exit-dots__dot--${state}`}
+            data-testid={`swarm-exit-dot-${idx}`}
+            data-state={state}
+            title={labelFor(code, idx)}
+          />
+        );
+      })}
     </span>
   );
 }

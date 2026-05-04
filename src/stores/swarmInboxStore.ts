@@ -308,5 +308,5 @@ export function getEntriesByColleague(
  * @internal
  */
 export function _resetSwarmInboxStoreForTests(): void {
-  useSwarmInboxStore.setState({ entries: [] });
+  useSwarmInboxStore.setState({ entries: [], ambientCounts: {} });
 }

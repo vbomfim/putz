@@ -23,6 +23,7 @@ import {
   DEFAULT_SPAWN_GH_COPILOT,
   type SpawnRecipe,
 } from "../../stores/swarmSpawnStore";
+import { useFocusTrap } from "../../hooks/useFocusTrap";
 
 interface Props {
   open: boolean;
@@ -55,6 +56,9 @@ export function SpawnPalette({
   const [activeIndex, setActiveIndex] = useState(0);
   const [spawning, setSpawning] = useState(false);
   const inputRef = useRef<HTMLInputElement | null>(null);
+  const dialogRef = useRef<HTMLDivElement | null>(null);
+  // D1: trap Tab focus inside the palette dialog (WAI-ARIA APG).
+  useFocusTrap(dialogRef, open);
   // D1: remember the element that had focus when we opened, so we can
   // restore it on close (modal a11y best-practice — WAI-ARIA APG).
   const previousFocusRef = useRef<HTMLElement | null>(null);
@@ -181,39 +185,22 @@ export function SpawnPalette({
 
   return (
     <div
+      className="swarm-spawn-overlay"
       data-testid="swarm-spawn-overlay"
       onClick={onClose}
-      style={{
-        position: "fixed",
-        inset: 0,
-        background: "rgba(0,0,0,0.5)",
-        display: "flex",
-        alignItems: "flex-start",
-        justifyContent: "center",
-        paddingTop: "12vh",
-        zIndex: 1001,
-      }}
     >
       <div
+        ref={dialogRef}
+        className="swarm-spawn-panel"
         data-testid="swarm-spawn-panel"
         role="dialog"
         aria-modal="true"
         aria-label="Spawn palette"
         onClick={(e) => e.stopPropagation()}
-        style={{
-          width: "min(560px, 90vw)",
-          background: "var(--bg-primary, #1a1a1a)",
-          color: "var(--text-primary, #e1e4e8)",
-          borderRadius: "8px",
-          border: "1px solid var(--border-color, #2a2a2a)",
-          boxShadow: "0 16px 48px rgba(0,0,0,0.5)",
-          display: "flex",
-          flexDirection: "column",
-          overflow: "hidden",
-        }}
       >
         <input
           ref={inputRef}
+          className="swarm-spawn-panel__input"
           data-testid="swarm-spawn-input"
           aria-label="Recipe filter or free-form command"
           value={query}
@@ -224,80 +211,33 @@ export function SpawnPalette({
           onKeyDown={handleKeyDown}
           placeholder="Recipe name or 'command arg1 arg2…'"
           maxLength={4096}
-          style={{
-            padding: "10px 14px",
-            background: "transparent",
-            color: "inherit",
-            border: "none",
-            borderBottom: "1px solid var(--border-color, #2a2a2a)",
-            outline: "none",
-            fontSize: "14px",
-          }}
         />
         {error && (
           <div
+            className="swarm-spawn-panel__error"
             data-testid="swarm-spawn-error"
             role="alert"
-            style={{
-              padding: "6px 14px",
-              background: "rgba(239, 68, 68, 0.1)",
-              color: "var(--swarm-ring-urgent, #ef4444)",
-              fontSize: "11px",
-              borderBottom: "1px solid var(--border-color, #2a2a2a)",
-            }}
           >
             {error.message}
           </div>
         )}
-        <ul
-          role="listbox"
-          style={{
-            margin: 0,
-            padding: 0,
-            listStyle: "none",
-            maxHeight: "50vh",
-            overflowY: "auto",
-          }}
-        >
+        <ul role="listbox" className="swarm-spawn-panel__list">
           {filtered.map((r, idx) => (
             <li key={r.name} role="option" aria-selected={idx === activeIndex}>
               <button
                 type="button"
+                className={`swarm-spawn-item${
+                  idx === activeIndex ? " swarm-spawn-item--active" : ""
+                }`}
                 data-testid="swarm-spawn-item"
                 data-recipe-name={r.name}
                 data-active={idx === activeIndex ? "true" : "false"}
                 onMouseEnter={() => setActiveIndex(idx)}
                 onClick={() => void spawn(r)}
                 disabled={spawning}
-                style={{
-                  width: "100%",
-                  textAlign: "left",
-                  padding: "8px 14px",
-                  background:
-                    idx === activeIndex
-                      ? "var(--bg-secondary, #15171a)"
-                      : "transparent",
-                  color: "inherit",
-                  border: "none",
-                  cursor: spawning ? "wait" : "pointer",
-                  display: "flex",
-                  flexDirection: "column",
-                  gap: "2px",
-                }}
               >
-                <span style={{ fontSize: "13px", fontWeight: 600 }}>
-                  {r.name}
-                </span>
-                <span
-                  style={{
-                    fontSize: "11px",
-                    opacity: 0.7,
-                    fontFamily: "monospace",
-                    overflow: "hidden",
-                    textOverflow: "ellipsis",
-                    whiteSpace: "nowrap",
-                  }}
-                >
+                <span className="swarm-spawn-item__name">{r.name}</span>
+                <span className="swarm-spawn-item__cmd">
                   {r.cmd}
                   {r.args && r.args.length > 0 ? " " + r.args.join(" ") : ""}
                 </span>
@@ -311,6 +251,11 @@ export function SpawnPalette({
             >
               <button
                 type="button"
+                className={`swarm-spawn-item${
+                  activeIndex === filtered.length
+                    ? " swarm-spawn-item--active"
+                    : ""
+                }`}
                 data-testid="swarm-spawn-freeform"
                 data-active={
                   activeIndex === filtered.length ? "true" : "false"
@@ -318,32 +263,9 @@ export function SpawnPalette({
                 onMouseEnter={() => setActiveIndex(filtered.length)}
                 onClick={() => void spawn(freeFormCandidate)}
                 disabled={spawning}
-                style={{
-                  width: "100%",
-                  textAlign: "left",
-                  padding: "8px 14px",
-                  background:
-                    activeIndex === filtered.length
-                      ? "var(--bg-secondary, #15171a)"
-                      : "transparent",
-                  color: "inherit",
-                  border: "none",
-                  cursor: spawning ? "wait" : "pointer",
-                  display: "flex",
-                  flexDirection: "column",
-                  gap: "2px",
-                }}
               >
-                <span style={{ fontSize: "13px", fontWeight: 600 }}>
-                  Spawn free-form
-                </span>
-                <span
-                  style={{
-                    fontSize: "11px",
-                    opacity: 0.7,
-                    fontFamily: "monospace",
-                  }}
-                >
+                <span className="swarm-spawn-item__name">Spawn free-form</span>
+                <span className="swarm-spawn-item__cmd">
                   {freeFormCandidate.cmd}
                   {ffArgs.length > 0 ? " " + ffArgs.join(" ") : ""}
                 </span>
@@ -351,15 +273,7 @@ export function SpawnPalette({
             </li>
           )}
           {filtered.length === 0 && !freeFormCandidate && (
-            <li
-              data-testid="swarm-spawn-empty"
-              style={{
-                padding: "20px 14px",
-                fontSize: "12px",
-                opacity: 0.65,
-                textAlign: "center",
-              }}
-            >
+            <li className="swarm-spawn-empty" data-testid="swarm-spawn-empty">
               {recipes.length === 0
                 ? "Type a command and press Enter to spawn free-form."
                 : "No matches. Type a command and press Enter to spawn free-form."}

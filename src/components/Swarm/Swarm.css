@@ -1,0 +1,461 @@
+/*
+ * Swarm UI styles — C1.
+ *
+ * Extracted from inline `style={{...}}` in the Swarm/* components for:
+ *  - separation of concerns (SOLID/SRP),
+ *  - theming via CSS variables,
+ *  - smaller component bundles (no per-render style-object allocation),
+ *  - design-token consistency across StatusBadge / TabNotificationRing /
+ *    InboxPanel severity colors.
+ *
+ * Color tokens (overridable from any global theme stylesheet):
+ *  --swarm-status-{idle,running,done,error,unknown}
+ *  --swarm-heart-{active,stale,dead}
+ *  --swarm-dot-{success,failure,pending}
+ *  --swarm-ring-{urgent,normal,ambient}
+ *
+ * Fallback values are WCAG AA against white text (≥4.5:1) — see D2 in
+ * the PR review notes.
+ *
+ * Dynamic geometry (context-menu position, free-form list selection
+ * highlight) intentionally stays inline because the values are derived
+ * from runtime state.
+ */
+
+/* ─── StatusBadge ─────────────────────────────────────────────────── */
+.swarm-status-badge {
+  display: inline-block;
+  padding: 1px 6px;
+  border-radius: 10px;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #fff;
+  line-height: 1.4;
+}
+.swarm-status-badge--idle    { background: var(--swarm-status-idle, #6b7280); }
+.swarm-status-badge--running { background: var(--swarm-status-running, #1d4ed8); }
+.swarm-status-badge--done    { background: var(--swarm-status-done, #047857); }
+.swarm-status-badge--error   { background: var(--swarm-status-error, #b91c1c); }
+.swarm-status-badge--unknown { background: var(--swarm-status-unknown, #4b5563); }
+
+/* ─── HeartbeatIndicator ──────────────────────────────────────────── */
+.swarm-heartbeat {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  display: inline-block;
+}
+.swarm-heartbeat--active {
+  background: var(--swarm-heart-active, #10b981);
+  box-shadow: 0 0 4px var(--swarm-heart-active, #10b981);
+}
+.swarm-heartbeat--stale { background: var(--swarm-heart-stale, #f59e0b); }
+.swarm-heartbeat--dead  { background: var(--swarm-heart-dead, #6b7280); }
+
+/* ─── ExitCodeDots ────────────────────────────────────────────────── */
+.swarm-exit-dots {
+  display: inline-flex;
+  gap: 3px;
+  align-items: center;
+}
+.swarm-exit-dots__dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  display: inline-block;
+}
+.swarm-exit-dots__dot--success { background: var(--swarm-dot-success, #10b981); }
+.swarm-exit-dots__dot--failure { background: var(--swarm-dot-failure, #ef4444); }
+.swarm-exit-dots__dot--pending { background: var(--swarm-dot-pending, #4b5563); }
+
+/* ─── TabNotificationRing ─────────────────────────────────────────── */
+.swarm-tab-ring {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  margin-left: 6px;
+  border-radius: 8px;
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1;
+}
+.swarm-tab-ring--urgent  { background: var(--swarm-ring-urgent, #b91c1c); }
+.swarm-tab-ring--normal  { background: var(--swarm-ring-normal, #1d4ed8); }
+.swarm-tab-ring--ambient { background: var(--swarm-ring-ambient, #6b7280); }
+
+/* ─── ColleagueRow ────────────────────────────────────────────────── */
+.swarm-colleague-row {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px 10px;
+  cursor: pointer;
+  border-radius: 4px;
+}
+.swarm-colleague-row--collapsed {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  width: 100%;
+  padding: 8px 4px;
+  background: transparent;
+  border: none;
+  color: inherit;
+  cursor: pointer;
+  flex-direction: row;
+}
+.swarm-colleague-row__header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+.swarm-colleague-row__name {
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.swarm-colleague-row__initial {
+  font-size: 12px;
+  font-weight: 600;
+}
+.swarm-colleague-row__cwd {
+  font-size: 11px;
+  opacity: 0.75;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: monospace;
+}
+.swarm-colleague-row__last-notify {
+  font-size: 11px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  opacity: 0.85;
+  font-style: italic;
+}
+.swarm-colleague-row__last-notify--read {
+  opacity: 0.55;
+  font-style: normal;
+}
+
+/* ─── SwarmSidebar ────────────────────────────────────────────────── */
+.swarm-sidebar {
+  background: var(--bg-secondary, #15171a);
+  color: var(--text-primary, #e1e4e8);
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  overflow: hidden;
+}
+.swarm-sidebar--left {
+  border-right: 1px solid var(--border-color, #2a2a2a);
+}
+.swarm-sidebar--right {
+  border-left: 1px solid var(--border-color, #2a2a2a);
+}
+.swarm-sidebar__header {
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--border-color, #2a2a2a);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+}
+.swarm-sidebar__title {
+  font-size: 12px;
+  font-weight: 600;
+}
+.swarm-sidebar__collapse {
+  background: transparent;
+  color: inherit;
+  border: 1px solid var(--border-color, #2a2a2a);
+  border-radius: 3px;
+  font-size: 11px;
+  padding: 1px 6px;
+  cursor: pointer;
+}
+.swarm-sidebar__list {
+  flex: 1;
+  overflow-y: auto;
+}
+.swarm-sidebar__empty {
+  padding: 16px 10px;
+  font-size: 12px;
+  opacity: 0.65;
+  line-height: 1.4;
+}
+
+/* ─── ColleagueContextMenu ────────────────────────────────────────── */
+.swarm-colleague-menu {
+  position: fixed;
+  background: var(--bg-primary, #1a1a1a);
+  border: 1px solid var(--border-color, #2a2a2a);
+  border-radius: 4px;
+  padding: 4px;
+  min-width: 180px;
+  z-index: 1000;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+}
+.swarm-colleague-menu__item {
+  display: block;
+  width: 100%;
+  padding: 5px 8px;
+  background: transparent;
+  color: inherit;
+  border: none;
+  text-align: left;
+  font-size: 12px;
+  cursor: pointer;
+  border-radius: 3px;
+}
+.swarm-colleague-menu__item:hover,
+.swarm-colleague-menu__item:focus {
+  background: var(--bg-secondary, #15171a);
+  outline: none;
+}
+.swarm-colleague-menu__notify-label {
+  font-size: 11px;
+  display: block;
+  margin-bottom: 4px;
+}
+.swarm-colleague-menu__notify-input {
+  width: 100%;
+  padding: 4px 6px;
+  font-size: 12px;
+  background: var(--bg-secondary, #15171a);
+  color: var(--text-primary, #e1e4e8);
+  border: 1px solid var(--border-color, #2a2a2a);
+  border-radius: 3px;
+}
+.swarm-colleague-menu__notify-help {
+  font-size: 10px;
+  opacity: 0.7;
+  margin-top: 3px;
+  line-height: 1.3;
+}
+.swarm-colleague-menu__notify-actions {
+  display: flex;
+  gap: 4px;
+  margin-top: 6px;
+  justify-content: flex-end;
+}
+.swarm-colleague-menu__action {
+  padding: 3px 8px;
+  width: auto;
+  background: transparent;
+  color: inherit;
+  border: none;
+  font-size: 12px;
+  cursor: pointer;
+  border-radius: 3px;
+}
+.swarm-colleague-menu__action--primary {
+  background: var(--accent, #3b82f6);
+  color: #fff;
+}
+
+/* ─── InboxPanel ──────────────────────────────────────────────────── */
+.swarm-inbox-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding-top: 10vh;
+  z-index: 1000;
+}
+.swarm-inbox-panel {
+  width: min(560px, 90vw);
+  max-height: 70vh;
+  background: var(--bg-primary, #1a1a1a);
+  color: var(--text-primary, #e1e4e8);
+  border-radius: 8px;
+  border: 1px solid var(--border-color, #2a2a2a);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.5);
+}
+.swarm-inbox-panel__header {
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border-color, #2a2a2a);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.swarm-inbox-panel__title {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+}
+.swarm-inbox-panel__actions {
+  display: flex;
+  gap: 8px;
+}
+.swarm-inbox-panel__btn {
+  background: transparent;
+  color: inherit;
+  border: 1px solid var(--border-color, #2a2a2a);
+  border-radius: 3px;
+  font-size: 11px;
+  padding: 3px 8px;
+  cursor: pointer;
+}
+.swarm-inbox-panel__btn:disabled {
+  cursor: default;
+  opacity: 0.5;
+}
+.swarm-inbox-panel__body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px 0;
+}
+.swarm-inbox-panel__empty {
+  padding: 32px 14px;
+  text-align: center;
+  opacity: 0.65;
+  font-size: 13px;
+}
+.swarm-inbox-group {
+  padding: 4px 0;
+}
+.swarm-inbox-group__header {
+  padding: 4px 14px;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  opacity: 0.7;
+  font-weight: 600;
+}
+.swarm-inbox-entry {
+  width: 100%;
+  text-align: left;
+  padding: 8px 14px;
+  background: transparent;
+  color: inherit;
+  border: none;
+  border-left: 3px solid transparent;
+  cursor: pointer;
+  display: block;
+}
+.swarm-inbox-entry--unread {
+  background: var(--bg-secondary, #15171a);
+}
+.swarm-inbox-entry--urgent  { border-left-color: var(--swarm-ring-urgent, #b91c1c); }
+.swarm-inbox-entry--normal  { border-left-color: var(--swarm-ring-normal, #1d4ed8); }
+.swarm-inbox-entry--ambient { border-left-color: var(--swarm-ring-ambient, #6b7280); }
+.swarm-inbox-entry__row {
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+  justify-content: space-between;
+}
+.swarm-inbox-entry__message {
+  font-size: 12px;
+  font-weight: 400;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.swarm-inbox-entry--unread .swarm-inbox-entry__message {
+  font-weight: 600;
+}
+.swarm-inbox-entry__time {
+  font-size: 10px;
+  opacity: 0.6;
+  flex-shrink: 0;
+}
+
+/* ─── SpawnPalette ────────────────────────────────────────────────── */
+.swarm-spawn-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding-top: 12vh;
+  z-index: 1001;
+}
+.swarm-spawn-panel {
+  width: min(560px, 90vw);
+  background: var(--bg-primary, #1a1a1a);
+  color: var(--text-primary, #e1e4e8);
+  border-radius: 8px;
+  border: 1px solid var(--border-color, #2a2a2a);
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.5);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.swarm-spawn-panel__input {
+  padding: 10px 14px;
+  background: transparent;
+  color: inherit;
+  border: none;
+  border-bottom: 1px solid var(--border-color, #2a2a2a);
+  outline: none;
+  font-size: 14px;
+}
+.swarm-spawn-panel__error {
+  padding: 6px 14px;
+  background: rgba(239, 68, 68, 0.1);
+  color: var(--swarm-ring-urgent, #b91c1c);
+  font-size: 11px;
+  border-bottom: 1px solid var(--border-color, #2a2a2a);
+}
+.swarm-spawn-panel__list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  max-height: 50vh;
+  overflow-y: auto;
+}
+.swarm-spawn-item {
+  width: 100%;
+  text-align: left;
+  padding: 8px 14px;
+  background: transparent;
+  color: inherit;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.swarm-spawn-item:disabled { cursor: wait; }
+.swarm-spawn-item--active { background: var(--bg-secondary, #15171a); }
+.swarm-spawn-item__name {
+  font-size: 13px;
+  font-weight: 600;
+}
+.swarm-spawn-item__cmd {
+  font-size: 11px;
+  opacity: 0.7;
+  font-family: monospace;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.swarm-spawn-empty {
+  padding: 20px 14px;
+  font-size: 12px;
+  opacity: 0.65;
+  text-align: center;
+}
