@@ -51,6 +51,20 @@ tauri-plugin-process = "2"
 
 [target."cfg(windows)".dependencies]
 winreg = "0.55"
+# T1 fixup #2 (issue #149): explicit DACL on the Windows named pipe so
+# only the current user's SID has access (not the default-DACL inherited
+# behavior, which can be surprisingly permissive on systems with custom
+# tokens). `widestring` is used to build the SDDL wide string accepted
+# by `interprocess::os::windows::security_descriptor::SecurityDescriptor::deserialize`.
+windows-sys = { version = "0.59", features = [
+    "Win32_Foundation",
+    "Win32_Security",
+    "Win32_Security_Authorization",
+    "Win32_Storage_FileSystem",
+    "Win32_System_Memory",
+    "Win32_System_Threading",
+] }
+widestring = "1"
 
 [[bin]]
 name = "measure_spawn"

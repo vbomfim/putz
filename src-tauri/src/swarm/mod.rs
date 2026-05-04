@@ -10,6 +10,7 @@
 //! - `socket`      — cross-platform listener + per-connection task
 //! - `coordinator` — in-process registry, routing, heartbeat sweep
 pub mod coordinator;
+pub mod lifecycle;
 pub mod socket;
 pub mod types;
 pub mod wire;

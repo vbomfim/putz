@@ -3416,6 +3416,8 @@ dependencies = [
  "urlencoding",
  "uuid",
  "walkdir",
+ "widestring",
+ "windows-sys 0.59.0",
  "winreg 0.55.0",
 ]
 

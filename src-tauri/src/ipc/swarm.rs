@@ -8,7 +8,7 @@
 //!     colleague tab via the `swarm://spawn-tab` event.
 use tauri::State;
 
-use crate::swarm::SwarmCoordinator;
+use crate::swarm::{lifecycle::bind_pid_listener, SwarmCoordinator};
 
 /// Enable or disable the swarm. When enabling, binds the local socket
 /// and starts the accept loop + heartbeat sweeper. When disabling,
@@ -23,7 +23,12 @@ pub async fn swarm_set_enabled(
 
     if enabled {
         // start() emits state-changed itself.
-        state.start(app.clone()).await.map(|_| ())?;
+        // DIP (CR-Opus pass-1 #5): we own the transport-binding policy;
+        // the coordinator just runs whatever Listener we give it.
+        state
+            .start(app.clone(), bind_pid_listener)
+            .await
+            .map(|_| ())?;
     } else {
         state.stop().await;
         let public = state.state_public().await;

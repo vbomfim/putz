@@ -17,7 +17,7 @@ use tokio::task::JoinHandle;
 use tokio_util::sync::CancellationToken;
 use uuid::Uuid;
 
-use super::socket::{resolve_socket_path, Listener};
+use super::socket::Listener;
 use super::types::{ColleagueStatus, ColleagueView, Severity, SwarmHealth, SwarmStatePublic};
 use super::wire::Frame;
 
@@ -41,6 +41,13 @@ const MAX_MESSAGE_LEN: usize = 4096;
 /// (one select! poll), and the listener's only post-cancel work is a
 /// single `remove_file`.
 const STOP_HANDLE_TIMEOUT: Duration = Duration::from_secs(5);
+/// Minimum interval between successive evictions on the same `tab_id`.
+/// Re-registers arriving faster than this are rate-limited (the new
+/// register is rejected; the existing colleague is NOT evicted) to
+/// defend against eviction-as-DoS within the trust boundary
+/// (Sec pass-1 #4). 200ms ⇒ ≤5 evictions/sec/tab — orders of magnitude
+/// above any legitimate crash-restart cadence.
+const TAB_EVICTION_MIN_INTERVAL: Duration = Duration::from_millis(200);
 
 /// Opaque per-connection key. Different from `colleague_id` so that
 /// duplicate-tab evictions are unambiguous: a re-register on the same
@@ -77,6 +84,11 @@ struct Inner {
     /// same tab evicts whatever colleague was previously bound to it, even
     /// if the new colleague_id differs.
     by_tab: HashMap<String, String>,
+    /// Per-tab last eviction timestamp. Drives the
+    /// [`TAB_EVICTION_MIN_INTERVAL`] rate-limit that prevents
+    /// eviction-as-DoS via rapid re-registers on the same tab
+    /// (Sec pass-1 #4).
+    last_eviction: HashMap<String, Instant>,
     /// Listening path (Unix socket file or Windows pipe name).
     path: Option<String>,
 }
@@ -133,21 +145,32 @@ impl SwarmCoordinator {
     /// Bind the listener and start the accept loop + heartbeat sweeper.
     /// Idempotent: a second call while enabled is a no-op.
     ///
+    /// **Dependency inversion** (CR-Opus pass-1 #5): the caller supplies
+    /// the transport via a `bind_listener` factory closure. The
+    /// coordinator no longer hard-codes how/where it listens — callers
+    /// (production: [`crate::swarm::lifecycle::bind_pid_listener`];
+    /// tests: any closure returning a bound `Listener`) own that policy.
+    /// The factory is invoked **inside** the lifecycle mutex so binding
+    /// stays race-free across concurrent `start`/`stop` toggles.
+    ///
     /// Generic over `R: tauri::Runtime` so tests can pass a `MockRuntime`
     /// `AppHandle` (production callers pass `tauri::AppHandle` which
     /// defaults to `Wry`).
-    pub async fn start<R: tauri::Runtime>(
+    pub async fn start<R, F>(
         &self,
         app_handle: tauri::AppHandle<R>,
-    ) -> Result<SwarmStatePublic, String> {
+        bind_listener: F,
+    ) -> Result<SwarmStatePublic, String>
+    where
+        R: tauri::Runtime,
+        F: FnOnce() -> std::io::Result<Listener>,
+    {
         let _guard = self.lifecycle.lock().await;
         if self.enabled() {
             return Ok(self.state_public().await);
         }
 
-        let path = resolve_socket_path(std::process::id());
-        let listener = Listener::bind(path.clone())
-            .map_err(|e| format!("swarm bind failed at {}: {e}", path.display()))?;
+        let listener = bind_listener().map_err(|e| format!("swarm bind failed: {e}"))?;
         let path_string = listener.path().display().to_string();
 
         let cancel_root = CancellationToken::new();
@@ -222,6 +245,7 @@ impl SwarmCoordinator {
         inner.by_id.clear();
         inner.by_conn.clear();
         inner.by_tab.clear();
+        inner.last_eviction.clear();
         inner.path = None;
     }
 
@@ -335,8 +359,26 @@ impl SwarmCoordinator {
 
         // FR-009 idempotency: evict any prior colleague bound to this tab,
         // regardless of colleague_id. Covers crash-restart and rename cases.
+        //
+        // Sec pass-1 #4 (eviction-as-DoS): rate-limit evictions on the
+        // same `tab_id`. A buggy or hostile colleague that re-registers
+        // in a tight loop would otherwise force constant evictions of
+        // its own predecessor and burn coordinator CPU + spam writers.
+        // We only guard the eviction path — the *first* register on a
+        // fresh tab is always allowed; only successive re-registers
+        // within `TAB_EVICTION_MIN_INTERVAL` of each other are refused.
         let evict_target: Option<String> = inner.by_tab.get(&tab_id).cloned();
         if let Some(prev_id) = evict_target {
+            if let Some(last) = inner.last_eviction.get(&tab_id) {
+                let since = Instant::now().duration_since(*last);
+                if since < TAB_EVICTION_MIN_INTERVAL {
+                    tracing_warn(&format!(
+                        "swarm: rate-limited register on tab {tab_id:?} \
+                         (last eviction {since:?} ago < {TAB_EVICTION_MIN_INTERVAL:?})"
+                    ));
+                    return Err("rate_limited".into());
+                }
+            }
             if let Some(prev) = inner.by_id.remove(&prev_id) {
                 let _ = prev.sender.try_send(Frame::Disconnect {
                     colleague_id: prev_id.clone(),
@@ -350,6 +392,7 @@ impl SwarmCoordinator {
                 ));
             }
             inner.by_tab.remove(&tab_id);
+            inner.last_eviction.insert(tab_id.clone(), Instant::now());
         }
 
         // Capacity check (only for genuinely new colleagues — eviction above
@@ -767,6 +810,118 @@ mod tests {
         assert_eq!(c.roster().await.len(), 1);
     }
 
+    /// Sec pass-1 #4 (eviction-as-DoS): when re-registers arrive on the
+    /// same tab faster than `TAB_EVICTION_MIN_INTERVAL`, only the first
+    /// eviction goes through. Subsequent registers are rejected with
+    /// `rate_limited` and the existing colleague is preserved.
+    /// After the cooldown elapses, eviction is allowed again.
+    #[tokio::test]
+    async fn rapid_re_registration_is_rate_limited_per_tab() {
+        let c = SwarmCoordinator::new();
+        let (tx0, _rx0) = mpsc::channel(8);
+        c.register(
+            "dos-tab".into(),
+            "alice-0000".into(),
+            "alice".into(),
+            None,
+            None,
+            tx0,
+        )
+        .await
+        .unwrap();
+
+        // First re-register: eviction allowed (no prior eviction
+        // timestamp on this tab yet).
+        let (tx1, _rx1) = mpsc::channel(8);
+        let r1 = c
+            .register(
+                "dos-tab".into(),
+                "alice-1111".into(),
+                "alice".into(),
+                None,
+                None,
+                tx1,
+            )
+            .await;
+        assert!(r1.is_ok(), "first re-register should evict, not rate-limit");
+
+        // Hammer with rapid re-registers — every one must be refused
+        // by the rate limit until the cooldown elapses. The colleague
+        // currently bound to the tab must remain unchanged.
+        let mut rate_limited = 0;
+        for i in 0..10 {
+            let (tx, _rx) = mpsc::channel(8);
+            let res = c
+                .register(
+                    "dos-tab".into(),
+                    format!("alice-r{i}"),
+                    "alice".into(),
+                    None,
+                    None,
+                    tx,
+                )
+                .await;
+            match res {
+                Err(ref e) if e == "rate_limited" => rate_limited += 1,
+                other => panic!("expected rate_limited, got {other:?}"),
+            }
+        }
+        assert_eq!(
+            rate_limited, 10,
+            "all 10 rapid re-registers must be rate-limited"
+        );
+        let roster = c.roster().await;
+        assert_eq!(roster.len(), 1);
+        assert_eq!(
+            roster[0].id, "alice-1111",
+            "rate-limited registers MUST NOT evict the existing colleague"
+        );
+
+        // After the cooldown, eviction is allowed again.
+        tokio::time::sleep(TAB_EVICTION_MIN_INTERVAL + Duration::from_millis(50)).await;
+        let (tx2, _rx2) = mpsc::channel(8);
+        let r2 = c
+            .register(
+                "dos-tab".into(),
+                "alice-2222".into(),
+                "alice".into(),
+                None,
+                None,
+                tx2,
+            )
+            .await;
+        assert!(r2.is_ok(), "post-cooldown re-register should succeed");
+        let roster = c.roster().await;
+        assert_eq!(roster[0].id, "alice-2222");
+    }
+
+    /// Rate-limit isolation: hammering tab-A must NOT block re-registers
+    /// on tab-B. The cooldown is per-tab.
+    #[tokio::test]
+    async fn rate_limit_is_per_tab_id() {
+        let c = SwarmCoordinator::new();
+        // Seed tab-A with two registers (drives a tracked eviction).
+        for id in &["a-0", "a-1"] {
+            let (tx, _rx) = mpsc::channel(8);
+            let _ = c
+                .register("tab-a".into(), (*id).into(), "a".into(), None, None, tx)
+                .await;
+        }
+        // Tab-A is now in cooldown. Tab-B's first eviction must work.
+        let (txb0, _) = mpsc::channel(8);
+        c.register("tab-b".into(), "b-0".into(), "b".into(), None, None, txb0)
+            .await
+            .unwrap();
+        let (txb1, _) = mpsc::channel(8);
+        let res = c
+            .register("tab-b".into(), "b-1".into(), "b".into(), None, None, txb1)
+            .await;
+        assert!(
+            res.is_ok(),
+            "tab-B eviction must not be blocked by tab-A's cooldown: {res:?}"
+        );
+    }
+
     /// Defensive: a *different* tab trying to claim an in-use colleague_id
     /// is rejected (vanishingly unlikely in practice — UUID-suffixed ids).
     #[tokio::test]
@@ -1079,17 +1234,22 @@ mod tests {
     /// Direct lifecycle test of the *coordinator* `start`/`stop` pair
     /// (mock_app provides an `AppHandle<MockRuntime>`). Proves the
     /// public API itself satisfies the same invariant as the lower-level
-    /// test above. Marked serial because `start()` binds at the pid-based
-    /// resolved path, which is shared across parallel in-process tests.
+    /// test above. Marked serial because the production
+    /// `bind_pid_listener` factory binds at the pid-resolved path,
+    /// which is shared across parallel in-process tests.
     #[cfg(unix)]
     #[tokio::test]
     #[serial_test::serial]
     async fn coordinator_stop_then_start_preserves_socket() {
+        use crate::swarm::lifecycle::bind_pid_listener;
         let app = tauri::test::mock_app();
         let handle = app.handle().clone();
 
         let coord = SwarmCoordinator::new();
-        let s1 = coord.start(handle.clone()).await.unwrap();
+        let s1 = coord
+            .start(handle.clone(), bind_pid_listener)
+            .await
+            .unwrap();
         let path1 = std::path::PathBuf::from(s1.path.expect("start must publish path"));
         assert!(path1.exists(), "start should create the socket file");
 
@@ -1101,7 +1261,10 @@ mod tests {
         );
 
         // Restart at (most likely) the same pid path.
-        let s2 = coord.start(handle.clone()).await.unwrap();
+        let s2 = coord
+            .start(handle.clone(), bind_pid_listener)
+            .await
+            .unwrap();
         let path2 = std::path::PathBuf::from(s2.path.expect("restart must publish path"));
         assert!(path2.exists(), "restart should create the socket file");
 

@@ -24,6 +24,10 @@ use interprocess::local_socket::{
 };
 #[cfg(windows)]
 use interprocess::local_socket::{GenericNamespaced, ToNsName};
+#[cfg(windows)]
+use interprocess::os::windows::{
+    local_socket::ListenerOptionsExt, security_descriptor::SecurityDescriptor,
+};
 #[cfg(test)]
 use tokio::io::AsyncReadExt;
 use tokio::io::AsyncWriteExt;
@@ -125,10 +129,16 @@ impl Listener {
     /// `chmod 600` is also re-applied as belt-and-braces in case a kernel
     /// or filesystem (e.g., FAT) ignores the umask.
     ///
-    /// On Windows, `path` is a flat pipe name (no `\\.\pipe\` prefix) and
-    /// the OS enforces "creator-SID-only" via the default DACL.
-    /// Note: Windows DACL hardening to an explicit current-user-SID-only
-    /// descriptor is tracked as a follow-up — see `interprocess` v2 limits.
+    /// On Windows, `path` is a flat pipe name (no `\\.\pipe\` prefix).
+    /// The pipe is created with an **explicit DACL granting Generic All
+    /// only to the current user's SID** (issue #149 / spec SEC-008) —
+    /// the default named-pipe DACL on Windows is the creator's token's
+    /// default DACL, which on some configurations (e.g., systems where
+    /// the user is in extra groups, or where a tweaked default DACL
+    /// has been pushed via group policy) can grant unwanted access.
+    /// Building our own SDDL `D:P(A;;GA;;;<sid>)` removes that
+    /// uncertainty: Discretionary, Protected (no inherit), Allow
+    /// Generic All to the queried current-user SID — and nothing else.
     pub fn bind(path: PathBuf) -> io::Result<Self> {
         // Make parent dir on Unix (XDG_RUNTIME_DIR/putz).
         #[cfg(unix)]
@@ -155,7 +165,16 @@ impl Listener {
             let _umask_guard = UmaskGuard::strict();
             ListenerOptions::new().name(name).create_tokio()?
         };
-        #[cfg(not(unix))]
+        #[cfg(windows)]
+        let inner = {
+            // SEC-008: explicit DACL → current-user SID only, no inheritance.
+            let sd = current_user_sd()?;
+            ListenerOptions::new()
+                .name(name)
+                .security_descriptor(sd)
+                .create_tokio()?
+        };
+        #[cfg(not(any(unix, windows)))]
         let inner = ListenerOptions::new().name(name).create_tokio()?;
 
         // Belt-and-braces: even with umask, re-apply 0o600 explicitly.
@@ -239,6 +258,116 @@ fn path_to_name(path: &std::path::Path) -> io::Result<Name<'_>> {
         .to_str()
         .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidInput, "non-utf8 pipe name"))?;
     s.to_ns_name::<GenericNamespaced>()
+}
+
+/// Build a `SecurityDescriptor` whose DACL grants Generic All only to
+/// the current user's SID — and is marked Protected (`P` flag) so it
+/// will not silently inherit ACEs from any container.
+///
+/// Implements spec SEC-008 / issue #149. The "default DACL on the
+/// process token" approach was rejected because that DACL is
+/// configurable system-wide and we cannot guarantee it won't grant
+/// access to other principals.
+///
+/// SDDL grammar reminder: `D:P(A;;GA;;;<sid>)`
+///   * `D:` — DACL section
+///   * `P` — Protected (do not inherit)
+///   * `(A;;GA;;;<sid>)` — Allow ACE, no flags, Generic All rights,
+///     no object guid, no inherit-object guid, principal = `<sid>`
+#[cfg(windows)]
+fn current_user_sd() -> io::Result<SecurityDescriptor> {
+    use std::ffi::c_void;
+    use std::mem::MaybeUninit;
+    use std::ptr;
+    use widestring::U16CString;
+    use windows_sys::Win32::Foundation::{CloseHandle, LocalFree, FALSE, HANDLE};
+    use windows_sys::Win32::Security::Authorization::ConvertSidToStringSidW;
+    use windows_sys::Win32::Security::{GetTokenInformation, TokenUser, TOKEN_QUERY, TOKEN_USER};
+    use windows_sys::Win32::System::Threading::{GetCurrentProcess, OpenProcessToken};
+
+    // 1. Open the current process token (read-only).
+    let mut token: HANDLE = ptr::null_mut();
+    // SAFETY: GetCurrentProcess returns a pseudo-handle (no close needed);
+    // OpenProcessToken writes a real handle into `token`, which we close below.
+    let ok = unsafe { OpenProcessToken(GetCurrentProcess(), TOKEN_QUERY, &mut token) };
+    if ok == FALSE {
+        return Err(io::Error::last_os_error());
+    }
+    // RAII close for `token` even on the error paths below.
+    struct TokenGuard(HANDLE);
+    impl Drop for TokenGuard {
+        fn drop(&mut self) {
+            // SAFETY: `self.0` was returned by OpenProcessToken above.
+            unsafe { CloseHandle(self.0) };
+        }
+    }
+    let _token_guard = TokenGuard(token);
+
+    // 2. Probe for required buffer length, then read the TokenUser struct.
+    let mut needed: u32 = 0;
+    // SAFETY: passing null buffer with len=0 — Win32 returns FALSE and writes
+    // the required length into `needed`. The "ERROR_INSUFFICIENT_BUFFER"
+    // result is the documented contract here.
+    unsafe { GetTokenInformation(token, TokenUser, ptr::null_mut(), 0, &mut needed) };
+    if needed == 0 {
+        return Err(io::Error::last_os_error());
+    }
+    let mut buf = vec![0u8; needed as usize];
+    // SAFETY: buf is `needed` bytes, large enough per the prior probe.
+    let ok = unsafe {
+        GetTokenInformation(
+            token,
+            TokenUser,
+            buf.as_mut_ptr() as *mut c_void,
+            needed,
+            &mut needed,
+        )
+    };
+    if ok == FALSE {
+        return Err(io::Error::last_os_error());
+    }
+    // SAFETY: TOKEN_USER is the documented layout for the TokenUser class.
+    let token_user_ptr = buf.as_ptr() as *const TOKEN_USER;
+    let sid_ptr = unsafe { (*token_user_ptr).User.Sid };
+    if sid_ptr.is_null() {
+        return Err(io::Error::new(
+            io::ErrorKind::Other,
+            "TokenUser returned null SID",
+        ));
+    }
+
+    // 3. Convert SID → SDDL string ("S-1-5-21-...").
+    let mut sid_str_ptr: *mut u16 = ptr::null_mut();
+    // SAFETY: ConvertSidToStringSidW allocates with LocalAlloc; we LocalFree below.
+    let ok = unsafe { ConvertSidToStringSidW(sid_ptr, &mut sid_str_ptr) };
+    if ok == FALSE || sid_str_ptr.is_null() {
+        return Err(io::Error::last_os_error());
+    }
+    struct SidStrGuard(*mut u16);
+    impl Drop for SidStrGuard {
+        fn drop(&mut self) {
+            // SAFETY: pointer was returned by ConvertSidToStringSidW (LocalAlloc).
+            unsafe { LocalFree(self.0 as *mut c_void) };
+        }
+    }
+    let _sid_str_guard = SidStrGuard(sid_str_ptr);
+
+    // Read the wide-string SID (NUL-terminated).
+    let sid_string = {
+        let mut len = 0usize;
+        // SAFETY: pointer is valid and NUL-terminated per ConvertSidToStringSidW.
+        while unsafe { *sid_str_ptr.add(len) } != 0 {
+            len += 1;
+        }
+        let slice = unsafe { std::slice::from_raw_parts(sid_str_ptr, len) };
+        String::from_utf16(slice).map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?
+    };
+
+    // 4. Build the SDDL and hand it to interprocess.
+    let sddl = format!("D:P(A;;GA;;;{sid_string})");
+    let wide =
+        U16CString::from_str(&sddl).map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?;
+    SecurityDescriptor::deserialize(&wide)
 }
 
 #[cfg(unix)]
@@ -586,6 +715,84 @@ mod tests {
     fn windows_path_is_flat_pipe_name() {
         let p = resolve_socket_path(7);
         assert_eq!(p, PathBuf::from("putz-swarm-7"));
+    }
+
+    /// SEC-008 / issue #149: the bound named pipe must have an explicit
+    /// DACL with a single ACE (the current user). Default-DACL behavior
+    /// (which can grant access to multiple principals depending on the
+    /// process token's default DACL) is what we are guarding against.
+    ///
+    /// We verify by binding, opening the pipe, calling `GetSecurityInfo`
+    /// for `DACL_SECURITY_INFORMATION`, and asserting the DACL is
+    /// non-NULL with `AceCount == 1`. We deliberately do not parse the
+    /// ACE struct — the SDDL we built (`D:P(A;;GA;;;<sid>)`) only
+    /// produces one ACE, and ACL header layout traversal in raw FFI is
+    /// brittle. Equality on AceCount is sufficient evidence.
+    #[cfg(target_os = "windows")]
+    #[tokio::test]
+    async fn windows_pipe_dacl_is_current_user_only() {
+        use std::ptr;
+        use windows_sys::Win32::Foundation::{CloseHandle, GENERIC_READ, GENERIC_WRITE};
+        use windows_sys::Win32::Security::Authorization::{GetSecurityInfo, SE_KERNEL_OBJECT};
+        use windows_sys::Win32::Security::{ACL, DACL_SECURITY_INFORMATION};
+        use windows_sys::Win32::Storage::FileSystem::{
+            CreateFileW, FILE_FLAG_OVERLAPPED, OPEN_EXISTING,
+        };
+
+        let pipe_name = format!("putz-swarm-test-{}", std::process::id());
+        let _listener = Listener::bind(PathBuf::from(&pipe_name)).expect("bind");
+
+        let full = format!(r"\\.\pipe\{pipe_name}");
+        let wide: Vec<u16> = full.encode_utf16().chain(std::iter::once(0)).collect();
+        // SAFETY: Win32 FFI; arguments match documented contract.
+        let h = unsafe {
+            CreateFileW(
+                wide.as_ptr(),
+                GENERIC_READ | GENERIC_WRITE,
+                0,
+                ptr::null(),
+                OPEN_EXISTING,
+                FILE_FLAG_OVERLAPPED,
+                ptr::null_mut(),
+            )
+        };
+        assert!(
+            !h.is_null(),
+            "CreateFileW failed: {}",
+            std::io::Error::last_os_error()
+        );
+
+        let mut dacl_ptr: *mut ACL = ptr::null_mut();
+        let mut sd_ptr: *mut std::ffi::c_void = ptr::null_mut();
+        // SAFETY: out-pointers are valid stack locations.
+        let rc = unsafe {
+            GetSecurityInfo(
+                h,
+                SE_KERNEL_OBJECT,
+                DACL_SECURITY_INFORMATION,
+                ptr::null_mut(),
+                ptr::null_mut(),
+                &mut dacl_ptr,
+                ptr::null_mut(),
+                &mut sd_ptr,
+            )
+        };
+        // SAFETY: handle was opened above; close it regardless of rc.
+        unsafe { CloseHandle(h) };
+        assert_eq!(rc, 0, "GetSecurityInfo failed: rc={rc}");
+        assert!(
+            !dacl_ptr.is_null(),
+            "DACL is NULL (= grants Everyone full access). SEC-008 violation."
+        );
+        // SAFETY: dacl_ptr non-null per assertion above.
+        let ace_count = unsafe { (*dacl_ptr).AceCount };
+        assert_eq!(
+            ace_count, 1,
+            "expected exactly one ACE (current-user-only), got {ace_count}"
+        );
+        // sd_ptr is owned by the SD allocator; LocalFree on process exit is fine
+        // for a unit test. Skipping explicit free to keep the FFI surface small.
+        let _ = sd_ptr;
     }
 
     #[cfg(unix)]

@@ -6,7 +6,7 @@
 **Input**: Replace the over-engineered Swarm v2 (vendor-neutral public protocol, HTTP broker, multi-language SDKs) with a narrowly-scoped local IPC integration between Putz and GitHub Copilot CLI extensions running in Putz PTY tabs.
 
 **Owner**: PO Guardian via Copilot
-**Last updated**: 2026-05-04 (revised SC-004 LOC budget — see history)
+**Last updated**: 2026-05-04 (SEC-007 + SEC-008 added — eviction rate-limit + Windows DACL hardening; PR #145 fixup #2 ext)
 **Issue tracker**: [Epic — to be created on landing this spec](https://github.com/vbomfim/putz/issues)
 **Tickets**: T1–T5 — created from the Decomposition section below
 **Supersedes**: [`specs/_archive/swarm-protocol-v2-vendor-neutral/spec.md`](../_archive/swarm-protocol-v2-vendor-neutral/spec.md) (Epic #127, tickets #129–#137 — all closed)
@@ -186,6 +186,8 @@ Five tickets, not nine. The previous spec split UX into one ticket per surface (
 - **SEC-004**: Length prefix MUST be bounded (proposed: 1 MiB max per frame). Reject and disconnect on overflow. Prevents memory-exhaustion via crafted oversized frames.
 - **SEC-005**: `register.name` MUST be sanitized before display in the sidebar/inbox (terminal control sequences stripped). The colleague's claimed name is user-facing UI input from an untrusted-but-local process.
 - **SEC-006**: Bundled extension installer MUST refuse to overwrite an existing extension file without an explicit user confirmation step. *(Supply-chain hygiene — don't silently clobber third-party Copilot extensions.)*
+- **SEC-007**: Re-registration on the same `tab_id` is rate-limited (≤5 evictions/sec/tab) to prevent eviction-as-DoS within the trust boundary. A buggy or hostile colleague that re-registers in a tight loop would otherwise force constant evictions of its predecessor and burn coordinator CPU + spam writers. The first register on a fresh tab is always allowed; only successive re-registers within `TAB_EVICTION_MIN_INTERVAL` (200ms) are refused with `rate_limited`. *(Defense in depth: the OS-permission trust boundary keeps non-same-UID processes out, but a same-UID buggy/compromised process is still in scope for resource-abuse defenses.)*
+- **SEC-008** *(Windows)*: The swarm named pipe MUST be created with an explicit DACL granting `GENERIC_ALL` to the current user's SID and **no other principal** (`D:P(A;;GA;;;<sid>)` — Discretionary, Protected from inheritance, single Allow ACE). Relying on the process token's default DACL was rejected because that DACL is configurable system-wide via group policy or token tweaks and we cannot guarantee it won't grant access to additional principals. Validated by a Windows-only test asserting the bound pipe's DACL has exactly one ACE.
 
 ### Privacy Guardian
 

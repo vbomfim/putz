@@ -22,7 +22,7 @@ interface Theme {
 
 interface SwarmState {
   enabled: boolean;
-  url: string | null;
+  path: string | null;
   colleague_count: number;
   colleague_ids: string[];
 }
@@ -551,9 +551,9 @@ export function SettingsTab() {
             >
               {swarmEnabled ? "● Enabled" : "○ Disabled"}
             </button>
-            {swarmState && swarmEnabled && swarmState.url && (
+            {swarmState && swarmEnabled && swarmState.path && (
               <span style={{ fontSize: 11, color: "var(--text-secondary)" }}>
-                Broker: {swarmState.url} · {swarmState.colleague_count}{" "}
+                Broker: {swarmState.path} · {swarmState.colleague_count}{" "}
                 colleague{swarmState.colleague_count !== 1 ? "s" : ""}
               </span>
             )}

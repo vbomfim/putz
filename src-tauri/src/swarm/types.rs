@@ -58,17 +58,13 @@ pub struct ColleagueView {
 
 /// Public swarm state for the Tauri `swarm_get_state` command.
 ///
-/// `path` replaces the old `url` field — same JSON key name to keep the
-/// frontend type definition stable. The value is now the socket / pipe
-/// path instead of an HTTP URL.
+/// The `path` field carries the socket / pipe path. Was previously
+/// serialized as `url` for back-compat with the HTTP-broker era; that
+/// alias is now removed (issue #146 — frontend updated in lockstep).
 #[derive(Debug, Clone, Serialize)]
 pub struct SwarmStatePublic {
     pub enabled: bool,
     /// Socket path (Unix) or pipe name (Windows). `null` when disabled.
-    /// Keyed as `url` for frontend back-compat.
-    // TODO(#146): rename `url` → `path` in both Rust serde and
-    // src/components/Settings/SettingsTab.tsx (T4 cleanup).
-    #[serde(rename = "url")]
     pub path: Option<String>,
     pub colleague_count: usize,
     pub colleague_ids: Vec<String>,
