@@ -1,0 +1,38 @@
+# cargo-audit configuration (issue #148)
+#
+# Policy: CI runs `cargo audit --deny warnings`. New advisories MUST be
+# triaged here with a justification before they can be ignored. Bare
+# vulnerabilities (CVEs) MUST NOT be added without security review.
+#
+# All entries below are RustSec "unmaintained" advisories (informational —
+# no known vulnerability) that originate from upstream Tauri / gtk-rs
+# transitive dependencies which we cannot upgrade at the application layer.
+# Re-evaluate when bumping `tauri` or `tauri-runtime-wry`.
+
+[advisories]
+ignore = [
+    # gtk-rs GTK3 bindings family — pulled in by tauri's wry/gtk Linux
+    # backend. GTK4 migration tracked upstream in tauri-apps/wry#1407.
+    "RUSTSEC-2024-0411", # gdkwayland-sys
+    "RUSTSEC-2024-0412", # gdk
+    "RUSTSEC-2024-0413", # atk
+    "RUSTSEC-2024-0414", # gdkx11-sys
+    "RUSTSEC-2024-0415", # gtk
+    "RUSTSEC-2024-0416", # atk-sys
+    "RUSTSEC-2024-0417", # gdkx11
+    "RUSTSEC-2024-0418", # gdk-sys
+    "RUSTSEC-2024-0419", # gtk3-macros
+    "RUSTSEC-2024-0420", # gtk-sys
+    "RUSTSEC-2024-0429", # glib VariantStrIter unsoundness — gtk-rs ecosystem
+    # Unmaintained build-time deps — pulled in transitively, not a runtime risk
+    "RUSTSEC-2024-0370", # proc-macro-error (build-time, via tauri macros)
+    "RUSTSEC-2024-0436", # paste (build-time)
+    "RUSTSEC-2017-0008", # serial (test-time only, via dev-deps)
+    # unic-* family — Unicode crates pulled in by syntax-highlighting
+    # tooling; no runtime input crosses these.
+    "RUSTSEC-2025-0075", # unic-char-range
+    "RUSTSEC-2025-0080", # unic-common
+    "RUSTSEC-2025-0081", # unic-char-property
+    "RUSTSEC-2025-0098", # unic-ucd-version
+    "RUSTSEC-2025-0100", # unic-ucd-ident
+]

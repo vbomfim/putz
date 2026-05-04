@@ -21,8 +21,9 @@ use crate::pty::PtyError;
 /// Returns the UUID session ID that identifies this session for
 /// all subsequent operations (write, resize, close).
 ///
-/// If the swarm broker is enabled, injects `PUTZ_SWARM_URL`,
-/// `PUTZ_SWARM_TOKEN`, and `PUTZ_TAB_ID` env vars into the session.
+/// If the swarm is enabled, injects `PUTZ_SWARM_PATH` and `PUTZ_TAB_ID`
+/// env vars into the session. (Replaces the prior `PUTZ_SWARM_URL` /
+/// `PUTZ_SWARM_TOKEN` pair — auth is now OS file permissions.)
 #[tauri::command]
 #[allow(clippy::too_many_arguments)]
 pub async fn pty_spawn(
@@ -41,13 +42,7 @@ pub async fn pty_spawn(
         let tid = tab_id.unwrap_or_else(|| uuid::Uuid::new_v4().to_string());
         let swarm_vars = swarm.env_vars(&tid).await;
         match swarm_vars {
-            Some(vars) => {
-                let mut base = env.unwrap_or_default();
-                for (k, v) in vars {
-                    base.entry(k).or_insert(v);
-                }
-                Some(base)
-            }
+            Some(vars) => Some(merge_env_swarm_wins(env.unwrap_or_default(), vars)),
             None => env,
         }
     } else {
@@ -57,6 +52,23 @@ pub async fn pty_spawn(
     state
         .spawn(&app, shell, cwd, cols, rows, merged_env)
         .map_err(|e| e.to_string())
+}
+
+/// Merge swarm-owned env vars over a caller-supplied env, **swarm wins**.
+///
+/// Spec FR-020: `PUTZ_SWARM_PATH`, `PUTZ_TAB_ID`, and any other Putz-owned
+/// swarm vars are NON-overridable by the caller. A caller that supplies a
+/// `PUTZ_SWARM_PATH=bad` would otherwise be able to redirect a Copilot CLI
+/// extension to a foreign socket path; we insert unconditionally so the
+/// Putz-supplied value always wins.
+fn merge_env_swarm_wins(
+    mut base: HashMap<String, String>,
+    swarm: HashMap<String, String>,
+) -> HashMap<String, String> {
+    for (k, v) in swarm {
+        base.insert(k, v);
+    }
+    base
 }
 
 /// Writes input bytes to a PTY session (keystrokes from the terminal).
@@ -224,5 +236,54 @@ mod tests {
         let msg = err.to_string();
         assert!(msg.contains("abc-123"));
         assert!(msg.contains("not found"));
+    }
+
+    /// FR-020: swarm-owned env vars MUST override any caller-supplied
+    /// values. If a caller (or a compromised frontend) supplies
+    /// `PUTZ_SWARM_PATH=bad`, the merged result must contain Putz's
+    /// real swarm path, not the caller's bogus one.
+    #[test]
+    fn swarm_env_vars_override_caller_supplied() {
+        let mut caller = HashMap::new();
+        caller.insert("PUTZ_SWARM_PATH".into(), "/tmp/attacker.sock".into());
+        caller.insert("PUTZ_TAB_ID".into(), "fake-tab".into());
+        caller.insert("CALLER_OWNED".into(), "keep-me".into());
+
+        let mut swarm = HashMap::new();
+        swarm.insert(
+            "PUTZ_SWARM_PATH".into(),
+            "/run/user/1000/putz/swarm-42.sock".into(),
+        );
+        swarm.insert("PUTZ_TAB_ID".into(), "real-tab-uuid".into());
+
+        let merged = merge_env_swarm_wins(caller, swarm);
+        assert_eq!(
+            merged.get("PUTZ_SWARM_PATH").map(String::as_str),
+            Some("/run/user/1000/putz/swarm-42.sock"),
+            "Putz-owned PUTZ_SWARM_PATH must win over caller-supplied value (FR-020)"
+        );
+        assert_eq!(
+            merged.get("PUTZ_TAB_ID").map(String::as_str),
+            Some("real-tab-uuid"),
+            "Putz-owned PUTZ_TAB_ID must win over caller-supplied value (FR-020)"
+        );
+        // Caller-owned non-swarm vars are preserved.
+        assert_eq!(
+            merged.get("CALLER_OWNED").map(String::as_str),
+            Some("keep-me")
+        );
+    }
+
+    /// FR-020 corner: caller env without any swarm vars — swarm vars
+    /// are still injected.
+    #[test]
+    fn swarm_env_vars_inject_into_empty_caller_env() {
+        let mut swarm = HashMap::new();
+        swarm.insert("PUTZ_SWARM_PATH".into(), "/p".into());
+        let merged = merge_env_swarm_wins(HashMap::new(), swarm);
+        assert_eq!(
+            merged.get("PUTZ_SWARM_PATH").map(String::as_str),
+            Some("/p")
+        );
     }
 }

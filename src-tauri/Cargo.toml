@@ -36,11 +36,12 @@ tauri-plugin-dialog = "2.7.0"
 reqwest = { version = "0.13.2", features = ["stream", "json"] }
 urlencoding = "2.1.3"
 futures-util = "0.3.32"
-axum = "0.7"
 tokio-util = "0.7"
-async-stream = "0.3"
 getrandom = "0.3"
-subtle = "2"
+# T1 (#140): cross-platform local IPC (Unix socket / Windows named pipe).
+# `tokio` feature enables the async LocalSocketListener API used by swarm::socket.
+interprocess = { version = "2", features = ["tokio"] }
+thiserror = "1"
 
 [target."cfg(unix)".dependencies]
 libc = "0.2"
@@ -50,6 +51,20 @@ tauri-plugin-process = "2"
 
 [target."cfg(windows)".dependencies]
 winreg = "0.55"
+# T1 fixup #2 (issue #149): explicit DACL on the Windows named pipe so
+# only the current user's SID has access (not the default-DACL inherited
+# behavior, which can be surprisingly permissive on systems with custom
+# tokens). `widestring` is used to build the SDDL wide string accepted
+# by `interprocess::os::windows::security_descriptor::SecurityDescriptor::deserialize`.
+windows-sys = { version = "0.59", features = [
+    "Win32_Foundation",
+    "Win32_Security",
+    "Win32_Security_Authorization",
+    "Win32_Storage_FileSystem",
+    "Win32_System_Memory",
+    "Win32_System_Threading",
+] }
+widestring = "1"
 
 [[bin]]
 name = "measure_spawn"
@@ -57,4 +72,8 @@ path = "src/bin/measure_spawn.rs"
 
 [dev-dependencies]
 tempfile = "3"
+# Enables `tauri::test::mock_app()` for swarm coordinator lifecycle tests
+# (T1 fixup #2 — restart_does_not_unlink_new_socket regression test).
+tauri = { version = "2", features = ["test"] }
+serial_test = "3"
 

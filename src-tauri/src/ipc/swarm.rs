@@ -1,18 +1,18 @@
-/// Tauri IPC commands for the swarm feature.
-///
-/// Three commands:
-/// - `swarm_set_enabled(enabled)` — start/stop the swarm broker
-/// - `swarm_get_state()` — return current SwarmStatePublic (no token, H3)
-/// - `swarm_spawn_colleague(name, initial_prompt)` — request a new colleague tab
+//! Tauri IPC commands for the swarm subsystem.
+//!
+//! Surface preserved from the HTTP-broker era so the React/Settings
+//! layer doesn't need changes (T4 owns any UX-side renames):
+//!   * `swarm_set_enabled(enabled)` — start/stop the local listener.
+//!   * `swarm_get_state()` — current `SwarmStatePublic` (path, count, ids).
+//!   * `swarm_spawn_colleague(name, initial_prompt)` — request a new
+//!     colleague tab via the `swarm://spawn-tab` event.
 use tauri::State;
 
-use crate::swarm::SwarmCoordinator;
+use crate::swarm::{lifecycle::bind_pid_listener, SwarmCoordinator};
 
-/// Enable or disable the swarm broker.
-///
-/// When enabled, starts the HTTP server and stale sweeper.
-/// When disabled, stops the HTTP server and clears all state.
-/// Emits `swarm://state-changed` with `SwarmStatePublic` (no token, H3).
+/// Enable or disable the swarm. When enabling, binds the local socket
+/// and starts the accept loop + heartbeat sweeper. When disabling,
+/// cancels both, drops the registry, and unlinks the socket file (Unix).
 #[tauri::command]
 pub async fn swarm_set_enabled(
     state: State<'_, SwarmCoordinator>,
@@ -22,19 +22,23 @@ pub async fn swarm_set_enabled(
     use tauri::Emitter;
 
     if enabled {
-        // start() already emits state-changed with SwarmStatePublic (H3)
-        state.start(app.clone()).await.map_err(|e| e.to_string())?;
+        // start() emits state-changed itself.
+        // DIP (CR-Opus pass-1 #5): we own the transport-binding policy;
+        // the coordinator just runs whatever Listener we give it.
+        state
+            .start(app.clone(), bind_pid_listener)
+            .await
+            .map(|_| ())?;
     } else {
         state.stop().await;
-        // Emit disabled state (stop() doesn't emit)
         let public = state.state_public().await;
         let _ = app.emit("swarm://state-changed", &public);
     }
-
     Ok(())
 }
 
-/// Get the current swarm state for frontend display (H3: no token exposed).
+/// Read-only state for frontend display. Never contains secrets — the
+/// path is non-sensitive (it's a file mode-600 owned by the same user).
 #[tauri::command]
 pub async fn swarm_get_state(
     state: State<'_, SwarmCoordinator>,
@@ -42,18 +46,15 @@ pub async fn swarm_get_state(
     Ok(state.state_public().await)
 }
 
-/// Spawn a new colleague agent tab.
-///
-/// Uses `coordinator.colleague_env_vars()` (M1) to build a consistent env map
-/// including `COPILOT_COLLEAGUE_PARENT` (L1).
-///
-/// This is a fire-and-forget command. The actual tab creation happens
-/// via a `swarm://spawn-tab` event emitted to the frontend.
+/// Spawn a colleague tab. Fire-and-forget — the actual tab creation
+/// happens in the frontend in response to the `swarm://spawn-tab` event.
 #[tauri::command]
 pub async fn swarm_spawn_colleague(
     state: State<'_, SwarmCoordinator>,
     app: tauri::AppHandle,
     name: String,
+    // @privacy Tier-2 PII — never log, never persist, never forward to telemetry.
+    // Free-form user-authored prompt; may contain user content / secrets. See PRI-001/002.
     initial_prompt: Option<String>,
 ) -> Result<(), String> {
     use tauri::Emitter;
@@ -65,13 +66,12 @@ pub async fn swarm_spawn_colleague(
     let colleague_id = SwarmCoordinator::generate_colleague_id(&name);
     let tab_id = uuid::Uuid::new_v4().to_string();
 
-    // M1: Use consolidated colleague_env_vars() — no duplication (L1: includes COPILOT_COLLEAGUE_PARENT)
     let env = state
         .colleague_env_vars(
             &tab_id,
             &colleague_id,
             &name,
-            "self", // spawned from IPC → parent is self
+            "self",
             initial_prompt.as_deref(),
         )
         .await
@@ -88,6 +88,5 @@ pub async fn swarm_spawn_colleague(
 
     app.emit("swarm://spawn-tab", &payload)
         .map_err(|e| e.to_string())?;
-
     Ok(())
 }
