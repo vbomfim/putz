@@ -30,7 +30,7 @@
     "targets": "all",
     "createUpdaterArtifacts": false,
     "resources": [
-      "../extensions/copilot-swarm/index.mjs",
+      "../extensions/copilot-swarm/extension.mjs",
       "../extensions/copilot-swarm/package.json",
       "../extensions/copilot-swarm/manifest.json",
       "../extensions/copilot-swarm/README.md",

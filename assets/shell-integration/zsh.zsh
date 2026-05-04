@@ -9,11 +9,11 @@ if [[ -z "${__PUTZ_SHELL_INTEGRATION_LOADED:-}" ]]; then
 
   __putz_urlencode() {
     local s="$1" out="" i c
-    for ((i = 0; i < ${#s}; i++)); do
-      c="${s:i:1}"
+    for (( i = 1; i <= ${#s}; i++ )); do
+      c="${s[i]}"
       case "$c" in
         [a-zA-Z0-9._~/-]) out+="$c" ;;
-        *) printf -v c '%%%02X' "'$c"; out+="$c" ;;
+        *) out+="$(printf '%%%02X' "'$c")" ;;
       esac
     done
     printf '%s' "$out"

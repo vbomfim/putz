@@ -5,9 +5,9 @@
   "private": true,
   "type": "module",
   "license": "MIT",
-  "main": "index.mjs",
+  "main": "extension.mjs",
   "exports": {
-    ".": "./index.mjs",
+    ".": "./extension.mjs",
     "./api": "./src/api.mjs",
     "./wire": "./src/wire.mjs"
   },
@@ -15,7 +15,7 @@
     "node": ">=18"
   },
   "scripts": {
-    "start": "node index.mjs",
+    "start": "node extension.mjs",
     "test": "node --test --test-timeout=8000 tests/wire.test.mjs tests/integration.test.mjs"
   }
 }

@@ -21,7 +21,7 @@ use std::process::Command;
 /// File names we expect inside a valid bundled extension source dir.
 /// Used to harden [`copilot_install_extension`] against being pointed
 /// at an arbitrary directory outside Putz's bundled resources.
-const REQUIRED_FILES: &[&str] = &["index.mjs", "package.json", "manifest.json"];
+const REQUIRED_FILES: &[&str] = &["extension.mjs", "package.json", "manifest.json"];
 
 /// Subdirectory name created inside Copilot's extensions dir.
 pub const EXTENSION_DIR_NAME: &str = "putz-colleague";
@@ -40,16 +40,16 @@ pub struct CopilotIntegrationStatus {
 
 /// Resolve the per-user Copilot CLI extensions directory.
 ///
-/// Layout (matches the spec's first-run discovery section):
-///   * Linux: `$XDG_DATA_HOME/gh/copilot-extensions/` if set, else
-///     `~/.local/share/gh/copilot-extensions/` (verified: `gh copilot`
-///     honors XDG_DATA_HOME on Linux).
-///   * macOS: `~/.local/share/gh/copilot-extensions/` (XDG not honored
-///     by `gh copilot` on macOS, so we don't either — keeps install
-///     path predictable for users following the docs).
-///   * Windows: `%LOCALAPPDATA%\GitHub CLI\copilot-extensions\`
+/// Copilot CLI's actual on-disk convention is `~/.copilot/extensions/<name>/`
+/// (verified by inspecting installed extensions: craig, danet, keryxis,
+/// sdlc-guardian — all live under `~/.copilot/extensions/` with an
+/// `extension.mjs` entry file). This is the same on macOS and Linux.
 ///
-/// Returns `None` if the home / local-app-data dir cannot be resolved.
+/// Layout:
+///   * macOS / Linux: `~/.copilot/extensions/`
+///   * Windows: `%USERPROFILE%\.copilot\extensions\`
+///
+/// Returns `None` if the home dir cannot be resolved.
 pub fn resolve_extension_dir() -> Option<PathBuf> {
     if let Ok(over) = std::env::var("PUTZ_COLLEAGUE_DIR") {
         if !over.is_empty() {
@@ -58,43 +58,21 @@ pub fn resolve_extension_dir() -> Option<PathBuf> {
     }
     #[cfg(target_os = "windows")]
     {
-        if let Ok(local) = std::env::var("LOCALAPPDATA") {
-            if !local.is_empty() {
+        if let Ok(profile) = std::env::var("USERPROFILE") {
+            if !profile.is_empty() {
                 return Some(
-                    PathBuf::from(local)
-                        .join("GitHub CLI")
-                        .join("copilot-extensions"),
+                    PathBuf::from(profile)
+                        .join(".copilot")
+                        .join("extensions"),
                 );
             }
         }
         None
     }
-    #[cfg(target_os = "linux")]
-    {
-        if let Ok(xdg) = std::env::var("XDG_DATA_HOME") {
-            if !xdg.is_empty() {
-                return Some(PathBuf::from(xdg).join("gh").join("copilot-extensions"));
-            }
-        }
-        let home = std::env::var_os("HOME")?;
-        Some(
-            PathBuf::from(home)
-                .join(".local")
-                .join("share")
-                .join("gh")
-                .join("copilot-extensions"),
-        )
-    }
-    #[cfg(all(not(target_os = "windows"), not(target_os = "linux")))]
+    #[cfg(not(target_os = "windows"))]
     {
         let home = std::env::var_os("HOME")?;
-        Some(
-            PathBuf::from(home)
-                .join(".local")
-                .join("share")
-                .join("gh")
-                .join("copilot-extensions"),
-        )
+        Some(PathBuf::from(home).join(".copilot").join("extensions"))
     }
 }
 
@@ -227,7 +205,7 @@ pub fn copilot_get_extension_dir() -> Option<String> {
 
 /// Aggregate status for the Settings card.
 ///
-/// `installed` requires both the marker dir AND `index.mjs` inside it
+/// `installed` requires both the marker dir AND `extension.mjs` inside it
 /// to exist — guards against a partial install slot reporting success.
 #[tauri::command]
 pub fn copilot_get_status() -> CopilotIntegrationStatus {
@@ -236,7 +214,7 @@ pub fn copilot_get_status() -> CopilotIntegrationStatus {
         .as_ref()
         .map(|d| {
             let marker = d.join(EXTENSION_DIR_NAME);
-            marker.is_dir() && marker.join("index.mjs").is_file()
+            marker.is_dir() && marker.join("extension.mjs").is_file()
         })
         .unwrap_or(false);
     CopilotIntegrationStatus {
@@ -265,17 +243,37 @@ pub fn copilot_install_extension(
         .path()
         .resource_dir()
         .map_err(|e| format!("resolve resource dir: {e}"))?;
-    let source = resource_root
+    // Tauri bundles `../extensions/copilot-swarm/**/*` under `Resources/_up_/extensions/copilot-swarm/`
+    // because the `..` segment is rewritten to `_up_` at bundle time. Try the bundled path first;
+    // fall back to the dev-mode path (project root sibling) when running under `npm run tauri dev`.
+    let bundled = resource_root
+        .join("_up_")
+        .join("extensions")
+        .join("copilot-swarm");
+    let dev_fallback = resource_root
         .join("..")
         .join("extensions")
         .join("copilot-swarm");
+    let source = if bundled.exists() {
+        bundled
+    } else {
+        dev_fallback
+    };
     let canon_resource = resource_root
         .canonicalize()
         .map_err(|e| format!("canonicalize resource dir: {e}"))?;
     let canon_source = source
         .canonicalize()
         .map_err(|e| format!("canonicalize bundled extension dir: {e}"))?;
-    if !canon_source.starts_with(&canon_resource) {
+    // Containment check: the canonicalized source must be under the resource root in production
+    // (where `_up_` is a real subdir) OR a parent-relative dev path. Check either is contained.
+    let canon_resource_parent = canon_resource.parent().map(|p| p.to_path_buf());
+    let in_resources = canon_source.starts_with(&canon_resource);
+    let in_dev_parent = canon_resource_parent
+        .as_ref()
+        .map(|p| canon_source.starts_with(p))
+        .unwrap_or(false);
+    if !in_resources && !in_dev_parent {
         return Err(format!(
             "refusing to install: bundled extension path {} is not under app resource dir {}",
             canon_source.display(),
@@ -347,7 +345,7 @@ mod tests {
         let target = tempfile::tempdir().unwrap();
         let installed = install_extension(src.path(), target.path(), false).unwrap();
         assert!(installed.ends_with(EXTENSION_DIR_NAME));
-        assert!(installed.join("index.mjs").is_file());
+        assert!(installed.join("extension.mjs").is_file());
         assert!(installed.join("src/wire.mjs").is_file());
     }
 
@@ -368,9 +366,9 @@ mod tests {
         let target = tempfile::tempdir().unwrap();
         install_extension(src.path(), target.path(), false).unwrap();
         // Modify source, reinstall with overwrite.
-        write(&src.path().join("index.mjs"), "v2");
+        write(&src.path().join("extension.mjs"), "v2");
         let installed = install_extension(src.path(), target.path(), true).unwrap();
-        let body = fs::read_to_string(installed.join("index.mjs")).unwrap();
+        let body = fs::read_to_string(installed.join("extension.mjs")).unwrap();
         assert_eq!(body, "v2");
     }
 
@@ -406,21 +404,19 @@ mod tests {
         assert!(target
             .path()
             .join(EXTENSION_DIR_NAME)
-            .join("index.mjs")
+            .join("extension.mjs")
             .is_file());
     }
 
     #[test]
-    fn xdg_data_home_overrides_default_on_linux() {
-        // Smoke: when PUTZ_COLLEAGUE_DIR is unset and we're on Linux,
-        // XDG_DATA_HOME wins over HOME-based default. We can't safely
-        // mutate process env in a parallel test runner without races,
-        // so this test only runs the cfg path; it's a compile-time
-        // assertion that the cfg(linux) branch exists.
-        #[cfg(target_os = "linux")]
-        {
-            // No-op assert; the real check is the cfg gate compiling.
-            assert!(EXTENSION_DIR_NAME.len() > 0);
-        }
+    fn extension_dir_resolves_under_dot_copilot() {
+        // Smoke: PUTZ_COLLEAGUE_DIR override path always resolves.
+        // The default path resolution requires HOME/USERPROFILE which we
+        // can't safely mutate in parallel test runs. Compile-time check
+        // that the cfg branches exist is the real assertion.
+        std::env::set_var("PUTZ_COLLEAGUE_DIR", "/tmp/putz-test-extdir");
+        let resolved = resolve_extension_dir();
+        std::env::remove_var("PUTZ_COLLEAGUE_DIR");
+        assert_eq!(resolved.as_deref(), Some(std::path::Path::new("/tmp/putz-test-extdir")));
     }
 }

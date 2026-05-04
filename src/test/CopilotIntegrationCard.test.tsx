@@ -37,7 +37,7 @@ interface Status {
 function statusOf(overrides: Partial<Status> = {}): Status {
   return {
     ghCopilotAvailable: true,
-    extensionDir: "/Users/alice/.local/share/gh/copilot-extensions",
+    extensionDir: "/Users/alice/.copilot/extensions",
     installed: false,
     ...overrides,
   };

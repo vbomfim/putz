@@ -151,7 +151,7 @@ export function CopilotIntegrationCard({ dismissed, onDismiss }: Props) {
             <p style={pStyle}>
               Manual run for testing:{" "}
               <code style={{ fontSize: 10 }}>
-                node {status.extensionDir}/putz-colleague/index.mjs
+                node {status.extensionDir}/putz-colleague/extension.mjs
               </code>{" "}
               inside a Putz tab.
             </p>

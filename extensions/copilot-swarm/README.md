@@ -21,8 +21,8 @@ The Putz app installs this directory into the user's Copilot CLI extensions loca
 
 | Platform | Path |
 |---|---|
-| macOS / Linux | `~/.local/share/gh/copilot-extensions/putz-colleague/` |
-| Windows | `%LOCALAPPDATA%\GitHub CLI\copilot-extensions\putz-colleague\` |
+| macOS / Linux | `~/.copilot/extensions/putz-colleague/` |
+| Windows | `%USERPROFILE%\.copilot\extensions\putz-colleague\` |
 
 The exact path can be overridden by `PUTZ_COLLEAGUE_DIR`. Putz never overwrites an existing install without explicit user confirmation (SEC-006).
 
@@ -30,7 +30,7 @@ The exact path can be overridden by `PUTZ_COLLEAGUE_DIR`. Putz never overwrites 
 
 ```bash
 # Auto-detect (no-op outside Putz):
-node /path/to/putz-colleague/index.mjs
+node /path/to/putz-colleague/extension.mjs
 ```
 
 Programmatic use (e.g., from a Copilot CLI hook):
