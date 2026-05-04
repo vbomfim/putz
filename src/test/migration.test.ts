@@ -12,13 +12,14 @@
  * Tags: [TDD], [AC1-clean-boot], [AC3-no-data-loss]
  * @module migration.test
  */
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 
 import {
   CURRENT_SCHEMA_VERSION,
   VALID_TAB_TYPES,
   REMOVED_FEATURE_STORAGE_KEYS,
   isValidContentType,
+  isValidRegionTabShape,
   stripToValidFields,
   migrateRegion,
   migrateWorkspaceLayout,
@@ -992,5 +993,203 @@ describe("schema v2 — templates/history legacy tab filtering", () => {
     expect(result).not.toBeNull();
     expect(result!.schemaVersion).toBe(CURRENT_SCHEMA_VERSION);
     expect(result!.regions.r1.tabs.map((t) => t.type)).toEqual(["terminal"]);
+  });
+});
+
+// ─── RegionTab shape validation (#3) ─────────────────────────────────
+
+describe("isValidRegionTabShape", () => {
+  it("accepts a fully-formed terminal tab", () => {
+    const tab = {
+      id: "t1",
+      title: "Terminal",
+      type: "terminal",
+      sessionId: "sess-1",
+    } as unknown as Parameters<typeof isValidRegionTabShape>[0];
+    expect(isValidRegionTabShape(tab)).toBe(true);
+  });
+
+  it("rejects a tab missing id", () => {
+    const tab = {
+      title: "Terminal",
+      type: "terminal",
+      sessionId: "sess-1",
+    } as unknown as Parameters<typeof isValidRegionTabShape>[0];
+    expect(isValidRegionTabShape(tab)).toBe(false);
+  });
+
+  it("rejects a tab with empty-string id", () => {
+    const tab = {
+      id: "",
+      title: "T",
+      type: "terminal",
+      sessionId: "s",
+    } as unknown as Parameters<typeof isValidRegionTabShape>[0];
+    expect(isValidRegionTabShape(tab)).toBe(false);
+  });
+
+  it("rejects a tab with non-string sessionId", () => {
+    const tab = {
+      id: "t1",
+      title: "T",
+      type: "terminal",
+      sessionId: 42,
+    } as unknown as Parameters<typeof isValidRegionTabShape>[0];
+    expect(isValidRegionTabShape(tab)).toBe(false);
+  });
+
+  it("rejects a tab with missing title", () => {
+    const tab = {
+      id: "t1",
+      type: "terminal",
+      sessionId: "s",
+    } as unknown as Parameters<typeof isValidRegionTabShape>[0];
+    expect(isValidRegionTabShape(tab)).toBe(false);
+  });
+});
+
+describe("migrateRegion — shape validation drops malformed tabs", () => {
+  it("drops a terminal tab missing id, keeps valid tabs", () => {
+    const region = {
+      id: "r1",
+      tabs: [
+        // Missing id — must be dropped
+        { title: "Bad", type: "terminal", sessionId: "s1" },
+        // Valid
+        { id: "t2", title: "Good", type: "terminal", sessionId: "s2" },
+      ],
+      activeTabId: "t2",
+      tabPosition: "top",
+    };
+    const result = migrateRegion(region);
+    expect(result.tabs).toHaveLength(1);
+    expect(result.tabs[0].id).toBe("t2");
+  });
+
+  it("drops a tab whose sessionId is non-string", () => {
+    const region = {
+      id: "r1",
+      tabs: [
+        { id: "t1", title: "Bad", type: "terminal", sessionId: 99 },
+        { id: "t2", title: "Good", type: "terminal", sessionId: "s2" },
+      ],
+      activeTabId: "t1",
+      tabPosition: "top",
+    };
+    const result = migrateRegion(region);
+    expect(result.tabs.map((t) => t.id)).toEqual(["t2"]);
+    // activeTabId pointed to a dropped tab → falls through to first surviving
+    expect(result.activeTabId).toBe("t2");
+  });
+
+  it("normalizes invalid tabPosition (e.g. 'diagonal') to default 'top'", () => {
+    const region = {
+      id: "r1",
+      tabs: [{ id: "t1", title: "T", type: "terminal", sessionId: "s1" }],
+      activeTabId: "t1",
+      tabPosition: "diagonal",
+    };
+    const result = migrateRegion(region);
+    expect(result.tabPosition).toBe("top");
+  });
+
+  it("preserves valid non-default tabPosition values", () => {
+    for (const pos of ["bottom", "left", "right", "top"] as const) {
+      const region = {
+        id: "r1",
+        tabs: [{ id: "t1", title: "T", type: "terminal", sessionId: "s1" }],
+        activeTabId: "t1",
+        tabPosition: pos,
+      };
+      expect(migrateRegion(region).tabPosition).toBe(pos);
+    }
+  });
+
+  it("logs the count of dropped invalid tabs (not the contents — privacy)", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const region = {
+      id: "r1",
+      tabs: [
+        { id: "t1", title: "Good", type: "terminal", sessionId: "s1" },
+        // Missing id
+        { title: "Bad1", type: "terminal", sessionId: "s2" },
+        // Missing title
+        { id: "t3", type: "terminal", sessionId: "s3" },
+      ],
+      activeTabId: "t1",
+      tabPosition: "top",
+    };
+    const result = migrateRegion(region);
+    expect(result.tabs).toHaveLength(1);
+    expect(warn).toHaveBeenCalledTimes(1);
+    const message = String(warn.mock.calls[0][0]);
+    expect(message).toContain("dropped 2 tab(s)");
+    // Privacy: must not include sessionId / title contents
+    expect(message).not.toContain("s2");
+    expect(message).not.toContain("s3");
+    expect(message).not.toContain("Bad1");
+    warn.mockRestore();
+  });
+});
+
+// ─── clearRemovedFeatureStorage — read-failure independence (#2) ─────
+
+describe("clearRemovedFeatureStorage — removeItem is independent of getItem", () => {
+  it("still calls removeItem when getItem throws (hostile shim)", () => {
+    const removed: string[] = [];
+    const hostile = {
+      getItem: () => {
+        throw new Error("read denied");
+      },
+      removeItem: (k: string) => {
+        removed.push(k);
+      },
+    };
+    const result = clearRemovedFeatureStorage(hostile);
+    // Returned array is empty because we couldn't confirm presence,
+    // BUT removeItem was attempted on every key — that's the privacy contract.
+    expect(result).toEqual([]);
+    for (const key of REMOVED_FEATURE_STORAGE_KEYS) {
+      expect(removed).toContain(key);
+    }
+  });
+
+  it("does not crash when removeItem throws", () => {
+    const hostile = {
+      getItem: () => "x",
+      removeItem: () => {
+        throw new Error("write denied");
+      },
+    };
+    expect(() => clearRemovedFeatureStorage(hostile)).not.toThrow();
+  });
+
+  it("does not crash when both getItem and removeItem throw", () => {
+    const hostile = {
+      getItem: () => {
+        throw new Error("read denied");
+      },
+      removeItem: () => {
+        throw new Error("write denied");
+      },
+    };
+    expect(() => clearRemovedFeatureStorage(hostile)).not.toThrow();
+    expect(clearRemovedFeatureStorage(hostile)).toEqual([]);
+  });
+
+  it("returns the keys whose presence was confirmed before removal", () => {
+    const data = new Map<string, string>([
+      ["putz-history", '{"x":1}'],
+      ["putz-templates", '{"y":2}'],
+    ]);
+    const storage = {
+      getItem: (k: string) => (data.has(k) ? data.get(k)! : null),
+      removeItem: (k: string) => {
+        data.delete(k);
+      },
+    };
+    const removed = clearRemovedFeatureStorage(storage);
+    expect(removed).toContain("putz-history");
+    expect(removed).toContain("putz-templates");
   });
 });

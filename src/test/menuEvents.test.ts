@@ -221,25 +221,25 @@ describe("useMenuEvents", () => {
     expect(onToggleFontConfig).toHaveBeenCalledTimes(1);
   });
 
-  it("menu-config-diff is handled as unknown event without error", () => {
+  it("menu-config-diff is debug-logged as unhandled without error", () => {
     renderHook(() => useMenuEvents());
     // menu-config-diff was removed from the handler
     expect(() => emitMenuEvent("menu-config-diff")).not.toThrow();
   });
 
-  it("menu-command-templates is handled as unknown event without error", () => {
+  it("menu-command-templates is debug-logged as unhandled without error", () => {
     renderHook(() => useMenuEvents());
     // menu-command-templates was removed when Command Templates was decommissioned
     expect(() => emitMenuEvent("menu-command-templates")).not.toThrow();
   });
 
-  it("menu-command-history is handled as unknown event without error", () => {
+  it("menu-command-history is debug-logged as unhandled without error", () => {
     renderHook(() => useMenuEvents());
     // menu-command-history was removed when Command History was decommissioned
     expect(() => emitMenuEvent("menu-command-history")).not.toThrow();
   });
 
-  it("menu-sftp is handled as unknown event without error", () => {
+  it("menu-sftp is debug-logged as unhandled without error", () => {
     renderHook(() => useMenuEvents());
     // menu-sftp was removed from the handler
     expect(() => emitMenuEvent("menu-sftp")).not.toThrow();

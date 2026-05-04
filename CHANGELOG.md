@@ -7,6 +7,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Removed
+- **Command Templates** panel and `Ctrl+Shift+T` shortcut.
+- **Command History** panel and `Ctrl+R` shortcut.
+- Tauri IPC commands: `template_list`, `template_get`, `template_create`,
+  `template_delete`, `template_execute`, `history_add`, `history_search`,
+  `history_get_recent`, `history_clear`.
+- Cargo dependency: `rusqlite` (templates/history were the sole consumers).
+- Frontend modules `src/components/Templates/` and `src/components/History/`
+  and the `addTemplateTab` / `addHistoryTab` `layoutStore` actions.
+
+### Migration
+- Schema bump **v1 → v2** — legacy `templates` / `history` tabs are
+  auto-removed from persisted regions on first launch.
+- Auto-cleanup of legacy localStorage keys (`putz-history`, `putz-templates`,
+  `putz-command-history`, `putz-command-templates`) on every launch
+  (idempotent sweep, defense-in-depth).
+
+### Notes
+- **On-disk legacy artifacts** (`~/Library/Application Support/putz/command_history.db`
+  on macOS, `~/.config/putz/command_history.db` on Linux, `%APPDATA%\putz\command_history.db`
+  on Windows; plus the `templates/` directory next to it) are **not auto-deleted**
+  in this release — single-user dev environment, acceptable per user. Delete
+  manually if desired:
+  ```sh
+  # macOS
+  rm -rf ~/Library/Application\ Support/putz/command_history.db* \
+         ~/Library/Application\ Support/putz/templates
+  # Linux
+  rm -rf ~/.config/putz/command_history.db* ~/.config/putz/templates
+  ```
+
 ## [0.4.0] — 2026-05-02
 
 ### BREAKING CHANGES

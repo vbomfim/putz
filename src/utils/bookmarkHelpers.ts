@@ -78,7 +78,7 @@ export function isBookmarkActionAvailable(tab: RegionTab): boolean {
  *
  * - Editor/CSV/Markdown tabs → file bookmark (if `editorFilePath` present)
  * - Terminal tabs → folder bookmark (CWD from cwdRegistry)
- * - Settings/History/Template/Diff/Search → null
+ * - Settings/Diff/Search → null
  *
  * @param tab - The RegionTab to inspect.
  * @returns BookmarkableItem or null if nothing is bookmarkable.
