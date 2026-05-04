@@ -192,21 +192,6 @@ describe("getBookmarkableFromTab", () => {
     expect(getBookmarkableFromTab(tab)).toBeNull();
   });
 
-  it("returns null for vault tab", () => {
-    const tab = makeTab({ type: "vault" });
-    expect(getBookmarkableFromTab(tab)).toBeNull();
-  });
-
-  it("returns null for history tab", () => {
-    const tab = makeTab({ type: "history" });
-    expect(getBookmarkableFromTab(tab)).toBeNull();
-  });
-
-  it("returns null for templates tab", () => {
-    const tab = makeTab({ type: "templates" });
-    expect(getBookmarkableFromTab(tab)).toBeNull();
-  });
-
   it("returns null for diff tab", () => {
     const tab = makeTab({ type: "diff" });
     expect(getBookmarkableFromTab(tab)).toBeNull();
@@ -395,20 +380,6 @@ describe("isBookmarkActionAvailable", () => {
 
   it("returns false for settings tab", () => {
     expect(isBookmarkActionAvailable(makeTab({ type: "settings" }))).toBe(
-      false,
-    );
-  });
-
-  it("returns false for vault tab", () => {
-    expect(isBookmarkActionAvailable(makeTab({ type: "vault" }))).toBe(false);
-  });
-
-  it("returns false for history tab", () => {
-    expect(isBookmarkActionAvailable(makeTab({ type: "history" }))).toBe(false);
-  });
-
-  it("returns false for templates tab", () => {
-    expect(isBookmarkActionAvailable(makeTab({ type: "templates" }))).toBe(
       false,
     );
   });

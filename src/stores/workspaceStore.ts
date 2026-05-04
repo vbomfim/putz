@@ -15,6 +15,7 @@ import type { Region, LayoutNode } from "../types";
 import {
   migrateWorkspaceLayout,
   CURRENT_SCHEMA_VERSION,
+  clearRemovedFeatureStorage,
 } from "../utils/migratePersistence";
 
 /** Preset workspace accent colors (Catppuccin palette). */
@@ -64,6 +65,14 @@ function generateId(): string {
 
 /** Loads persisted workspace state from localStorage. */
 function loadPersistedState(): PersistedWorkspaceState {
+  // Sweep storage keys belonging to features removed in this build
+  // (Command Templates / Command History). Idempotent. Wrapped in
+  // try/catch — a hostile localStorage shim must not crash startup.
+  try {
+    clearRemovedFeatureStorage();
+  } catch {
+    // Best-effort PII sweep — never block boot on storage failure.
+  }
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) {
@@ -127,7 +136,7 @@ function captureLayoutState(): WorkspaceLayout {
  *
  * Applies migration to guard against stale tab data that may have been
  * captured in a previous session before decommissioned features were removed.
- * See: migration schema v1 (migratePersistence.ts).
+ * See: migration schema v1→v2 (migratePersistence.ts).
  *
  * On any exception (migration throws, setState rejects, schema invariant
  * violation), falls back to fresh state — corrupt snapshot must not crash startup.

@@ -12,8 +12,6 @@ import { TerminalView } from "../Terminal";
 import { EditorTab } from "../Scripting/EditorTab";
 import { DiffEditorTab } from "../Scripting/DiffEditorTab";
 import { SearchReplaceTab } from "../Scripting/SearchReplaceTab";
-import { HistoryTab } from "../History/HistoryTab";
-import { TemplateTab } from "../Templates/TemplateTab";
 import { SettingsTab } from "../Settings/SettingsTab";
 import { BookmarksPanel } from "../BookmarksPanel";
 import { MarkdownTab } from "../Markdown/MarkdownTab";
@@ -151,38 +149,6 @@ export function RegionView({ region, isFocused }: RegionViewProps) {
                   regionId={region.id}
                   tabId={tab.id}
                 />
-              </div>
-            );
-          }
-          if (tab.type === "history") {
-            return (
-              <div
-                key={tab.id}
-                style={{
-                  display: isTabActive ? "flex" : "none",
-                  flex: 1,
-                  flexDirection: "column",
-                  minHeight: 0,
-                  overflow: "hidden",
-                }}
-              >
-                <HistoryTab />
-              </div>
-            );
-          }
-          if (tab.type === "templates") {
-            return (
-              <div
-                key={tab.id}
-                style={{
-                  display: isTabActive ? "flex" : "none",
-                  flex: 1,
-                  flexDirection: "column",
-                  minHeight: 0,
-                  overflow: "hidden",
-                }}
-              >
-                <TemplateTab />
               </div>
             );
           }

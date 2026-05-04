@@ -24,8 +24,6 @@ interface MenuEventPayload {
 export interface MenuEventCallbacks {
   onToggleThemeEditor?: () => void;
   onToggleFontConfig?: () => void;
-  onToggleTemplates?: () => void;
-  onToggleHistory?: () => void;
   onToggleScript?: () => void;
   onOpenSettings?: () => void;
   onToggleWorkspaceBar?: () => void;
@@ -180,14 +178,6 @@ export function useMenuEvents(): void {
           menuCallbacks.onToggleFontConfig?.();
           break;
 
-        case "menu-command-templates":
-          menuCallbacks.onToggleTemplates?.();
-          break;
-
-        case "menu-command-history":
-          menuCallbacks.onToggleHistory?.();
-          break;
-
         case "menu-script-editor":
           menuCallbacks.onToggleScript?.();
           break;
@@ -228,7 +218,10 @@ export function useMenuEvents(): void {
           break;
 
         default:
-          // Unknown menu event — log for debugging
+          // Unknown menu event (typo, removed feature, future menu item
+          // not yet wired in this build) — ignored without dispatching
+          // behavior; debug-logged for diagnostics so renamed/typoed IDs
+          // surface in dev tools rather than silently no-op.
           console.debug(`[menuEvents] Unhandled menu event: ${id}`);
           break;
       }

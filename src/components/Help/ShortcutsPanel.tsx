@@ -67,13 +67,6 @@ export const SHORTCUT_CATEGORIES: ShortcutCategory[] = [
     ],
   },
   {
-    category: "Tools",
-    shortcuts: [
-      { action: "Command History", keys: "Ctrl+R" },
-      { action: "Command Templates", keys: "Ctrl+Shift+T" },
-    ],
-  },
-  {
     category: "Window",
     shortcuts: [
       { action: "Pop Out Tab", keys: "Ctrl+Shift+P" },

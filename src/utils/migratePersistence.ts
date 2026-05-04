@@ -1,10 +1,14 @@
 /**
- * Persistence migration utilities for v1.0.
+ * Persistence migration utilities (current schema: v2).
  *
- * Handles upgrading on-disk state from v0.3.x → v1.0 by:
- * - Filtering out tabs with content types removed in the decommission epic (#86)
+ * Handles upgrading on-disk state from older snapshots to the current
+ * schema by:
+ * - Filtering out tabs with content types removed in the decommission
+ *   epic (#86) and the templates/history removal (this PR — v1→v2)
  * - Picking only valid fields (allowlist) from persisted tab objects
+ * - Validating the structural shape of each tab (required fields)
  * - Fixing dangling `activeTabId` references after tab removal
+ * - Normalizing invalid `tabPosition` values to a safe default
  *
  * All functions are pure (input → output, no side effects) and wrapped
  * in try/catch to guarantee a safe fallback.
@@ -12,20 +16,40 @@
  * Schema versions:
  *   undefined / 0 → pre-v1.0 (may contain ssh, vault, chatview, etc.)
  *   1             → v1.0 (decommissioned content types removed)
+ *   2             → v1.1 (command templates + command history removed) — CURRENT
  *
  * Migration registry:
  *   Add future version bumps to the MIGRATIONS record below.
  *   Example: { 0: migrateV0ToV1, 1: migrateV1ToV2 }
+ *
+ * Side effect:
+ *   On every load, this module also clears any persisted
+ *   command-history / templates state from localStorage, since those
+ *   features (and the keys they wrote) no longer exist. See
+ *   {@link clearRemovedFeatureStorage}.
  *
  * @module migratePersistence
  */
 import type { Region, RegionTab, TabContentType } from "../types";
 
 /** Current schema version for persisted layout/workspace data. */
-export const CURRENT_SCHEMA_VERSION = 1;
+export const CURRENT_SCHEMA_VERSION = 2;
 
 /**
- * Allowlist of content types supported in v1.0.
+ * localStorage keys that may have been written by the removed
+ * Command Templates / Command History features. The migrator nukes
+ * these on first launch after upgrade so we don't carry orphan
+ * Tier-2 PII forever.
+ */
+export const REMOVED_FEATURE_STORAGE_KEYS: readonly string[] = [
+  "putz-history",
+  "putz-templates",
+  "putz-command-history",
+  "putz-command-templates",
+];
+
+/**
+ * Allowlist of content types supported in schema v2.
  *
  * Uses an allowlist (not blocklist) so that any unknown type — whether from
  * a removed feature or data corruption — is filtered out. New content types
@@ -36,8 +60,6 @@ export const VALID_TAB_TYPES: ReadonlySet<string> = new Set<string>([
   "editor",
   "diff",
   "search",
-  "history",
-  "templates",
   "settings",
   "markdown",
   "csv",
@@ -103,10 +125,53 @@ export function isValidContentType(type: unknown): type is TabContentType {
 }
 
 /**
+ * Valid `tabPosition` values for a Region. Anything outside this set
+ * is normalized to `DEFAULT_TAB_POSITION` during migration.
+ */
+const VALID_TAB_POSITIONS: ReadonlySet<string> = new Set([
+  "top",
+  "bottom",
+  "left",
+  "right",
+]);
+
+/** Default `tabPosition` used when the persisted value is missing or invalid. */
+const DEFAULT_TAB_POSITION = "top" as const;
+
+/**
+ * Structural shape predicate for a migrated RegionTab.
+ *
+ * After `stripToValidFields` has run, we still need to confirm the
+ * required fields actually exist with the right primitive types — a
+ * persisted snapshot from a corrupted shutdown may have a tab with
+ * `type: "terminal"` but no `id`, `title`, or `sessionId`. Such a tab
+ * cannot be safely rendered and must be dropped (not coerced).
+ *
+ * Required: `id`, `title`, `sessionId` — all non-empty strings.
+ *
+ * Privacy: we deliberately do NOT log the contents of dropped tabs.
+ * They may contain editor file paths or terminal session IDs which
+ * could be sensitive. The migration logs only the *count* of dropped
+ * tabs at the region level (see `migrateRegion`).
+ */
+export function isValidRegionTabShape(tab: RegionTab): boolean {
+  return (
+    typeof tab.id === "string" &&
+    tab.id.length > 0 &&
+    typeof tab.title === "string" &&
+    tab.title.length > 0 &&
+    typeof tab.sessionId === "string" &&
+    tab.sessionId.length > 0
+  );
+}
+
+/**
  * Migrates a single region's tabs:
  * 1. Removes tabs with unknown/removed content types
  * 2. Strips removed fields from remaining tabs
- * 3. Fixes `activeTabId` if it pointed to a removed tab
+ * 3. Drops tabs whose required shape (id/title/sessionId) is invalid
+ * 4. Normalizes invalid `tabPosition` to the default
+ * 5. Fixes `activeTabId` if it pointed to a removed tab
  *
  * @param region - Raw persisted region (may have stale data)
  * @returns Cleaned region safe for v1.0
@@ -114,8 +179,9 @@ export function isValidContentType(type: unknown): type is TabContentType {
 export function migrateRegion(region: Record<string, unknown>): Region {
   const rawTabs = Array.isArray(region.tabs) ? region.tabs : [];
 
-  // Filter to valid content types, then pick only valid fields
-  const migratedTabs: RegionTab[] = rawTabs
+  // Filter to valid content types, then pick only valid fields, then
+  // drop tabs that don't satisfy the required structural shape.
+  const candidateTabs: RegionTab[] = rawTabs
     .filter(
       (tab: Record<string, unknown>) =>
         tab != null &&
@@ -124,6 +190,17 @@ export function migrateRegion(region: Record<string, unknown>): Region {
     )
     .map((tab: Record<string, unknown>) => stripToValidFields(tab));
 
+  const migratedTabs: RegionTab[] = candidateTabs.filter(isValidRegionTabShape);
+
+  const droppedShapeCount = candidateTabs.length - migratedTabs.length;
+  if (droppedShapeCount > 0) {
+    // Log count only — never the contents (privacy: file paths,
+    // session IDs may be sensitive).
+    console.warn(
+      `[migrateRegion] dropped ${droppedShapeCount} tab(s) with invalid shape`,
+    );
+  }
+
   // Fix activeTabId — if it pointed to a removed tab, pick the first remaining
   const activeTabId =
     typeof region.activeTabId === "string" &&
@@ -131,14 +208,19 @@ export function migrateRegion(region: Record<string, unknown>): Region {
       ? (region.activeTabId as string)
       : (migratedTabs[0]?.id ?? "");
 
+  // Normalize tabPosition to a known value; reject persisted garbage
+  // like "diagonal" or non-strings.
+  const tabPosition: Region["tabPosition"] =
+    typeof region.tabPosition === "string" &&
+    VALID_TAB_POSITIONS.has(region.tabPosition)
+      ? (region.tabPosition as Region["tabPosition"])
+      : DEFAULT_TAB_POSITION;
+
   return {
     id: typeof region.id === "string" ? region.id : "",
     tabs: migratedTabs,
     activeTabId,
-    tabPosition:
-      typeof region.tabPosition === "string"
-        ? (region.tabPosition as Region["tabPosition"])
-        : "top",
+    tabPosition,
   };
 }
 
@@ -186,4 +268,53 @@ export function migrateWorkspaceLayout(
       typeof raw.focusedRegionId === "string" ? raw.focusedRegionId : "",
     schemaVersion: CURRENT_SCHEMA_VERSION,
   };
+}
+
+/**
+ * Removes localStorage keys written by features that no longer exist
+ * (Command Templates, Command History). Idempotent: safe to call on
+ * every boot.
+ *
+ * Privacy: shell command history is **Tier-2 PII** (commands may include
+ * hostnames, file paths, IPs). This wipes it from local storage on first
+ * launch after upgrade.
+ *
+ * Removal must NOT depend on a successful `getItem` read. Hostile shims,
+ * quota errors, or "denied storage" sandboxes can throw on `getItem`
+ * while still allowing `removeItem` to succeed — and the PII removal
+ * is the privacy contract here, not the read. We therefore call
+ * `removeItem(key)` unconditionally inside per-key try/catch.
+ *
+ * The returned array reports keys that the caller can be confident
+ * *did* exist before removal (used for telemetry / tests). Keys whose
+ * `getItem` probe threw will not appear in the array, but `removeItem`
+ * was still attempted.
+ *
+ * @returns the keys whose presence was confirmed before removal
+ */
+export function clearRemovedFeatureStorage(
+  storage: Pick<Storage, "getItem" | "removeItem"> | null = typeof localStorage !==
+    "undefined"
+    ? localStorage
+    : null,
+): string[] {
+  if (storage == null) return [];
+  const removed: string[] = [];
+  for (const key of REMOVED_FEATURE_STORAGE_KEYS) {
+    let existed = false;
+    try {
+      existed = storage.getItem(key) != null;
+    } catch {
+      // Hostile shim / quota / denied storage on read — fall through,
+      // we still attempt removeItem below. Privacy contract is the
+      // removal, not the read.
+    }
+    try {
+      storage.removeItem(key);
+      if (existed) removed.push(key);
+    } catch {
+      // Hostile shim — best-effort, swallow.
+    }
+  }
+  return removed;
 }

@@ -341,3 +341,39 @@ describe("workspaceStore", () => {
     expect(WORKSPACE_COLORS.length).toBeGreaterThanOrEqual(8);
   });
 });
+
+// ─── Wiring: removed-feature storage sweep on first load (#10) ───────
+
+describe("workspaceStore — removed-feature storage sweep (integration)", () => {
+  /**
+   * The Tier-2 PII removal contract is that loading the workspace store
+   * for the first time removes any leftover `putz-history` / `putz-templates`
+   * keys from localStorage. The unit tests in migration.test.ts cover the
+   * sweep function in isolation; THIS test proves it is actually wired
+   * into the load path (regression guard for #10).
+   */
+  it("clears putz-history and putz-templates from localStorage on first load", async () => {
+    // Seed leftover PII keys that an old build wrote.
+    localStorageMock.clear();
+    localStorageMock.setItem(
+      "putz-history",
+      JSON.stringify({ entries: ["ssh root@1.2.3.4"] }),
+    );
+    localStorageMock.setItem(
+      "putz-templates",
+      JSON.stringify({ templates: [{ name: "deploy", body: "..." }] }),
+    );
+    localStorageMock.setItem("putz-bookmarks", '{"keep":true}');
+
+    // Force re-evaluation of the workspaceStore module so its
+    // module-level `loadPersistedState()` runs against the seeded
+    // localStorage (rather than reusing the cached singleton).
+    vi.resetModules();
+    await import("../stores/workspaceStore");
+
+    expect(localStorageMock.getItem("putz-history")).toBeNull();
+    expect(localStorageMock.getItem("putz-templates")).toBeNull();
+    // Unrelated keys must survive
+    expect(localStorageMock.getItem("putz-bookmarks")).toBe('{"keep":true}');
+  });
+});
