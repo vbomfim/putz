@@ -313,8 +313,7 @@ function ColleagueContextMenu({
             value={state.notifyText}
             onChange={(e) => onUpdateText(e.target.value)}
             maxLength={MAX_INLINE_NOTIFY_LEN}
-            // eslint-disable-next-line jsx-a11y/no-autofocus
-            autoFocus
+            ref={(el) => el?.focus()}
             style={{
               width: "100%",
               padding: "4px 6px",

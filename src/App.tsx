@@ -40,6 +40,14 @@ import { WorkspaceBar } from "./components/Workspace";
 import { BookmarksBar } from "./components/BookmarksBar";
 import { useThemeStore } from "./stores/themeStore";
 import { useSettingsStore } from "./stores/settingsStore";
+import {
+  SwarmSidebar,
+  InboxPanel,
+  SpawnPalette,
+} from "./components/Swarm";
+import { useSwarmShortcuts } from "./hooks/useSwarmShortcuts";
+import { useSwarmNotifyListener } from "./hooks/useSwarmNotifyListener";
+import { useSwarmInboxStore } from "./stores/swarmInboxStore";
 import type { Theme } from "./components/Terminal/themeTypes";
 import type { RegionTab } from "./types";
 import "./styles/App.css";
@@ -61,11 +69,56 @@ function App() {
   const toggleWorkspaceBar = useSettingsStore((s) => s.toggleWorkspaceBar);
   const bookmarksBarVisible = useSettingsStore((s) => s.bookmarksBarVisible);
   const toggleBookmarksBar = useSettingsStore((s) => s.toggleBookmarksBar);
+  const swarmEnabled = useSettingsStore((s) => s.swarmEnabled);
+  const swarmSidebarPosition = useSettingsStore(
+    (s) => s.swarmSidebarPosition,
+  );
+  const swarmSidebarCollapsed = useSettingsStore(
+    (s) => s.swarmSidebarCollapsed,
+  );
+  const toggleSwarmSidebarCollapsed = useSettingsStore(
+    (s) => s.toggleSwarmSidebarCollapsed,
+  );
   const hasInitialized = useRef(false);
   const [themeEditorOpen, setThemeEditorOpen] = useState(false);
   const [fontConfigOpen, setFontConfigOpen] = useState(false);
   const [availableThemes, setAvailableThemes] = useState<Theme[]>([]);
   const [toastMessage, showToast, dismissToast] = useToast();
+  const [inboxOpen, setInboxOpen] = useState(false);
+  const [paletteOpen, setPaletteOpen] = useState(false);
+
+  // Swarm: keyboard shortcuts (Cmd+J inbox, Cmd+K palette).
+  useSwarmShortcuts({
+    onToggleInbox: useCallback(() => setInboxOpen((v) => !v), []),
+    onTogglePalette: useCallback(() => setPaletteOpen((v) => !v), []),
+  });
+
+  // Swarm: subscribe to swarm://notify events.
+  useSwarmNotifyListener();
+
+  // Focus-tab callback used by inbox + sidebar rows. Resolves the
+  // tab id within the layout store and switches the active tab in the
+  // first matching region.
+  const focusSwarmTab = useCallback((tabId: string) => {
+    const state = useLayoutStore.getState();
+    for (const [regionId, region] of Object.entries(state.regions)) {
+      if (region.tabs.some((t) => t.id === tabId)) {
+        // Mark all read for that tab when focused.
+        useSwarmInboxStore.getState().markAllReadForTab(tabId);
+        // setActiveTab is the canonical store action; if not present
+        // (older store), fall back to direct setState.
+        const setActive = (
+          state as unknown as {
+            setActiveTab?: (regionId: string, tabId: string) => void;
+          }
+        ).setActiveTab;
+        if (typeof setActive === "function") {
+          setActive(regionId, tabId);
+        }
+        return;
+      }
+    }
+  }, []);
 
   // ─── Bookmark: core "add bookmark" logic ─────────────────────────
   /**
@@ -294,13 +347,46 @@ function App() {
           />
         )}
         <div style={{ display: "flex", flex: 1, minHeight: 0 }}>
+          {swarmEnabled && swarmSidebarPosition === "left" && (
+            <SwarmSidebar
+              position="left"
+              collapsed={swarmSidebarCollapsed}
+              onToggleCollapsed={toggleSwarmSidebarCollapsed}
+              onFocusTab={focusSwarmTab}
+            />
+          )}
           <div className="app-content">
             <RegionContainer />
           </div>
+          {swarmEnabled && swarmSidebarPosition === "right" && (
+            <SwarmSidebar
+              position="right"
+              collapsed={swarmSidebarCollapsed}
+              onToggleCollapsed={toggleSwarmSidebarCollapsed}
+              onFocusTab={focusSwarmTab}
+            />
+          )}
         </div>
         <PathBar />
         <BroadcastBar />
         <ShortcutsPanel />
+
+        {/* Swarm modals — Cmd+J inbox + Cmd+K spawn palette */}
+        <InboxPanel
+          open={inboxOpen}
+          onClose={() => setInboxOpen(false)}
+          onFocusTab={(tabId) => {
+            focusSwarmTab(tabId);
+            setInboxOpen(false);
+          }}
+        />
+        <SpawnPalette
+          open={paletteOpen}
+          onClose={() => setPaletteOpen(false)}
+          workspaceRoot={null}
+          invoke={invoke}
+          onSpawnError={(_, msg) => showToast(`Spawn failed: ${msg}`)}
+        />
 
         {/* Font Config overlay */}
         {fontConfigOpen && (

@@ -90,7 +90,6 @@ export function useSwarmNotifyListener(deps: ListenerDeps = {}): void {
       cancelled = true;
       if (unlisten) unlisten();
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [deps.listen]);
 }
 

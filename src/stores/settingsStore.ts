@@ -23,6 +23,10 @@ interface PersistedSettings {
   backgroundSize: string;
   defaultShell: string;
   swarmEnabled: boolean;
+  /** Sidebar position. "hidden" hides the entire colleague sidebar. */
+  swarmSidebarPosition: "left" | "right" | "hidden";
+  /** Whether the swarm sidebar is in narrow icon-only mode. */
+  swarmSidebarCollapsed: boolean;
   copilotCardDismissed: boolean;
 }
 
@@ -43,6 +47,12 @@ function loadPersistedSettings(): PersistedSettings {
         backgroundSize: parsed.backgroundSize ?? "large",
         defaultShell: parsed.defaultShell ?? "",
         swarmEnabled: parsed.swarmEnabled ?? false,
+        swarmSidebarPosition:
+          parsed.swarmSidebarPosition === "right" ||
+          parsed.swarmSidebarPosition === "hidden"
+            ? parsed.swarmSidebarPosition
+            : "left",
+        swarmSidebarCollapsed: parsed.swarmSidebarCollapsed ?? false,
         copilotCardDismissed: parsed.copilotCardDismissed ?? false,
       };
     }
@@ -60,6 +70,8 @@ function loadPersistedSettings(): PersistedSettings {
     backgroundSize: "large",
     defaultShell: "",
     swarmEnabled: false,
+    swarmSidebarPosition: "left",
+    swarmSidebarCollapsed: false,
     copilotCardDismissed: false,
   };
 }
@@ -109,6 +121,12 @@ interface SettingsState {
   /** Whether the Copilot swarm broker is enabled. */
   swarmEnabled: boolean;
 
+  /** Sidebar position for the swarm colleague list. */
+  swarmSidebarPosition: "left" | "right" | "hidden";
+
+  /** Whether the swarm sidebar is in narrow icon-only mode. */
+  swarmSidebarCollapsed: boolean;
+
   /** Whether the user has dismissed the Copilot integration discovery card. */
   copilotCardDismissed: boolean;
 
@@ -151,6 +169,14 @@ interface SettingsState {
   /** Sets the swarm enabled state. */
   setSwarmEnabled: (enabled: boolean) => void;
 
+  /** Sets the sidebar position. */
+  setSwarmSidebarPosition: (
+    position: "left" | "right" | "hidden",
+  ) => void;
+
+  /** Toggles the sidebar collapsed state. */
+  toggleSwarmSidebarCollapsed: () => void;
+
   /** Persistently dismiss (or restore) the Copilot integration discovery card. */
   setCopilotCardDismissed: (dismissed: boolean) => void;
 }
@@ -171,6 +197,8 @@ export const useSettingsStore = create<SettingsState>((set, get) => {
       backgroundSize: s.backgroundSize,
       defaultShell: s.defaultShell,
       swarmEnabled: s.swarmEnabled,
+      swarmSidebarPosition: s.swarmSidebarPosition,
+      swarmSidebarCollapsed: s.swarmSidebarCollapsed,
       copilotCardDismissed: s.copilotCardDismissed,
     });
   };
@@ -186,6 +214,8 @@ export const useSettingsStore = create<SettingsState>((set, get) => {
     backgroundSize: persisted.backgroundSize,
     defaultShell: persisted.defaultShell,
     swarmEnabled: persisted.swarmEnabled,
+    swarmSidebarPosition: persisted.swarmSidebarPosition,
+    swarmSidebarCollapsed: persisted.swarmSidebarCollapsed,
     copilotCardDismissed: persisted.copilotCardDismissed,
     shortcutsPanelOpen: false,
 
@@ -249,6 +279,18 @@ export const useSettingsStore = create<SettingsState>((set, get) => {
 
     setSwarmEnabled: (enabled: boolean) => {
       set({ swarmEnabled: enabled });
+      persist();
+    },
+
+    setSwarmSidebarPosition: (
+      position: "left" | "right" | "hidden",
+    ) => {
+      set({ swarmSidebarPosition: position });
+      persist();
+    },
+
+    toggleSwarmSidebarCollapsed: () => {
+      set({ swarmSidebarCollapsed: !get().swarmSidebarCollapsed });
       persist();
     },
 

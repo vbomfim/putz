@@ -106,7 +106,6 @@ export function useSwarmRoster(
       cancelled = true;
       if (unlisten) unlisten();
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [deps.invoke, deps.listen]);
 
   return roster;
