@@ -46,6 +46,17 @@ pub async fn swarm_get_state(
     Ok(state.state_public().await)
 }
 
+/// T4 — full roster snapshot for the sidebar / inbox. Returns the same
+/// `ColleagueView` shape that peer colleagues see over the wire via
+/// `roster_update`. Cheap to call (no I/O); the sidebar refreshes on
+/// every `swarm://state-changed` event.
+#[tauri::command]
+pub async fn swarm_get_roster(
+    state: State<'_, SwarmCoordinator>,
+) -> Result<Vec<crate::swarm::types::ColleagueView>, String> {
+    Ok(state.roster().await)
+}
+
 /// Spawn a colleague tab. Fire-and-forget — the actual tab creation
 /// happens in the frontend in response to the `swarm://spawn-tab` event.
 #[tauri::command]
