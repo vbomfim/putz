@@ -15,6 +15,7 @@ import type { Region, LayoutNode } from "../types";
 import {
   migrateWorkspaceLayout,
   CURRENT_SCHEMA_VERSION,
+  clearRemovedFeatureStorage,
 } from "../utils/migratePersistence";
 
 /** Preset workspace accent colors (Catppuccin palette). */
@@ -64,6 +65,9 @@ function generateId(): string {
 
 /** Loads persisted workspace state from localStorage. */
 function loadPersistedState(): PersistedWorkspaceState {
+  // Sweep storage keys belonging to features removed in this build
+  // (Command Templates / Command History). Idempotent.
+  clearRemovedFeatureStorage();
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) {

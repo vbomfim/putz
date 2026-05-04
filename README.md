@@ -13,7 +13,6 @@ A modern, cross-platform local terminal emulator with a few unique tricks: a bui
 - 📡 **Broadcast** — send input to multiple terminal panes simultaneously
 - 🎨 **Themes** — customizable themes, fonts, and key bindings
 - 🔍 **Highlight engine** — keyword highlighting with regex support and preset themes
-- 📜 **History & templates** — command history search and reusable command templates
 - ✏️ **Editor tabs** — Monaco-based file editor built in
 - 📝 **Scripting** — script editor and runner (writes directly to PTY)
 
@@ -88,9 +87,7 @@ putz/
 │   │   ├── scripting/      # Script engine
 │   │   ├── swarm/          # AI-agent coordination
 │   │   ├── highlight/      # Keyword highlighting engine
-│   │   ├── theme/          # Theme management
-│   │   ├── history/        # Command history
-│   │   └── templates/      # Command templates
+│   │   └── theme/          # Theme management
 │   ├── Cargo.toml          # Rust dependencies
 │   └── tauri.conf.json     # Tauri configuration
 ├── scripts/                # Build & utility scripts

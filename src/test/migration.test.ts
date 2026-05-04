@@ -17,31 +17,31 @@ import { describe, it, expect } from "vitest";
 import {
   CURRENT_SCHEMA_VERSION,
   VALID_TAB_TYPES,
+  REMOVED_FEATURE_STORAGE_KEYS,
   isValidContentType,
   stripToValidFields,
   migrateRegion,
   migrateWorkspaceLayout,
+  clearRemovedFeatureStorage,
 } from "../utils/migratePersistence";
 
 // ─── Schema Version ──────────────────────────────────────────────────
 
 describe("schema version", () => {
-  it("current schema version is 1", () => {
-    expect(CURRENT_SCHEMA_VERSION).toBe(1);
+  it("current schema version is 2", () => {
+    expect(CURRENT_SCHEMA_VERSION).toBe(2);
   });
 });
 
 // ─── VALID_TAB_TYPES ─────────────────────────────────────────────────
 
 describe("VALID_TAB_TYPES", () => {
-  it("includes all v1.0 content types", () => {
+  it("includes all v1.1 content types", () => {
     const expected = [
       "terminal",
       "editor",
       "diff",
       "search",
-      "history",
-      "templates",
       "settings",
       "markdown",
       "csv",
@@ -56,7 +56,17 @@ describe("VALID_TAB_TYPES", () => {
   });
 
   it("does NOT include removed content types", () => {
-    const removed = ["ssh", "vault", "chatview", "sftp", "serial", "telnet"];
+    const removed = [
+      "ssh",
+      "vault",
+      "chatview",
+      "sftp",
+      "serial",
+      "telnet",
+      // Removed in templates+history decommission
+      "history",
+      "templates",
+    ];
     for (const t of removed) {
       expect(VALID_TAB_TYPES.has(t)).toBe(false);
     }
@@ -333,8 +343,6 @@ describe("migrateRegion", () => {
       "editor",
       "diff",
       "search",
-      "history",
-      "templates",
       "settings",
       "markdown",
       "csv",
@@ -679,7 +687,7 @@ describe("schema version stamping", () => {
     };
     const result = migrateWorkspaceLayout(raw);
     expect(result).not.toBeNull();
-    expect(result!.schemaVersion).toBe(1);
+    expect(result!.schemaVersion).toBe(CURRENT_SCHEMA_VERSION);
     // Even with schemaVersion: 1, fields are still cleaned
     expect(result!.regions.r1.tabs[0]).not.toHaveProperty("status");
   });
@@ -699,7 +707,7 @@ describe("schema version stamping", () => {
     };
     const result = migrateWorkspaceLayout(raw);
     expect(result).not.toBeNull();
-    expect(result!.schemaVersion).toBe(1);
+    expect(result!.schemaVersion).toBe(CURRENT_SCHEMA_VERSION);
     expect(result!.regions.r1.tabs).toHaveLength(0);
   });
 });
@@ -830,6 +838,9 @@ describe("all decommissioned types from epic #86 are filtered", () => {
     "sftp",
     "serial",
     "telnet",
+    // Removed in templates+history decommission (this PR)
+    "history",
+    "templates",
   ];
 
   for (const removedType of removedTypes) {
@@ -848,4 +859,138 @@ describe("all decommissioned types from epic #86 are filtered", () => {
       expect(result.tabs[0].type).toBe("terminal");
     });
   }
+});
+
+// ─── clearRemovedFeatureStorage ──────────────────────────────────────
+
+describe("clearRemovedFeatureStorage", () => {
+  /**
+   * In-memory Storage shim. Returns the same object exposed by `localStorage`
+   * so tests can inspect what keys were touched without polluting the real DOM.
+   */
+  function makeStorage(initial: Record<string, string> = {}) {
+    const data = new Map<string, string>(Object.entries(initial));
+    return {
+      getItem: (k: string) => (data.has(k) ? data.get(k)! : null),
+      removeItem: (k: string) => {
+        data.delete(k);
+      },
+      _data: data,
+    };
+  }
+
+  it("REMOVED_FEATURE_STORAGE_KEYS includes the templates and history keys", () => {
+    expect(REMOVED_FEATURE_STORAGE_KEYS).toContain("putz-history");
+    expect(REMOVED_FEATURE_STORAGE_KEYS).toContain("putz-templates");
+  });
+
+  it("removes only the keys belonging to decommissioned features", () => {
+    const storage = makeStorage({
+      "putz-history": '{"entries":[]}',
+      "putz-templates": '{"templates":[]}',
+      "putz-bookmarks": '{"keep":true}',
+      "putz-settings": '{"keep":true}',
+    });
+    const removed = clearRemovedFeatureStorage(storage);
+    expect(removed).toEqual(
+      expect.arrayContaining(["putz-history", "putz-templates"]),
+    );
+    expect(storage._data.has("putz-history")).toBe(false);
+    expect(storage._data.has("putz-templates")).toBe(false);
+    expect(storage._data.has("putz-bookmarks")).toBe(true);
+    expect(storage._data.has("putz-settings")).toBe(true);
+  });
+
+  it("is idempotent — second call removes nothing", () => {
+    const storage = makeStorage({ "putz-history": "x" });
+    expect(clearRemovedFeatureStorage(storage)).toEqual(["putz-history"]);
+    expect(clearRemovedFeatureStorage(storage)).toEqual([]);
+  });
+
+  it("returns [] when no removed keys are present", () => {
+    const storage = makeStorage({ "putz-bookmarks": "x" });
+    expect(clearRemovedFeatureStorage(storage)).toEqual([]);
+  });
+
+  it("returns [] and does not throw when storage is null", () => {
+    expect(clearRemovedFeatureStorage(null)).toEqual([]);
+  });
+
+  it("does not throw when storage.getItem throws (hostile shim)", () => {
+    const hostile = {
+      getItem: () => {
+        throw new Error("boom");
+      },
+      removeItem: () => {},
+    };
+    expect(() => clearRemovedFeatureStorage(hostile)).not.toThrow();
+    expect(clearRemovedFeatureStorage(hostile)).toEqual([]);
+  });
+});
+
+// ─── Schema v2: legacy template/history tabs are filtered ────────────
+
+describe("schema v2 — templates/history legacy tab filtering", () => {
+  it("strips legacy 'history' tabs from a persisted region", () => {
+    const region = {
+      id: "r1",
+      tabs: [
+        { id: "h1", title: "History", type: "history", sessionId: "s1" },
+        { id: "t1", title: "Terminal", type: "terminal", sessionId: "s2" },
+      ],
+      activeTabId: "h1",
+      tabPosition: "top",
+    };
+    const result = migrateRegion(region);
+    expect(result.tabs.map((t) => t.type)).toEqual(["terminal"]);
+    expect(result.activeTabId).toBe("t1"); // promoted from removed h1
+  });
+
+  it("strips legacy 'templates' tabs from a persisted region", () => {
+    const region = {
+      id: "r1",
+      tabs: [
+        {
+          id: "tpl1",
+          title: "Templates",
+          type: "templates",
+          sessionId: "s1",
+        },
+      ],
+      activeTabId: "tpl1",
+      tabPosition: "top",
+    };
+    const result = migrateRegion(region);
+    expect(result.tabs).toHaveLength(0);
+    expect(result.activeTabId).toBe("");
+  });
+
+  it("workspace layout migration drops template+history tabs across regions", () => {
+    const raw = {
+      layout: { type: "region", regionId: "r1" },
+      regions: {
+        r1: {
+          id: "r1",
+          tabs: [
+            { id: "h1", title: "History", type: "history", sessionId: "s1" },
+            {
+              id: "tpl1",
+              title: "Templates",
+              type: "templates",
+              sessionId: "s2",
+            },
+            { id: "t1", title: "Terminal", type: "terminal", sessionId: "s3" },
+          ],
+          activeTabId: "h1",
+          tabPosition: "top",
+        },
+      },
+      focusedRegionId: "r1",
+      schemaVersion: 1,
+    };
+    const result = migrateWorkspaceLayout(raw);
+    expect(result).not.toBeNull();
+    expect(result!.schemaVersion).toBe(CURRENT_SCHEMA_VERSION);
+    expect(result!.regions.r1.tabs.map((t) => t.type)).toEqual(["terminal"]);
+  });
 });

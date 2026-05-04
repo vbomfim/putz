@@ -3,6 +3,7 @@
  *
  * Handles upgrading on-disk state from v0.3.x → v1.0 by:
  * - Filtering out tabs with content types removed in the decommission epic (#86)
+ *   and the templates/history removal (v2)
  * - Picking only valid fields (allowlist) from persisted tab objects
  * - Fixing dangling `activeTabId` references after tab removal
  *
@@ -12,17 +13,37 @@
  * Schema versions:
  *   undefined / 0 → pre-v1.0 (may contain ssh, vault, chatview, etc.)
  *   1             → v1.0 (decommissioned content types removed)
+ *   2             → v1.1 (command templates + command history removed)
  *
  * Migration registry:
  *   Add future version bumps to the MIGRATIONS record below.
  *   Example: { 0: migrateV0ToV1, 1: migrateV1ToV2 }
+ *
+ * Side effect:
+ *   On first migration to v2, this module also clears any persisted
+ *   command-history / templates state from localStorage, since those
+ *   features (and the keys they wrote) no longer exist. See
+ *   {@link clearRemovedFeatureStorage}.
  *
  * @module migratePersistence
  */
 import type { Region, RegionTab, TabContentType } from "../types";
 
 /** Current schema version for persisted layout/workspace data. */
-export const CURRENT_SCHEMA_VERSION = 1;
+export const CURRENT_SCHEMA_VERSION = 2;
+
+/**
+ * localStorage keys that may have been written by the removed
+ * Command Templates / Command History features. The migrator nukes
+ * these on first launch after upgrade so we don't carry orphan
+ * Tier-2 PII forever.
+ */
+export const REMOVED_FEATURE_STORAGE_KEYS: readonly string[] = [
+  "putz-history",
+  "putz-templates",
+  "putz-command-history",
+  "putz-command-templates",
+];
 
 /**
  * Allowlist of content types supported in v1.0.
@@ -36,8 +57,6 @@ export const VALID_TAB_TYPES: ReadonlySet<string> = new Set<string>([
   "editor",
   "diff",
   "search",
-  "history",
-  "templates",
   "settings",
   "markdown",
   "csv",
@@ -186,4 +205,39 @@ export function migrateWorkspaceLayout(
       typeof raw.focusedRegionId === "string" ? raw.focusedRegionId : "",
     schemaVersion: CURRENT_SCHEMA_VERSION,
   };
+}
+
+/**
+ * Removes localStorage keys written by features that no longer exist
+ * (Command Templates, Command History). Idempotent: safe to call on
+ * every boot.
+ *
+ * Privacy: shell command history is **Tier-2 PII** (commands may include
+ * hostnames, file paths, IPs). This wipes it from local storage on first
+ * launch after upgrade.
+ *
+ * Wraps each removal in try/catch so a hostile localStorage shim (or a
+ * disk-quota error in private-browsing mode) cannot crash the app boot.
+ *
+ * @returns the keys that were actually removed (useful for telemetry/tests)
+ */
+export function clearRemovedFeatureStorage(
+  storage: Pick<Storage, "getItem" | "removeItem"> | null = typeof localStorage !==
+    "undefined"
+    ? localStorage
+    : null,
+): string[] {
+  if (storage == null) return [];
+  const removed: string[] = [];
+  for (const key of REMOVED_FEATURE_STORAGE_KEYS) {
+    try {
+      if (storage.getItem(key) != null) {
+        storage.removeItem(key);
+        removed.push(key);
+      }
+    } catch {
+      // Storage unavailable (private mode, quota, hostile shim) — skip silently.
+    }
+  }
+  return removed;
 }
