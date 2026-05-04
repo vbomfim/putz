@@ -778,7 +778,6 @@ impl SwarmCoordinator {
                 if let Some(emit) = emitter {
                     emit(public);
                 }
-                return;
             }
         }
     }
