@@ -174,6 +174,13 @@ struct Inner {
     /// @privacy Tier-2 — payloads carry user-authored notify messages.
     /// The closure body MUST emit-and-forget; never log payloads.
     notify_emitter: Option<Arc<dyn Fn(NotifyEvent) + Send + Sync>>,
+    /// Type-erased emitter for `swarm://state-changed` Tauri events.
+    /// Set in [`SwarmCoordinator::start`] alongside `notify_emitter`,
+    /// cleared on `stop()`. Used by paths that mutate the roster but
+    /// don't have an `AppHandle` in scope (e.g., `register`,
+    /// `disconnect`) so the frontend's `useSwarmRoster` hook refreshes
+    /// the sidebar immediately, not on the next 30s sweep.
+    state_changed_emitter: Option<Arc<dyn Fn(SwarmStatePublic) + Send + Sync>>,
 }
 
 /// Background tasks owned by an active swarm lifecycle. Stored on the
@@ -272,6 +279,14 @@ impl SwarmCoordinator {
                 // dropped, matching the in-memory-only PRI-001 model).
                 let _ = emit_app.emit("swarm://notify", &event);
             }));
+            // Sibling closure for `swarm://state-changed`. Used by
+            // `register` / `disconnect` so the sidebar updates in real
+            // time without waiting for the 30s sweep tick.
+            let emit_app2 = app_handle.clone();
+            inner.state_changed_emitter = Some(Arc::new(move |state: SwarmStatePublic| {
+                use tauri::Emitter;
+                let _ = emit_app2.emit("swarm://state-changed", &state);
+            }));
         }
         {
             let mut cancel_guard = self.cancel.write().await;
@@ -347,6 +362,7 @@ impl SwarmCoordinator {
         }
         inner.roster_dirty = false;
         inner.notify_emitter = None;
+        inner.state_changed_emitter = None;
         inner.by_id.clear();
         inner.by_conn.clear();
         inner.by_tab.clear();
@@ -552,6 +568,24 @@ impl SwarmCoordinator {
             colleague_id,
             roster,
         };
+
+        // Notify the frontend so the sidebar refreshes immediately —
+        // without this, useSwarmRoster only re-fetches on the next
+        // sweep tick (≈30s) or a manual toggle.
+        let emitter = inner.state_changed_emitter.clone();
+        let public = SwarmStatePublic {
+            enabled: true,
+            path: inner.path.clone(),
+            colleague_count: inner.by_id.len(),
+            colleague_ids: inner.by_id.keys().cloned().collect(),
+        };
+        // Drop write lock before the (synchronous, fire-and-forget) emit
+        // so a slow Tauri channel doesn't extend the critical section.
+        drop(inner);
+        if let Some(emit) = emitter {
+            emit(public);
+        }
+
         Ok((conn_id, ack))
     }
 
@@ -732,6 +766,19 @@ impl SwarmCoordinator {
                 if inner.by_tab.get(&tab_id) == Some(&colleague_id) {
                     inner.by_tab.remove(&tab_id);
                 }
+                // Notify frontend so the sidebar removes the row immediately.
+                let emitter = inner.state_changed_emitter.clone();
+                let public = SwarmStatePublic {
+                    enabled: true,
+                    path: inner.path.clone(),
+                    colleague_count: inner.by_id.len(),
+                    colleague_ids: inner.by_id.keys().cloned().collect(),
+                };
+                drop(inner);
+                if let Some(emit) = emitter {
+                    emit(public);
+                }
+                return;
             }
         }
     }
