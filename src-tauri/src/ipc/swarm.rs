@@ -90,3 +90,40 @@ pub async fn swarm_spawn_colleague(
         .map_err(|e| e.to_string())?;
     Ok(())
 }
+
+/// T3 / FR-011 — push an OSC-derived status update from the frontend
+/// projection layer into the coordinator. Fields are all optional so
+/// callers can push only what changed (e.g., a cwd change without
+/// touching the command status).
+///
+/// **Security:** the coordinator validates `tab_id` against its known
+/// roster — unknown tabs are rejected with `unknown_tab`. This is the
+/// primary defense against a buggy renderer or compromised content
+/// pushing bogus status updates for unrelated tabs.
+///
+/// **Privacy:** `cwd` is **@privacy Tier-2** (quasi-identifier — see
+/// PRI-001/002). The coordinator stores it in-process only and forwards
+/// it to peer colleagues over the local socket per FR-011. It is NEVER
+/// logged to stderr / persisted / forwarded to telemetry.
+#[tauri::command]
+pub async fn swarm_update_status(
+    state: State<'_, SwarmCoordinator>,
+    app: tauri::AppHandle,
+    tab_id: String,
+    command_status: Option<crate::swarm::types::CommandStatus>,
+    // @privacy Tier-2 — quasi-identifier (working directory). PRI-001/002.
+    cwd: Option<String>,
+    last_command_exit: Option<i32>,
+    last_command_at: Option<u64>,
+) -> Result<(), String> {
+    state
+        .update_status(
+            app,
+            &tab_id,
+            command_status,
+            cwd,
+            last_command_exit,
+            last_command_at,
+        )
+        .await
+}

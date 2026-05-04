@@ -80,6 +80,18 @@ pub enum Frame {
         /// See PRI-001/002.
         payload: serde_json::Value,
     },
+    /// server → client. Push of the full colleague roster after one or
+    /// more colleagues' OSC-derived status / cwd / last-command fields
+    /// changed (T3 / FR-011). Sent debounced — see
+    /// [`crate::swarm::coordinator::SwarmCoordinator::update_status`].
+    ///
+    /// The full roster is sent (not a delta) for two reasons:
+    /// (1) consumers stay stateless — they overwrite their local view
+    ///     without merging deltas, eliminating an entire class of
+    ///     "did I miss an update?" sync bugs;
+    /// (2) at the spec's scale (≤10 colleagues per machine) the wire
+    ///     cost is negligible (<1 KiB per broadcast).
+    RosterUpdate { colleagues: Vec<ColleagueView> },
     /// bidirectional. Clean shutdown. The coordinator emits this when it
     /// evicts a duplicate `register` for the same `tab_id`.
     Disconnect {
@@ -278,5 +290,53 @@ mod tests {
         a.flush().await.unwrap();
         let err = read_frame(&mut b).await.unwrap_err();
         assert!(matches!(err, FrameError::Json(_)));
+    }
+
+    /// T3: roster_update frame round-trips with the full ColleagueView
+    /// shape (incl. the new optional command_status / cwd / last_*
+    /// fields).
+    #[tokio::test]
+    async fn roundtrip_roster_update_frame() {
+        use crate::swarm::types::CommandStatus;
+        let (mut a, mut b) = duplex(8192);
+        let frame = Frame::RosterUpdate {
+            colleagues: vec![ColleagueView {
+                id: "alice-aaaa".into(),
+                name: "alice".into(),
+                tab_id: "tab-1".into(),
+                status: "idle".into(),
+                parent: None,
+                command_status: Some(CommandStatus::Running),
+                cwd: Some("/home/alice/proj".into()),
+                last_command_exit: Some(0),
+                last_command_at: Some(1_700_000_000_000),
+            }],
+        };
+        write_frame(&mut a, &frame).await.unwrap();
+        let got = read_frame(&mut b).await.unwrap().unwrap();
+        assert_eq!(got, frame);
+    }
+
+    /// T3: roster_update with a colleague missing the new optional
+    /// fields parses cleanly (back-compat with pre-T3 senders).
+    #[tokio::test]
+    async fn roster_update_accepts_legacy_colleague_shape() {
+        let (mut a, mut b) = duplex(8192);
+        let body = br#"{"type":"roster_update","colleagues":[{"id":"a","name":"a","tab_id":"t","status":"idle"}]}"#;
+        let len = (body.len() as u32).to_be_bytes();
+        a.write_all(&len).await.unwrap();
+        a.write_all(body).await.unwrap();
+        a.flush().await.unwrap();
+        let frame = read_frame(&mut b).await.unwrap().unwrap();
+        match frame {
+            Frame::RosterUpdate { colleagues } => {
+                assert_eq!(colleagues.len(), 1);
+                assert!(colleagues[0].command_status.is_none());
+                assert!(colleagues[0].cwd.is_none());
+                assert!(colleagues[0].last_command_exit.is_none());
+                assert!(colleagues[0].last_command_at.is_none());
+            }
+            other => panic!("expected RosterUpdate, got {other:?}"),
+        }
     }
 }

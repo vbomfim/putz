@@ -18,7 +18,9 @@ use tokio_util::sync::CancellationToken;
 use uuid::Uuid;
 
 use super::socket::Listener;
-use super::types::{ColleagueStatus, ColleagueView, Severity, SwarmHealth, SwarmStatePublic};
+use super::types::{
+    ColleagueStatus, ColleagueView, CommandStatus, Severity, SwarmHealth, SwarmStatePublic,
+};
 use super::wire::Frame;
 
 /// No heartbeat for this long → status moves to `Stale`. Spec FR (heartbeat sweep).
@@ -48,6 +50,17 @@ const STOP_HANDLE_TIMEOUT: Duration = Duration::from_secs(5);
 /// (Sec pass-1 #4). 200ms ⇒ ≤5 evictions/sec/tab — orders of magnitude
 /// above any legitimate crash-restart cadence.
 const TAB_EVICTION_MIN_INTERVAL: Duration = Duration::from_millis(200);
+/// Trailing-edge debounce window for `roster_update` broadcasts to
+/// connected colleagues (T3 / FR-011). A flurry of `swarm_update_status`
+/// calls — typical of a noisy shell stream emitting many OSC 133
+/// boundaries — collapses into at most one broadcast per window so the
+/// per-colleague mpsc back-channel is not flooded.
+const ROSTER_BROADCAST_DEBOUNCE: Duration = Duration::from_millis(250);
+/// Cap on cwd length accepted from the frontend — defends against a
+/// pathologically long path (or a frontend bug pushing a buffer dump)
+/// blowing up the per-colleague writer queue. 4 KiB is well above any
+/// realistic filesystem path on supported platforms.
+const MAX_CWD_LEN: usize = 4096;
 
 /// Opaque per-connection key. Different from `colleague_id` so that
 /// duplicate-tab evictions are unambiguous: a re-register on the same
@@ -71,6 +84,20 @@ struct Colleague {
     conn_id: ConnectionId,
     /// Back-channel to the writer task. `try_send` only — never await.
     sender: mpsc::Sender<Frame>,
+    /// OSC-derived command status (T3). Defaults to `Unknown` until the
+    /// frontend pushes the first `swarm_update_status` for this tab.
+    command_status: CommandStatus,
+    /// Last seen OSC 7 working directory.
+    ///
+    /// **@privacy Tier-2** — quasi-identifier (working directory). Shared
+    /// with peer colleagues per FR-011 within the same-machine same-user
+    /// trust boundary. NEVER log, NEVER persist, NEVER forward to
+    /// telemetry. PRI-001/002.
+    cwd: Option<String>,
+    /// Exit code from the most recent OSC 133;D, if any.
+    last_command_exit: Option<i32>,
+    /// Unix epoch milliseconds when the most recent command finished.
+    last_command_at: Option<u64>,
 }
 
 #[derive(Default)]
@@ -91,6 +118,15 @@ struct Inner {
     last_eviction: HashMap<String, Instant>,
     /// Listening path (Unix socket file or Windows pipe name).
     path: Option<String>,
+    /// T3: trailing-edge debounce state for `roster_update` broadcasts.
+    /// `Some(handle)` = a broadcast is already scheduled; further
+    /// `update_status` calls coalesce into it. Cleared by the broadcast
+    /// task itself once it fires.
+    pending_broadcast: Option<JoinHandle<()>>,
+    /// T3: marker the broadcast task checks before sending — set on every
+    /// `update_status` call so a pending broadcast knows fresh data is
+    /// waiting; cleared just before the broadcast goes out.
+    roster_dirty: bool,
 }
 
 /// Background tasks owned by an active swarm lifecycle. Stored on the
@@ -242,6 +278,10 @@ impl SwarmCoordinator {
         }
 
         let mut inner = self.inner.write().await;
+        if let Some(handle) = inner.pending_broadcast.take() {
+            handle.abort();
+        }
+        inner.roster_dirty = false;
         inner.by_id.clear();
         inner.by_conn.clear();
         inner.by_tab.clear();
@@ -426,6 +466,10 @@ impl SwarmCoordinator {
             last_seen: Instant::now(),
             conn_id: conn_id.clone(),
             sender,
+            command_status: CommandStatus::Unknown,
+            cwd: None,
+            last_command_exit: None,
+            last_command_at: None,
         };
         inner.by_id.insert(colleague_id.clone(), colleague);
         inner.by_conn.insert(conn_id.clone(), colleague_id.clone());
@@ -549,6 +593,138 @@ impl SwarmCoordinator {
             }
         }
     }
+
+    /// T3 / FR-011 — apply a partial OSC-derived status update for the
+    /// colleague currently bound to `tab_id`. All four payload fields are
+    /// optional so the frontend can push only what changed (e.g., a cwd
+    /// update without touching `command_status`).
+    ///
+    /// Behaviour:
+    /// - **Tab unknown** → `Err("unknown_tab")`. This is the primary
+    ///   defense against a buggy or compromised renderer pushing bogus
+    ///   updates: only tabs the coordinator already knows about are
+    ///   accepted.
+    /// - **cwd validation** — capped at [`MAX_CWD_LEN`] and rejected if
+    ///   it contains control characters. Rejects with `Err("invalid_cwd")`
+    ///   rather than silently truncating; the frontend should never emit
+    ///   such a value, so a hit indicates a bug worth surfacing.
+    /// - **state change** — emits `swarm://state-changed` to the frontend
+    ///   immediately (cheap; in-process), and schedules a debounced
+    ///   `roster_update` broadcast to peer colleagues (250 ms trailing).
+    ///
+    /// Generic over `R: tauri::Runtime` for the same testability reason
+    /// as [`Self::start`].
+    pub async fn update_status<R: tauri::Runtime>(
+        &self,
+        app_handle: tauri::AppHandle<R>,
+        tab_id: &str,
+        command_status: Option<CommandStatus>,
+        cwd: Option<String>,
+        last_command_exit: Option<i32>,
+        last_command_at: Option<u64>,
+    ) -> Result<(), String> {
+        validate_tab_id(tab_id)?;
+        if let Some(ref s) = cwd {
+            if s.len() > MAX_CWD_LEN || s.chars().any(|c| c.is_control()) {
+                return Err("invalid_cwd".into());
+            }
+        }
+        let mut changed = false;
+        {
+            let mut inner = self.inner.write().await;
+            let Some(colleague_id) = inner.by_tab.get(tab_id).cloned() else {
+                return Err("unknown_tab".into());
+            };
+            if let Some(c) = inner.by_id.get_mut(&colleague_id) {
+                if let Some(s) = command_status {
+                    if c.command_status != s {
+                        c.command_status = s;
+                        changed = true;
+                    }
+                }
+                if let Some(new_cwd) = cwd {
+                    if c.cwd.as_deref() != Some(new_cwd.as_str()) {
+                        c.cwd = Some(new_cwd);
+                        changed = true;
+                    }
+                }
+                if let Some(exit) = last_command_exit {
+                    if c.last_command_exit != Some(exit) {
+                        c.last_command_exit = Some(exit);
+                        changed = true;
+                    }
+                }
+                if let Some(at) = last_command_at {
+                    if c.last_command_at != Some(at) {
+                        c.last_command_at = Some(at);
+                        changed = true;
+                    }
+                }
+            }
+            if changed {
+                inner.roster_dirty = true;
+            }
+        }
+
+        if changed {
+            let public = self.state_public().await;
+            emit_state_changed(&app_handle, &public);
+            self.schedule_roster_broadcast().await;
+        }
+        Ok(())
+    }
+
+    /// Schedule a debounced roster broadcast to all connected colleagues.
+    /// Coalesces under a `JoinHandle` slot — only one task is in-flight
+    /// per debounce window. The task itself clears the slot before it
+    /// performs the send, so a fresh `update_status` arriving during the
+    /// send window will schedule a new broadcast for the *next* window
+    /// rather than be lost.
+    async fn schedule_roster_broadcast(&self) {
+        let mut inner = self.inner.write().await;
+        if inner.pending_broadcast.is_some() {
+            return; // already scheduled — coalesce
+        }
+        let coord = self.clone();
+        let handle = tokio::spawn(async move {
+            tokio::time::sleep(ROSTER_BROADCAST_DEBOUNCE).await;
+            coord.broadcast_roster_now().await;
+        });
+        inner.pending_broadcast = Some(handle);
+    }
+
+    /// Internal: drop the pending-broadcast slot and push the current
+    /// roster to every connected colleague. Best-effort — a full mpsc
+    /// channel drops the frame (logged once, no retry — we'll catch up
+    /// on the next change).
+    async fn broadcast_roster_now(&self) {
+        let (frame, senders): (Frame, Vec<(String, mpsc::Sender<Frame>)>) = {
+            let mut inner = self.inner.write().await;
+            inner.pending_broadcast = None;
+            if !inner.roster_dirty {
+                return;
+            }
+            inner.roster_dirty = false;
+            let colleagues: Vec<ColleagueView> = inner
+                .by_id
+                .iter()
+                .map(|(id, c)| view_with_id(id, c))
+                .collect();
+            let senders = inner
+                .by_id
+                .iter()
+                .map(|(id, c)| (id.clone(), c.sender.clone()))
+                .collect();
+            (Frame::RosterUpdate { colleagues }, senders)
+        };
+        for (id, tx) in senders {
+            if tx.try_send(frame.clone()).is_err() {
+                tracing_warn(&format!(
+                    "swarm: roster_update dropped (back-channel full) for {id:?}"
+                ));
+            }
+        }
+    }
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────
@@ -560,6 +736,10 @@ fn view_with_id(id: &str, c: &Colleague) -> ColleagueView {
         tab_id: c.tab_id.clone(),
         status: c.status.as_str().into(),
         parent: c.parent.clone(),
+        command_status: Some(c.command_status),
+        cwd: c.cwd.clone(),
+        last_command_exit: c.last_command_exit,
+        last_command_at: c.last_command_at,
     }
 }
 
@@ -1277,5 +1457,250 @@ mod tests {
         );
 
         coord.stop().await;
+    }
+
+    // ─── T3 / FR-011 — OSC-derived command status ───────────────────
+
+    /// Helper: register one colleague + return the (coord, app, tab_id, rx).
+    async fn one_registered_colleague() -> (
+        SwarmCoordinator,
+        tauri::AppHandle<tauri::test::MockRuntime>,
+        String,
+        mpsc::Receiver<Frame>,
+    ) {
+        let app = tauri::test::mock_app();
+        let handle = app.handle().clone();
+        let coord = SwarmCoordinator::new();
+        let (tx, rx) = mpsc::channel(16);
+        coord
+            .register(
+                "tab-1".into(),
+                "alice".into(),
+                "alice".into(),
+                None,
+                None,
+                tx,
+            )
+            .await
+            .unwrap();
+        (coord, handle, "tab-1".into(), rx)
+    }
+
+    #[tokio::test]
+    async fn update_status_rejects_unknown_tab() {
+        let app = tauri::test::mock_app();
+        let coord = SwarmCoordinator::new();
+        let res = coord
+            .update_status(
+                app.handle().clone(),
+                "ghost",
+                Some(CommandStatus::Running),
+                None,
+                None,
+                None,
+            )
+            .await;
+        assert_eq!(res.unwrap_err(), "unknown_tab");
+    }
+
+    #[tokio::test]
+    async fn update_status_rejects_invalid_tab_id() {
+        let app = tauri::test::mock_app();
+        let coord = SwarmCoordinator::new();
+        let res = coord
+            .update_status(
+                app.handle().clone(),
+                "tab\nbad",
+                Some(CommandStatus::Idle),
+                None,
+                None,
+                None,
+            )
+            .await;
+        assert!(res.is_err(), "control char in tab_id must be rejected");
+    }
+
+    #[tokio::test]
+    async fn update_status_rejects_cwd_with_control_chars() {
+        let (coord, app, tab_id, _rx) = one_registered_colleague().await;
+        let res = coord
+            .update_status(app, &tab_id, None, Some("/home\x00null".into()), None, None)
+            .await;
+        assert_eq!(res.unwrap_err(), "invalid_cwd");
+    }
+
+    #[tokio::test]
+    async fn update_status_rejects_oversized_cwd() {
+        let (coord, app, tab_id, _rx) = one_registered_colleague().await;
+        let huge = "/".to_string() + &"a".repeat(MAX_CWD_LEN);
+        let res = coord
+            .update_status(app, &tab_id, None, Some(huge), None, None)
+            .await;
+        assert_eq!(res.unwrap_err(), "invalid_cwd");
+    }
+
+    #[tokio::test]
+    async fn update_status_atomically_updates_colleague_fields() {
+        let (coord, app, tab_id, _rx) = one_registered_colleague().await;
+        coord
+            .update_status(
+                app.clone(),
+                &tab_id,
+                Some(CommandStatus::Done),
+                Some("/work/proj".into()),
+                Some(0),
+                Some(1_700_000_000_000),
+            )
+            .await
+            .unwrap();
+        let roster = coord.roster().await;
+        assert_eq!(roster.len(), 1);
+        let v = &roster[0];
+        assert_eq!(v.command_status, Some(CommandStatus::Done));
+        assert_eq!(v.cwd.as_deref(), Some("/work/proj"));
+        assert_eq!(v.last_command_exit, Some(0));
+        assert_eq!(v.last_command_at, Some(1_700_000_000_000));
+    }
+
+    #[tokio::test]
+    async fn update_status_partial_update_preserves_other_fields() {
+        let (coord, app, tab_id, _rx) = one_registered_colleague().await;
+        coord
+            .update_status(
+                app.clone(),
+                &tab_id,
+                Some(CommandStatus::Running),
+                Some("/a".into()),
+                None,
+                None,
+            )
+            .await
+            .unwrap();
+        // Subsequent call only touches command_status — cwd must persist.
+        coord
+            .update_status(app, &tab_id, Some(CommandStatus::Done), None, Some(0), None)
+            .await
+            .unwrap();
+        let roster = coord.roster().await;
+        assert_eq!(roster[0].command_status, Some(CommandStatus::Done));
+        assert_eq!(roster[0].cwd.as_deref(), Some("/a"));
+        assert_eq!(roster[0].last_command_exit, Some(0));
+    }
+
+    /// Roster broadcast: after the debounce window, every connected
+    /// colleague receives a single `RosterUpdate` even if many
+    /// `update_status` calls arrived in quick succession.
+    #[tokio::test]
+    async fn roster_broadcast_is_debounced_and_collapses_burst() {
+        let (coord, app, tab_id, mut rx) = one_registered_colleague().await;
+        for i in 0..10 {
+            coord
+                .update_status(
+                    app.clone(),
+                    &tab_id,
+                    Some(if i % 2 == 0 {
+                        CommandStatus::Running
+                    } else {
+                        CommandStatus::Idle
+                    }),
+                    None,
+                    None,
+                    None,
+                )
+                .await
+                .unwrap();
+        }
+        // Before the debounce window elapses, no broadcast should be on
+        // the wire yet.
+        assert!(rx.try_recv().is_err(), "broadcast must not fire eagerly");
+        tokio::time::sleep(ROSTER_BROADCAST_DEBOUNCE + Duration::from_millis(80)).await;
+        let mut roster_updates = 0;
+        while let Ok(frame) = rx.try_recv() {
+            if matches!(frame, Frame::RosterUpdate { .. }) {
+                roster_updates += 1;
+            }
+        }
+        assert_eq!(
+            roster_updates, 1,
+            "burst of 10 updates must collapse to 1 broadcast"
+        );
+    }
+
+    #[tokio::test]
+    async fn roster_broadcast_carries_all_colleagues() {
+        let app = tauri::test::mock_app();
+        let coord = SwarmCoordinator::new();
+        let (tx_a, mut rx_a) = mpsc::channel(8);
+        let (tx_b, _rx_b) = mpsc::channel(8);
+        coord
+            .register(
+                "ta".into(),
+                "alice".into(),
+                "alice".into(),
+                None,
+                None,
+                tx_a,
+            )
+            .await
+            .unwrap();
+        coord
+            .register("tb".into(), "bob".into(), "bob".into(), None, None, tx_b)
+            .await
+            .unwrap();
+        coord
+            .update_status(
+                app.handle().clone(),
+                "ta",
+                Some(CommandStatus::Running),
+                None,
+                None,
+                None,
+            )
+            .await
+            .unwrap();
+        tokio::time::sleep(ROSTER_BROADCAST_DEBOUNCE + Duration::from_millis(80)).await;
+        // Drain everything Alice received and pick the RosterUpdate.
+        let mut roster_payload: Option<Vec<ColleagueView>> = None;
+        while let Ok(frame) = rx_a.try_recv() {
+            if let Frame::RosterUpdate { colleagues } = frame {
+                roster_payload = Some(colleagues);
+            }
+        }
+        let roster = roster_payload.expect("alice should receive roster_update");
+        assert_eq!(roster.len(), 2, "broadcast must carry the full roster");
+        let alice = roster.iter().find(|v| v.id == "alice").unwrap();
+        assert_eq!(alice.command_status, Some(CommandStatus::Running));
+    }
+
+    /// A no-op update (same value as already stored) must NOT trigger a
+    /// broadcast — guards against state-changed event spam from a
+    /// frontend that re-pushes the same status every render tick.
+    #[tokio::test]
+    async fn unchanged_update_status_skips_broadcast() {
+        let (coord, app, tab_id, mut rx) = one_registered_colleague().await;
+        coord
+            .update_status(
+                app.clone(),
+                &tab_id,
+                Some(CommandStatus::Idle),
+                None,
+                None,
+                None,
+            )
+            .await
+            .unwrap();
+        tokio::time::sleep(ROSTER_BROADCAST_DEBOUNCE + Duration::from_millis(80)).await;
+        // Drain the legitimate first broadcast.
+        while rx.try_recv().is_ok() {}
+        // Re-push the SAME value — no change, no broadcast.
+        coord
+            .update_status(app, &tab_id, Some(CommandStatus::Idle), None, None, None)
+            .await
+            .unwrap();
+        tokio::time::sleep(ROSTER_BROADCAST_DEBOUNCE + Duration::from_millis(80)).await;
+        assert!(
+            rx.try_recv().is_err(),
+            "no-op update must not emit a broadcast"
+        );
     }
 }

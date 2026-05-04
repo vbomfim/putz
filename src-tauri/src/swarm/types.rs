@@ -44,8 +44,58 @@ pub enum Severity {
     Ambient,
 }
 
+/// OSC-derived command-execution status for a colleague's PTY (T3 / FR-011).
+///
+/// Distinct axis from [`ColleagueStatus`] (which is **lifecycle**:
+/// idle/working/stale/dead driven by heartbeats). This is **command-level**:
+/// what is the colleague's shell doing right now? Derived from OSC 133
+/// prompt/cmd/done markers projected by the frontend and pushed back via
+/// `swarm_update_status`.
+///
+/// Naming: the spec ticket suggested reusing `ColleagueStatus` for both
+/// axes, but that would conflict with the existing lifecycle enum. We
+/// keep the semantics on separate types so a peer agent can ask both
+/// "is this colleague reachable?" and "is its shell busy?" without the
+/// ambiguity of a single enum collapsing both.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "lowercase")]
+pub enum CommandStatus {
+    /// Initial state, or no OSC 133 has been observed yet.
+    #[default]
+    Unknown,
+    /// Between OSC 133;A (prompt start) and OSC 133;B (cmd start) —
+    /// shell is at the prompt, no command running.
+    Idle,
+    /// Between OSC 133;B (cmd start) and OSC 133;D (cmd done) —
+    /// command actively executing. (OSC 133;C, output-start, does not
+    /// end the running state — the command is still in flight.)
+    Running,
+    /// After OSC 133;D with exit code 0.
+    Done,
+    /// After OSC 133;D with non-zero exit code.
+    Error,
+}
+
+impl CommandStatus {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Unknown => "unknown",
+            Self::Idle => "idle",
+            Self::Running => "running",
+            Self::Done => "done",
+            Self::Error => "error",
+        }
+    }
+}
+
 /// Public view of a colleague — what the frontend and other colleagues see.
 /// Excludes per-connection writer handles and `Instant` fields (not Serialize).
+///
+/// T3 added the optional `command_status`, `cwd`, `last_command_exit`,
+/// and `last_command_at` fields. They are wire-optional (`#[serde(default)]`)
+/// so old extensions / frontends that pre-date T3 still parse new
+/// `roster_update` payloads — and so the older `register_ack` path
+/// continues to serialize with `null` placeholders rather than rejecting.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct ColleagueView {
     pub id: String,
@@ -54,6 +104,24 @@ pub struct ColleagueView {
     pub status: String,
     #[serde(default)]
     pub parent: Option<String>,
+    /// OSC-derived command status (T3). `None` when no update has been
+    /// pushed for this colleague yet.
+    #[serde(default)]
+    pub command_status: Option<CommandStatus>,
+    /// Last seen OSC 7 working directory.
+    ///
+    /// @privacy Tier-2 — quasi-identifier (working directory). May reveal
+    /// home dir / project name. Per spec FR-011 cwd IS shared with peer
+    /// colleagues within the same-machine same-user trust boundary, but
+    /// MUST NOT be logged or persisted to telemetry. PRI-001/002.
+    #[serde(default)]
+    pub cwd: Option<String>,
+    /// Exit code from the most recent OSC 133;D, if any.
+    #[serde(default)]
+    pub last_command_exit: Option<i32>,
+    /// Unix epoch milliseconds when the most recent command finished.
+    #[serde(default)]
+    pub last_command_at: Option<u64>,
 }
 
 /// Public swarm state for the Tauri `swarm_get_state` command.
