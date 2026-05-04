@@ -2,13 +2,20 @@
  * Putz Colleague — Copilot CLI SDK extension entry.
  *
  * Copilot CLI's extension host loads this file as a forked subprocess
- * when starting a session. We hand control to `joinSession`, which
- * owns the process lifetime via stdio IPC with the host. Inside the
- * `onSessionStart` hook we conditionally boot the Putz swarm registry
- * (only if `PUTZ_SWARM_PATH` + `PUTZ_TAB_ID` env vars are present —
- * meaning the session is running inside a Putz tab). Otherwise we
- * stay attached to the Copilot session as a no-op observer; the user
- * sees no error and `gh copilot` is unaffected.
+ * when starting a session. We do two things at module load:
+ *
+ *   1. boot() the Putz swarm registry (if PUTZ_SWARM_PATH is set).
+ *      This connects to Putz's local socket and registers the
+ *      colleague IMMEDIATELY — the colleague appears in the Putz
+ *      sidebar as soon as `gh copilot` starts, not only after the
+ *      user begins a chat session.
+ *   2. joinSession() — hand control to the Copilot SDK so it owns
+ *      the process lifetime. The hooks then forward session events
+ *      to peers as they occur (start, idle, tool use).
+ *
+ * If PUTZ_SWARM_PATH is absent (extension loaded outside a Putz tab),
+ * boot() returns null and the extension stays attached as a no-op
+ * observer. Copilot CLI works normally; the user sees no error.
  *
  * @privacy `onPostToolUse` forwards only the tool NAME as an ambient
  * notify to peers. Tool args, results, and any user content stay in
@@ -19,20 +26,30 @@
 import { joinSession } from "@github/copilot-sdk/extension";
 import { boot } from "./src/boot.mjs";
 
-let api = null;
+// Register the colleague immediately on extension load. This is the
+// canonical "I am alive" signal — Putz sees the new colleague in its
+// sidebar right away, without waiting for the user to start a chat.
+const api = await boot().catch((err) => {
+  process.stderr.write(
+    `[putz-colleague] boot failed name=${err && err.name}\n`,
+  );
+  return null;
+});
+
+if (api) {
+  process.stderr.write(`[putz-colleague] swarm boot ok\n`);
+} else if (process.env.PUTZ_SWARM_PATH) {
+  // Env was set but boot returned null — likely a connection error
+  // already logged by the registry. Surface a hint here too.
+  process.stderr.write(
+    `[putz-colleague] PUTZ_SWARM_PATH set but boot returned null — check that Putz swarm is enabled and the socket is reachable\n`,
+  );
+}
 
 const session = await joinSession({
   hooks: {
     onSessionStart: async () => {
-      api = await boot().catch((err) => {
-        process.stderr.write(
-          `[putz-colleague] boot failed name=${err && err.name}\n`,
-        );
-        return null;
-      });
-      if (api) {
-        api.notify("copilot session started", "ambient");
-      }
+      if (api) api.notify("copilot session started", "ambient");
       return {};
     },
 

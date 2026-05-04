@@ -316,11 +316,22 @@ function App() {
   useEffect(() => {
     if (!hasInitialized.current) {
       hasInitialized.current = true;
-      const allEmpty = Object.values(regions).every((r) => r.tabs.length === 0);
-      if (allEmpty) {
-        addTerminalTab();
-      }
-      // Load and apply active theme on startup
+
+      // Boot sequence — order matters:
+      //   1. swarm_set_enabled FIRST so the backend coordinator binds
+      //      the socket and flips `enabled=true` BEFORE any pty_spawn
+      //      runs. Otherwise the auto-spawned first tab races against
+      //      the swarm boot and inherits empty PUTZ_SWARM_PATH.
+      //   2. theme_list (independent — can fire in parallel)
+      //   3. addTerminalTab (depends on swarm being ready for env injection)
+      const swarmEnabled = useSettingsStore.getState().swarmEnabled;
+      const swarmReady = invoke("swarm_set_enabled", {
+        enabled: swarmEnabled,
+      }).catch((err: unknown) => {
+        console.warn("[App] swarm boot sync failed:", err);
+      });
+
+      // Load and apply active theme on startup (independent — fire in parallel)
       invoke<Theme[]>("theme_list")
         .then((themes) => {
           const activeId = useThemeStore.getState().activeThemeId;
@@ -339,13 +350,12 @@ function App() {
         })
         .catch(() => {});
 
-      // Swarm boot sync — tell backend the persisted swarm preference
-      const swarmEnabled = useSettingsStore.getState().swarmEnabled;
-      invoke("swarm_set_enabled", { enabled: swarmEnabled }).catch(
-        (err: unknown) => {
-          console.warn("[App] swarm boot sync failed:", err);
-        },
-      );
+      // Spawn the first tab AFTER swarm boot completes, so PUTZ_SWARM_PATH
+      // is already injectable when pty_spawn runs.
+      const allEmpty = Object.values(regions).every((r) => r.tabs.length === 0);
+      if (allEmpty) {
+        void swarmReady.then(() => addTerminalTab());
+      }
     }
   }, [addTerminalTab, regions]);
 
