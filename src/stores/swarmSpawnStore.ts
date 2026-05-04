@@ -31,11 +31,7 @@ export interface SpawnRecipe {
   readonly initialPrompt?: string | null;
 }
 
-/** Mirror of the Rust `LoadResult` shape. */
-interface LoadResult {
-  recipes: SpawnRecipe[];
-  error: string | null;
-}
+/** Mirror of the Rust `LoadResult` wire shape (consumed inline below). */
 
 interface SwarmSpawnState {
   readonly recipes: ReadonlyArray<SpawnRecipe>;
