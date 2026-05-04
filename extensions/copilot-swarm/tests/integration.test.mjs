@@ -60,13 +60,13 @@ async function stopMock(mock) {
 }
 
 test("missing PUTZ_SWARM_PATH → boot returns null (silent no-op)", async () => {
-  const { boot } = await import("../extension.mjs");
+  const { boot } = await import("../src/boot.mjs");
   const api = await boot({ PUTZ_TAB_ID: "t1" }); // no PUTZ_SWARM_PATH
   assert.equal(api, null);
 });
 
 test("missing PUTZ_TAB_ID → boot returns null", async () => {
-  const { boot } = await import("../extension.mjs");
+  const { boot } = await import("../src/boot.mjs");
   const api = await boot({ PUTZ_SWARM_PATH: "/some/path" });
   assert.equal(api, null);
 });

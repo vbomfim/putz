@@ -8,6 +8,7 @@
   "main": "extension.mjs",
   "exports": {
     ".": "./extension.mjs",
+    "./boot": "./src/boot.mjs",
     "./api": "./src/api.mjs",
     "./wire": "./src/wire.mjs"
   },
