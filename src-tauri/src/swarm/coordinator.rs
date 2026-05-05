@@ -101,8 +101,11 @@ const MAX_CLAIMS: usize = 200;
 /// Max TTL accepted for a single claim. Caps wall-clock drift on a
 /// long-lived freeze and forces holders to re-affirm every few hours.
 const MAX_CLAIM_TTL: Duration = Duration::from_secs(60 * 60 * 12); // 12h
-/// Min TTL — sub-second TTLs are almost certainly a unit error.
-const MIN_CLAIM_TTL: Duration = Duration::from_secs(1);
+/// Min TTL — anything below the sweep interval is a wasted setting (the
+/// sweeper would tear it down within one tick anyway, and a 1s claim is
+/// almost certainly a unit error). Bumped to 5s in the post-T5 fixup so
+/// the worst-case eviction lag is exactly one [`SWEEP_INTERVAL`] cycle.
+const MIN_CLAIM_TTL: Duration = Duration::from_secs(5);
 /// Cap on inbound tool request_id length (correlation token).
 const MAX_REQUEST_ID_LEN: usize = 100;
 
@@ -542,6 +545,34 @@ impl SwarmCoordinator {
                     reason: Some("replaced by new connection on same tab".into()),
                 });
                 inner.by_conn.remove(&prev.conn_id);
+                // CR-Pass-2 (I1): the evicted colleague's claims must be
+                // released immediately, otherwise they leak until the TTL
+                // sweeper runs. The OLD connection's eventual disconnect
+                // can no longer find the colleague (we just removed it
+                // from by_conn), so this is the only place to do it.
+                let evicted_claims: Vec<String> = inner
+                    .claims
+                    .iter()
+                    .filter(|(_, c)| c.holder_colleague_id == prev_id)
+                    .map(|(r, _)| r.clone())
+                    .collect();
+                for r in &evicted_claims {
+                    inner.claims.remove(r);
+                }
+                if !evicted_claims.is_empty() {
+                    let senders: Vec<(String, mpsc::Sender<Frame>)> = inner
+                        .by_id
+                        .iter()
+                        .map(|(id, c)| (id.clone(), c.sender.clone()))
+                        .collect();
+                    for resource in evicted_claims {
+                        let frame = Frame::Release {
+                            resource,
+                            holder: prev_id.clone(),
+                        };
+                        broadcast_frame_to(&frame, &senders, "release-evicted");
+                    }
+                }
                 tracing_warn(&format!(
                     "swarm: evicted colleague {prev_id:?} on tab {tab_id:?} \
                      (replaced by new register; pid was {:?})",
@@ -798,30 +829,40 @@ impl SwarmCoordinator {
         // broadcast their releases after we drop the write lock. Caches
         // on peer colleagues converge with the holder's exit instead of
         // waiting for the TTL sweeper.
+        //
+        // CR-Pass-2 (I1): release claims for THIS colleague_id even when
+        // the by_id slot has already been re-bound to a newer connection
+        // (duplicate-tab eviction race). The OLD connection's holder may
+        // still own claims that need to be torn down — we cannot wait
+        // for the sweeper, and we cannot key the release on `owned_tab`
+        // because the by_tab/by_id entries may now belong to the new
+        // colleague.
         type ReleaseBroadcast = (Vec<(String, String)>, Vec<(String, mpsc::Sender<Frame>)>);
         let release_broadcast: Option<ReleaseBroadcast>;
         let mut inner = self.inner.write().await;
         if let Some(colleague_id) = inner.by_conn.remove(conn_id) {
+            // Collect every claim held by this colleague, regardless of
+            // whether by_id still maps the colleague to this conn_id.
+            let to_release: Vec<String> = inner
+                .claims
+                .iter()
+                .filter(|(_, c)| c.holder_colleague_id == colleague_id)
+                .map(|(r, _)| r.clone())
+                .collect();
+            let mut released_claims: Vec<(String, String)> = Vec::with_capacity(to_release.len());
+            for r in to_release {
+                inner.claims.remove(&r);
+                released_claims.push((r, colleague_id.clone()));
+            }
+
             // Only remove from by_id / by_tab if this conn still owns it
-            // (guards against duplicate-register eviction races).
+            // (guards against duplicate-register eviction races: if a
+            // newer conn took over, leave the colleague slot intact).
             let owned_tab: Option<String> = match inner.by_id.get(&colleague_id) {
                 Some(c) if &c.conn_id == conn_id => Some(c.tab_id.clone()),
                 _ => None,
             };
             if let Some(tab_id) = owned_tab {
-                // Drop all claims held by this colleague.
-                let to_release: Vec<String> = inner
-                    .claims
-                    .iter()
-                    .filter(|(_, c)| c.holder_colleague_id == colleague_id)
-                    .map(|(r, _)| r.clone())
-                    .collect();
-                let mut released_claims: Vec<(String, String)> =
-                    Vec::with_capacity(to_release.len());
-                for r in to_release {
-                    inner.claims.remove(&r);
-                    released_claims.push((r, colleague_id.clone()));
-                }
                 if let Some(c) = inner.by_id.remove(&colleague_id) {
                     tracing_warn(&format!(
                         "swarm: disconnected colleague {colleague_id:?} (pid={:?})",
@@ -832,11 +873,6 @@ impl SwarmCoordinator {
                 if inner.by_tab.get(&tab_id) == Some(&colleague_id) {
                     inner.by_tab.remove(&tab_id);
                 }
-                let released_senders: Vec<(String, mpsc::Sender<Frame>)> = inner
-                    .by_id
-                    .iter()
-                    .map(|(id, c)| (id.clone(), c.sender.clone()))
-                    .collect();
                 // Notify frontend so the sidebar removes the row immediately.
                 let emitter = inner.state_changed_emitter.clone();
                 let public = SwarmStatePublic {
@@ -845,17 +881,27 @@ impl SwarmCoordinator {
                     colleague_count: inner.by_id.len(),
                     colleague_ids: inner.by_id.keys().cloned().collect(),
                 };
-                drop(inner);
-                if let Some(emit) = emitter {
-                    emit(public);
+                if let Some(emit) = emitter.as_ref() {
+                    let public_clone = public.clone();
+                    drop(inner);
+                    emit(public_clone);
+                    inner = self.inner.write().await;
                 }
-                release_broadcast = Some((released_claims, released_senders));
-            } else {
-                release_broadcast = None;
             }
+            let released_senders: Vec<(String, mpsc::Sender<Frame>)> = inner
+                .by_id
+                .iter()
+                .map(|(id, c)| (id.clone(), c.sender.clone()))
+                .collect();
+            release_broadcast = if released_claims.is_empty() {
+                None
+            } else {
+                Some((released_claims, released_senders))
+            };
         } else {
             release_broadcast = None;
         }
+        drop(inner);
         if let Some((claims, senders)) = release_broadcast {
             for (resource, holder) in claims {
                 let frame = Frame::Release { resource, holder };
@@ -1081,7 +1127,9 @@ impl SwarmCoordinator {
                 },
             );
             tracing_warn(&format!(
-                "swarm: claim {resource:?} held by {holder:?} ttl={ttl:?}"
+                "swarm: claim {res:?} held by {h:?} ttl={ttl:?}",
+                res = log_trunc(&resource),
+                h = log_trunc(&holder),
             ));
             let frame = Frame::Claim {
                 resource: resource.clone(),
@@ -1119,7 +1167,11 @@ impl SwarmCoordinator {
             match inner.claims.get(&resource) {
                 Some(existing) if existing.holder_colleague_id == holder => {
                     inner.claims.remove(&resource);
-                    tracing_warn(&format!("swarm: claim {resource:?} released by {holder:?}"));
+                    tracing_warn(&format!(
+                        "swarm: claim {res:?} released by {h:?}",
+                        res = log_trunc(&resource),
+                        h = log_trunc(&holder),
+                    ));
                     let frame = Frame::Release {
                         resource,
                         holder: holder.clone(),
@@ -1186,7 +1238,9 @@ impl SwarmCoordinator {
         };
         for (resource, holder) in releases {
             tracing_warn(&format!(
-                "swarm: claim {resource:?} expired (was held by {holder:?})"
+                "swarm: claim {res:?} expired (was held by {h:?})",
+                res = log_trunc(&resource),
+                h = log_trunc(&holder),
             ));
             let frame = Frame::Release { resource, holder };
             broadcast_frame_to(&frame, &senders, "release-expired");
@@ -1240,12 +1294,27 @@ impl SwarmCoordinator {
         target_colleague_id: &str,
         message: String,
     ) -> Result<(), String> {
+        self.send_acked(conn_id, target_colleague_id, message, Severity::Normal)
+            .await
+            .map(|_| ())
+    }
+
+    /// T5 — acknowledged 1:1 send used by `swarm_send` (Frame::SendReq).
+    /// Validates length, sanitizes for bidi/control chars, and surfaces
+    /// `unknown_target` / `message_too_long` / `back_channel_full` as
+    /// distinct error codes (vs the legacy `send_notify_between_colleagues`
+    /// which silently swallowed back-channel-full).
+    pub async fn send_acked(
+        &self,
+        conn_id: &ConnectionId,
+        target_colleague_id: &str,
+        message: String,
+        severity: Severity,
+    ) -> Result<(), String> {
         if message.is_empty() {
             return Err("empty_message".into());
         }
-        if message.len() > MAX_MESSAGE_LEN {
-            return Err("message_too_long".into());
-        }
+        validate_message_len(&message)?;
         let message = sanitize_notify_message(&message);
         let inner = self.inner.read().await;
         let from = match inner.by_conn.get(conn_id) {
@@ -1256,12 +1325,14 @@ impl SwarmCoordinator {
             Some(t) => t,
             None => return Err("unknown_target".into()),
         };
-        let _ = target.sender.try_send(Frame::RecvNotify {
-            from,
-            message,
-            severity: Severity::Normal,
-        });
-        Ok(())
+        target
+            .sender
+            .try_send(Frame::RecvNotify {
+                from,
+                message,
+                severity,
+            })
+            .map_err(|_| "back_channel_full".to_string())
     }
 
     /// Push a frame on the back-channel of the colleague currently bound
@@ -1409,10 +1480,63 @@ fn sanitize_label(s: &str) -> String {
 /// preserves `\t` and `\n` so legible whitespace authored by the
 /// sender survives. Defends against ANSI escape injection / bell
 /// flooding into the inbox UI.
+///
+/// Also strips Unicode bidi/format "trojan" code points (RTLO, LRO,
+/// LRI/RLI/PDI, zero-width joiner/non-joiner, BOM, …) — these allow a
+/// peer to render a message that looks visually different from its
+/// underlying bytes (e.g. a fake `[Swarm —` header or a swapped
+/// resource name). See <https://trojansource.codes>. We strip the
+/// individual ranges explicitly rather than the full `Cf` (Format)
+/// general category to avoid pulling in `unicode-properties`; the
+/// covered ranges are the ones with known UI-spoofing impact.
 fn sanitize_notify_message(s: &str) -> String {
     s.chars()
-        .filter(|c| !c.is_control() || *c == '\t' || *c == '\n')
+        .filter(|c| {
+            // Keep \t and \n (legible whitespace).
+            if *c == '\t' || *c == '\n' {
+                return true;
+            }
+            // Drop everything else in the C0/C1 control set.
+            if c.is_control() {
+                return false;
+            }
+            // Drop Unicode bidi/zero-width "trojan" code points.
+            let cp = *c as u32;
+            if matches!(cp,
+                0x200B..=0x200F | // ZWSP, ZWNJ, ZWJ, LRM, RLM
+                0x202A..=0x202E | // LRE, RLE, PDF, LRO, RLO
+                0x2066..=0x2069 | // LRI, RLI, FSI, PDI
+                0xFEFF            // ZWNBSP / BOM
+            ) {
+                return false;
+            }
+            true
+        })
         .collect()
+}
+
+/// Reusable trust-boundary guard: reject messages exceeding
+/// [`MAX_MESSAGE_LEN`] before any further processing. Returned `Err`
+/// is the wire `error` code clients see in `tool_response.error`.
+pub(crate) fn validate_message_len(s: &str) -> Result<(), String> {
+    if s.len() > MAX_MESSAGE_LEN {
+        return Err("message_too_long".into());
+    }
+    Ok(())
+}
+
+/// Truncate a user-controlled string to ≤32 chars for logging, with an
+/// ellipsis suffix when truncated. Used by `tracing_warn` callers that
+/// must surface a resource/holder identifier for operator debugging
+/// without echoing arbitrarily long Tier-3 user-controlled labels.
+fn log_trunc(s: &str) -> String {
+    const LOG_FIELD_MAX: usize = 32;
+    if s.chars().count() <= LOG_FIELD_MAX {
+        return s.to_string();
+    }
+    let mut out: String = s.chars().take(LOG_FIELD_MAX).collect();
+    out.push('…');
+    out
 }
 
 fn emit_state_changed<R: tauri::Runtime>(app: &tauri::AppHandle<R>, state: &SwarmStatePublic) {
@@ -1962,6 +2086,40 @@ mod tests {
         let dirty = "hi\u{0007}there\u{001b}[31m\nline\u{0000}two\tend";
         let clean = sanitize_notify_message(dirty);
         assert_eq!(clean, "hithere[31m\nlinetwo\tend");
+    }
+
+    /// B1: Unicode bidi/zero-width "trojan" code points must be stripped
+    /// at coordinator ingress so a peer cannot render a message that
+    /// looks visually different from its underlying bytes (TrojanSource).
+    #[test]
+    fn sanitize_notify_message_strips_bidi_overrides() {
+        // Right-to-left override (U+202E) — the classic TrojanSource
+        // primitive used to mask source-code identifiers.
+        assert_eq!(
+            sanitize_notify_message("safe\u{202E}evil"),
+            "safeevil",
+            "RTLO must be stripped"
+        );
+        // Left-to-right override (U+202D).
+        assert_eq!(sanitize_notify_message("a\u{202D}b"), "ab");
+        // Pop directional formatting.
+        assert_eq!(sanitize_notify_message("a\u{202C}b"), "ab");
+        // Zero-width joiner / non-joiner / space.
+        assert_eq!(
+            sanitize_notify_message("a\u{200B}b\u{200C}c\u{200D}d"),
+            "abcd"
+        );
+        // LRM / RLM markers.
+        assert_eq!(sanitize_notify_message("a\u{200E}b\u{200F}c"), "abc");
+        // Isolates (LRI/RLI/FSI/PDI).
+        assert_eq!(
+            sanitize_notify_message("\u{2066}a\u{2067}b\u{2068}c\u{2069}d"),
+            "abcd"
+        );
+        // BOM / ZWNBSP.
+        assert_eq!(sanitize_notify_message("\u{FEFF}hello"), "hello");
+        // Plain ASCII unchanged.
+        assert_eq!(sanitize_notify_message("hello world"), "hello world");
     }
 
     #[test]
@@ -2524,17 +2682,24 @@ mod tests {
             .unwrap();
         // Structural assertion: scan the coordinator source for any
         // `tracing_warn!`/`tracing_warn(` call whose argument formatter
-        // references `cwd`. This is the strongest portable check we can
-        // make from a unit test without redirecting stderr globally.
+        // references `cwd` / `message` / `payload` (Tier-2 PII per
+        // PRI-002). This is the strongest portable check we can make
+        // from a unit test without redirecting stderr globally.
         let src = include_str!("coordinator.rs");
         for (lineno, line) in src.lines().enumerate() {
             let l = line.trim_start();
-            if l.starts_with("tracing_warn(") && line.contains("{cwd") {
-                panic!(
-                    "coordinator.rs:{} logs cwd via tracing_warn — \
-                     PRI-002 violation: {line}",
-                    lineno + 1
-                );
+            if !l.starts_with("tracing_warn(") {
+                continue;
+            }
+            for forbidden in ["{cwd", "{message", "{payload", "{msg.payload"] {
+                if line.contains(forbidden) {
+                    panic!(
+                        "coordinator.rs:{}: tracing_warn references PII field '{}' — \
+                         PRI-002 violation: {line}",
+                        lineno + 1,
+                        forbidden
+                    );
+                }
             }
         }
         // And the value did make it into the stored colleague (proves
@@ -2604,7 +2769,7 @@ mod tests {
         let coord = SwarmCoordinator::new();
         let (a, _ra) = register_for_test(&coord, "tab-a", "alice").await;
         let r1 = coord
-            .try_claim(&a, "prod".into(), Duration::from_secs(2), Some("a".into()))
+            .try_claim(&a, "prod".into(), Duration::from_secs(10), Some("a".into()))
             .await;
         let r2 = coord
             .try_claim(&a, "prod".into(), Duration::from_secs(60), Some("b".into()))
@@ -2645,13 +2810,18 @@ mod tests {
     async fn expired_claims_swept_and_released() {
         let coord = SwarmCoordinator::new();
         let (a, mut ra) = register_for_test(&coord, "tab-a", "alice").await;
+        // Use the minimum allowed TTL (5s, post-T5 fixup — was 1s pre-fixup;
+        // bumped because worst-case eviction lag must match SWEEP_INTERVAL).
+        // sweep_expired_claims compares against std::time::Instant::now(),
+        // which tokio::time::pause/advance does NOT control — so we must
+        // wait real time. ~5.1s is acceptable in a unit test; the alternative
+        // is an internal "force-expire" test hook that would leak into prod.
         coord
-            .try_claim(&a, "prod".into(), Duration::from_secs(1), None)
+            .try_claim(&a, "prod".into(), Duration::from_secs(5), None)
             .await;
         // Drain the broadcast Claim frame from the channel.
         let _ = ra.try_recv();
-        // Wait past TTL.
-        tokio::time::sleep(Duration::from_millis(1_100)).await;
+        tokio::time::sleep(Duration::from_millis(5_100)).await;
         coord.sweep_expired_claims().await;
         assert!(coord.check_claim("prod").await.is_none());
         // Holder receives a Release broadcast.
@@ -2783,5 +2953,216 @@ mod tests {
             }
         }
         assert!(!alice_got);
+    }
+
+    /// K1#1 (Rust): two simultaneous `try_claim` tasks against the same
+    /// resource — exactly one returns `Acquired`; the other returns
+    /// `Held`. The coordinator's per-resource serialization comes from
+    /// the `RwLock<Inner>` — we exercise the race by tokio::spawn-ing
+    /// both attempts before awaiting either.
+    #[tokio::test]
+    async fn concurrent_claim_race_first_wins() {
+        let coord = SwarmCoordinator::new();
+        let (a, _ra) = register_for_test(&coord, "tab-a", "alice").await;
+        let (b, _rb) = register_for_test(&coord, "tab-b", "bob").await;
+        let coord_a = coord.clone();
+        let coord_b = coord.clone();
+        let ta = tokio::spawn(async move {
+            coord_a
+                .try_claim(&a, "race".into(), Duration::from_secs(60), None)
+                .await
+        });
+        let tb = tokio::spawn(async move {
+            coord_b
+                .try_claim(&b, "race".into(), Duration::from_secs(60), None)
+                .await
+        });
+        let (ra2, rb2) = tokio::join!(ta, tb);
+        let acquired = [ra2.unwrap(), rb2.unwrap()]
+            .iter()
+            .filter(|r| matches!(r, ClaimAttempt::Acquired(_)))
+            .count();
+        assert_eq!(
+            acquired, 1,
+            "exactly one concurrent claim must succeed; got {acquired}"
+        );
+    }
+
+    /// K1#2 (Rust): claim table fills to MAX_CLAIMS — the next inserts
+    /// for fresh resources MUST be rejected with `claim_table_full`.
+    #[tokio::test]
+    async fn claim_table_full_returns_error() {
+        let coord = SwarmCoordinator::new();
+        let (a, _ra) = register_for_test(&coord, "tab-a", "alice").await;
+        for i in 0..MAX_CLAIMS {
+            let r = coord
+                .try_claim(&a, format!("res-{i}"), Duration::from_secs(60), None)
+                .await;
+            assert!(matches!(r, ClaimAttempt::Acquired(_)), "fill #{i}");
+        }
+        let overflow = coord
+            .try_claim(&a, "one-too-many".into(), Duration::from_secs(60), None)
+            .await;
+        match overflow {
+            ClaimAttempt::InvalidInput(code) => assert_eq!(code, "claim_table_full"),
+            other => panic!("expected InvalidInput(claim_table_full), got {other:?}"),
+        }
+    }
+
+    /// K1#5 (Rust): a resource name containing a Unicode bidi override
+    /// (U+202E) is rejected at the `validate_resource` boundary —
+    /// non-ASCII characters never reach the claim table.
+    #[tokio::test]
+    async fn bidi_resource_rejected_with_invalid_resource() {
+        let coord = SwarmCoordinator::new();
+        let (a, _ra) = register_for_test(&coord, "tab-a", "alice").await;
+        let r = coord
+            .try_claim(
+                &a,
+                "deploy\u{202E}prod".into(),
+                Duration::from_secs(60),
+                None,
+            )
+            .await;
+        match r {
+            ClaimAttempt::InvalidInput(code) => assert_eq!(code, "invalid_resource"),
+            other => panic!("expected InvalidInput(invalid_resource), got {other:?}"),
+        }
+    }
+
+    /// K1#6 (Rust, BONUS): MAX_RESOURCE_LEN+1 is rejected; the boundary
+    /// (MAX_RESOURCE_LEN itself) is accepted.
+    #[tokio::test]
+    async fn max_resource_len_boundary() {
+        let coord = SwarmCoordinator::new();
+        let (a, _ra) = register_for_test(&coord, "tab-a", "alice").await;
+        let just_right = "a".repeat(MAX_RESOURCE_LEN);
+        assert!(matches!(
+            coord
+                .try_claim(&a, just_right, Duration::from_secs(60), None)
+                .await,
+            ClaimAttempt::Acquired(_)
+        ));
+        let too_long = "a".repeat(MAX_RESOURCE_LEN + 1);
+        match coord
+            .try_claim(&a, too_long, Duration::from_secs(60), None)
+            .await
+        {
+            ClaimAttempt::InvalidInput(code) => assert_eq!(code, "invalid_resource"),
+            other => panic!("expected InvalidInput, got {other:?}"),
+        }
+    }
+
+    /// D1 (Rust): `send_acked` rejects an unknown target with
+    /// `unknown_target` — surfaces a typed error rather than the silent
+    /// drop the legacy `send_to` path performed.
+    #[tokio::test]
+    async fn send_acked_unknown_target_rejected() {
+        let coord = SwarmCoordinator::new();
+        let (a, _ra) = register_for_test(&coord, "tab-a", "alice").await;
+        let err = coord
+            .send_acked(&a, "ghost", "hi".into(), Severity::Normal)
+            .await
+            .unwrap_err();
+        assert_eq!(err, "unknown_target");
+    }
+
+    /// D1 (Rust): oversize message rejected with `message_too_long`.
+    #[tokio::test]
+    async fn send_acked_oversize_rejected() {
+        let coord = SwarmCoordinator::new();
+        let (a, _ra) = register_for_test(&coord, "tab-a", "alice").await;
+        let (_b, _rb) = register_for_test(&coord, "tab-b", "bob").await;
+        let big = "x".repeat(MAX_MESSAGE_LEN + 1);
+        let err = coord
+            .send_acked(&a, "bob", big, Severity::Normal)
+            .await
+            .unwrap_err();
+        assert_eq!(err, "message_too_long");
+    }
+
+    /// D1 (Rust): full back-channel surfaces `back_channel_full` instead
+    /// of swallowing the failure.
+    #[tokio::test]
+    async fn send_acked_full_backchannel_rejected() {
+        let coord = SwarmCoordinator::new();
+        let (a, _ra) = register_for_test(&coord, "tab-a", "alice").await;
+        // Bob registers with a back-channel of capacity 1 that we then
+        // saturate with a single placeholder frame so the next try_send
+        // overflows.
+        let (tx, mut rx) = mpsc::channel(1);
+        coord
+            .register(
+                "tab-b".into(),
+                "bob".into(),
+                "bob".into(),
+                None,
+                None,
+                tx.clone(),
+            )
+            .await
+            .unwrap();
+        // Saturate by sending one frame that is never drained.
+        tx.try_send(Frame::Disconnect {
+            colleague_id: "filler".into(),
+            reason: None,
+        })
+        .unwrap();
+        // try_send should now report Err(Full).
+        let err = coord
+            .send_acked(&a, "bob", "ping".into(), Severity::Normal)
+            .await
+            .unwrap_err();
+        assert_eq!(err, "back_channel_full");
+        // Drain so test cleanup is clean.
+        let _ = rx.try_recv();
+    }
+
+    /// D1 (Rust): success path returns Ok and target receives a
+    /// RecvNotify frame.
+    #[tokio::test]
+    async fn send_acked_success_delivers_recv_notify() {
+        let coord = SwarmCoordinator::new();
+        let (a, _ra) = register_for_test(&coord, "tab-a", "alice").await;
+        let (_b, mut rb) = register_for_test(&coord, "tab-b", "bob").await;
+        coord
+            .send_acked(&a, "bob", "ping".into(), Severity::Normal)
+            .await
+            .unwrap();
+        let mut got = false;
+        while let Ok(f) = rb.try_recv() {
+            if matches!(f, Frame::RecvNotify { .. }) {
+                got = true;
+            }
+        }
+        assert!(got);
+    }
+
+    /// I1 (Rust): if a duplicate-tab register has already taken over the
+    /// by_id slot, the OLD connection's disconnect MUST still release
+    /// any claims that old colleague held. Without this fix, the claims
+    /// would leak until the TTL sweeper caught up.
+    #[tokio::test]
+    async fn disconnect_releases_claims_after_tab_takeover() {
+        let coord = SwarmCoordinator::new();
+        let (old_conn, _ra) = register_for_test(&coord, "tab-a", "alice").await;
+        coord
+            .try_claim(&old_conn, "prod".into(), Duration::from_secs(60), None)
+            .await;
+        // A new connection re-registers on the same tab_id with a
+        // different colleague_id — the by_tab/by_id slots flip to bob.
+        let (tx2, _rx2) = mpsc::channel(8);
+        coord
+            .register("tab-a".into(), "bob".into(), "bob".into(), None, None, tx2)
+            .await
+            .unwrap();
+        // The OLD connection now disconnects. The fixed disconnect()
+        // must still release alice's "prod" claim, even though the
+        // by_id slot for tab-a now belongs to bob.
+        coord.disconnect(&old_conn).await;
+        assert!(
+            coord.check_claim("prod").await.is_none(),
+            "post-takeover disconnect must release the orphaned claim"
+        );
     }
 }

@@ -671,15 +671,25 @@ async fn dispatch_frame(
             handle_release_req(coordinator, conn_id, request_id, resource).await;
             Flow::Continue
         }
-        Frame::CheckReq {
-            request_id,
-            resource,
-        } => {
-            handle_check_req(coordinator, conn_id, request_id, resource).await;
-            Flow::Continue
-        }
         Frame::ListClaimsReq { request_id } => {
             handle_list_claims_req(coordinator, conn_id, request_id).await;
+            Flow::Continue
+        }
+        Frame::SendReq {
+            request_id,
+            target_colleague_id,
+            message,
+            severity,
+        } => {
+            handle_send_req(
+                coordinator,
+                conn_id,
+                request_id,
+                target_colleague_id,
+                message,
+                severity,
+            )
+            .await;
             Flow::Continue
         }
         Frame::BroadcastReq {
@@ -784,32 +794,6 @@ async fn handle_release_req(
     coord.send_to_conn(conn_id, response).await;
 }
 
-async fn handle_check_req(
-    coord: &SwarmCoordinator,
-    conn_id: &ConnectionId,
-    request_id: String,
-    resource: String,
-) {
-    if validate_request_id(&request_id).is_err() {
-        return;
-    }
-    let response = match coord.check_claim(&resource).await {
-        Some(view) => Frame::ToolResponse {
-            request_id,
-            ok: true,
-            payload: serde_json::json!({ "free": false, "claim": claim_view_payload(&view) }),
-            error: None,
-        },
-        None => Frame::ToolResponse {
-            request_id,
-            ok: true,
-            payload: serde_json::json!({ "free": true }),
-            error: None,
-        },
-    };
-    coord.send_to_conn(conn_id, response).await;
-}
-
 async fn handle_list_claims_req(
     coord: &SwarmCoordinator,
     conn_id: &ConnectionId,
@@ -850,6 +834,37 @@ async fn handle_broadcast_req(
             request_id,
             ok: true,
             payload: serde_json::json!({ "recipients": count }),
+            error: None,
+        },
+        Err(code) => Frame::ToolResponse {
+            request_id,
+            ok: false,
+            payload: serde_json::Value::Null,
+            error: Some(code),
+        },
+    };
+    coord.send_to_conn(conn_id, response).await;
+}
+
+async fn handle_send_req(
+    coord: &SwarmCoordinator,
+    conn_id: &ConnectionId,
+    request_id: String,
+    target_colleague_id: String,
+    message: String,
+    severity: super::types::Severity,
+) {
+    if validate_request_id(&request_id).is_err() {
+        return;
+    }
+    let response = match coord
+        .send_acked(conn_id, &target_colleague_id, message, severity)
+        .await
+    {
+        Ok(()) => Frame::ToolResponse {
+            request_id,
+            ok: true,
+            payload: serde_json::json!({ "delivered": true }),
             error: None,
         },
         Err(code) => Frame::ToolResponse {

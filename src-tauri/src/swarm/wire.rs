@@ -161,13 +161,21 @@ pub enum Frame {
         request_id: String,
         resource: String,
     },
-    /// client → server. Read-only check.
-    CheckReq {
-        request_id: String,
-        resource: String,
-    },
     /// client → server. Snapshot of all active claims.
     ListClaimsReq { request_id: String },
+    /// client → server. Acknowledged 1:1 message — like [`Frame::SendTo`]
+    /// but routed through the same validate→sanitize→cap pipeline as
+    /// [`Frame::Notify`] / [`Frame::BroadcastReq`], and answered with a
+    /// [`Frame::ToolResponse`] so the sender learns whether delivery
+    /// succeeded (`unknown_target`, `message_too_long`, `back_channel_full`).
+    /// @privacy Tier-2 — `message` is user-authored.
+    SendReq {
+        request_id: String,
+        target_colleague_id: String,
+        message: String,
+        #[serde(default)]
+        severity: Severity,
+    },
     /// client → server. One-to-many notify to every other colleague.
     /// @privacy Tier-2 — `message` is user-authored.
     BroadcastReq {
