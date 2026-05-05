@@ -67,3 +67,37 @@ const session = await joinSession({
 session.on("session.idle", async () => {
   if (api) api.notify("copilot session idle", "ambient");
 });
+
+// Surface inbound peer/Putz notifies into the live Copilot session log
+// so the user can SEE messages from other colleagues / the Putz UI.
+// @privacy `message` is Tier-2 PII; do not stderr-log it.
+if (api) {
+  api.onNotify((msg) => {
+    const sev = (msg.severity || "normal").toUpperCase();
+    const prefix =
+      sev === "URGENT" ? "🚨" : sev === "AMBIENT" ? "💬" : "📨";
+    // session.log surfaces ephemeral text in the Copilot CLI conversation.
+    // Best-effort fire-and-forget — don't block the registry on a slow log.
+    session
+      .log(`${prefix} ${msg.from} → ${msg.message}`, { ephemeral: true })
+      .catch(() => undefined);
+  });
+
+  // Also surface peer-to-peer payloads (sendTo) — render the payload as
+  // JSON so structured data is at least human-readable in the session.
+  // @privacy payload is Tier-2 PII; do not stderr-log.
+  api.onMessage((msg) => {
+    let body;
+    try {
+      body =
+        typeof msg.payload === "string"
+          ? msg.payload
+          : JSON.stringify(msg.payload);
+    } catch {
+      body = "<unserializable payload>";
+    }
+    session
+      .log(`📦 ${msg.from} → ${body}`, { ephemeral: true })
+      .catch(() => undefined);
+  });
+}

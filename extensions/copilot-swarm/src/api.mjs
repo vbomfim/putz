@@ -53,7 +53,7 @@ export function createColleagueApi(registry, ids) {
       return registry.roster;
     },
     /**
-     * Subscribe to inbound messages.
+     * Subscribe to inbound messages (peer → me, via `send_to`/`recv_from`).
      * @privacy The `payload` delivered to `handler` is Tier-2 PII; do not log it.
      */
     onMessage(handler) {
@@ -62,6 +62,20 @@ export function createColleagueApi(registry, ids) {
       }
       registry.on("recv", handler);
       return () => registry.off("recv", handler);
+    },
+    /**
+     * Subscribe to inbound notifies (someone sent a `notify` TO me — the
+     * Putz UI's "Send notify…" or a peer colleague calling notify with
+     * a target colleague_id). The handler receives `{ from, message,
+     * severity }`. Returns an unsubscribe function.
+     * @privacy The `message` is Tier-2 PII; do not log it.
+     */
+    onNotify(handler) {
+      if (typeof handler !== "function") {
+        throw new TypeError("onNotify: handler must be a function");
+      }
+      registry.on("notify", handler);
+      return () => registry.off("notify", handler);
     },
     async shutdown(reason) {
       await registry.shutdown(reason);

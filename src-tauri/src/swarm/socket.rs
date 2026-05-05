@@ -652,9 +652,10 @@ async fn dispatch_frame(
         }
         Frame::Disconnect { .. } => Flow::Break,
         // server-only frames — clients should never send these.
-        Frame::RegisterAck { .. } | Frame::RecvFrom { .. } | Frame::RosterUpdate { .. } => {
-            Flow::Break
-        }
+        Frame::RegisterAck { .. }
+        | Frame::RecvFrom { .. }
+        | Frame::RosterUpdate { .. }
+        | Frame::RecvNotify { .. } => Flow::Break,
     }
 }
 

@@ -693,14 +693,23 @@ impl SwarmCoordinator {
         }
         let message = sanitize_notify_message(&message);
 
-        // Snapshot tab_id under lock; emit outside the lock.
-        let tab_id = {
+        // Snapshot tab_id + sender under lock; emit/send outside the lock.
+        let (tab_id, target_sender) = {
             let inner = self.inner.read().await;
             match inner.by_id.get(target_colleague_id) {
-                Some(c) => c.tab_id.clone(),
+                Some(c) => (c.tab_id.clone(), c.sender.clone()),
                 None => return Ok(()), // target gone — best-effort
             }
         };
+        // 1. Deliver to the target colleague's socket so its `gh copilot`
+        //    session can surface the message via `session.log`.
+        let _ = target_sender.try_send(Frame::RecvNotify {
+            from: "putz".into(),
+            message: message.clone(),
+            severity: Severity::Normal,
+        });
+        // 2. Emit local Tauri event so the SENDER (Putz UI) sees its own
+        //    sent message in the inbox / sidebar — confirms delivery.
         let event = NotifyEvent {
             colleague_id: target_colleague_id.to_string(),
             tab_id,

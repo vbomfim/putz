@@ -97,6 +97,18 @@ pub enum Frame {
     /// (2) at the spec's scale (≤10 colleagues per machine) the wire
     ///     cost is negligible (<1 KiB per broadcast).
     RosterUpdate { colleagues: Vec<ColleagueView> },
+    /// server → client. Coordinator-routed inbound notify. Used when one
+    /// colleague (or the Putz UI itself, with `from = "putz"`) sends a
+    /// notify *to* this colleague. Distinct from the client-to-server
+    /// `Notify` so the receiver can't confuse outbound and inbound.
+    /// The receiver typically surfaces the message in its session log.
+    /// @privacy Tier-2 PII — `message` is user/agent-authored content.
+    RecvNotify {
+        from: String,
+        message: String,
+        #[serde(default)]
+        severity: Severity,
+    },
     /// bidirectional. Clean shutdown. The coordinator emits this when it
     /// evicts a duplicate `register` for the same `tab_id`.
     Disconnect {

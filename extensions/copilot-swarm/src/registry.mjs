@@ -158,6 +158,21 @@ export class ClientRegistry extends EventEmitter {
         this.emit("peer-update", { roster: this.roster });
         return;
       }
+      case "recv_notify": {
+        // Coordinator-routed inbound notify (someone — Putz UI or a peer
+        // colleague — sent a notify TO us). Emit so the extension shell
+        // can surface it via `session.log` in the live Copilot session.
+        // @privacy `frame.message` is Tier-2 PII; subscribers MUST NOT log it.
+        if (this._registered) {
+          this.emit("notify", {
+            from: typeof frame.from === "string" ? frame.from : "unknown",
+            message: typeof frame.message === "string" ? frame.message : "",
+            severity:
+              typeof frame.severity === "string" ? frame.severity : "normal",
+          });
+        }
+        return;
+      }
       case "disconnect": {
         // Server-initiated; do not auto-reconnect on a clean kick.
         this.emit("disconnect", { reason: frame.reason });
