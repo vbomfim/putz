@@ -434,6 +434,16 @@ impl SwarmCoordinator {
     /// Env vars to inject into a PTY. `PUTZ_SWARM_PATH` replaces the
     /// removed `PUTZ_SWARM_URL` / `PUTZ_SWARM_TOKEN` pair (no auth needed
     /// — the OS file permissions are the auth).
+    ///
+    /// Windows: the listener's internal path is the bare pipe name
+    /// (e.g., `putz-swarm-12345`) because the `interprocess` crate's
+    /// `GenericNamespaced` binder adds the `\\.\pipe\` prefix at bind
+    /// time. Children connecting via Node's `net.connect({path})` (or
+    /// any consumer that doesn't speak the namespaced abstraction)
+    /// require the FULL path. Per spec FR-007 `PUTZ_SWARM_PATH` is the
+    /// "absolute socket/pipe path" — so we expose the prefixed form to
+    /// children while keeping the internal representation bare for the
+    /// binder.
     pub async fn env_vars(&self, tab_id: &str) -> Option<HashMap<String, String>> {
         if !self.enabled() {
             return None;
@@ -441,7 +451,7 @@ impl SwarmCoordinator {
         let inner = self.inner.read().await;
         let path = inner.path.as_ref()?;
         let mut vars = HashMap::new();
-        vars.insert("PUTZ_SWARM_PATH".into(), path.clone());
+        vars.insert("PUTZ_SWARM_PATH".into(), to_child_pipe_path(path));
         vars.insert("PUTZ_TAB_ID".into(), tab_id.into());
         Some(vars)
     }
@@ -1368,6 +1378,31 @@ pub enum ReleaseResult {
 
 // ─── Helpers ─────────────────────────────────────────────────────────
 
+/// Convert the listener's internal path to the form a child process must
+/// pass to its socket-connect call.
+///
+/// On Unix this is a no-op (filesystem socket paths are absolute already).
+/// On Windows the listener stores the bare pipe name (e.g.,
+/// `putz-swarm-12345`) because `interprocess::GenericNamespaced` adds the
+/// `\\.\pipe\` prefix internally. Children using Node's `net.connect`
+/// (libuv), Python's `pywin32`, or `CreateFile` directly need the FULL
+/// path. Idempotent: if the path is already prefixed, it is returned
+/// unchanged (defends against test fixtures that pass a full path).
+fn to_child_pipe_path(path: &str) -> String {
+    #[cfg(target_os = "windows")]
+    {
+        const PIPE_PREFIX: &str = r"\\.\pipe\";
+        if path.starts_with(PIPE_PREFIX) || path.starts_with(r"\\?\pipe\") {
+            return path.to_string();
+        }
+        return format!("{PIPE_PREFIX}{path}");
+    }
+    #[cfg(not(target_os = "windows"))]
+    {
+        path.to_string()
+    }
+}
+
 fn view_with_id(id: &str, c: &Colleague) -> ColleagueView {
     ColleagueView {
         id: id.into(),
@@ -1650,6 +1685,40 @@ mod tests {
     async fn env_vars_none_when_disabled() {
         let c = SwarmCoordinator::new();
         assert!(c.env_vars("tab-1").await.is_none());
+    }
+
+    #[test]
+    fn to_child_pipe_path_unix_is_passthrough() {
+        // Unix paths are already absolute filesystem paths; never rewrite.
+        let p = "/tmp/putz-swarm-1234.sock";
+        let out = super::to_child_pipe_path(p);
+        #[cfg(not(target_os = "windows"))]
+        assert_eq!(out, p);
+        #[cfg(target_os = "windows")]
+        assert_eq!(out, format!(r"\\.\pipe\{p}"));
+    }
+
+    #[cfg(target_os = "windows")]
+    #[test]
+    fn to_child_pipe_path_windows_prefixes_bare_name() {
+        // Spec FR-007: PUTZ_SWARM_PATH must be the absolute pipe path.
+        // The internal listener path is bare (interprocess GenericNamespaced
+        // adds the prefix) — children connecting via Node net.connect()
+        // need the full \\.\pipe\... form.
+        assert_eq!(
+            super::to_child_pipe_path("putz-swarm-33160"),
+            r"\\.\pipe\putz-swarm-33160"
+        );
+    }
+
+    #[cfg(target_os = "windows")]
+    #[test]
+    fn to_child_pipe_path_windows_idempotent_when_already_prefixed() {
+        // Defensive: don't double-prefix if a fixture passes a full path.
+        let already = r"\\.\pipe\putz-swarm-1";
+        assert_eq!(super::to_child_pipe_path(already), already);
+        let alt = r"\\?\pipe\putz-swarm-2";
+        assert_eq!(super::to_child_pipe_path(alt), alt);
     }
 
     #[tokio::test]
