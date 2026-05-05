@@ -7,6 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.0] — 2026-05-04
+
+### Added — Swarm: Putz ↔ Copilot CLI integration
+
+End-to-end multi-agent coordination across `gh copilot` sessions running in Putz tabs. Designed for users running multiple Copilot agents in the same dev environment that share resources (deploys, git worktrees, env locks).
+
+- **Local IPC transport** — Unix domain socket on macOS/Linux, Windows named pipe. `chmod 600` / current-user-only DACL. No HTTP, no network, no broker process. (T1 / #145)
+- **Bundled Copilot CLI extension** at `extensions/copilot-swarm/` — installs into `~/.copilot/extensions/putz-colleague/` via Settings → Copilot Integration → Install. Auto-loads in every `gh copilot` session inside a Putz tab via `@github/copilot-sdk`'s `joinSession` hook. (T2 / #156)
+- **Per-colleague status projection** from OSC 133 prompt boundaries + OSC 7 cwd updates. Dual projection: TS selector for ≤16 ms local UI latency, Rust `RosterUpdate` mirror for peer visibility. (T3 / #155)
+- **Swarm UX surface** — collapsible sidebar (left/right/hidden), per-tab notification rings (urgent/normal/ambient), `Cmd+J` inbox panel, `Cmd+K` spawn palette with `.putz/spawn.json` recipe support. (T4 / #157)
+- **Coordination tools** — 7 tools the Copilot agent can call to coordinate:
+  - `swarm_claim(resource, ttl_minutes, message)` — acquire a named lock (e.g., `deploy-prod`, `git-worktree`) with TTL
+  - `swarm_release(resource)` — release early
+  - `swarm_check(resource)` — see who holds a resource
+  - `swarm_list_claims()` — list all active claims
+  - `swarm_send(target, message)` — acknowledged direct message to a peer
+  - `swarm_broadcast(message, severity)` — message all peers
+  - `swarm_status()` — human-readable swarm summary
+- **Per-prompt context injection** — every user prompt is automatically prefixed with a `<swarm-context>` block listing active peers, claims (with TTL countdown), and unread peer messages, so the agent decides about freezes/coordination without surprise.
+- **`copilot-instructions.snippet.md`** — drop-in instructions to teach the agent the claim → work → release pattern. Paste into your project's `.github/copilot-instructions.md`.
+- **Settings → Copilot Swarm** card: enable swarm, sidebar position, install/reinstall/uninstall the extension.
+
 ### Removed
 - **Command Templates** panel and `Ctrl+Shift+T` shortcut.
 - **Command History** panel and `Ctrl+R` shortcut.
@@ -23,6 +45,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Auto-cleanup of legacy localStorage keys (`putz-history`, `putz-templates`,
   `putz-command-history`, `putz-command-templates`) on every launch
   (idempotent sweep, defense-in-depth).
+
+### Privacy
+- Frame payloads, claim messages, send/broadcast messages, inbox entries — all classified Tier-2 PII per spec PRI-002. Never logged, never persisted to disk, never transmitted off-host. In-memory only; cleared on shutdown.
+- Unicode bidi/zero-width-space characters stripped from peer messages (Trojan-Source CVE-2021-42574 defense for messages flowing into LLM context).
 
 ### Notes
 - **On-disk legacy artifacts** (`~/Library/Application Support/putz/command_history.db`
