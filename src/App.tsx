@@ -47,6 +47,7 @@ import {
   SpawnPalette,
 } from "./components/Swarm";
 import { useSwarmShortcuts } from "./hooks/useSwarmShortcuts";
+import type { Colleague } from "./hooks/useSwarmRoster";
 import { useSwarmNotifyListener } from "./hooks/useSwarmNotifyListener";
 import { useSwarmAmbientProducer } from "./hooks/useSwarmAmbientProducer";
 import { useSwarmInboxStore } from "./stores/swarmInboxStore";
@@ -121,9 +122,9 @@ function App() {
   // Fire-and-forget on success; surface failures via a toast so the
   // user knows their message didn't go through.
   const onSendNotifyToColleague = useCallback(
-    (colleague: { tab_id: string; name: string }, message: string) => {
+    (colleague: Colleague, message: string) => {
       void invoke<void>("swarm_send_notify", {
-        targetColleagueId: colleague.tab_id,
+        targetColleagueId: colleague.id,
         message,
       }).catch((err: unknown) => {
         const m = err instanceof Error ? err.message : String(err);
