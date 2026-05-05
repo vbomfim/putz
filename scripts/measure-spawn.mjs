@@ -52,10 +52,10 @@ for (let i = 0; i < args.length; i++) {
   }
 }
 
-// Build the measurement binary
-console.error("Building measure_spawn binary...");
+// Build the measurement example
+console.error("Building measure_spawn example...");
 try {
-  execSync("cargo build --bin measure_spawn --release", {
+  execSync("cargo build --example measure_spawn --release", {
     cwd: join(projectRoot, "src-tauri"),
     stdio: "inherit",
   });
@@ -70,6 +70,7 @@ const binaryPath = join(
   "src-tauri",
   "target",
   "release",
+  "examples",
   "measure_spawn",
 );
 
