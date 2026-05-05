@@ -68,6 +68,15 @@ widestring = "1"
 [[bin]]
 name = "measure_spawn"
 path = "src/bin/measure_spawn.rs"
+# Gated behind a feature flag so `tauri build` (which doesn't enable
+# the feature) doesn't try to bundle this dev tool. Run with:
+#   cargo run --features measure_spawn --bin measure_spawn
+required-features = ["measure_spawn"]
+
+[features]
+default = []
+# Dev-only feature for the measure_spawn binary. Excluded from `tauri build`.
+measure_spawn = []
 
 [dev-dependencies]
 tempfile = "3"
