@@ -171,6 +171,24 @@ function buildTools(swarmApi) {
       },
     },
     {
+      name: "swarm_status",
+      description:
+        "Get a human-readable summary of the swarm: active peer colleagues, " +
+        "currently held claims (with holders, messages, and TTLs), and any " +
+        "unread inbox messages from peers. Convenience wrapper — does NOT " +
+        "mark the inbox as read; only the next user prompt does that.",
+      parameters: { type: "object", properties: {} },
+      handler: async () => {
+        try {
+          const summary =
+            swarmApi.getContextBlock() || "no peers, no claims, inbox empty";
+          return ok({ summary });
+        } catch (e) {
+          return fail(e);
+        }
+      },
+    },
+    {
       name: "swarm_broadcast",
       description:
         "Broadcast a message to ALL peer colleagues in the swarm. " +

@@ -94,6 +94,85 @@ npm test
 
 Uses the built-in `node:test` runner — zero non-stdlib runtime dependencies.
 
+## Swarm coordination tools (T5)
+
+When two `gh copilot` sessions run in sibling Putz tabs sharing the same
+working directory, deploy target, or DB, they need to coordinate explicitly
+or they will stomp on each other. The extension registers **seven** tools on
+the Copilot SDK that any agent can call:
+
+| Tool | What it does |
+|------|---|
+| `swarm_claim` | Claim a named resource for a TTL with a human message. Returns `granted: false` if a peer holds it. |
+| `swarm_release` | Release a claim you currently hold. |
+| `swarm_check` | Look up who (if anyone) holds a given resource right now. |
+| `swarm_list_claims` | List every active claim across the swarm. |
+| `swarm_send` | 1:1 message to another colleague by `colleague_id`. Surfaced in their next prompt's context block. |
+| `swarm_broadcast` | Message all peers. Optional `severity: urgent\|normal\|ambient`. |
+| `swarm_status` | Human-readable summary of peers + claims + inbox. Convenience wrapper; does NOT mark inbox read. |
+
+In addition, the `onUserPromptSubmitted` hook prepends a `<swarm-context>`
+block to **every** user prompt listing active peers, current claims (with
+holder, message, TTL), and any unread inbox messages from peers. After
+surfacing, the inbox is cleared so the same notify is not replayed on the
+next turn.
+
+### Recommended resource-naming convention
+
+Use these conventional names so all your Copilot agents speak the same
+vocabulary:
+
+| Resource | Use for |
+|---|---|
+| `git-worktree` | `git pull`, `git fetch`, `git rebase`, `git checkout`, `git stash` — anything mutating the shared working tree |
+| `deploy-<env>` | Deploys; e.g. `deploy-prod`, `deploy-staging` |
+| `db-<env>` | DB migrations against shared databases |
+| `npm-publish` | Package publishes (npm, PyPI, crates, etc.) |
+| free-form | Anything else; pick a stable, lowercase, hyphenated name |
+
+Resource names are restricted to `[a-zA-Z0-9._/:-]` and capped at 200 chars.
+
+See [`copilot-instructions.snippet.md`](./copilot-instructions.snippet.md)
+for a drop-in markdown block you can paste into your repo's
+`.github/copilot-instructions.md` so agents know when and how to use these
+tools.
+
+### Scenario A — deploy-freeze
+
+Two tabs (`A`, `B`) attached to the same Putz instance, both running
+`gh copilot`.
+
+1. User in tab `A` says *"deploy main to prod"*. Agent calls
+   `swarm_claim({ resource: "deploy-prod", ttl_secs: 600, message: "deploying abc123 to prod" })`.
+   `granted: true`.
+2. User in tab `B` says *"deploy the hotfix to prod"*. Agent's prompt
+   already has a `<swarm-context>` block showing `deploy-prod` held by
+   tab `A` with message *"deploying abc123 to prod"*. Agent stops and
+   asks user *"Tab A is mid-deploy — wait or override?"*.
+3. Tab `A` finishes deploy and calls `swarm_release({ resource: "deploy-prod" })`.
+4. User in tab `B` says *"go ahead"*. Agent's next prompt's context
+   block shows the resource is free → claims it and proceeds.
+
+### Scenario B — shared-worktree git pull
+
+Two tabs in the **same** working directory (e.g. you opened two Putz
+tabs in the same project).
+
+1. User in tab `A` says *"pull latest from main"*. Agent calls
+   `swarm_claim({ resource: "git-worktree", ttl_secs: 90, message: "git pull --rebase main" })`,
+   runs the pull, then `swarm_release`.
+2. While `A`'s pull is in flight, user in tab `B` says *"check out the
+   feature branch"*. Agent's prompt context block shows
+   `git-worktree` held by `A`. Agent reports to user, who decides to
+   wait. (If user said *"override anyway"*, agent would not — it asks
+   first; user can release explicitly via `swarm_release` themselves.)
+3. After `A` releases, user in tab `B` retries. Context block is
+   clean → agent claims `git-worktree`, runs `git checkout`, releases.
+
+If a colleague's tab disconnects mid-claim, the coordinator
+automatically releases everything they held and broadcasts the release
+to remaining peers — no manual cleanup needed.
+
 ## Engine
 
 Node ≥ 18.
