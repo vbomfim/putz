@@ -34,7 +34,10 @@ use tokio::io::AsyncWriteExt;
 use tokio::sync::mpsc;
 use tokio_util::sync::CancellationToken;
 
-use super::coordinator::{ConnectionId, SwarmCoordinator};
+use super::coordinator::{
+    validate_request_id, ClaimAttempt, ConnectionId, ReleaseResult, SwarmCoordinator,
+};
+use super::types::ClaimView;
 use super::wire::{read_frame, write_frame, Frame, FrameError};
 
 /// How long we wait for the first `register` frame before closing the
@@ -651,12 +654,239 @@ async fn dispatch_frame(
             Flow::Continue
         }
         Frame::Disconnect { .. } => Flow::Break,
+        // ─── T5: tool requests ───────────────────────────────────
+        Frame::ClaimReq {
+            request_id,
+            resource,
+            ttl_ms,
+            message,
+        } => {
+            handle_claim_req(coordinator, conn_id, request_id, resource, ttl_ms, message).await;
+            Flow::Continue
+        }
+        Frame::ReleaseReq {
+            request_id,
+            resource,
+        } => {
+            handle_release_req(coordinator, conn_id, request_id, resource).await;
+            Flow::Continue
+        }
+        Frame::ListClaimsReq { request_id } => {
+            handle_list_claims_req(coordinator, conn_id, request_id).await;
+            Flow::Continue
+        }
+        Frame::SendReq {
+            request_id,
+            target_colleague_id,
+            message,
+            severity,
+        } => {
+            handle_send_req(
+                coordinator,
+                conn_id,
+                request_id,
+                target_colleague_id,
+                message,
+                severity,
+            )
+            .await;
+            Flow::Continue
+        }
+        Frame::BroadcastReq {
+            request_id,
+            message,
+            severity,
+        } => {
+            handle_broadcast_req(coordinator, conn_id, request_id, message, severity).await;
+            Flow::Continue
+        }
         // server-only frames — clients should never send these.
         Frame::RegisterAck { .. }
         | Frame::RecvFrom { .. }
         | Frame::RosterUpdate { .. }
-        | Frame::RecvNotify { .. } => Flow::Break,
+        | Frame::RecvNotify { .. }
+        | Frame::Claim { .. }
+        | Frame::Release { .. }
+        | Frame::ToolResponse { .. } => Flow::Break,
     }
+}
+
+// ─── T5: tool dispatchers ───────────────────────────────────────────
+//
+// Each dispatcher converts a `*_req` into a single `tool_response` frame
+// pushed back on the same connection. Validation errors come back with
+// `ok = false` and a short, machine-readable `error` code; the Node side
+// translates these into typed JSON results for the Copilot SDK tool.
+
+async fn handle_claim_req(
+    coord: &SwarmCoordinator,
+    conn_id: &ConnectionId,
+    request_id: String,
+    resource: String,
+    ttl_ms: u64,
+    message: Option<String>,
+) {
+    if validate_request_id(&request_id).is_err() {
+        // Bad request_id — drop silently. A response would have nowhere
+        // useful to land (the client cannot correlate it).
+        return;
+    }
+    let ttl = std::time::Duration::from_millis(ttl_ms);
+    let outcome = coord.try_claim(conn_id, resource, ttl, message).await;
+    let response = match outcome {
+        ClaimAttempt::Acquired(view) => Frame::ToolResponse {
+            request_id,
+            ok: true,
+            payload: claim_view_payload(&view),
+            error: None,
+        },
+        ClaimAttempt::Held(view) => Frame::ToolResponse {
+            request_id,
+            ok: false,
+            payload: claim_view_payload(&view),
+            error: Some("held_by_other".into()),
+        },
+        ClaimAttempt::InvalidInput(code) => Frame::ToolResponse {
+            request_id,
+            ok: false,
+            payload: serde_json::Value::Null,
+            error: Some(code),
+        },
+        ClaimAttempt::NotRegistered => Frame::ToolResponse {
+            request_id,
+            ok: false,
+            payload: serde_json::Value::Null,
+            error: Some("not_registered".into()),
+        },
+    };
+    coord.send_to_conn(conn_id, response).await;
+}
+
+async fn handle_release_req(
+    coord: &SwarmCoordinator,
+    conn_id: &ConnectionId,
+    request_id: String,
+    resource: String,
+) {
+    if validate_request_id(&request_id).is_err() {
+        return;
+    }
+    let response = match coord.release_claim(conn_id, resource).await {
+        ReleaseResult::Released => Frame::ToolResponse {
+            request_id,
+            ok: true,
+            payload: serde_json::Value::Null,
+            error: None,
+        },
+        ReleaseResult::NotHeldBySelf => Frame::ToolResponse {
+            request_id,
+            ok: false,
+            payload: serde_json::Value::Null,
+            error: Some("not_held_by_self".into()),
+        },
+        ReleaseResult::NotRegistered => Frame::ToolResponse {
+            request_id,
+            ok: false,
+            payload: serde_json::Value::Null,
+            error: Some("not_registered".into()),
+        },
+    };
+    coord.send_to_conn(conn_id, response).await;
+}
+
+async fn handle_list_claims_req(
+    coord: &SwarmCoordinator,
+    conn_id: &ConnectionId,
+    request_id: String,
+) {
+    if validate_request_id(&request_id).is_err() {
+        return;
+    }
+    let claims = coord.list_claims().await;
+    let payload = serde_json::json!({
+        "claims": claims.iter().map(claim_view_payload).collect::<Vec<_>>(),
+    });
+    coord
+        .send_to_conn(
+            conn_id,
+            Frame::ToolResponse {
+                request_id,
+                ok: true,
+                payload,
+                error: None,
+            },
+        )
+        .await;
+}
+
+async fn handle_broadcast_req(
+    coord: &SwarmCoordinator,
+    conn_id: &ConnectionId,
+    request_id: String,
+    message: String,
+    severity: super::types::Severity,
+) {
+    if validate_request_id(&request_id).is_err() {
+        return;
+    }
+    let response = match coord.broadcast_notify(conn_id, severity, message).await {
+        Ok(count) => Frame::ToolResponse {
+            request_id,
+            ok: true,
+            payload: serde_json::json!({ "recipients": count }),
+            error: None,
+        },
+        Err(code) => Frame::ToolResponse {
+            request_id,
+            ok: false,
+            payload: serde_json::Value::Null,
+            error: Some(code),
+        },
+    };
+    coord.send_to_conn(conn_id, response).await;
+}
+
+async fn handle_send_req(
+    coord: &SwarmCoordinator,
+    conn_id: &ConnectionId,
+    request_id: String,
+    target_colleague_id: String,
+    message: String,
+    severity: super::types::Severity,
+) {
+    if validate_request_id(&request_id).is_err() {
+        return;
+    }
+    let response = match coord
+        .send_acked(conn_id, &target_colleague_id, message, severity)
+        .await
+    {
+        Ok(()) => Frame::ToolResponse {
+            request_id,
+            ok: true,
+            payload: serde_json::json!({ "delivered": true }),
+            error: None,
+        },
+        Err(code) => Frame::ToolResponse {
+            request_id,
+            ok: false,
+            payload: serde_json::Value::Null,
+            error: Some(code),
+        },
+    };
+    coord.send_to_conn(conn_id, response).await;
+}
+
+/// Wire-shape JSON for a [`ClaimView`]. Keeping this private to
+/// `socket.rs` keeps the JSON shape — which the Node side consumes — in
+/// one well-known place.
+fn claim_view_payload(view: &ClaimView) -> serde_json::Value {
+    serde_json::json!({
+        "resource": view.resource,
+        "holder": view.holder,
+        "message": view.message,
+        "expires_at_ms": view.expires_at_ms,
+    })
 }
 
 /// Connect a client to a listener — used by integration tests inside
