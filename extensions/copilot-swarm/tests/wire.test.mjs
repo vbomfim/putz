@@ -167,3 +167,118 @@ test("encode rejects wrong type for field", () => {
     /string/i,
   );
 });
+
+// ─── T5: claim/release/RPC frames ────────────────────────────────
+
+test("roundtrip: claim broadcast", () => {
+  const frame = {
+    type: "claim",
+    resource: "deploy-prod",
+    holder: "alice-aaaa",
+    message: "freeze",
+    expires_at_ms: 1_700_000_000_000,
+  };
+  const dec = new FrameDecoder();
+  assert.deepEqual(feed(dec, encodeFrame(frame)), [frame]);
+});
+
+test("roundtrip: release broadcast", () => {
+  const frame = { type: "release", resource: "deploy-prod", holder: "alice-aaaa" };
+  const dec = new FrameDecoder();
+  assert.deepEqual(feed(dec, encodeFrame(frame)), [frame]);
+});
+
+test("roundtrip: claim_req with optional message", () => {
+  const frame = {
+    type: "claim_req",
+    request_id: "abc-123",
+    resource: "x",
+    ttl_ms: 60000,
+    message: "hi",
+  };
+  const dec = new FrameDecoder();
+  assert.deepEqual(feed(dec, encodeFrame(frame)), [frame]);
+});
+
+test("roundtrip: claim_req without message", () => {
+  const frame = {
+    type: "claim_req",
+    request_id: "abc-123",
+    resource: "x",
+    ttl_ms: 60000,
+  };
+  const dec = new FrameDecoder();
+  assert.deepEqual(feed(dec, encodeFrame(frame)), [frame]);
+});
+
+test("roundtrip: list_claims_req", () => {
+  const frame = { type: "list_claims_req", request_id: "r1" };
+  const dec = new FrameDecoder();
+  assert.deepEqual(feed(dec, encodeFrame(frame)), [frame]);
+});
+
+test("roundtrip: broadcast_req", () => {
+  const frame = {
+    type: "broadcast_req",
+    request_id: "r1",
+    message: "hello",
+    severity: "urgent",
+  };
+  const dec = new FrameDecoder();
+  assert.deepEqual(feed(dec, encodeFrame(frame)), [frame]);
+});
+
+test("roundtrip: tool_response ok=true with payload", () => {
+  const frame = {
+    type: "tool_response",
+    request_id: "r1",
+    ok: true,
+    payload: { resource: "x", holder: "alice", message: "", expires_at_ms: 1 },
+  };
+  const dec = new FrameDecoder();
+  assert.deepEqual(feed(dec, encodeFrame(frame)), [frame]);
+});
+
+test("roundtrip: tool_response ok=false with error", () => {
+  const frame = {
+    type: "tool_response",
+    request_id: "r1",
+    ok: false,
+    payload: null,
+    error: "held_by_other",
+  };
+  const dec = new FrameDecoder();
+  assert.deepEqual(feed(dec, encodeFrame(frame)), [frame]);
+});
+
+test("encode rejects tool_response.ok with non-boolean", () => {
+  assert.throws(
+    () =>
+      encodeFrame({
+        type: "tool_response",
+        request_id: "r1",
+        ok: "yes",
+        payload: null,
+      }),
+    /boolean/i,
+  );
+});
+
+test("register_ack with claims field roundtrips", () => {
+  // Server-emitted shape; encoder allows roster + claims as `any`.
+  const frame = {
+    type: "register_ack",
+    colleague_id: "alice",
+    roster: [],
+    claims: [
+      {
+        resource: "x",
+        holder: "bob",
+        message: "",
+        expires_at_ms: 1700000000000,
+      },
+    ],
+  };
+  const dec = new FrameDecoder();
+  assert.deepEqual(feed(dec, encodeFrame(frame)), [frame]);
+});

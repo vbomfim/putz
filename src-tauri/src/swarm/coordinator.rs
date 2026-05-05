@@ -20,8 +20,8 @@ use uuid::Uuid;
 
 use super::socket::Listener;
 use super::types::{
-    ColleagueStatus, ColleagueView, CommandStatus, Severity, StatusSnapshot, SwarmHealth,
-    SwarmStatePublic,
+    ClaimView, ColleagueStatus, ColleagueView, CommandStatus, Severity, StatusSnapshot,
+    SwarmHealth, SwarmStatePublic,
 };
 use super::wire::Frame;
 
@@ -92,6 +92,20 @@ const MAX_CWD_LEN: usize = 4096;
 /// history that would inflate every roster broadcast.
 const MAX_EXIT_CODE_HISTORY: usize = 10;
 
+/// T5 — bounds for resource-coordination claims.
+/// Resource name length cap (must fit `ascii_alphanumeric` + `-_./:`).
+const MAX_RESOURCE_LEN: usize = 200;
+/// Max simultaneously-held claims across the whole swarm. Bounds memory
+/// against a buggy / hostile colleague claim-flooding the coordinator.
+const MAX_CLAIMS: usize = 200;
+/// Max TTL accepted for a single claim. Caps wall-clock drift on a
+/// long-lived freeze and forces holders to re-affirm every few hours.
+const MAX_CLAIM_TTL: Duration = Duration::from_secs(60 * 60 * 12); // 12h
+/// Min TTL — sub-second TTLs are almost certainly a unit error.
+const MIN_CLAIM_TTL: Duration = Duration::from_secs(1);
+/// Cap on inbound tool request_id length (correlation token).
+const MAX_REQUEST_ID_LEN: usize = 100;
+
 /// Opaque per-connection key. Different from `colleague_id` so that
 /// duplicate-tab evictions are unambiguous: a re-register on the same
 /// `tab_id` gets a fresh `ConnectionId`, and the old connection is
@@ -137,12 +151,33 @@ struct Colleague {
     last_ten_exit_codes: Vec<Option<i32>>,
 }
 
+/// T5 — internal record for an active resource claim.
+///
+/// `expires_at` (Instant) is authoritative for the in-process TTL sweeper —
+/// monotonic, immune to wall-clock jumps. `expires_at_ms` is the wall-clock
+/// projection sent on the wire so receivers can render
+/// "expires at 14:32" without needing a coordinator round-trip per render.
+///
+/// @privacy Tier-2 — `message` is user-authored ("freeze prod, deploying v0.5").
+/// MUST NOT be logged, persisted, or forwarded to telemetry. PRI-001/002.
+struct ClaimInfo {
+    holder_colleague_id: String,
+    /// @privacy Tier-2 PII — see struct doc. Empty when the holder
+    /// did not provide a message.
+    message: String,
+    expires_at: Instant,
+    /// Wall-clock projection of `expires_at` for wire serialization.
+    expires_at_ms: u64,
+}
+
 #[derive(Default)]
 struct Inner {
     /// Colleagues keyed by `colleague_id`.
     by_id: HashMap<String, Colleague>,
     /// Reverse index: connection → colleague_id.
     by_conn: HashMap<ConnectionId, String>,
+    /// T5: active resource claims keyed by resource name.
+    claims: HashMap<String, ClaimInfo>,
     /// Reverse index: tab_id → colleague_id. Used by [`SwarmCoordinator::register`]
     /// to enforce FR-009 idempotency keyed on tab — a re-register from the
     /// same tab evicts whatever colleague was previously bound to it, even
@@ -367,6 +402,7 @@ impl SwarmCoordinator {
         inner.by_conn.clear();
         inner.by_tab.clear();
         inner.last_eviction.clear();
+        inner.claims.clear();
         inner.path = None;
     }
 
@@ -564,9 +600,11 @@ impl SwarmCoordinator {
             .iter()
             .map(|(id, c)| view_with_id(id, c))
             .collect();
+        let claims_snapshot = collect_claim_views(&inner.claims);
         let ack = Frame::RegisterAck {
             colleague_id,
             roster,
+            claims: claims_snapshot,
         };
 
         // Notify the frontend so the sidebar refreshes immediately —
@@ -756,6 +794,12 @@ impl SwarmCoordinator {
 
     /// Drop a connection. Called by the socket layer on EOF / error.
     pub async fn disconnect(&self, conn_id: &ConnectionId) {
+        // T5: collect (and drop) any claims this colleague held so we can
+        // broadcast their releases after we drop the write lock. Caches
+        // on peer colleagues converge with the holder's exit instead of
+        // waiting for the TTL sweeper.
+        type ReleaseBroadcast = (Vec<(String, String)>, Vec<(String, mpsc::Sender<Frame>)>);
+        let release_broadcast: Option<ReleaseBroadcast>;
         let mut inner = self.inner.write().await;
         if let Some(colleague_id) = inner.by_conn.remove(conn_id) {
             // Only remove from by_id / by_tab if this conn still owns it
@@ -765,6 +809,19 @@ impl SwarmCoordinator {
                 _ => None,
             };
             if let Some(tab_id) = owned_tab {
+                // Drop all claims held by this colleague.
+                let to_release: Vec<String> = inner
+                    .claims
+                    .iter()
+                    .filter(|(_, c)| c.holder_colleague_id == colleague_id)
+                    .map(|(r, _)| r.clone())
+                    .collect();
+                let mut released_claims: Vec<(String, String)> =
+                    Vec::with_capacity(to_release.len());
+                for r in to_release {
+                    inner.claims.remove(&r);
+                    released_claims.push((r, colleague_id.clone()));
+                }
                 if let Some(c) = inner.by_id.remove(&colleague_id) {
                     tracing_warn(&format!(
                         "swarm: disconnected colleague {colleague_id:?} (pid={:?})",
@@ -775,6 +832,11 @@ impl SwarmCoordinator {
                 if inner.by_tab.get(&tab_id) == Some(&colleague_id) {
                     inner.by_tab.remove(&tab_id);
                 }
+                let released_senders: Vec<(String, mpsc::Sender<Frame>)> = inner
+                    .by_id
+                    .iter()
+                    .map(|(id, c)| (id.clone(), c.sender.clone()))
+                    .collect();
                 // Notify frontend so the sidebar removes the row immediately.
                 let emitter = inner.state_changed_emitter.clone();
                 let public = SwarmStatePublic {
@@ -787,6 +849,17 @@ impl SwarmCoordinator {
                 if let Some(emit) = emitter {
                     emit(public);
                 }
+                release_broadcast = Some((released_claims, released_senders));
+            } else {
+                release_broadcast = None;
+            }
+        } else {
+            release_broadcast = None;
+        }
+        if let Some((claims, senders)) = release_broadcast {
+            for (resource, holder) in claims {
+                let frame = Frame::Release { resource, holder };
+                broadcast_frame_to(&frame, &senders, "release-disconnect");
             }
         }
     }
@@ -940,6 +1013,286 @@ impl SwarmCoordinator {
             }
         }
     }
+
+    // ─── T5: claims (resource coordination) ─────────────────────────
+
+    /// Try to acquire `resource` for the colleague currently bound to
+    /// `conn_id`. Idempotent if `(resource, holder)` already match —
+    /// the TTL and `message` are refreshed in place.
+    ///
+    /// Returns the wire-shaped result the dispatcher serializes into a
+    /// `tool_response`. On success, broadcasts a `Frame::Claim` to every
+    /// connected colleague (including the holder, so every cache
+    /// converges on the same record without local guesswork).
+    ///
+    /// @privacy Tier-2 — `message` is user-authored. NEVER log it.
+    pub async fn try_claim(
+        &self,
+        conn_id: &ConnectionId,
+        resource: String,
+        ttl: Duration,
+        message: Option<String>,
+    ) -> ClaimAttempt {
+        if let Err(reason) = validate_resource(&resource) {
+            return ClaimAttempt::InvalidInput(reason);
+        }
+        if ttl < MIN_CLAIM_TTL || ttl > MAX_CLAIM_TTL {
+            return ClaimAttempt::InvalidInput("invalid_ttl".into());
+        }
+        let message = match message {
+            Some(m) if m.len() > MAX_MESSAGE_LEN => {
+                return ClaimAttempt::InvalidInput("message_too_long".into());
+            }
+            Some(m) => sanitize_notify_message(&m),
+            None => String::new(),
+        };
+
+        let now = Instant::now();
+        let expires_at = now + ttl;
+        let expires_at_ms = now_unix_millis().saturating_add(ttl.as_millis() as u64);
+
+        let (broadcast_frame, senders) = {
+            let mut inner = self.inner.write().await;
+            let holder = match inner.by_conn.get(conn_id).cloned() {
+                Some(id) => id,
+                None => return ClaimAttempt::NotRegistered,
+            };
+            // Already held by someone else and not expired? Refuse.
+            if let Some(existing) = inner.claims.get(&resource) {
+                if existing.holder_colleague_id != holder && existing.expires_at > now {
+                    return ClaimAttempt::Held(ClaimView {
+                        resource: resource.clone(),
+                        holder: existing.holder_colleague_id.clone(),
+                        message: existing.message.clone(),
+                        expires_at_ms: existing.expires_at_ms,
+                    });
+                }
+            }
+            if !inner.claims.contains_key(&resource) && inner.claims.len() >= MAX_CLAIMS {
+                return ClaimAttempt::InvalidInput("claim_table_full".into());
+            }
+            inner.claims.insert(
+                resource.clone(),
+                ClaimInfo {
+                    holder_colleague_id: holder.clone(),
+                    message: message.clone(),
+                    expires_at,
+                    expires_at_ms,
+                },
+            );
+            tracing_warn(&format!(
+                "swarm: claim {resource:?} held by {holder:?} ttl={ttl:?}"
+            ));
+            let frame = Frame::Claim {
+                resource: resource.clone(),
+                holder: holder.clone(),
+                message: message.clone(),
+                expires_at_ms,
+            };
+            let senders: Vec<(String, mpsc::Sender<Frame>)> = inner
+                .by_id
+                .iter()
+                .map(|(id, c)| (id.clone(), c.sender.clone()))
+                .collect();
+            (frame, senders)
+        };
+        broadcast_frame_to(&broadcast_frame, &senders, "claim");
+        ClaimAttempt::Acquired(ClaimView {
+            resource,
+            holder: match &broadcast_frame {
+                Frame::Claim { holder, .. } => holder.clone(),
+                _ => unreachable!("broadcast_frame is always Claim here"),
+            },
+            message,
+            expires_at_ms,
+        })
+    }
+
+    /// Release a claim on `resource`. No-op if not held by `conn_id`.
+    pub async fn release_claim(&self, conn_id: &ConnectionId, resource: String) -> ReleaseResult {
+        let (broadcast_frame, senders) = {
+            let mut inner = self.inner.write().await;
+            let holder = match inner.by_conn.get(conn_id).cloned() {
+                Some(id) => id,
+                None => return ReleaseResult::NotRegistered,
+            };
+            match inner.claims.get(&resource) {
+                Some(existing) if existing.holder_colleague_id == holder => {
+                    inner.claims.remove(&resource);
+                    tracing_warn(&format!("swarm: claim {resource:?} released by {holder:?}"));
+                    let frame = Frame::Release {
+                        resource,
+                        holder: holder.clone(),
+                    };
+                    let senders: Vec<(String, mpsc::Sender<Frame>)> = inner
+                        .by_id
+                        .iter()
+                        .map(|(id, c)| (id.clone(), c.sender.clone()))
+                        .collect();
+                    (frame, senders)
+                }
+                _ => return ReleaseResult::NotHeldBySelf,
+            }
+        };
+        broadcast_frame_to(&broadcast_frame, &senders, "release");
+        ReleaseResult::Released
+    }
+
+    /// Read-only check.
+    pub async fn check_claim(&self, resource: &str) -> Option<ClaimView> {
+        let now = Instant::now();
+        let inner = self.inner.read().await;
+        inner.claims.get(resource).and_then(|c| {
+            if c.expires_at <= now {
+                None
+            } else {
+                Some(ClaimView {
+                    resource: resource.to_string(),
+                    holder: c.holder_colleague_id.clone(),
+                    message: c.message.clone(),
+                    expires_at_ms: c.expires_at_ms,
+                })
+            }
+        })
+    }
+
+    /// Snapshot of all currently-active (non-expired) claims.
+    pub async fn list_claims(&self) -> Vec<ClaimView> {
+        let inner = self.inner.read().await;
+        collect_claim_views(&inner.claims)
+    }
+
+    /// Sweep expired claims. Called from the heartbeat sweeper.
+    /// Broadcasts a `Frame::Release` per evicted claim so caches converge.
+    pub async fn sweep_expired_claims(&self) {
+        let now = Instant::now();
+        let (releases, senders) = {
+            let mut inner = self.inner.write().await;
+            let expired: Vec<(String, String)> = inner
+                .claims
+                .iter()
+                .filter(|(_, c)| c.expires_at <= now)
+                .map(|(r, c)| (r.clone(), c.holder_colleague_id.clone()))
+                .collect();
+            for (r, _) in &expired {
+                inner.claims.remove(r);
+            }
+            let senders: Vec<(String, mpsc::Sender<Frame>)> = inner
+                .by_id
+                .iter()
+                .map(|(id, c)| (id.clone(), c.sender.clone()))
+                .collect();
+            (expired, senders)
+        };
+        for (resource, holder) in releases {
+            tracing_warn(&format!(
+                "swarm: claim {resource:?} expired (was held by {holder:?})"
+            ));
+            let frame = Frame::Release { resource, holder };
+            broadcast_frame_to(&frame, &senders, "release-expired");
+        }
+    }
+
+    /// One-to-many notify — deliver `message` to every colleague EXCEPT
+    /// the sender (who already has it locally). Returns the recipient count.
+    pub async fn broadcast_notify(
+        &self,
+        conn_id: &ConnectionId,
+        severity: Severity,
+        message: String,
+    ) -> Result<usize, String> {
+        if message.is_empty() {
+            return Err("empty_message".into());
+        }
+        if message.len() > MAX_MESSAGE_LEN {
+            return Err("message_too_long".into());
+        }
+        let message = sanitize_notify_message(&message);
+        let inner = self.inner.read().await;
+        let from = match inner.by_conn.get(conn_id) {
+            Some(id) => id.clone(),
+            None => return Err("not_registered".into()),
+        };
+        let mut count = 0usize;
+        for (id, c) in inner.by_id.iter() {
+            if id == &from {
+                continue;
+            }
+            if c.sender
+                .try_send(Frame::RecvNotify {
+                    from: from.clone(),
+                    message: message.clone(),
+                    severity,
+                })
+                .is_ok()
+            {
+                count += 1;
+            }
+        }
+        Ok(count)
+    }
+
+    /// Direct message — deliver `message` from the connection's holder
+    /// to `target_colleague_id` only. Returns Err if target not present.
+    pub async fn send_notify_between_colleagues(
+        &self,
+        conn_id: &ConnectionId,
+        target_colleague_id: &str,
+        message: String,
+    ) -> Result<(), String> {
+        if message.is_empty() {
+            return Err("empty_message".into());
+        }
+        if message.len() > MAX_MESSAGE_LEN {
+            return Err("message_too_long".into());
+        }
+        let message = sanitize_notify_message(&message);
+        let inner = self.inner.read().await;
+        let from = match inner.by_conn.get(conn_id) {
+            Some(id) => id.clone(),
+            None => return Err("not_registered".into()),
+        };
+        let target = match inner.by_id.get(target_colleague_id) {
+            Some(t) => t,
+            None => return Err("unknown_target".into()),
+        };
+        let _ = target.sender.try_send(Frame::RecvNotify {
+            from,
+            message,
+            severity: Severity::Normal,
+        });
+        Ok(())
+    }
+
+    /// Push a frame on the back-channel of the colleague currently bound
+    /// to `conn_id`. Used by the socket dispatcher to ship `tool_response`
+    /// frames back to the requester. Best-effort — drops on full channel.
+    pub async fn send_to_conn(&self, conn_id: &ConnectionId, frame: Frame) {
+        let inner = self.inner.read().await;
+        if let Some(id) = inner.by_conn.get(conn_id) {
+            if let Some(c) = inner.by_id.get(id) {
+                let _ = c.sender.try_send(frame);
+            }
+        }
+    }
+}
+
+/// Outcome of [`SwarmCoordinator::try_claim`]. The dispatcher in
+/// [`super::socket`] turns this into a wire `tool_response`.
+#[derive(Debug, Clone, PartialEq)]
+pub enum ClaimAttempt {
+    Acquired(ClaimView),
+    Held(ClaimView),
+    InvalidInput(String),
+    NotRegistered,
+}
+
+/// Outcome of [`SwarmCoordinator::release_claim`].
+#[derive(Debug, Clone, PartialEq)]
+pub enum ReleaseResult {
+    Released,
+    NotHeldBySelf,
+    NotRegistered,
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────
@@ -956,6 +1309,63 @@ fn view_with_id(id: &str, c: &Colleague) -> ColleagueView {
         last_command_exit: c.last_command_exit,
         last_command_started_at: c.last_command_started_at,
         last_ten_exit_codes: c.last_ten_exit_codes.clone(),
+    }
+}
+
+/// Snapshot non-expired claims as [`ClaimView`]s for wire serialization.
+fn collect_claim_views(claims: &HashMap<String, ClaimInfo>) -> Vec<ClaimView> {
+    let now = Instant::now();
+    claims
+        .iter()
+        .filter(|(_, c)| c.expires_at > now)
+        .map(|(r, c)| ClaimView {
+            resource: r.clone(),
+            holder: c.holder_colleague_id.clone(),
+            message: c.message.clone(),
+            expires_at_ms: c.expires_at_ms,
+        })
+        .collect()
+}
+
+/// Validate a T5 `resource` identifier. Allows `:` `/` `.` `-` `_` plus
+/// alphanumerics — covers things like `deploy-prod`, `db/migrations`,
+/// `env:staging`. Rejects empty, oversize, and control characters.
+fn validate_resource(s: &str) -> Result<(), String> {
+    if s.is_empty() || s.len() > MAX_RESOURCE_LEN {
+        return Err("invalid_resource".into());
+    }
+    if !s
+        .chars()
+        .all(|c| c.is_ascii_alphanumeric() || matches!(c, '-' | '_' | '.' | '/' | ':'))
+    {
+        return Err("invalid_resource".into());
+    }
+    Ok(())
+}
+
+/// Validate an inbound `request_id` correlation token.
+pub(crate) fn validate_request_id(s: &str) -> Result<(), String> {
+    if s.is_empty() || s.len() > MAX_REQUEST_ID_LEN {
+        return Err("invalid_request_id".into());
+    }
+    if !s
+        .chars()
+        .all(|c| c.is_ascii_alphanumeric() || matches!(c, '-' | '_'))
+    {
+        return Err("invalid_request_id".into());
+    }
+    Ok(())
+}
+
+/// Broadcast a frame to every connected colleague — best-effort, drops
+/// on full back-channel with a warn log keyed by colleague id only.
+fn broadcast_frame_to(frame: &Frame, senders: &[(String, mpsc::Sender<Frame>)], label: &str) {
+    for (id, tx) in senders {
+        if tx.try_send(frame.clone()).is_err() {
+            tracing_warn(&format!(
+                "swarm: {label} broadcast dropped (back-channel full) for {id:?}"
+            ));
+        }
     }
 }
 
@@ -1055,6 +1465,8 @@ async fn sweep_loop<R: tauri::Runtime>(
             _ = cancel.cancelled() => break,
             _ = tokio::time::sleep(SWEEP_INTERVAL) => {
                 let evicted = sweep_once(&coord).await;
+                // T5: also evict expired claims and broadcast their releases.
+                coord.sweep_expired_claims().await;
                 if evicted {
                     let public = coord.state_public().await;
                     emit_state_changed(&app_handle, &public);
@@ -2129,5 +2541,247 @@ mod tests {
         // the assertion above didn't pass vacuously).
         let roster = coord.roster().await;
         assert_eq!(roster[0].cwd.as_deref(), Some(SENTINEL));
+    }
+
+    // ─── T5: claim coordination tests ────────────────────────────────
+
+    /// Test helper — register a colleague and return its ConnectionId
+    /// plus the back-channel receiver (so tests can observe broadcasts).
+    async fn register_for_test(
+        coord: &SwarmCoordinator,
+        tab: &str,
+        cid: &str,
+    ) -> (ConnectionId, mpsc::Receiver<Frame>) {
+        let (tx, rx) = mpsc::channel(64);
+        let (conn, _ack) = coord
+            .register(tab.into(), cid.into(), cid.into(), None, None, tx)
+            .await
+            .expect("register");
+        (conn, rx)
+    }
+
+    #[tokio::test]
+    async fn claim_succeeds_when_resource_is_free() {
+        let coord = SwarmCoordinator::new();
+        let (conn, _rx) = register_for_test(&coord, "tab-a", "alice").await;
+        let result = coord
+            .try_claim(
+                &conn,
+                "deploy-prod".into(),
+                Duration::from_secs(60),
+                Some("freezing prod".into()),
+            )
+            .await;
+        match result {
+            ClaimAttempt::Acquired(view) => {
+                assert_eq!(view.resource, "deploy-prod");
+                assert_eq!(view.holder, "alice");
+                assert_eq!(view.message, "freezing prod");
+            }
+            other => panic!("expected Acquired, got {other:?}"),
+        }
+    }
+
+    #[tokio::test]
+    async fn claim_fails_when_held_by_another() {
+        let coord = SwarmCoordinator::new();
+        let (a, _ra) = register_for_test(&coord, "tab-a", "alice").await;
+        let (b, _rb) = register_for_test(&coord, "tab-b", "bob").await;
+        coord
+            .try_claim(&a, "prod".into(), Duration::from_secs(60), None)
+            .await;
+        let r = coord
+            .try_claim(&b, "prod".into(), Duration::from_secs(60), None)
+            .await;
+        match r {
+            ClaimAttempt::Held(view) => assert_eq!(view.holder, "alice"),
+            other => panic!("expected Held, got {other:?}"),
+        }
+    }
+
+    #[tokio::test]
+    async fn claim_refreshes_ttl_when_held_by_self() {
+        let coord = SwarmCoordinator::new();
+        let (a, _ra) = register_for_test(&coord, "tab-a", "alice").await;
+        let r1 = coord
+            .try_claim(&a, "prod".into(), Duration::from_secs(2), Some("a".into()))
+            .await;
+        let r2 = coord
+            .try_claim(&a, "prod".into(), Duration::from_secs(60), Some("b".into()))
+            .await;
+        let v1 = match r1 {
+            ClaimAttempt::Acquired(v) => v,
+            other => panic!("expected Acquired, got {other:?}"),
+        };
+        let v2 = match r2 {
+            ClaimAttempt::Acquired(v) => v,
+            other => panic!("expected Acquired (self-refresh), got {other:?}"),
+        };
+        assert!(v2.expires_at_ms >= v1.expires_at_ms);
+        assert_eq!(v2.message, "b");
+    }
+
+    #[tokio::test]
+    async fn release_only_succeeds_for_holder() {
+        let coord = SwarmCoordinator::new();
+        let (a, _ra) = register_for_test(&coord, "tab-a", "alice").await;
+        let (b, _rb) = register_for_test(&coord, "tab-b", "bob").await;
+        coord
+            .try_claim(&a, "prod".into(), Duration::from_secs(60), None)
+            .await;
+        assert_eq!(
+            coord.release_claim(&b, "prod".into()).await,
+            ReleaseResult::NotHeldBySelf
+        );
+        assert!(coord.check_claim("prod").await.is_some());
+        assert_eq!(
+            coord.release_claim(&a, "prod".into()).await,
+            ReleaseResult::Released
+        );
+        assert!(coord.check_claim("prod").await.is_none());
+    }
+
+    #[tokio::test]
+    async fn expired_claims_swept_and_released() {
+        let coord = SwarmCoordinator::new();
+        let (a, mut ra) = register_for_test(&coord, "tab-a", "alice").await;
+        coord
+            .try_claim(&a, "prod".into(), Duration::from_secs(1), None)
+            .await;
+        // Drain the broadcast Claim frame from the channel.
+        let _ = ra.try_recv();
+        // Wait past TTL.
+        tokio::time::sleep(Duration::from_millis(1_100)).await;
+        coord.sweep_expired_claims().await;
+        assert!(coord.check_claim("prod").await.is_none());
+        // Holder receives a Release broadcast.
+        let mut got_release = false;
+        while let Ok(frame) = ra.try_recv() {
+            if matches!(frame, Frame::Release { .. }) {
+                got_release = true;
+            }
+        }
+        assert!(got_release, "expected Release broadcast on sweep");
+    }
+
+    #[tokio::test]
+    async fn register_ack_includes_claim_snapshot() {
+        let coord = SwarmCoordinator::new();
+        let (a, _ra) = register_for_test(&coord, "tab-a", "alice").await;
+        coord
+            .try_claim(
+                &a,
+                "prod".into(),
+                Duration::from_secs(60),
+                Some("freeze".into()),
+            )
+            .await;
+        // Newly-registered bob receives the snapshot in his ack.
+        let (tx, _rx) = mpsc::channel(8);
+        let (_conn, ack) = coord
+            .register("tab-b".into(), "bob".into(), "bob".into(), None, None, tx)
+            .await
+            .unwrap();
+        match ack {
+            Frame::RegisterAck { claims, .. } => {
+                assert_eq!(claims.len(), 1);
+                assert_eq!(claims[0].resource, "prod");
+                assert_eq!(claims[0].holder, "alice");
+                assert_eq!(claims[0].message, "freeze");
+            }
+            other => panic!("expected RegisterAck, got {other:?}"),
+        }
+    }
+
+    #[tokio::test]
+    async fn claim_frame_routed_to_all_connected_colleagues() {
+        let coord = SwarmCoordinator::new();
+        let (a, mut ra) = register_for_test(&coord, "tab-a", "alice").await;
+        let (_b, mut rb) = register_for_test(&coord, "tab-b", "bob").await;
+        coord
+            .try_claim(&a, "prod".into(), Duration::from_secs(60), None)
+            .await;
+        let mut a_got = false;
+        let mut b_got = false;
+        while let Ok(f) = ra.try_recv() {
+            if matches!(f, Frame::Claim { .. }) {
+                a_got = true;
+            }
+        }
+        while let Ok(f) = rb.try_recv() {
+            if matches!(f, Frame::Claim { .. }) {
+                b_got = true;
+            }
+        }
+        assert!(a_got, "holder must receive Claim broadcast too");
+        assert!(b_got, "peer must receive Claim broadcast");
+    }
+
+    #[tokio::test]
+    async fn release_on_disconnect_broadcasts_to_peers() {
+        let coord = SwarmCoordinator::new();
+        let (a, _ra) = register_for_test(&coord, "tab-a", "alice").await;
+        let (_b, mut rb) = register_for_test(&coord, "tab-b", "bob").await;
+        coord
+            .try_claim(&a, "prod".into(), Duration::from_secs(60), None)
+            .await;
+        // Drain anything bob got from the claim broadcast.
+        while rb.try_recv().is_ok() {}
+        coord.disconnect(&a).await;
+        let mut got = false;
+        while let Ok(f) = rb.try_recv() {
+            if matches!(f, Frame::Release { .. }) {
+                got = true;
+            }
+        }
+        assert!(got, "disconnect must broadcast Release of held claims");
+        assert!(coord.check_claim("prod").await.is_none());
+    }
+
+    #[tokio::test]
+    async fn invalid_resource_rejected() {
+        let coord = SwarmCoordinator::new();
+        let (a, _ra) = register_for_test(&coord, "tab-a", "alice").await;
+        let r = coord
+            .try_claim(&a, "bad name!".into(), Duration::from_secs(60), None)
+            .await;
+        assert!(matches!(r, ClaimAttempt::InvalidInput(_)));
+    }
+
+    #[tokio::test]
+    async fn invalid_ttl_rejected() {
+        let coord = SwarmCoordinator::new();
+        let (a, _ra) = register_for_test(&coord, "tab-a", "alice").await;
+        let r = coord
+            .try_claim(&a, "prod".into(), Duration::from_millis(0), None)
+            .await;
+        assert!(matches!(r, ClaimAttempt::InvalidInput(_)));
+    }
+
+    #[tokio::test]
+    async fn broadcast_notify_skips_sender_and_counts_recipients() {
+        let coord = SwarmCoordinator::new();
+        let (a, mut ra) = register_for_test(&coord, "tab-a", "alice").await;
+        let (_b, mut rb) = register_for_test(&coord, "tab-b", "bob").await;
+        let n = coord
+            .broadcast_notify(&a, Severity::Normal, "hello all".into())
+            .await
+            .unwrap();
+        assert_eq!(n, 1);
+        let mut bob_got = false;
+        while let Ok(f) = rb.try_recv() {
+            if matches!(f, Frame::RecvNotify { .. }) {
+                bob_got = true;
+            }
+        }
+        assert!(bob_got);
+        // Sender should NOT receive their own broadcast.
+        let mut alice_got = false;
+        while let Ok(f) = ra.try_recv() {
+            if matches!(f, Frame::RecvNotify { .. }) {
+                alice_got = true;
+            }
+        }
+        assert!(!alice_got);
     }
 }

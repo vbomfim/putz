@@ -43,7 +43,7 @@ const FRAME_SPECS = Object.freeze({
   },
   register_ack: {
     required: { colleague_id: "string", roster: "any" },
-    optional: {},
+    optional: { claims: "any" },
   },
   heartbeat: {
     required: { colleague_id: "string" },
@@ -64,6 +64,51 @@ const FRAME_SPECS = Object.freeze({
   disconnect: {
     required: { colleague_id: "string" },
     optional: { reason: "string" },
+  },
+  // T5 — claim/release broadcasts (server → all colleagues).
+  claim: {
+    required: {
+      resource: "string",
+      holder: "string",
+      message: "string",
+      expires_at_ms: "number",
+    },
+    optional: {},
+  },
+  release: {
+    required: { resource: "string", holder: "string" },
+    optional: {},
+  },
+  // T5 — request/response RPCs (client → server).
+  claim_req: {
+    required: { request_id: "string", resource: "string", ttl_ms: "number" },
+    optional: { message: "string" },
+  },
+  release_req: {
+    required: { request_id: "string", resource: "string" },
+    optional: {},
+  },
+  check_req: {
+    required: { request_id: "string", resource: "string" },
+    optional: {},
+  },
+  list_claims_req: {
+    required: { request_id: "string" },
+    optional: {},
+  },
+  broadcast_req: {
+    required: { request_id: "string", message: "string" },
+    optional: { severity: "string" },
+  },
+  // T5 — server → requester response.
+  tool_response: {
+    required: { request_id: "string", ok: "boolean", payload: "any" },
+    optional: { error: "string" },
+  },
+  // T5 — server → recipient inbox notify (from broadcast or send).
+  recv_notify: {
+    required: { from: "string", message: "string" },
+    optional: { severity: "string" },
   },
 });
 
@@ -135,6 +180,12 @@ function checkType(frameType, field, value, kind) {
   if (kind === "number" && (typeof value !== "number" || !Number.isFinite(value))) {
     throw new WireError(
       `${frameType}.${field} must be a finite number`,
+      "BAD_TYPE",
+    );
+  }
+  if (kind === "boolean" && typeof value !== "boolean") {
+    throw new WireError(
+      `${frameType}.${field} must be a boolean`,
       "BAD_TYPE",
     );
   }

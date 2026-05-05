@@ -9,6 +9,7 @@
  */
 
 import { EventEmitter } from "node:events";
+import { randomUUID } from "node:crypto";
 import { SwarmSocket } from "./socket.mjs";
 import { WireError } from "./wire.mjs";
 
@@ -19,6 +20,12 @@ export const HEARTBEAT_INTERVAL_MS = 10_000;
 export const RECONNECT_INITIAL_MS = 250;
 export const RECONNECT_MAX_MS = 30_000;
 export const RECONNECT_MULTIPLIER = 2;
+
+/** T5 — request/response RPC default timeout. */
+export const REQUEST_TIMEOUT_MS = 5_000;
+
+/** T5 — inbox ring-buffer cap (incoming notify/recv_notify). */
+export const INBOX_CAP = 50;
 
 /**
  * Allowed values for `notify` frame `severity`. Mirrors the Rust
@@ -77,6 +84,26 @@ export class ClientRegistry extends EventEmitter {
     /** @private @type {NodeJS.Timeout | null} */ this._reconnectTimer = null;
     /** @private @type {string | null} Last error code we logged — used to suppress floods. */
     this._lastErrorCode = null;
+    /**
+     * T5 — local cache of active claims, keyed by resource. Seeded from
+     * `register_ack.claims` and kept current by `claim`/`release`
+     * broadcasts. Reads (`check`, `listClaims`) are served from here
+     * without any round-trip.
+     * @private @type {Map<string, {resource:string,holder:string,message:string,expiresAtMs:number}>}
+     */
+    this._claims = new Map();
+    /**
+     * T5 — in-flight RPC requests, keyed by request_id. Resolved when a
+     * matching `tool_response` arrives, rejected on timeout or close.
+     * @private @type {Map<string, {resolve:(p:any)=>void, reject:(e:Error)=>void, timer: NodeJS.Timeout}>}
+     */
+    this._pending = new Map();
+    /**
+     * T5 — inbox ring buffer of recent notifies (broadcasts + 1:1 sends).
+     * Capped at {@link INBOX_CAP}; oldest entries dropped first.
+     * @private @type {Array<{from:string,message:string,severity:string,at:number}>}
+     */
+    this._inbox = [];
   }
 
   /** Current peer roster (excluding self). Snapshot — caller may not mutate. */
@@ -133,18 +160,58 @@ export class ClientRegistry extends EventEmitter {
         this._registered = true;
         this._roster = Array.isArray(frame.roster) ? frame.roster : [];
         this._reconnectMs = RECONNECT_INITIAL_MS; // reset on success
+        // T5 — seed claim cache from snapshot.
+        this._claims.clear();
+        if (Array.isArray(frame.claims)) {
+          for (const c of frame.claims) {
+            if (
+              c &&
+              typeof c.resource === "string" &&
+              typeof c.holder === "string" &&
+              typeof c.expires_at_ms === "number"
+            ) {
+              this._claims.set(c.resource, {
+                resource: c.resource,
+                holder: c.holder,
+                message: typeof c.message === "string" ? c.message : "",
+                expiresAtMs: c.expires_at_ms,
+              });
+            }
+          }
+        }
         this._startHeartbeat();
         this.emit("registered", {
           colleagueId: frame.colleague_id,
           roster: this.roster,
         });
         this.emit("peer-update", { roster: this.roster });
+        this.emit("claims-changed");
         return;
       }
       case "recv_from": {
         // Only forward after registration to avoid emitting on a half-open
         // connection (defensive — coordinator should not send these earlier).
         if (this._registered) {
+          // T5 — if the payload is a `swarm_send` envelope ({kind, message}),
+          // also surface it in the inbox so the LLM context block sees it.
+          //   @privacy `payload.message` is Tier-2 PII; never logged.
+          if (
+            frame.payload &&
+            typeof frame.payload === "object" &&
+            frame.payload.kind === "swarm_send" &&
+            typeof frame.payload.message === "string"
+          ) {
+            const entry = {
+              from: typeof frame.from === "string" ? frame.from : "unknown",
+              message: frame.payload.message,
+              severity: "normal",
+              at: Date.now(),
+            };
+            this._inbox.push(entry);
+            if (this._inbox.length > INBOX_CAP) {
+              this._inbox.splice(0, this._inbox.length - INBOX_CAP);
+            }
+          }
           this.emit("recv", { from: frame.from, payload: frame.payload });
         }
         return;
@@ -164,12 +231,70 @@ export class ClientRegistry extends EventEmitter {
         // can surface it via `session.log` in the live Copilot session.
         // @privacy `frame.message` is Tier-2 PII; subscribers MUST NOT log it.
         if (this._registered) {
-          this.emit("notify", {
+          const entry = {
             from: typeof frame.from === "string" ? frame.from : "unknown",
             message: typeof frame.message === "string" ? frame.message : "",
             severity:
               typeof frame.severity === "string" ? frame.severity : "normal",
+            at: Date.now(),
+          };
+          // T5 — append to ring buffer (oldest dropped first).
+          this._inbox.push(entry);
+          if (this._inbox.length > INBOX_CAP) {
+            this._inbox.splice(0, this._inbox.length - INBOX_CAP);
+          }
+          this.emit("notify", {
+            from: entry.from,
+            message: entry.message,
+            severity: entry.severity,
           });
+        }
+        return;
+      }
+      case "claim": {
+        // T5 — coordinator broadcast: a claim was acquired/refreshed.
+        if (
+          typeof frame.resource === "string" &&
+          typeof frame.holder === "string" &&
+          typeof frame.expires_at_ms === "number"
+        ) {
+          this._claims.set(frame.resource, {
+            resource: frame.resource,
+            holder: frame.holder,
+            message: typeof frame.message === "string" ? frame.message : "",
+            expiresAtMs: frame.expires_at_ms,
+          });
+          this.emit("claims-changed");
+        }
+        return;
+      }
+      case "release": {
+        // T5 — coordinator broadcast: claim released or expired.
+        if (typeof frame.resource === "string") {
+          if (this._claims.delete(frame.resource)) {
+            this.emit("claims-changed");
+          }
+        }
+        return;
+      }
+      case "tool_response": {
+        // T5 — RPC response correlation.
+        const id = typeof frame.request_id === "string" ? frame.request_id : "";
+        const pending = this._pending.get(id);
+        if (!pending) return; // late or unknown — drop.
+        this._pending.delete(id);
+        clearTimeout(pending.timer);
+        if (frame.ok === true) {
+          pending.resolve(frame.payload);
+        } else {
+          const err = new Error(
+            typeof frame.error === "string" && frame.error.length > 0
+              ? frame.error
+              : "tool_response: unspecified error",
+          );
+          err.code = typeof frame.error === "string" ? frame.error : "ERROR";
+          err.payload = frame.payload;
+          pending.reject(err);
         }
         return;
       }
@@ -196,6 +321,16 @@ export class ClientRegistry extends EventEmitter {
     this._stopHeartbeat();
     this._sock = null;
     this._registered = false;
+    // T5 — fail all in-flight requests; the response will never come.
+    if (this._pending.size > 0) {
+      const err = new Error("connection closed before tool_response arrived");
+      err.code = "DISCONNECTED";
+      for (const [, p] of this._pending) {
+        clearTimeout(p.timer);
+        p.reject(err);
+      }
+      this._pending.clear();
+    }
     if (this._stopped) {
       this.emit("closed");
       return;
@@ -306,6 +441,92 @@ export class ClientRegistry extends EventEmitter {
     if (!this._registered || !this._sock) {
       throw new Error("ClientRegistry: not registered");
     }
+  }
+
+  // ─── T5: claim/RPC API ───────────────────────────────────────────
+
+  /**
+   * Snapshot of currently-known active claims (post-sweep, server-confirmed).
+   * Returned array is a copy; safe to mutate.
+   * @returns {Array<{resource:string,holder:string,message:string,expiresAtMs:number}>}
+   */
+  get claims() {
+    return Array.from(this._claims.values());
+  }
+
+  /**
+   * Snapshot of recent inbox entries (newest last). Caller may mutate.
+   * @returns {Array<{from:string,message:string,severity:string,at:number}>}
+   *   @privacy Tier-2 PII — never log entries here or by the caller.
+   */
+  get inbox() {
+    return this._inbox.slice();
+  }
+
+  /** Clear the inbox ring buffer (call after surfacing entries to the LLM). */
+  markInboxRead() {
+    if (this._inbox.length > 0) {
+      this._inbox.length = 0;
+    }
+  }
+
+  /**
+   * Get cached claim info for a resource, or null if not held.
+   * @param {string} resource
+   */
+  cachedClaim(resource) {
+    if (typeof resource !== "string") return null;
+    const c = this._claims.get(resource);
+    return c ? { ...c } : null;
+  }
+
+  /**
+   * Send an RPC frame and await its `tool_response`. Generates a fresh
+   * request_id and wires up timeout / pending-map cleanup.
+   *
+   * @param {string} frameType  - One of `claim_req|release_req|check_req|list_claims_req|broadcast_req`.
+   * @param {object} payload    - Frame payload (no `type` or `request_id`).
+   * @param {number} [timeoutMs] - Default {@link REQUEST_TIMEOUT_MS}.
+   * @returns {Promise<any>}     Resolves with `tool_response.payload` on ok=true.
+   *
+   *   @privacy any `message` field inside payload is Tier-2 PII; never logged.
+   */
+  request(frameType, payload, timeoutMs = REQUEST_TIMEOUT_MS) {
+    this._requireRegistered();
+    if (typeof frameType !== "string" || !frameType.endsWith("_req")) {
+      throw new TypeError(
+        `request: frameType must be a *_req frame, got ${String(frameType)}`,
+      );
+    }
+    if (payload === null || typeof payload !== "object") {
+      throw new TypeError("request: payload must be an object");
+    }
+    // request_id charset is [a-zA-Z0-9_-], max 100 chars (Rust validator).
+    // randomUUID() is hex+hyphen — fits the charset, well under length cap.
+    const requestId = randomUUID();
+    /** @type {Record<string, any>} */
+    const frame = { type: frameType, request_id: requestId, ...payload };
+    return new Promise((resolve, reject) => {
+      const timer = setTimeout(() => {
+        if (this._pending.delete(requestId)) {
+          const err = new Error(
+            `${frameType}: timed out after ${timeoutMs}ms`,
+          );
+          err.code = "TIMEOUT";
+          reject(err);
+        }
+      }, timeoutMs);
+      if (timer && typeof timer.unref === "function") timer.unref();
+      this._pending.set(requestId, { resolve, reject, timer });
+      try {
+        this._sock.send(frame);
+      } catch (err) {
+        // Encode failure — clean up immediately.
+        this._pending.delete(requestId);
+        clearTimeout(timer);
+        reject(err);
+      }
+    });
   }
 
   /**

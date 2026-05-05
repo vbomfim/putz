@@ -46,11 +46,185 @@ if (api) {
   );
 }
 
+// ─── T5: tool definitions exposed to the Copilot agent ──────────────
+// Build the tools array conditionally — when there's no swarm boot, we
+// expose nothing rather than tools that would all error with "no swarm".
+//
+// @privacy Tool inputs (esp. `message` fields) are Tier-2 PII. Handlers
+// must never stderr-log message contents. Errors are returned as JSON
+// strings, scrubbed of any embedded PII.
+function buildTools(swarmApi) {
+  if (!swarmApi) return [];
+  /** @type {(payload: unknown) => string} */
+  const ok = (payload) => JSON.stringify({ ok: true, payload });
+  /** @type {(err: unknown) => string} */
+  const fail = (err) => {
+    const e = err instanceof Error ? err : new Error(String(err));
+    return JSON.stringify({
+      ok: false,
+      error: typeof e.code === "string" ? e.code : "ERROR",
+      message: e.message,
+    });
+  };
+  return [
+    {
+      name: "swarm_claim",
+      description:
+        "Acquire a named claim on a shared resource (deploy slot, port, " +
+        "credential, etc.) so other Copilot tabs in the same Putz swarm " +
+        "see it as locked. Returns the granted claim view, or { ok:false, " +
+        "error:'held_by_other' } when another colleague holds it.",
+      parameters: {
+        type: "object",
+        properties: {
+          resource: { type: "string", description: "Resource name; charset [a-zA-Z0-9._/:-], ≤200 chars." },
+          ttl_minutes: { type: "number", description: "TTL in minutes (auto-released after)." },
+          message: { type: "string", description: "Short status note shown to peers (Tier-2 PII)." },
+        },
+        required: ["resource", "ttl_minutes"],
+      },
+      handler: async (args) => {
+        try {
+          const view = await swarmApi.claim(
+            String(args?.resource ?? ""),
+            Number(args?.ttl_minutes ?? 0),
+            typeof args?.message === "string" ? args.message : undefined,
+          );
+          return ok(view);
+        } catch (e) {
+          return fail(e);
+        }
+      },
+    },
+    {
+      name: "swarm_release",
+      description: "Release a claim you currently hold.",
+      parameters: {
+        type: "object",
+        properties: {
+          resource: { type: "string" },
+        },
+        required: ["resource"],
+      },
+      handler: async (args) => {
+        try {
+          const r = await swarmApi.release(String(args?.resource ?? ""));
+          return ok(r);
+        } catch (e) {
+          return fail(e);
+        }
+      },
+    },
+    {
+      name: "swarm_check",
+      description:
+        "Read who currently holds a claim on `resource` (cache-only, no " +
+        "round-trip). Returns null when nobody holds it.",
+      parameters: {
+        type: "object",
+        properties: {
+          resource: { type: "string" },
+        },
+        required: ["resource"],
+      },
+      handler: async (args) => {
+        try {
+          return ok(swarmApi.check(String(args?.resource ?? "")));
+        } catch (e) {
+          return fail(e);
+        }
+      },
+    },
+    {
+      name: "swarm_list_claims",
+      description:
+        "List all currently active claims across the swarm (cache-only).",
+      parameters: { type: "object", properties: {} },
+      handler: async () => {
+        try {
+          return ok(swarmApi.listClaims());
+        } catch (e) {
+          return fail(e);
+        }
+      },
+    },
+    {
+      name: "swarm_send",
+      description:
+        "Send a 1:1 message to another Copilot colleague by colleague_id. " +
+        "The recipient sees it in their next prompt's swarm context block.",
+      parameters: {
+        type: "object",
+        properties: {
+          target_id: { type: "string" },
+          message: { type: "string" },
+        },
+        required: ["target_id", "message"],
+      },
+      handler: async (args) => {
+        try {
+          await swarmApi.send(String(args?.target_id ?? ""), String(args?.message ?? ""));
+          return ok({ sent: true });
+        } catch (e) {
+          return fail(e);
+        }
+      },
+    },
+    {
+      name: "swarm_broadcast",
+      description:
+        "Broadcast a message to ALL peer colleagues in the swarm. " +
+        "Returns the number of recipients the coordinator delivered to.",
+      parameters: {
+        type: "object",
+        properties: {
+          message: { type: "string" },
+          severity: {
+            type: "string",
+            enum: ["urgent", "normal", "ambient"],
+          },
+        },
+        required: ["message"],
+      },
+      handler: async (args) => {
+        try {
+          const n = await swarmApi.broadcast(
+            String(args?.message ?? ""),
+            typeof args?.severity === "string" ? args.severity : "normal",
+          );
+          return ok({ recipients: n });
+        } catch (e) {
+          return fail(e);
+        }
+      },
+    },
+  ];
+}
+
 const session = await joinSession({
   hooks: {
     onSessionStart: async () => {
       if (api) api.notify("copilot session started", "ambient");
       return {};
+    },
+
+    /**
+     * T5 — prepend a swarm context block to every user turn so the agent
+     * knows about active claims and inbox messages without a tool call.
+     * Returns `{}` (no-op) when there's nothing to say.
+     *
+     * @privacy `additionalContext` carries Tier-2 PII (claim messages,
+     * inbox notifies) into the LLM. We never stderr-log it. The inbox
+     * is cleared after surfacing so the same notify doesn't replay.
+     */
+    onUserPromptSubmitted: async () => {
+      if (!api) return {};
+      const block = api.getContextBlock();
+      if (!block) return {};
+      // Mark inbox read AFTER capturing the block so a single notify is
+      // surfaced exactly once across user turns.
+      api.markInboxRead();
+      return { additionalContext: block };
     },
 
     // Forward only the tool NAME — never args/output (Tier-2 PII per PRI-002).
@@ -61,7 +235,7 @@ const session = await joinSession({
       return {};
     },
   },
-  tools: [],
+  tools: buildTools(api),
 });
 
 session.on("session.idle", async () => {

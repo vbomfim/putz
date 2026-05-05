@@ -163,6 +163,25 @@ impl SwarmStatePublic {
     }
 }
 
+/// Public view of an active resource claim (T5 / swarm coordination tools).
+///
+/// Returned in `RegisterAck` snapshots, in `list_claims` tool responses,
+/// and broadcast in `claim` / `release` frames so every colleague keeps
+/// a consistent local cache without polling.
+///
+/// @privacy Tier-2 — `message` is user-authored ("pushing v0.5 to staging").
+/// MUST NOT be logged, persisted, or forwarded to telemetry. PRI-001/002.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct ClaimView {
+    pub resource: String,
+    pub holder: String,
+    /// @privacy Tier-2 PII — see struct doc. Empty string when the
+    /// holder did not provide a message.
+    pub message: String,
+    /// Unix epoch milliseconds when the claim auto-expires unless refreshed.
+    pub expires_at_ms: u64,
+}
+
 /// Health snapshot for the optional `swarm_health` command (spec §11).
 #[derive(Debug, Clone, Serialize)]
 pub struct SwarmHealth {

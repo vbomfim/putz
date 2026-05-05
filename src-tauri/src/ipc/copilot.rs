@@ -60,11 +60,7 @@ pub fn resolve_extension_dir() -> Option<PathBuf> {
     {
         if let Ok(profile) = std::env::var("USERPROFILE") {
             if !profile.is_empty() {
-                return Some(
-                    PathBuf::from(profile)
-                        .join(".copilot")
-                        .join("extensions"),
-                );
+                return Some(PathBuf::from(profile).join(".copilot").join("extensions"));
             }
         }
         None
@@ -417,6 +413,9 @@ mod tests {
         std::env::set_var("PUTZ_COLLEAGUE_DIR", "/tmp/putz-test-extdir");
         let resolved = resolve_extension_dir();
         std::env::remove_var("PUTZ_COLLEAGUE_DIR");
-        assert_eq!(resolved.as_deref(), Some(std::path::Path::new("/tmp/putz-test-extdir")));
+        assert_eq!(
+            resolved.as_deref(),
+            Some(std::path::Path::new("/tmp/putz-test-extdir"))
+        );
     }
 }

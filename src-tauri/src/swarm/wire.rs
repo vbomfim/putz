@@ -15,7 +15,7 @@ use std::io;
 use serde::{Deserialize, Serialize};
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 
-use super::types::{ColleagueView, Severity};
+use super::types::{ClaimView, ColleagueView, Severity};
 
 /// Maximum bytes in a single frame payload (excluding the 4-byte length).
 /// Spec FR-003 / SEC-004 — guards against memory-exhaustion via crafted
@@ -47,6 +47,14 @@ pub enum Frame {
     RegisterAck {
         colleague_id: String,
         roster: Vec<ColleagueView>,
+        /// T5: snapshot of currently-held resource claims so a freshly
+        /// joined colleague immediately knows about active freezes
+        /// without needing a separate `list_claims` round-trip.
+        /// `#[serde(default)]` keeps wire compat with pre-T5 senders.
+        ///
+        /// @privacy Tier-2 — `ClaimView.message` may carry user content.
+        #[serde(default)]
+        claims: Vec<ClaimView>,
     },
     /// client → server. Liveness ping. Status must be `idle` or `working`.
     Heartbeat {
@@ -115,6 +123,70 @@ pub enum Frame {
         colleague_id: String,
         #[serde(default)]
         reason: Option<String>,
+    },
+
+    // ─── T5: swarm coordination tools (claims + tool RPC) ─────────────
+    //
+    // Frames below implement the Copilot-CLI-extension-callable tools
+    // (claim/release/check/list_claims/broadcast). Pattern: client sends
+    // `*_req` with a `request_id`; coordinator answers with a single
+    // `tool_response` frame correlated by the same `request_id`.
+    // Independent `claim` / `release` broadcasts notify all colleagues
+    // when the claim table changes (incl. the requester themselves so
+    // every node converges on the same cache).
+    /// server → client broadcast. New or refreshed claim — receivers
+    /// upsert into their local claim cache.
+    /// @privacy Tier-2 — `message` is holder-authored.
+    Claim {
+        resource: String,
+        holder: String,
+        message: String,
+        expires_at_ms: u64,
+    },
+    /// server → client broadcast. Claim released (explicitly or via
+    /// TTL sweep) — receivers remove from their local claim cache.
+    Release { resource: String, holder: String },
+    /// client → server. Try to claim `resource` for `ttl_ms`.
+    /// Idempotent if already held by self (refreshes TTL + message).
+    /// @privacy Tier-2 — `message` is user-authored.
+    ClaimReq {
+        request_id: String,
+        resource: String,
+        ttl_ms: u64,
+        #[serde(default)]
+        message: Option<String>,
+    },
+    /// client → server. Release a claim early. No-op if not held by self.
+    ReleaseReq {
+        request_id: String,
+        resource: String,
+    },
+    /// client → server. Read-only check.
+    CheckReq {
+        request_id: String,
+        resource: String,
+    },
+    /// client → server. Snapshot of all active claims.
+    ListClaimsReq { request_id: String },
+    /// client → server. One-to-many notify to every other colleague.
+    /// @privacy Tier-2 — `message` is user-authored.
+    BroadcastReq {
+        request_id: String,
+        message: String,
+        #[serde(default)]
+        severity: Severity,
+    },
+    /// server → client. Reply to any `*_req` correlated by `request_id`.
+    /// `payload` is tool-specific (see coordinator handlers). `error`
+    /// is `Some(code)` when `ok = false`.
+    /// @privacy Tier-2 — `payload` may carry holder messages.
+    ToolResponse {
+        request_id: String,
+        ok: bool,
+        #[serde(default)]
+        payload: serde_json::Value,
+        #[serde(default)]
+        error: Option<String>,
     },
 }
 
@@ -356,6 +428,69 @@ mod tests {
                 assert!(colleagues[0].last_ten_exit_codes.is_empty());
             }
             other => panic!("expected RosterUpdate, got {other:?}"),
+        }
+    }
+
+    /// T5: register_ack without `claims` parses cleanly (pre-T5
+    /// coordinator wire compat).
+    #[tokio::test]
+    async fn register_ack_accepts_missing_claims_field() {
+        let (mut a, mut b) = duplex(8192);
+        let body = br#"{"type":"register_ack","colleague_id":"alice","roster":[]}"#;
+        let len = (body.len() as u32).to_be_bytes();
+        a.write_all(&len).await.unwrap();
+        a.write_all(body).await.unwrap();
+        a.flush().await.unwrap();
+        let frame = read_frame(&mut b).await.unwrap().unwrap();
+        match frame {
+            Frame::RegisterAck { claims, .. } => assert!(claims.is_empty()),
+            other => panic!("expected RegisterAck, got {other:?}"),
+        }
+    }
+
+    /// T5: roundtrip a Claim broadcast frame.
+    #[tokio::test]
+    async fn roundtrip_claim_frame() {
+        let (mut a, mut b) = duplex(8192);
+        let frame = Frame::Claim {
+            resource: "deploy-prod".into(),
+            holder: "alice-aaaa".into(),
+            message: "freeze".into(),
+            expires_at_ms: 1_700_000_000_000,
+        };
+        write_frame(&mut a, &frame).await.unwrap();
+        let got = read_frame(&mut b).await.unwrap().unwrap();
+        assert_eq!(got, frame);
+    }
+
+    /// T5: roundtrip a tool_response frame with arbitrary payload.
+    #[tokio::test]
+    async fn roundtrip_tool_response_frame() {
+        let (mut a, mut b) = duplex(8192);
+        let frame = Frame::ToolResponse {
+            request_id: "req-1".into(),
+            ok: false,
+            payload: serde_json::json!({"holder": "bob"}),
+            error: Some("held_by_other".into()),
+        };
+        write_frame(&mut a, &frame).await.unwrap();
+        let got = read_frame(&mut b).await.unwrap().unwrap();
+        assert_eq!(got, frame);
+    }
+
+    /// T5: claim_req with omitted `message` defaults to None.
+    #[tokio::test]
+    async fn claim_req_message_is_optional() {
+        let (mut a, mut b) = duplex(256);
+        let body = br#"{"type":"claim_req","request_id":"r1","resource":"x","ttl_ms":60000}"#;
+        let len = (body.len() as u32).to_be_bytes();
+        a.write_all(&len).await.unwrap();
+        a.write_all(body).await.unwrap();
+        a.flush().await.unwrap();
+        let frame = read_frame(&mut b).await.unwrap().unwrap();
+        match frame {
+            Frame::ClaimReq { message, .. } => assert!(message.is_none()),
+            other => panic!("expected ClaimReq, got {other:?}"),
         }
     }
 }
