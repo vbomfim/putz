@@ -1,6 +1,6 @@
 # @putz/copilot-swarm
 
-Putz colleague extension for the GitHub Copilot CLI. Bridges a Copilot session to Putz's local swarm coordinator so peers can see and talk to each other across tabs.
+Putz colleague extension for the Copilot CLI. Bridges a Copilot session to Putz's local swarm coordinator so peers can see and talk to each other across tabs.
 
 ## What it does
 
@@ -8,7 +8,7 @@ The extension runs in **two modes** automatically:
 
 ### Mode 1 — Copilot SDK extension (preferred)
 
-When `gh copilot` starts a session and finds this directory at `~/.copilot/extensions/putz-colleague/`, it auto-loads the extension via `@github/copilot-sdk`'s `joinSession`. The extension then:
+When `copilot` starts a session and finds this directory at `~/.copilot/extensions/putz-colleague/`, it auto-loads the extension via `@github/copilot-sdk`'s `joinSession`. The extension then:
 
 1. On `onSessionStart` — boots the swarm registry (connects to the per-Putz-instance Unix socket / Windows named pipe), registers the tab, announces *"copilot session started"* as an ambient notify to peers.
 2. On `onPostToolUse` — forwards just the **tool name** as an ambient notify (never the args/output — Tier-2 PII per spec PRI-002).
@@ -16,7 +16,7 @@ When `gh copilot` starts a session and finds this directory at `~/.copilot/exten
 
 ### Mode 2 — Standalone Node script (fallback / manual)
 
-When run directly as `node extension.mjs` (without the Copilot SDK present, or outside a `gh copilot` session), the script falls back to standalone boot: same socket connection + registration, just without SDK lifecycle hooks. This is what tests use, and what manual diagnosis can use.
+When run directly as `node extension.mjs` (without the Copilot SDK present, or outside a `copilot` session), the script falls back to standalone boot: same socket connection + registration, just without SDK lifecycle hooks. This is what tests use, and what manual diagnosis can use.
 
 In both modes:
 - Connects via `net.connect({path})` to the local socket.
@@ -41,7 +41,7 @@ The exact path can be overridden by `PUTZ_COLLEAGUE_DIR`. Putz never overwrites 
 
 ## Usage
 
-Once installed, just run `gh copilot` from inside a Putz tab — the extension auto-loads.
+Once installed, just run `copilot` from inside a Putz tab — the extension auto-loads.
 
 For manual / standalone testing:
 
@@ -50,7 +50,7 @@ For manual / standalone testing:
 node /path/to/putz-colleague/extension.mjs
 ```
 
-Programmatic use (from your own scripts that don't go through `gh copilot`):
+Programmatic use (from your own scripts that don't go through `copilot`):
 
 ```js
 import { boot } from "@putz/copilot-swarm";
@@ -96,7 +96,7 @@ Uses the built-in `node:test` runner — zero non-stdlib runtime dependencies.
 
 ## Swarm coordination tools (T5)
 
-When two `gh copilot` sessions run in sibling Putz tabs sharing the same
+When two `copilot` sessions run in sibling Putz tabs sharing the same
 working directory, deploy target, or DB, they need to coordinate explicitly
 or they will stomp on each other. The extension registers **seven** tools on
 the Copilot SDK that any agent can call:
@@ -140,7 +140,7 @@ tools.
 ### Scenario A — deploy-freeze
 
 Two tabs (`A`, `B`) attached to the same Putz instance, both running
-`gh copilot`.
+`copilot`.
 
 1. User in tab `A` says *"deploy main to prod"*. Agent calls
    `swarm_claim({ resource: "deploy-prod", ttl_minutes: 10, message: "deploying abc123 to prod" })`.

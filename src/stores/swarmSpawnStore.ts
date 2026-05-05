@@ -215,10 +215,10 @@ export function recipeFromFreeFormInput(line: string): SpawnRecipe | null {
  * `.putz/spawn.json` presence. Mirrors spec FR-019: "the palette
  * MUST list a default 'Spawn: gh copilot' entry".
  */
-export const DEFAULT_SPAWN_GH_COPILOT: SpawnRecipe = Object.freeze({
-  name: "Spawn: gh copilot",
-  cmd: "gh",
-  args: Object.freeze(["copilot"]) as ReadonlyArray<string>,
+export const DEFAULT_SPAWN_COPILOT: SpawnRecipe = Object.freeze({
+  name: "Spawn: copilot",
+  cmd: "copilot",
+  args: Object.freeze([]) as ReadonlyArray<string>,
   cwd: null,
   env: Object.freeze({}),
   initialPrompt: null,

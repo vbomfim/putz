@@ -69,15 +69,15 @@ describe("SpawnPalette", () => {
       />,
     );
     const items = screen.getAllByTestId("swarm-spawn-item");
-    // A4 (FR-019): the default "Spawn: gh copilot" entry is always
+    // A4 (FR-019): the default "Spawn: copilot" entry is always
     // prepended, ahead of user-defined recipes.
     expect(items).toHaveLength(3);
-    expect(items[0]).toHaveAttribute("data-recipe-name", "Spawn: gh copilot");
+    expect(items[0]).toHaveAttribute("data-recipe-name", "Spawn: copilot");
     expect(items[1]).toHaveAttribute("data-recipe-name", "alpha");
     expect(items[2]).toHaveAttribute("data-recipe-name", "beta");
   });
 
-  it("default 'Spawn: gh copilot' is available even when .putz/spawn.json is missing (A4 / FR-019)", () => {
+  it("default 'Spawn: copilot' is available even when .putz/spawn.json is missing (A4 / FR-019)", () => {
     useSwarmSpawnStore.setState({
       recipes: [],
       error: null,
@@ -93,7 +93,7 @@ describe("SpawnPalette", () => {
     );
     const items = screen.getAllByTestId("swarm-spawn-item");
     expect(items).toHaveLength(1);
-    expect(items[0]).toHaveAttribute("data-recipe-name", "Spawn: gh copilot");
+    expect(items[0]).toHaveAttribute("data-recipe-name", "Spawn: copilot");
   });
 
   it("filters by query", () => {

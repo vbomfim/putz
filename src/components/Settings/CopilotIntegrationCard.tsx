@@ -2,7 +2,7 @@
  * CopilotIntegrationCard — first-run discovery for the Copilot CLI extension.
  *
  * Implements ticket #141 AC4:
- *   - Detects `gh copilot` on PATH (via `copilot_check_installed`).
+ *   - Detects `copilot` on PATH (via `copilot_check_installed`).
  *   - If detected, surfaces install / uninstall buttons for the bundled
  *     `extensions/copilot-swarm/` colleague shim.
  *   - If not detected, surfaces a link to the install instructions.
@@ -16,13 +16,13 @@ import { useCallback, useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 
 interface CopilotIntegrationStatus {
-  ghCopilotAvailable: boolean;
+  copilotAvailable: boolean;
   extensionDir: string | null;
   installed: boolean;
 }
 
 const DOCS_URL =
-  "https://docs.github.com/en/copilot/github-copilot-in-the-cli";
+  "https://docs.github.com/en/copilot/concepts/agents/about-copilot-cli";
 
 /**
  * Replace the user's home dir prefix with `~` in error strings before
@@ -106,24 +106,24 @@ export function CopilotIntegrationCard({ dismissed, onDismiss }: Props) {
     return (
       <section
         role="region"
-        aria-label="GitHub Copilot CLI integration"
+        aria-label="Copilot CLI integration"
         style={cardStyle}
       >
         <span style={{ fontSize: 12, color: "var(--text-secondary)" }}>
-          Detecting GitHub Copilot CLI…
+          Detecting Copilot CLI…
         </span>
       </section>
     );
   }
 
-  const heading = status.ghCopilotAvailable
-    ? "GitHub Copilot CLI detected"
-    : "GitHub Copilot CLI not detected";
+  const heading = status.copilotAvailable
+    ? "Copilot CLI detected"
+    : "Copilot CLI not detected";
 
   return (
     <section
       role="region"
-      aria-label="GitHub Copilot CLI integration"
+      aria-label="Copilot CLI integration"
       style={cardStyle}
     >
       <div style={headerRow}>
@@ -138,7 +138,7 @@ export function CopilotIntegrationCard({ dismissed, onDismiss }: Props) {
         </button>
       </div>
 
-      {status.ghCopilotAvailable ? (
+      {status.copilotAvailable ? (
         <>
           <p style={pStyle}>
             Putz installs a small extension into your Copilot CLI
@@ -199,7 +199,7 @@ export function CopilotIntegrationCard({ dismissed, onDismiss }: Props) {
       ) : (
         <>
           <p style={pStyle}>
-            Install GitHub Copilot CLI to enable auto-registration of agent
+            Install Copilot CLI to enable auto-registration of agent
             tabs as colleagues in Putz.
           </p>
           <div style={btnRow}>

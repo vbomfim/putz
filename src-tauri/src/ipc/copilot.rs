@@ -1,13 +1,17 @@
 //! Copilot CLI integration — first-run discovery + extension install.
 //!
 //! Tauri commands the Settings UI uses to:
-//!   1. Detect whether `gh copilot` is available on the user's PATH.
+//!   1. Detect whether the standalone `copilot` CLI is available on PATH.
 //!   2. Resolve the platform-specific install dir for the bundled
+//!      colleague extension and copy/uninstall it there.
+//!
+//! Pure I/O — no shell-out except the `copilot` PATH probe (which
+//! itself calls `--version` only, no user-controllable arguments).
 //!      `extensions/copilot-swarm/` colleague shim.
 //!   3. Copy the bundled shim into that dir (with overwrite protection
 //!      per spec SEC-006).
 //!
-//! Pure I/O — no shell-out except the `gh copilot` PATH probe (which
+//! Pure I/O — no shell-out except the `copilot` PATH probe (which
 //! itself calls `--version` only, no user-controllable arguments).
 //!
 //! @privacy The functions here only handle filesystem paths — no PII.
@@ -30,8 +34,8 @@ pub const EXTENSION_DIR_NAME: &str = "putz-colleague";
 #[derive(Debug, Clone, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub struct CopilotIntegrationStatus {
-    /// `true` when `gh copilot --version` exits 0.
-    pub gh_copilot_available: bool,
+    /// `true` when `copilot --version` exits 0.
+    pub copilot_available: bool,
     /// Resolved per-user extensions dir (may not exist yet).
     pub extension_dir: Option<String>,
     /// `true` when `EXTENSION_DIR_NAME` exists inside `extension_dir`.
@@ -72,17 +76,58 @@ pub fn resolve_extension_dir() -> Option<PathBuf> {
     }
 }
 
-/// Probe `gh copilot --version`. Returns `true` if the binary is on
-/// PATH and exits 0. Suppresses stdout/stderr.
+/// Probe the standalone `copilot` CLI. Returns `true` if the binary
+/// is on PATH and `copilot --version` exits 0. Suppresses stdout/stderr.
 ///
-/// Risk surface: executes `gh copilot --version` with fixed args and
-/// nulled stdin/stdout/stderr. We never pass user input as an argument,
-/// and we don't read the output. Risk is bounded to running the `gh`
-/// binary already on the user's PATH — same risk as any shell prompt
-/// that completes against PATH.
-fn probe_gh_copilot() -> bool {
-    Command::new("gh")
-        .args(["copilot", "--version"])
+/// On Windows, also tries common install paths if the bare-name PATH
+/// lookup fails (GUI processes often have a different PATH than the
+/// shell that installed `copilot`).
+///
+/// Risk surface: executes `copilot --version` with fixed args and
+/// nulled stdin/stdout/stderr. We never pass user input as an argument
+/// and we don't read the output. Risk is bounded to running the
+/// `copilot` binary already present on the user's machine — same risk
+/// as any shell prompt that completes against PATH.
+fn probe_copilot() -> bool {
+    if try_probe("copilot") {
+        return true;
+    }
+    #[cfg(target_os = "windows")]
+    {
+        // GUI apps inherit the system PATH only — gh / copilot
+        // installers often only update User PATH. Probe the common
+        // install locations directly so the Settings card doesn't
+        // wrongly report "not detected" when the binary IS installed.
+        if let Ok(local) = std::env::var("LOCALAPPDATA") {
+            for sub in [
+                "Programs\\copilot\\copilot.exe",
+                "Programs\\GitHub Copilot CLI\\copilot.exe",
+                "GitHub CLI\\copilot.exe",
+            ] {
+                let candidate = std::path::PathBuf::from(&local).join(sub);
+                if candidate.exists() && try_probe(candidate.to_string_lossy().as_ref()) {
+                    return true;
+                }
+            }
+        }
+        if let Ok(pf) = std::env::var("ProgramFiles") {
+            for sub in [
+                "GitHub Copilot CLI\\copilot.exe",
+                "GitHub CLI\\copilot.exe",
+            ] {
+                let candidate = std::path::PathBuf::from(&pf).join(sub);
+                if candidate.exists() && try_probe(candidate.to_string_lossy().as_ref()) {
+                    return true;
+                }
+            }
+        }
+    }
+    false
+}
+
+fn try_probe(program: &str) -> bool {
+    Command::new(program)
+        .arg("--version")
         .stdout(std::process::Stdio::null())
         .stderr(std::process::Stdio::null())
         .stdin(std::process::Stdio::null())
@@ -186,11 +231,11 @@ fn copy_dir_recursive(src: &Path, dst: &Path) -> io::Result<()> {
 
 // ─── Tauri commands ────────────────────────────────────────────────
 
-/// `true` iff `gh copilot --version` succeeds. Cheap probe — safe to
+/// `true` iff `copilot --version` succeeds. Cheap probe — safe to
 /// call on every Settings open.
 #[tauri::command]
 pub fn copilot_check_installed() -> bool {
-    probe_gh_copilot()
+    probe_copilot()
 }
 
 /// Resolved per-user extensions dir. May not exist yet.
@@ -214,7 +259,7 @@ pub fn copilot_get_status() -> CopilotIntegrationStatus {
         })
         .unwrap_or(false);
     CopilotIntegrationStatus {
-        gh_copilot_available: probe_gh_copilot(),
+        copilot_available: probe_copilot(),
         extension_dir: extension_dir.map(|p| p.to_string_lossy().to_string()),
         installed,
     }

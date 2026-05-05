@@ -480,7 +480,7 @@ function App() {
             // terminal tab's tracked cwd. If no terminal is active or
             // its cwd isn't yet known, returning null is safe — the
             // palette still opens but loads no recipes; the built-in
-            // "Spawn: gh copilot" entry remains available.
+            // "Spawn: copilot" entry remains available.
             const sessionId = getFocusedTerminalSessionId();
             return sessionId ? getSessionCwd(sessionId) ?? null : null;
           })()}

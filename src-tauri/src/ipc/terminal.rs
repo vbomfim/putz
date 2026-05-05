@@ -25,7 +25,7 @@ use crate::pty::PtyError;
 /// env vars into the session. (Replaces the prior `PUTZ_SWARM_URL` /
 /// `PUTZ_SWARM_TOKEN` pair — auth is now OS file permissions.)
 /// T4 / FR-019: `args` is the optional explicit argv for recipe-driven
-/// spawns (e.g., `["copilot"]` for the `gh copilot` recipe). When
+/// spawns (e.g., `["copilot"]` for the `copilot` recipe). When
 /// present, the PTY launches the executable directly with these args
 /// instead of as a login shell.
 #[tauri::command]

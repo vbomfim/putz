@@ -1,171 +1,196 @@
-# Putz — Local Developer Terminal
+# Putz
 
-A modern, cross-platform local terminal emulator with a few unique tricks: a built-in **Canvas tab** for visual diagrams and a **Git Graph tab** for browsing commit history — all alongside your terminals. Built with [Tauri 2.0](https://tauri.app/), [React](https://react.dev/), and [TypeScript](https://www.typescriptlang.org/).
+**A modern, cross-platform local developer terminal** — Windows, macOS, Linux. Built with Tauri, React, and Rust.
+
+Putz is a terminal first. On top of that base it bundles the productivity surfaces that usually pull you out of a terminal — diagrams, git history, file editing — and one feature you won't find elsewhere: a local **swarm** so multiple AI coding agents on the same machine can see each other and coordinate.
+
+---
 
 ## Features
 
-- 🖥️ **Cross-platform** — Windows, macOS, Linux
-- 🎨 **Canvas tab** — infinite canvas for architecture diagrams, visual thinking, and sketches
-- 🌳 **Git Graph tab** — branch visualization, commit history, and file diffs
-- 📑 **Tabs & split panes** — drag-to-reorder tabs, horizontal/vertical splits, recursive layout
-- 📌 **Bookmarks** — quick-access bar and panel for directories and files
-- 🤖 **Swarm** — AI-agent coordination via PTY environment injection
-- 📡 **Broadcast** — send input to multiple terminal panes simultaneously
-- 🎨 **Themes** — customizable themes, fonts, and key bindings
-- 🔍 **Highlight engine** — keyword highlighting with regex support and preset themes
-- ✏️ **Editor tabs** — Monaco-based file editor built in
-- 📝 **Scripting** — script editor and runner (writes directly to PTY)
+### Terminal core
 
-## Tech Stack
+- **Cross-platform PTYs** via `portable_pty` — same behaviour on Windows, macOS, Linux
+- **xterm.js renderer** with proper bracketed paste and a custom OSC parser
+- **Tabs** with drag-to-reorder, close, and per-tab title
+- **Splits** — horizontal and vertical, recursive layout (split a split a split)
+- **Workspaces** — save and switch between named layouts
+- **Broadcast bar** — type once, send the input to N panes simultaneously
+- **Bookmarks** — quick-access bar + panel for `cd`-ing to common dirs
+- **Themes, fonts, key bindings** — fully customizable; preset themes included
+- **Keyword highlighting** — regex-based, preset themes for log scanning
 
-| Layer    | Technology          |
-|----------|---------------------|
-| Frontend | React + TypeScript  |
-| Backend  | Rust (Tauri 2.0)    |
-| Terminal | xterm.js            |
-| Build    | Vite                |
-| Test     | Vitest + Cargo test |
-| Lint     | ESLint + Prettier   |
+### Modern terminal protocols
 
-## Prerequisites
+- **OSC 7** — accurate cwd reporting per shell (no more PEB hacks)
+- **OSC 133** — prompt boundaries with handshake gating; per-command exit-code dots; right-click previous-command navigation
+- **Shell integration installer** — one-click setup for bash / zsh / fish / pwsh + cmd.exe registry helper, with preview + uninstall
 
-- [Node.js](https://nodejs.org/) (v18+)
-- [Rust](https://www.rust-lang.org/tools/install) (latest stable)
-- [Tauri 2.0 prerequisites](https://tauri.app/start/prerequisites/) for your platform
+### Built-in tabs beyond the terminal
 
-## Getting Started
+- **Canvas tab** — infinite Excalidraw-style canvas for architecture diagrams, mind maps, scratch thinking — alongside your terminals, persisted with the workspace
+- **Git Graph tab** — branch visualization, commit history, per-file diffs over the current repo
+- **Editor tabs** — Monaco-based file editor for quick edits without context-switching
+- **Settings tab** — themes, fonts, key bindings, shell integration, swarm, Copilot integration
+
+### Scripting
+
+- **Script editor + runner** — write a snippet once, send it to a target PTY (record / save / replay)
+
+### Swarm — multi-agent coordination
+
+Local-only multi-agent collaboration for AI coding sessions:
+
+- **Bundled Copilot CLI extension** auto-installs into `~/.copilot/extensions/putz-colleague/`. Loads automatically in every `copilot` session inside a Putz tab.
+- **7 coordination tools** the agent can call: `swarm_claim` / `swarm_release` / `swarm_check` / `swarm_list_claims` / `swarm_send` / `swarm_broadcast` / `swarm_status`.
+- **Per-prompt `<swarm-context>` injection** — every user prompt is prefixed with active peers, claims (with TTL), and unread peer messages.
+- **Sidebar** with per-colleague status (idle / running / done / error from OSC 133), cwd, heartbeat, exit-code dots, last notification preview.
+- **Tab notification rings** — colored dots for unread peer messages (urgent / normal / ambient).
+- **`Cmd+J` Inbox** — unified message panel.
+- **`Cmd+K` Spawn Palette** — quick-spawn from `.putz/spawn.json` recipes.
+- **`copilot-instructions.snippet.md`** — drop-in agent instructions.
+
+Architecture: Unix domain socket (macOS/Linux) / Windows named pipe, `chmod 600`, current-user-only DACL. Length-prefixed JSON wire format. No broker, no network, no cloud. Same machine, same user only.
+
+### App platform
+
+- **Cross-platform builds** — DMG (macOS), MSI (Windows), AppImage + .deb (Linux)
+- **Auto-update** — built-in via `tauri-plugin-updater`; in-app **Update Now / Later / Skip**
+- **Single binary** per platform (no runtime dependencies for end users)
+
+---
+
+## Quickstart
+
+### Install
+
+Download the installer for your platform from [Releases](https://github.com/vbomfim/putz/releases), or build from source:
 
 ```bash
-# Clone the repository
 git clone https://github.com/vbomfim/putz.git
 cd putz
-
-# Install dependencies
 npm install
-
-# Start development mode (launches the Tauri window with hot reload)
-npm run dev
+npm run dev          # dev mode with hot reload
+# or
+npm run build        # production bundle in src-tauri/target/release/bundle/
 ```
 
-## Available Scripts
+### Try the swarm (optional)
 
-| Command              | Description                                |
-|----------------------|--------------------------------------------|
-| `npm run dev`        | Start Tauri dev mode with hot reload       |
-| `npm run build`      | Production build (creates distributable)   |
-| `npm run test`       | Run all tests (frontend + backend)         |
-| `npm run test:frontend` | Run frontend tests only (Vitest)        |
-| `npm run test:backend`  | Run backend tests only (Cargo test)     |
-| `npm run test:watch` | Run frontend tests in watch mode           |
-| `npm run lint`       | Lint TypeScript with ESLint                |
-| `npm run lint:fix`   | Auto-fix lint issues                       |
-| `npm run format`     | Format code with Prettier                  |
-| `npm run format:check` | Check code formatting                    |
-| `npm run version:bump` | Bump version across all config files     |
+```bash
+# 1. In Putz: Settings → Copilot Swarm → toggle Enable + Install extension
+# 2. Teach your agents to use the swarm tools:
+mkdir -p .github
+cat ~/.copilot/extensions/putz-colleague/copilot-instructions.snippet.md \
+  >> .github/copilot-instructions.md
+# 3. Open two Putz tabs, run `copilot` in each
+```
 
-## Project Structure
+---
+
+## Tech stack
+
+| Layer       | Tech                                                    |
+|-------------|---------------------------------------------------------|
+| App shell   | Tauri 2.x (Rust + React + TypeScript)                   |
+| Terminal    | xterm.js + portable_pty                                 |
+| Editor      | Monaco                                                  |
+| Canvas      | Excalidraw-style engine                                 |
+| Swarm IPC   | `interprocess` crate (Rust) + `net.connect({path})` (Node) |
+| Build       | Vite + Cargo                                            |
+| Test        | Vitest + `cargo test` + `node --test`                   |
+| Lint        | ESLint + Prettier + clippy + rustfmt                    |
+
+---
+
+## Prerequisites (build from source)
+
+- [Node.js](https://nodejs.org/) v18+
+- [Rust](https://www.rust-lang.org/tools/install) latest stable
+- [Tauri 2 platform prerequisites](https://tauri.app/start/prerequisites/)
+- [Copilot CLI](https://docs.github.com/en/copilot/github-copilot-in-the-cli) — optional, for swarm
+
+---
+
+## Scripts
+
+```bash
+npm run dev                       # dev mode with hot reload
+npm run build                     # production bundle
+npm test                          # frontend + backend tests
+npm run test:frontend             # Vitest only
+npm run test:backend              # cargo test only
+npm run lint / lint:fix           # ESLint
+npm run format / format:check     # Prettier
+npm run version:bump -- --minor   # sync version across package.json, Cargo.toml, tauri.conf.json
+
+# Bundled extension tests:
+node --test extensions/copilot-swarm/tests/*.test.mjs
+```
+
+---
+
+## Project layout
 
 ```
 putz/
-├── src/                    # React frontend
-│   ├── App.tsx             # Main application component
-│   ├── main.tsx            # React entry point
-│   ├── components/         # UI components (Terminal, GitGraph, Canvas, Bookmarks, etc.)
-│   ├── hooks/              # Custom React hooks
-│   ├── lib/                # Feature libraries (canvas, git-graph)
-│   ├── stores/             # State management
-│   ├── styles/             # CSS styling
-│   ├── test/               # Test setup and test files
-│   └── types/              # TypeScript type definitions
-├── src-tauri/              # Rust backend
-│   ├── src/
-│   │   ├── main.rs         # Tauri application entry point
-│   │   ├── lib.rs          # Library root with Tauri builder
-│   │   ├── menu.rs         # Application menus
-│   │   ├── ipc/            # Tauri IPC command handlers
-│   │   ├── pty/            # Local PTY management
-│   │   ├── scripting/      # Script engine
-│   │   ├── swarm/          # AI-agent coordination
-│   │   ├── highlight/      # Keyword highlighting engine
-│   │   └── theme/          # Theme management
-│   ├── Cargo.toml          # Rust dependencies
-│   └── tauri.conf.json     # Tauri configuration
-├── scripts/                # Build & utility scripts
-│   └── version-bump.mjs    # Cross-file version synchronization
-├── package.json            # Node.js dependencies and scripts
-├── vite.config.ts          # Vite + Vitest configuration
-├── eslint.config.js        # ESLint flat config
-├── tsconfig.json           # TypeScript configuration
-├── CHANGELOG.md            # Release history
-└── .github/workflows/      # CI/CD pipelines
-    ├── ci.yml              # Continuous integration
-    └── release.yml         # Release build & publish
+├── src/                            # React frontend
+│   ├── components/
+│   │   ├── Terminal/               # xterm.js + PTY + OSC parser
+│   │   ├── Canvas/                 # infinite canvas
+│   │   ├── GitGraph/               # commit graph + diff viewer
+│   │   ├── Swarm/                  # sidebar, inbox, spawn palette
+│   │   └── Settings/
+│   ├── hooks/, lib/, stores/
+├── src-tauri/                      # Rust backend
+│   └── src/
+│       ├── pty/                    # portable_pty wrapping
+│       ├── swarm/                  # coordinator, socket, wire
+│       ├── ipc/                    # Tauri command handlers
+│       └── theme/, highlight/, …
+├── extensions/copilot-swarm/       # Bundled Copilot CLI extension
+├── specs/                          # Spec Kit-compatible feature specs
+├── scripts/                        # version-bump, perf measurement
+└── .github/workflows/              # CI + release builds
 ```
+
+---
+
+## Cutting a release
+
+```bash
+npm run version:bump -- --minor              # or --patch / --major / explicit 1.2.3
+git add -A && git commit -m "chore: release vX.Y.Z"
+git tag -a vX.Y.Z -m "vX.Y.Z release notes one-liner"
+git push origin main --tags
+```
+
+The [`release.yml`](.github/workflows/release.yml) workflow triggers on the tag, builds for all three platforms, and uploads artifacts to a GitHub Release. Auto-update notifies users on next launch.
+
+Releases are currently **unsigned**. macOS Gatekeeper requires right-click → Open on first launch. Code signing setup is documented in `tauri.conf.json` comments.
+
+---
+
+## Privacy
+
+Swarm message content (claim messages, send/broadcast text, inbox entries, peer notifications) is treated as **Tier-2 PII** end-to-end:
+
+- Never written to disk
+- Never logged to stderr / tracing
+- Never transmitted off-host (the socket / pipe is local-only)
+- Cleared from memory on shutdown
+- Unicode bidi / zero-width-space chars stripped from peer messages (Trojan-Source CVE-2021-42574 defense for content flowing into LLM prompt context)
+
+Full model: [`specs/putz-copilot-swarm/spec.md`](specs/putz-copilot-swarm/spec.md) sections PRI-001 / PRI-002.
+
+---
 
 ## Contributing
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
+PRs welcome. The codebase has a "Guardian" SDLC pipeline (PO → Developer → QA + Security + Privacy + Code Review × 2 in parallel) — most non-trivial PRs run through it before merge. See `.github/instructions/`.
 
-## Distribution
-
-Putz is distributed as platform-native installers:
-
-| Platform | Format               | Notes                              |
-|----------|----------------------|------------------------------------|
-| Windows  | `.msi`               | MSI installer with Start Menu shortcut |
-| macOS    | `.dmg`               | Drag-to-Applications, universal binary (arm64 + x86_64) |
-| Linux    | `.AppImage`, `.deb`  | AppImage for any distro, .deb for Debian/Ubuntu |
-
-### Creating a Release
-
-1. Bump the version:
-   ```bash
-   npm run version:bump -- --minor   # or --patch, --major, or explicit 1.2.3
-   ```
-
-2. Commit and tag:
-   ```bash
-   git add -A && git commit -m "chore: bump version to X.Y.Z"
-   git tag vX.Y.Z
-   git push origin main --tags
-   ```
-
-3. The [release workflow](.github/workflows/release.yml) triggers automatically, building for all three platforms and uploading artifacts to a GitHub Release.
-
-### Auto-Update
-
-Putz includes built-in auto-update support via `tauri-plugin-updater`. When a new version is published to GitHub Releases, the app checks for updates on startup and shows a notification with **Update Now** / **Later** / **Skip** options.
-
-### Version Management
-
-The `npm run version:bump` script keeps version numbers synchronized across:
-- `package.json`
-- `src-tauri/Cargo.toml`
-- `src-tauri/tauri.conf.json`
-
-### Code Signing (TODO)
-
-Release builds are currently **unsigned**. To enable code signing:
-
-1. **Windows**: Obtain an EV code signing certificate. Set `TAURI_SIGNING_PRIVATE_KEY` in GitHub repository secrets.
-2. **macOS**: Enroll in the Apple Developer Program. Configure `APPLE_CERTIFICATE`, `APPLE_CERTIFICATE_PASSWORD`, `APPLE_SIGNING_IDENTITY`, and notarization credentials.
-3. **Linux**: Code signing is not required for AppImage/DEB distribution.
-
-### Update Signing
-
-To enable signed updates (required for the auto-updater):
-
-```bash
-# Generate a signing keypair
-npx tauri signer generate -w ~/.tauri/putz.key
-
-# Add to GitHub repository secrets:
-#   TAURI_SIGNING_PRIVATE_KEY = contents of ~/.tauri/putz.key
-#   TAURI_SIGNING_PRIVATE_KEY_PASSWORD = password you set (if any)
-
-# Add the PUBLIC key to src-tauri/tauri.conf.json → plugins.updater.pubkey
-```
+---
 
 ## License
 
-This project is licensed under the MIT License — see the [LICENSE](LICENSE) file for details.
+MIT — see [LICENSE](LICENSE).

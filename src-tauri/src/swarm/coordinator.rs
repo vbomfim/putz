@@ -770,7 +770,7 @@ impl SwarmCoordinator {
                 None => return Ok(()), // target gone — best-effort
             }
         };
-        // 1. Deliver to the target colleague's socket so its `gh copilot`
+        // 1. Deliver to the target colleague's socket so its `copilot`
         //    session can surface the message via `session.log`.
         let _ = target_sender.try_send(Frame::RecvNotify {
             from: "putz".into(),

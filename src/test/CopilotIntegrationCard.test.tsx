@@ -3,8 +3,8 @@
  *
  * Covers:
  * - Loading state (status === null)
- * - gh detected + not installed → Install button
- * - gh detected + installed → Reinstall + Uninstall buttons
+ * - copilot detected + not installed → Install button
+ * - copilot detected + installed → Reinstall + Uninstall buttons
  * - gh NOT detected → docs link, no Install button
  * - Install click → invokes copilot_install_extension { overwrite: false }
  * - Reinstall click → invokes copilot_install_extension { overwrite: true }
@@ -29,14 +29,14 @@ vi.mock("@tauri-apps/api/core", () => ({
 // ── Helpers ──────────────────────────────────────────────────────────
 
 interface Status {
-  ghCopilotAvailable: boolean;
+  copilotAvailable: boolean;
   extensionDir: string | null;
   installed: boolean;
 }
 
 function statusOf(overrides: Partial<Status> = {}): Status {
   return {
-    ghCopilotAvailable: true,
+    copilotAvailable: true,
     extensionDir: "/Users/alice/.copilot/extensions",
     installed: false,
     ...overrides,
@@ -58,14 +58,14 @@ describe("CopilotIntegrationCard", () => {
     // invoke returns a never-resolving promise → status stays null
     mockInvoke.mockImplementation(() => new Promise(() => {}));
     render(<CopilotIntegrationCard dismissed={false} onDismiss={() => {}} />);
-    expect(screen.getByText(/Detecting GitHub Copilot CLI/i)).toBeInTheDocument();
+    expect(screen.getByText(/Detecting Copilot CLI/i)).toBeInTheDocument();
   });
 
-  it("when gh detected and not installed, shows Install button", async () => {
+  it("when copilot detected and not installed, shows Install button", async () => {
     mockInvoke.mockResolvedValue(statusOf({ installed: false }));
     render(<CopilotIntegrationCard dismissed={false} onDismiss={() => {}} />);
     await waitFor(() =>
-      expect(screen.getByText(/GitHub Copilot CLI detected/i)).toBeInTheDocument(),
+      expect(screen.getByText(/Copilot CLI detected/i)).toBeInTheDocument(),
     );
     const btn = screen.getByRole("button", { name: /Install Putz integration/i });
     expect(btn).toBeEnabled();
@@ -77,7 +77,7 @@ describe("CopilotIntegrationCard", () => {
     ).not.toBeInTheDocument();
   });
 
-  it("when gh detected and installed, shows Reinstall and Uninstall buttons", async () => {
+  it("when copilot detected and installed, shows Reinstall and Uninstall buttons", async () => {
     mockInvoke.mockResolvedValue(statusOf({ installed: true }));
     render(<CopilotIntegrationCard dismissed={false} onDismiss={() => {}} />);
     await waitFor(() =>
@@ -93,12 +93,12 @@ describe("CopilotIntegrationCard", () => {
 
   it("when gh NOT detected, shows docs link and no Install button", async () => {
     mockInvoke.mockResolvedValue(
-      statusOf({ ghCopilotAvailable: false, installed: false }),
+      statusOf({ copilotAvailable: false, installed: false }),
     );
     render(<CopilotIntegrationCard dismissed={false} onDismiss={() => {}} />);
     await waitFor(() =>
       expect(
-        screen.getByText(/GitHub Copilot CLI not detected/i),
+        screen.getByText(/Copilot CLI not detected/i),
       ).toBeInTheDocument(),
     );
     const link = screen.getByRole("link", { name: /Installation instructions/i });
@@ -161,7 +161,7 @@ describe("CopilotIntegrationCard", () => {
     mockInvoke.mockResolvedValue(statusOf({ installed: false }));
     const onDismiss = vi.fn();
     render(<CopilotIntegrationCard dismissed={false} onDismiss={onDismiss} />);
-    await screen.findByText(/GitHub Copilot CLI detected/i);
+    await screen.findByText(/Copilot CLI detected/i);
     fireEvent.click(screen.getByLabelText("Dismiss Copilot integration card"));
     expect(onDismiss).toHaveBeenCalledTimes(1);
   });

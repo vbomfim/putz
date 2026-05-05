@@ -7,7 +7,7 @@
  *   1. boot() the Putz swarm registry (if PUTZ_SWARM_PATH is set).
  *      This connects to Putz's local socket and registers the
  *      colleague IMMEDIATELY — the colleague appears in the Putz
- *      sidebar as soon as `gh copilot` starts, not only after the
+ *      sidebar as soon as `copilot` starts, not only after the
  *      user begins a chat session.
  *   2. joinSession() — hand control to the Copilot SDK so it owns
  *      the process lifetime. The hooks then forward session events

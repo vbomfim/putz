@@ -121,7 +121,7 @@ impl PtyManager {
 
         // Validate and resolve shell path.
         // T4: when `args` are explicitly supplied (recipe-driven spawn,
-        // e.g., `gh copilot`) the executable is NOT a login shell — it's
+        // e.g., `copilot`) the executable is NOT a login shell — it's
         // an arbitrary program already validated by the recipe loader
         // (`spawn_recipe::validate_for_spawn`). Skip the shell allowlist
         // check in that case; otherwise enforce it for free-form shells.
@@ -169,7 +169,7 @@ impl PtyManager {
         let mut cmd = CommandBuilder::new(&shell_path);
 
         // T4 / FR-019: when a recipe supplies explicit `args`, the
-        // caller is invoking a specific program (e.g., `gh copilot`)
+        // caller is invoking a specific program (e.g., `copilot`)
         // and we MUST NOT inject login-shell flags or PowerShell
         // bootstrap scripts that would replace those args. The
         // `args` path is mutually exclusive with the login-shell /

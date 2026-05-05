@@ -20,7 +20,7 @@ import {
   useSwarmSpawnStore,
   recipeFromFreeFormInput,
   toWireRecipe,
-  DEFAULT_SPAWN_GH_COPILOT,
+  DEFAULT_SPAWN_COPILOT,
   type SpawnRecipe,
 } from "../../stores/swarmSpawnStore";
 import { useFocusTrap } from "../../hooks/useFocusTrap";
@@ -63,14 +63,14 @@ export function SpawnPalette({
   // restore it on close (modal a11y best-practice — WAI-ARIA APG).
   const previousFocusRef = useRef<HTMLElement | null>(null);
 
-  // A4 (FR-019): the built-in "Spawn: gh copilot" entry MUST always be
+  // A4 (FR-019): the built-in "Spawn: copilot" entry MUST always be
   // available, regardless of `.putz/spawn.json`. Prepend it but de-dupe
   // if a user-defined recipe already uses the same name.
   const allRecipes = useMemo<ReadonlyArray<SpawnRecipe>>(() => {
     const hasOverride = recipes.some(
-      (r) => r.name === DEFAULT_SPAWN_GH_COPILOT.name,
+      (r) => r.name === DEFAULT_SPAWN_COPILOT.name,
     );
-    return hasOverride ? recipes : [DEFAULT_SPAWN_GH_COPILOT, ...recipes];
+    return hasOverride ? recipes : [DEFAULT_SPAWN_COPILOT, ...recipes];
   }, [recipes]);
 
   // Refresh on open so .putz/spawn.json edits take effect without restart.
