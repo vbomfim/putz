@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.1] — 2026-05-05
+
+### Fixed
+- **Copilot CLI detection on Windows (and other platforms with PATH-inheritance quirks)** — Putz was probing `gh copilot --version`, but the swarm integrates with the **standalone `copilot` CLI** (`~/.copilot/`), not the `gh copilot` gh-extension. Detection now runs `copilot --version`. On Windows, when the bare-name PATH lookup fails (GUI processes inherit System PATH only, but the `copilot` installer often only updates User PATH), Putz also probes common install locations under `%LOCALAPPDATA%\Programs\` and `%ProgramFiles%\` before reporting "not detected".
+- Spawn palette default entry renamed from "Spawn: gh copilot" to "Spawn: copilot" with the correct executable.
+- Settings card now says "Copilot CLI detected/not detected" (was incorrectly "GitHub Copilot CLI"). Docs link points to the standalone Copilot CLI page.
+
+### Notes
+- Internal API renames: `gh_copilot_available` → `copilot_available`, `DEFAULT_SPAWN_GH_COPILOT` → `DEFAULT_SPAWN_COPILOT`, `probe_gh_copilot` → `probe_copilot`. No user-facing impact.
+
 ## [0.5.0] — 2026-05-04
 
 ### Added — Swarm: Putz ↔ Copilot CLI integration
