@@ -88,13 +88,17 @@ const FRAME_SPECS = Object.freeze({
     required: { request_id: "string", resource: "string" },
     optional: {},
   },
-  check_req: {
-    required: { request_id: "string", resource: "string" },
-    optional: {},
-  },
   list_claims_req: {
     required: { request_id: "string" },
     optional: {},
+  },
+  send_req: {
+    required: {
+      request_id: "string",
+      target_colleague_id: "string",
+      message: "string",
+    },
+    optional: { severity: "string" },
   },
   broadcast_req: {
     required: { request_id: "string", message: "string" },

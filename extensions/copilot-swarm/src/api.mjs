@@ -8,6 +8,21 @@
  */
 
 /**
+ * Default empty-state summary returned by `swarm_status` when there are
+ * no peers, no claims, and an empty inbox. Lifted to a constant so the
+ * extension shell and the API agree on the exact wording (CR-Pass-2 P1).
+ */
+export const EMPTY_SWARM_STATUS = "no peers, no claims, inbox empty";
+
+/**
+ * Per-message render cap inside the swarm context block — long peer
+ * messages are truncated with an ellipsis. Defends against a peer
+ * flooding the LLM context window via a single huge message
+ * (CR-Pass-2 F1).
+ */
+const CONTEXT_MESSAGE_RENDER_CAP = 200;
+
+/**
  * @typedef {object} ColleagueApi
  * @property {(message: string, severity?: 'urgent'|'normal'|'ambient') => void} notify
  *   Send a `notify` frame.
@@ -128,19 +143,26 @@ export function createColleagueApi(registry, ids) {
     },
 
     /**
-     * Read the cached claim info for `resource` — no round-trip. Returns
-     * null when nobody holds it (according to local cache, which is kept
-     * current by `claim`/`release` broadcasts).
+     * Read the cached claim info for `resource` — no round-trip. Mirrors
+     * the wire shape `{ free: true } | { free: false, claim: ClaimView }`
+     * `{ free: true }` when nobody holds the resource, or
+     * `{ free: false, claim: ClaimView }` when somebody does. (CR-Pass-2 J1
+     * — was previously `null | ClaimView`, which diverged from the wire.)
      * @param {string} resource
+     * @returns {{ free: true } | { free: false, claim: {resource:string,holder:string,message:string,expiresAtMs:number} }}
      */
     check(resource) {
       const c = registry.cachedClaim(resource);
-      return c ? normalizeClaimView({
-        resource: c.resource,
-        holder: c.holder,
-        message: c.message,
-        expires_at_ms: c.expiresAtMs,
-      }) : null;
+      if (!c) return { free: true };
+      return {
+        free: false,
+        claim: normalizeClaimView({
+          resource: c.resource,
+          holder: c.holder,
+          message: c.message,
+          expires_at_ms: c.expiresAtMs,
+        }),
+      };
     },
 
     /**
@@ -160,7 +182,12 @@ export function createColleagueApi(registry, ids) {
 
     /**
      * 1:1 message to another colleague, surfaced in their inbox and
-     * delivered as a `recv_notify` event.
+     * delivered as a `recv_notify` event. Acknowledged RPC — resolves
+     * with `{ delivered: true }` on success; throws with `code` set to
+     * `unknown_target` / `message_too_long` / `back_channel_full` /
+     * `not_registered` / `TIMEOUT` / `DISCONNECTED` on failure.
+     * (CR-Pass-2 D1 — was previously a fire-and-forget `send_to` that
+     * failed silently on full channel or unknown target.)
      * @param {string} targetId
      * @param {string} message - @privacy Tier-2 PII; do not log.
      */
@@ -171,12 +198,13 @@ export function createColleagueApi(registry, ids) {
       if (typeof message !== "string") {
         throw new TypeError("send: message must be a string");
       }
-      // Reuse existing send_to wire frame; coordinator forwards as recv_from
-      // for raw payload OR recv_notify if we use the broadcast/notify API.
-      // Per spec: 1:1 messages flow as send_to → recv_from. The peer's
-      // ext bridges recv_from into the inbox. (See registry recv handler
-      // bridging in extension.mjs onPostToolUse.)
-      registry.sendTo(targetId, { kind: "swarm_send", message });
+      const payload = await registry.request("send_req", {
+        target_colleague_id: targetId,
+        message,
+      });
+      return payload && typeof payload === "object"
+        ? payload
+        : { delivered: true };
     },
 
     /**
@@ -202,7 +230,17 @@ export function createColleagueApi(registry, ids) {
     /**
      * Build the swarm-context block prepended to user prompts. Returns
      * an empty string when there's nothing useful to say (no peers, no
-     * claims, no inbox) so the SDK can drop it cleanly.
+     * claims, no inbox) so the SDK can drop it cleanly. Otherwise, the
+     * block is wrapped in `<swarm-context>...</swarm-context>` (CR-Pass-2 A3)
+     * so the LLM has a hard data-vs-instructions boundary — content
+     * inside the wrapper is informational data ABOUT peers, not
+     * instructions FROM peers.
+     *
+     * Peer messages are run through {@link sanitizeContextLine} before
+     * interpolation: newlines collapsed to `↩`, length capped at
+     * {@link CONTEXT_MESSAGE_RENDER_CAP} chars (CR-Pass-2 F1). Without
+     * this a peer could embed a fake `\n🔒 ...` line that masquerades as
+     * another claim entry inside our block.
      *
      *   @privacy Output contains Tier-2 PII (claim messages, inbox
      *   notifies). It is consumed by the LLM at the trust boundary;
@@ -223,13 +261,13 @@ export function createColleagueApi(registry, ids) {
         const remainMs = Math.max(0, c.expiresAtMs - now);
         const remainMin = Math.max(1, Math.round(remainMs / 60_000));
         const tag = c.holder === ids.colleagueId ? "(you)" : c.holder;
-        const msg = c.message ? ` — ${c.message}` : "";
+        const msg = c.message ? ` — ${sanitizeContextLine(c.message)}` : "";
         lines.push(`🔒 ${c.resource} held by ${tag} (~${remainMin} min remaining)${msg}`);
       }
       for (const n of inbox) {
-        lines.push(`📨 ${n.from}: ${n.message}`);
+        lines.push(`📨 ${n.from}: ${sanitizeContextLine(n.message)}`);
       }
-      return lines.join("\n");
+      return `<swarm-context>\n${lines.join("\n")}\n</swarm-context>`;
     },
 
     /** Clear the inbox after surfacing it via `getContextBlock`. */
@@ -261,4 +299,21 @@ function normalizeClaimView(view) {
           ? view.expiresAtMs
           : 0,
   };
+}
+
+/**
+ * Sanitize a peer-authored string before interpolating it into the
+ * `<swarm-context>` block: collapse newlines (so a peer can't inject
+ * fake-looking new entries) and cap length so a single huge message
+ * cannot eat the LLM's context window. Visible-only — not for storage.
+ * @param {string} s
+ * @returns {string}
+ */
+export function sanitizeContextLine(s) {
+  if (typeof s !== "string") return "";
+  // Collapse CR/LF/PS/LS to a sentinel so multi-line messages render
+  // on a single line and cannot impersonate other [Swarm — …] entries.
+  const collapsed = s.replace(/[\r\n\u2028\u2029]+/g, "↩");
+  if (collapsed.length <= CONTEXT_MESSAGE_RENDER_CAP) return collapsed;
+  return `${collapsed.slice(0, CONTEXT_MESSAGE_RENDER_CAP)}…`;
 }

@@ -24,6 +24,15 @@ export const RECONNECT_MULTIPLIER = 2;
 /** T5 — request/response RPC default timeout. */
 export const REQUEST_TIMEOUT_MS = 5_000;
 
+/**
+ * T5 — hard cap on simultaneously in-flight RPCs per registry. A
+ * pathological coordinator (or client bug spamming requests) cannot
+ * grow `_pending` without bound; the (101-th) request fails fast with
+ * a typed `PENDING_CAP` error instead of consuming heap forever
+ * (CR-Pass-2 C1).
+ */
+export const MAX_PENDING_REQUESTS = 100;
+
 /** T5 — inbox ring-buffer cap (incoming notify/recv_notify). */
 export const INBOX_CAP = 50;
 
@@ -484,7 +493,7 @@ export class ClientRegistry extends EventEmitter {
    * Send an RPC frame and await its `tool_response`. Generates a fresh
    * request_id and wires up timeout / pending-map cleanup.
    *
-   * @param {string} frameType  - One of `claim_req|release_req|check_req|list_claims_req|broadcast_req`.
+   * @param {string} frameType  - One of `claim_req|release_req|list_claims_req|broadcast_req|send_req`.
    * @param {object} payload    - Frame payload (no `type` or `request_id`).
    * @param {number} [timeoutMs] - Default {@link REQUEST_TIMEOUT_MS}.
    * @returns {Promise<any>}     Resolves with `tool_response.payload` on ok=true.
@@ -500,6 +509,16 @@ export class ClientRegistry extends EventEmitter {
     }
     if (payload === null || typeof payload !== "object") {
       throw new TypeError("request: payload must be an object");
+    }
+    if (this._pending.size >= MAX_PENDING_REQUESTS) {
+      // Defensive cap (CR-Pass-2 C1) — the in-flight request map
+      // would otherwise grow without bound under a pathological
+      // coordinator (no responses, no socket close).
+      const err = new Error(
+        `request: max ${MAX_PENDING_REQUESTS} in-flight requests reached`,
+      );
+      err.code = "PENDING_CAP";
+      throw err;
     }
     // request_id charset is [a-zA-Z0-9_-], max 100 chars (Rust validator).
     // randomUUID() is hex+hyphen — fits the charset, well under length cap.

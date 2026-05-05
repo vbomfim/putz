@@ -74,7 +74,7 @@ Length-prefixed JSON, identical to T1 (`src-tauri/src/swarm/wire.rs`):
 - Single frame ≤ 1 MiB
 - Zero-length and oversized frames rejected before allocation
 
-Frame types: `register`, `register_ack`, `heartbeat`, `notify`, `send_to`, `recv_from`, `disconnect`. The codec validates outgoing frames against the same `deny_unknown_fields` discipline the Rust side uses.
+Frame types — T1: `register`, `register_ack`, `heartbeat`, `notify`, `send_to`, `recv_from`, `disconnect`. T3: `roster_update`. T4: `recv_notify`. T5 (claim coordination): `claim`, `release`, `claim_req`, `release_req`, `list_claims_req`, `broadcast_req`, `send_req`, `tool_response`. The codec validates outgoing frames against the same `deny_unknown_fields` discipline the Rust side uses; **inbound** frames with unknown `type` are accepted and ignored downstream — forward-compat policy so a newer coordinator can ship a new frame type without breaking older colleagues.
 
 ## Privacy
 
@@ -105,7 +105,7 @@ the Copilot SDK that any agent can call:
 |------|---|
 | `swarm_claim` | Claim a named resource for a TTL with a human message. Returns `granted: false` if a peer holds it. |
 | `swarm_release` | Release a claim you currently hold. |
-| `swarm_check` | Look up who (if anyone) holds a given resource right now. |
+| `swarm_check` | Look up whether a resource is held — returns `{ free: true }` or `{ free: false, claim: { holder, message, expiresAtMs } }`. Cache-only, no round-trip. |
 | `swarm_list_claims` | List every active claim across the swarm. |
 | `swarm_send` | 1:1 message to another colleague by `colleague_id`. Surfaced in their next prompt's context block. |
 | `swarm_broadcast` | Message all peers. Optional `severity: urgent\|normal\|ambient`. |
@@ -143,8 +143,8 @@ Two tabs (`A`, `B`) attached to the same Putz instance, both running
 `gh copilot`.
 
 1. User in tab `A` says *"deploy main to prod"*. Agent calls
-   `swarm_claim({ resource: "deploy-prod", ttl_secs: 600, message: "deploying abc123 to prod" })`.
-   `granted: true`.
+   `swarm_claim({ resource: "deploy-prod", ttl_minutes: 10, message: "deploying abc123 to prod" })`.
+   Result is `{ ok: true, payload: { resource, holder: "A", ... } }`.
 2. User in tab `B` says *"deploy the hotfix to prod"*. Agent's prompt
    already has a `<swarm-context>` block showing `deploy-prod` held by
    tab `A` with message *"deploying abc123 to prod"*. Agent stops and
@@ -159,7 +159,7 @@ Two tabs in the **same** working directory (e.g. you opened two Putz
 tabs in the same project).
 
 1. User in tab `A` says *"pull latest from main"*. Agent calls
-   `swarm_claim({ resource: "git-worktree", ttl_secs: 90, message: "git pull --rebase main" })`,
+   `swarm_claim({ resource: "git-worktree", ttl_minutes: 2, message: "git pull --rebase main" })`,
    runs the pull, then `swarm_release`.
 2. While `A`'s pull is in flight, user in tab `B` says *"check out the
    feature branch"*. Agent's prompt context block shows

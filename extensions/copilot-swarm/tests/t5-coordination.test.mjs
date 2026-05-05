@@ -178,7 +178,11 @@ test("api.check() reads from local cache without sending a frame", async () => {
     const reg = makeReg(sockPath);
     reg.start();
     await once(reg, "registered");
-    // Server pushes a Claim broadcast.
+    // Wait deterministically for the Claim broadcast to land in the cache —
+    // CR-Pass-2 N1: replaced the previous `setTimeout(30)` race with an
+    // event-based wait so the assertion never fires before the registry
+    // has actually processed the frame.
+    const claimsChanged = once(reg, "claims-changed");
     mock.sockets[0].write(
       encodeFrame({
         type: "claim",
@@ -188,14 +192,17 @@ test("api.check() reads from local cache without sending a frame", async () => {
         expires_at_ms: Date.now() + 10_000,
       }),
     );
-    // Wait one tick for the frame to be processed.
-    await new Promise((r) => setTimeout(r, 30));
+    await claimsChanged;
     const api = createColleagueApi(reg, { colleagueId: "alice", tabId: "tab-A" });
     const r = api.check("x");
-    assert.equal(r.holder, "bob");
-    // No new frame should have been sent.
+    // CR-Pass-2 J1: api.check now mirrors the wire `tool_response` shape.
+    assert.equal(r.free, false);
+    assert.equal(r.claim.holder, "bob");
+    assert.equal(r.claim.resource, "x");
+    // No new frame should have been sent — listClaims/check are local-cache only.
     const before = mock.received.length;
-    api.check("y");
+    const free = api.check("y");
+    assert.deepEqual(free, { free: true });
     api.listClaims();
     assert.equal(mock.received.length, before);
     await reg.shutdown();
@@ -371,28 +378,163 @@ test("Claim broadcast updates cache and emits claims-changed", async () => {
   }
 });
 
-test("api.send pushes a swarm_send envelope onto the recipient's inbox", async () => {
-  // Use TWO registries against the same mock coordinator, but the mock
-  // here only services ONE side — so we test the recipient-side bridge
-  // by injecting a recv_from with the swarm_send envelope.
+test("api.send is an acknowledged RPC (D1) — resolves on tool_response success", async () => {
+  // CR-Pass-2 D1: api.send was rewritten as send_req / tool_response
+  // (was previously a fire-and-forget send_to). The mock answers the
+  // send_req with a successful tool_response; the call must resolve
+  // with `{ delivered: true }`.
+  const sockPath = mkSocketPath();
+  const mock = await startMock(sockPath, (f) => {
+    if (f.type === "send_req") {
+      return {
+        type: "tool_response",
+        request_id: f.request_id,
+        ok: true,
+        payload: { delivered: true },
+      };
+    }
+    return null;
+  });
+  try {
+    const reg = makeReg(sockPath);
+    reg.start();
+    await once(reg, "registered");
+    const api = createColleagueApi(reg, { colleagueId: "alice", tabId: "tab-A" });
+    const result = await api.send("bob", "ping you");
+    assert.deepEqual(result, { delivered: true });
+    // Verify the wire frame was send_req (not legacy send_to).
+    const sendReq = mock.received.find((f) => f.type === "send_req");
+    assert.ok(sendReq, "expected a send_req frame on the wire");
+    assert.equal(sendReq.target_colleague_id, "bob");
+    assert.equal(sendReq.message, "ping you");
+    await reg.shutdown();
+  } finally {
+    await stopMock(mock);
+  }
+});
+
+test("recv_notify bridges to the inbox (peer received via real send)", async () => {
+  // After D1, the recipient sees a server-pushed `recv_notify`, not the
+  // old `recv_from { kind: 'swarm_send' }` envelope. This test pins
+  // the recipient-side bridge.
   const sockPath = mkSocketPath();
   const mock = await startMock(sockPath);
   try {
     const reg = makeReg(sockPath);
     reg.start();
     await once(reg, "registered");
+    const notifyEvent = once(reg, "notify");
     mock.sockets[0].write(
       encodeFrame({
-        type: "recv_from",
+        type: "recv_notify",
         from: "bob",
-        payload: { kind: "swarm_send", message: "ping you" },
+        message: "ping you",
+        severity: "normal",
       }),
     );
-    await new Promise((r) => setTimeout(r, 30));
+    await notifyEvent;
     assert.equal(reg.inbox.length, 1);
     assert.equal(reg.inbox[0].from, "bob");
     assert.equal(reg.inbox[0].message, "ping you");
     await reg.shutdown();
+  } finally {
+    await stopMock(mock);
+  }
+});
+
+test("K1 #3 — pending requests reject with DISCONNECTED on socket close", async () => {
+  // CR-Pass-2 K1: when the registry's transport closes mid-request,
+  // every in-flight RPC must reject with `code: "DISCONNECTED"` so
+  // callers don't hang until TIMEOUT.
+  const sockPath = mkSocketPath();
+  const mock = await startMock(sockPath); // never responds to claim_req
+  try {
+    const reg = makeReg(sockPath);
+    reg.start();
+    await once(reg, "registered");
+    const pending = reg.request("claim_req", { resource: "x", ttl_ms: 60_000 });
+    // Yank the underlying socket out from under the pending request.
+    setImmediate(() => {
+      for (const s of mock.sockets) s.destroy();
+    });
+    await assert.rejects(pending, (err) => err.code === "DISCONNECTED");
+    await reg.shutdown();
+  } finally {
+    await stopMock(mock);
+  }
+});
+
+test("K1 #4 — tool_response with unknown request_id is silently dropped", async () => {
+  // CR-Pass-2 K1: a tool_response that does not match any pending
+  // request must not crash the registry, must not emit, and must not
+  // disrupt subsequent legitimate RPCs.
+  const sockPath = mkSocketPath();
+  const mock = await startMock(sockPath, (f) => {
+    if (f.type === "claim_req") {
+      return {
+        type: "tool_response",
+        request_id: f.request_id,
+        ok: true,
+        payload: {
+          resource: f.resource,
+          holder: "alice",
+          message: "",
+          expires_at_ms: Date.now() + 60_000,
+        },
+      };
+    }
+    return null;
+  });
+  try {
+    const reg = makeReg(sockPath);
+    reg.start();
+    await once(reg, "registered");
+    // Inject a stray response with a request_id that no pending RPC owns.
+    mock.sockets[0].write(
+      encodeFrame({
+        type: "tool_response",
+        request_id: "ghost-id-not-in-pending",
+        ok: true,
+        payload: { whatever: true },
+      }),
+    );
+    // Give the stray a chance to be processed and (silently) dropped.
+    await new Promise((r) => setImmediate(r));
+    // A real RPC after the stray must still succeed.
+    const api = createColleagueApi(reg, { colleagueId: "alice", tabId: "tab-A" });
+    const view = await api.claim("after-ghost", 1);
+    assert.equal(view.resource, "after-ghost");
+    await reg.shutdown();
+  } finally {
+    await stopMock(mock);
+  }
+});
+
+test("C1 — request rejects with PENDING_CAP when the in-flight map is full", async () => {
+  // CR-Pass-2 C1: registry caps simultaneously in-flight RPCs at 100.
+  // The mock never responds, so the first 100 stay pending; the 101st
+  // must fail synchronously with `code: "PENDING_CAP"`.
+  const sockPath = mkSocketPath();
+  const mock = await startMock(sockPath);
+  try {
+    const reg = makeReg(sockPath);
+    reg.start();
+    await once(reg, "registered");
+    const inflight = [];
+    for (let i = 0; i < 100; i++) {
+      // Catch + swallow so the runner isn't drowned in unhandled rejections
+      // when reg.shutdown() tears them down at end-of-test.
+      const p = reg
+        .request("claim_req", { resource: `r${i}`, ttl_ms: 60_000 })
+        .catch(() => undefined);
+      inflight.push(p);
+    }
+    assert.throws(
+      () => reg.request("claim_req", { resource: "overflow", ttl_ms: 60_000 }),
+      (err) => err.code === "PENDING_CAP",
+    );
+    await reg.shutdown();
+    await Promise.all(inflight);
   } finally {
     await stopMock(mock);
   }
