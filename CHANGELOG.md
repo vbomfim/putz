@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.2] — 2026-05-05
+
+### Fixed
+- **Windows: swarm sidebar stayed empty even with the extension loaded** — `PUTZ_SWARM_PATH` was being set to the bare pipe name (`putz-swarm-12345`) instead of the absolute path Node's `net.connect({path})` requires (`\\.\pipe\putz-swarm-12345`). The `interprocess` crate's `GenericNamespaced` binder stored only the bare name; children couldn't connect. Per spec FR-007, `PUTZ_SWARM_PATH` is the absolute socket/pipe path — now actually is. Adds idempotent `to_child_pipe_path()` helper + 3 unit tests covering Unix passthrough, Windows prefixing, and already-prefixed inputs.
+
 ## [0.5.1] — 2026-05-05
 
 ### Fixed
