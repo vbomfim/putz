@@ -88,10 +88,15 @@ export function createPasteGuard(): PasteGuard {
         return false;
       }
 
-      // Fallback: if no timestamp provided (legacy callers), use content
-      // equality within a tight window
+      // Safety net: same content arriving within the larger guard window
+      // catches platform-specific double-dispatch where the two events
+      // carry distinct timestamps too far apart for the jitter check
+      // (observed on Windows WebView2: contextmenu fires twice ~10–40ms
+      // apart for a single right-click). Runs regardless of whether
+      // eventTimestamp was provided — accepting a same-content duplicate
+      // ≤50ms after the previous paste is virtually always a duplicate
+      // event, not user intent.
       if (
-        eventTimestamp == null &&
         content === lastContent &&
         now - lastTime < PASTE_GUARD_WINDOW_MS
       ) {

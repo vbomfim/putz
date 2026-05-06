@@ -162,7 +162,7 @@ describe("pasteToTerminal — bracketed paste + deduplication", () => {
   // -----------------------------------------------------------------------
   // Different gestures with same content should both paste
   // -----------------------------------------------------------------------
-  it("allows same content from different gestures (different timestamps)", async () => {
+  it("rejects same content arriving within guard window even with different timestamps (Windows WebView2 double-dispatch defense)", async () => {
     const term = createMockTerminal(false);
     mockClipboard("same-text");
 
@@ -172,13 +172,43 @@ describe("pasteToTerminal — bracketed paste + deduplication", () => {
       1000,
     );
     _resetPasteInFlight();
+    // Second event with a timestamp 30ms later — outside the 5ms jitter
+    // window but inside the 50ms content-equality window. Observed on
+    // Windows WebView2 where a single right-click fires contextmenu twice.
     await pasteToTerminal(
       term as unknown as import("@xterm/xterm").Terminal,
       guard,
-      2000,
+      1030,
     );
 
-    expect(term.paste).toHaveBeenCalledTimes(2);
+    expect(term.paste).toHaveBeenCalledTimes(1);
+  });
+
+  it("allows same content from different gestures after the guard window expires", async () => {
+    vi.useFakeTimers();
+    try {
+      const term = createMockTerminal(false);
+      mockClipboard("same-text");
+
+      await pasteToTerminal(
+        term as unknown as import("@xterm/xterm").Terminal,
+        guard,
+        1000,
+      );
+      _resetPasteInFlight();
+      // Advance past the 50ms guard window so the content fallback
+      // permits a fresh paste of identical content.
+      vi.advanceTimersByTime(60);
+      await pasteToTerminal(
+        term as unknown as import("@xterm/xterm").Terminal,
+        guard,
+        1100,
+      );
+
+      expect(term.paste).toHaveBeenCalledTimes(2);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   // -----------------------------------------------------------------------
@@ -449,17 +479,23 @@ describe("event-source identity dedup", () => {
     expect(guard.shouldAllow("text", 12345.678)).toBe(false);
   });
 
-  it("allows same content from different event timestamps", () => {
+  it("rejects same content arriving close together (different timestamps still within content guard window)", () => {
     expect(guard.shouldAllow("text", 1000)).toBe(true);
-    expect(guard.shouldAllow("text", 2000)).toBe(true);
+    // Different timestamp (>5ms apart) but same content within 50ms →
+    // the safety net catches platform-level double-dispatch (Win WebView2).
+    expect(guard.shouldAllow("text", 2000)).toBe(false);
   });
 
   it("handles jitter within TIMESTAMP_JITTER_MS (5ms)", () => {
     expect(guard.shouldAllow("text", 1000)).toBe(true);
-    // Within jitter — should be blocked
+    // Within jitter — blocked by primary check
     expect(guard.shouldAllow("text", 1003)).toBe(false);
-    // Outside jitter — should be allowed
-    expect(guard.shouldAllow("text", 1010)).toBe(true);
+    // Outside jitter but same content within content window — blocked by
+    // safety net. (Different content at this timestamp would be allowed;
+    // see "allows different content within guard window" above.)
+    expect(guard.shouldAllow("text", 1010)).toBe(false);
+    // Outside both windows after the cleanup timer fires — see the
+    // dedicated "after window expires" test in the privacy section.
   });
 });
 
