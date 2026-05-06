@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.3] — 2026-05-05
+
+### Fixed
+- **Right-click paste duplicated on Windows WebView2** — `pasteGuard`'s content-equality check was gated behind "no event timestamp provided", so it never ran for real paste events. The 5ms timestamp-jitter window was too tight for WebView2's double-dispatch behavior (single right-click → `contextmenu` fires twice ~10–40ms apart). Both events passed through and `terminal.paste` fired twice. The content+window check is now an unconditional safety net: identical content within 50ms is rejected regardless of timestamps.
+
 ## [0.5.2] — 2026-05-05
 
 ### Fixed
