@@ -11,6 +11,20 @@ import { create } from "zustand";
 /** localStorage key for persisting settings. */
 const STORAGE_KEY = "putz-settings";
 
+/** Default values for newline-shortcut sub-settings — all enabled. */
+const DEFAULT_NEWLINE_SHORTCUTS: NewlineShortcutSettings = {
+  ctrlEnter: true,
+  shiftEnter: true,
+  altEnter: true,
+};
+
+/** Per-shortcut toggles for terminal newline-insertion bindings. */
+export interface NewlineShortcutSettings {
+  ctrlEnter: boolean;
+  shiftEnter: boolean;
+  altEnter: boolean;
+}
+
 /** Persisted state shape. */
 interface PersistedSettings {
   workspaceBarVisible: boolean;
@@ -28,6 +42,7 @@ interface PersistedSettings {
   /** Whether the swarm sidebar is in narrow icon-only mode. */
   swarmSidebarCollapsed: boolean;
   copilotCardDismissed: boolean;
+  newlineShortcuts: NewlineShortcutSettings;
 }
 
 /** Loads persisted settings from localStorage, returning defaults on failure. */
@@ -54,6 +69,17 @@ function loadPersistedSettings(): PersistedSettings {
             : "left",
         swarmSidebarCollapsed: parsed.swarmSidebarCollapsed ?? false,
         copilotCardDismissed: parsed.copilotCardDismissed ?? false,
+        newlineShortcuts: {
+          ctrlEnter:
+            parsed.newlineShortcuts?.ctrlEnter ??
+            DEFAULT_NEWLINE_SHORTCUTS.ctrlEnter,
+          shiftEnter:
+            parsed.newlineShortcuts?.shiftEnter ??
+            DEFAULT_NEWLINE_SHORTCUTS.shiftEnter,
+          altEnter:
+            parsed.newlineShortcuts?.altEnter ??
+            DEFAULT_NEWLINE_SHORTCUTS.altEnter,
+        },
       };
     }
   } catch {
@@ -73,6 +99,7 @@ function loadPersistedSettings(): PersistedSettings {
     swarmSidebarPosition: "left",
     swarmSidebarCollapsed: false,
     copilotCardDismissed: false,
+    newlineShortcuts: { ...DEFAULT_NEWLINE_SHORTCUTS },
   };
 }
 
@@ -130,6 +157,9 @@ interface SettingsState {
   /** Whether the user has dismissed the Copilot integration discovery card. */
   copilotCardDismissed: boolean;
 
+  /** Per-shortcut toggles for terminal newline-insertion bindings. */
+  newlineShortcuts: NewlineShortcutSettings;
+
   /** Toggles the workspace bar visibility and persists to localStorage. */
   toggleWorkspaceBar: () => void;
 
@@ -179,6 +209,12 @@ interface SettingsState {
 
   /** Persistently dismiss (or restore) the Copilot integration discovery card. */
   setCopilotCardDismissed: (dismissed: boolean) => void;
+
+  /** Toggle a single newline-shortcut binding and persist. */
+  setNewlineShortcut: (
+    key: keyof NewlineShortcutSettings,
+    enabled: boolean,
+  ) => void;
 }
 
 export const useSettingsStore = create<SettingsState>((set, get) => {
@@ -200,6 +236,7 @@ export const useSettingsStore = create<SettingsState>((set, get) => {
       swarmSidebarPosition: s.swarmSidebarPosition,
       swarmSidebarCollapsed: s.swarmSidebarCollapsed,
       copilotCardDismissed: s.copilotCardDismissed,
+      newlineShortcuts: s.newlineShortcuts,
     });
   };
 
@@ -217,6 +254,7 @@ export const useSettingsStore = create<SettingsState>((set, get) => {
     swarmSidebarPosition: persisted.swarmSidebarPosition,
     swarmSidebarCollapsed: persisted.swarmSidebarCollapsed,
     copilotCardDismissed: persisted.copilotCardDismissed,
+    newlineShortcuts: persisted.newlineShortcuts,
     shortcutsPanelOpen: false,
 
     toggleWorkspaceBar: () => {
@@ -296,6 +334,16 @@ export const useSettingsStore = create<SettingsState>((set, get) => {
 
     setCopilotCardDismissed: (dismissed: boolean) => {
       set({ copilotCardDismissed: dismissed });
+      persist();
+    },
+
+    setNewlineShortcut: (
+      key: keyof NewlineShortcutSettings,
+      enabled: boolean,
+    ) => {
+      set({
+        newlineShortcuts: { ...get().newlineShortcuts, [key]: enabled },
+      });
       persist();
     },
   };

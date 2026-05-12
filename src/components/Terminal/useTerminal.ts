@@ -44,6 +44,8 @@ import {
   navigateToPreviousPrompt,
   navigateToNextPrompt,
 } from "./usePromptNavigation";
+import { decideNewlineShortcut } from "./newlineShortcuts";
+import { useSettingsStore } from "../../stores/settingsStore";
 
 interface UseTerminalOptions {
   /** UUID v4 session identifier from pty_spawn. */
@@ -555,7 +557,8 @@ export function useTerminal({
 
     // Keyboard shortcuts: Cmd/Ctrl+C/V/A (copy/paste/select-all),
     // Ctrl+Shift+H (highlight), Ctrl+Plus/Minus/0 (font zoom),
-    // Cmd/Ctrl+↑/↓ (prompt navigation)
+    // Cmd/Ctrl+↑/↓ (prompt navigation),
+    // Ctrl/Cmd+Enter, Shift+Enter, Alt+Enter (newline insertion)
     //
     // IMPORTANT: xterm.js only supports ONE custom key handler at a time
     // (attachCustomKeyEventHandler is a setter, not additive). ALL keyboard
@@ -565,6 +568,27 @@ export function useTerminal({
 
       const isMod = event.metaKey || event.ctrlKey;
       const key = event.key.toLowerCase();
+
+      // Newline-insertion bindings (Ctrl/Cmd+Enter, Shift+Enter, Alt+Enter).
+      // Settings are read live from the store so toggles in the Preferences
+      // pane apply without remounting the terminal.
+      if (event.key === "Enter") {
+        const newlineSettings =
+          useSettingsStore.getState().newlineShortcuts;
+        const decision = decideNewlineShortcut(event, newlineSettings);
+        if (decision) {
+          const bytes = Array.from(decision.bytes);
+          broadcastWrite(sessionId, bytes);
+          invoke("pty_write", {
+            sessionId,
+            data: bytes,
+          }).catch(() => {
+            // pty_write failure — input dropped silently (matches onData branch)
+          });
+          event.preventDefault();
+          return false;
+        }
+      }
 
       // Cmd+↑ / Ctrl+↑ — jump to previous prompt
       if (isMod && event.key === "ArrowUp") {
