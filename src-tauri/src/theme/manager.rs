@@ -968,7 +968,7 @@ mod tests {
         let (mgr, _tmp) = setup_manager();
         let themes = mgr.list_themes().unwrap();
         let builtins: Vec<&Theme> = themes.iter().filter(|t| t.is_builtin).collect();
-        assert_eq!(builtins.len(), 10);
+        assert_eq!(builtins.len(), 15);
     }
 
     #[test]
@@ -978,7 +978,7 @@ mod tests {
         let mgr2 = ThemeManager::with_config_dir(tmp.path().to_path_buf());
         let themes = mgr2.list_themes().unwrap();
         let builtins: Vec<&Theme> = themes.iter().filter(|t| t.is_builtin).collect();
-        assert_eq!(builtins.len(), 10);
+        assert_eq!(builtins.len(), 15);
     }
 
     // ─── CRUD ────────────────────────────────────────────────
