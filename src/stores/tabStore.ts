@@ -323,6 +323,7 @@ export const useTabStore = create<TabState>((set, get) => ({
 
     // Auto-focus the new terminal
     setTimeout(() => {
+      if (typeof document === "undefined") return;
       const el = document.querySelector(
         `[data-session-id="${sessionId}"] .xterm-helper-textarea`,
       ) as HTMLElement;
@@ -376,6 +377,7 @@ export const useTabStore = create<TabState>((set, get) => ({
       set({ activeTabId: id, focusedPaneSessionId: sessionId });
       // Auto-focus the terminal element after React renders
       setTimeout(() => {
+        if (typeof document === "undefined") return;
         const el = document.querySelector(
           `[data-session-id="${sessionId}"] .xterm-helper-textarea`,
         ) as HTMLElement;
@@ -555,6 +557,7 @@ export const useTabStore = create<TabState>((set, get) => ({
 
     // Auto-focus the new pane after React re-renders
     setTimeout(() => {
+      if (typeof document === "undefined") return;
       const el = document.querySelector(
         `[data-session-id="${newSessionId}"] .xterm-helper-textarea`,
       ) as HTMLElement;
