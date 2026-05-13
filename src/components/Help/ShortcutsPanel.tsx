@@ -49,7 +49,7 @@ export const SHORTCUT_CATEGORIES: ShortcutCategory[] = [
   {
     category: "Terminal Input",
     shortcuts: [
-      { action: "Insert newline (no submit)", keys: "Ctrl+Enter" },
+      { action: "Insert newline (no submit)", keys: "Ctrl/⌘+Enter" },
       { action: "Insert newline (no submit)", keys: "Shift+Enter" },
       { action: "Insert newline (no submit)", keys: "Alt+Enter" },
     ],
@@ -153,7 +153,10 @@ export function ShortcutsPanel() {
               <table className="shortcuts-panel__table">
                 <tbody>
                   {cat.shortcuts.map((shortcut) => (
-                    <tr key={`${shortcut.action}-${shortcut.keys}`} className="shortcuts-panel__row">
+                    <tr
+                      key={`${shortcut.action}-${shortcut.keys}`}
+                      className="shortcuts-panel__row"
+                    >
                       <td className="shortcuts-panel__action">
                         {shortcut.action}
                       </td>

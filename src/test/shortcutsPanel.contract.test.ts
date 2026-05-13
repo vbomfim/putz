@@ -19,10 +19,10 @@ describe("ShortcutsPanel — Terminal Input category [AC-6]", () => {
     expect(terminalInput).toBeDefined();
   });
 
-  it("lists Ctrl+Enter, Shift+Enter, and Alt+Enter bindings", () => {
+  it("lists Ctrl/Cmd+Enter, Shift+Enter, and Alt+Enter bindings", () => {
     const keys = terminalInput?.shortcuts.map((s) => s.keys) ?? [];
     expect(keys).toEqual(
-      expect.arrayContaining(["Ctrl+Enter", "Shift+Enter", "Alt+Enter"]),
+      expect.arrayContaining(["Ctrl/⌘+Enter", "Shift+Enter", "Alt+Enter"]),
     );
     expect(keys).toHaveLength(3);
   });

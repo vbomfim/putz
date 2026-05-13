@@ -54,7 +54,9 @@ describe("newlineShortcuts ↔ settingsStore integration", () => {
     const settings = useSettingsStore.getState().newlineShortcuts;
 
     // ctrlEnter now falls through to xterm's default (which sends \r → submit).
-    expect(decideNewlineShortcut(enter({ ctrlKey: true }), settings)).toBeNull();
+    expect(
+      decideNewlineShortcut(enter({ ctrlKey: true }), settings),
+    ).toBeNull();
 
     // Other bindings still work.
     expect(decideNewlineShortcut(enter({ shiftKey: true }), settings)).toEqual({
@@ -91,7 +93,9 @@ describe("newlineShortcuts ↔ settingsStore integration", () => {
   it("toggle round-trip → decision returns to original after re-enable [AC-4]", () => {
     useSettingsStore.getState().setNewlineShortcut("ctrlEnter", false);
     let settings = useSettingsStore.getState().newlineShortcuts;
-    expect(decideNewlineShortcut(enter({ ctrlKey: true }), settings)).toBeNull();
+    expect(
+      decideNewlineShortcut(enter({ ctrlKey: true }), settings),
+    ).toBeNull();
 
     useSettingsStore.getState().setNewlineShortcut("ctrlEnter", true);
     settings = useSettingsStore.getState().newlineShortcuts;
@@ -113,7 +117,9 @@ describe("newlineShortcuts ↔ settingsStore integration", () => {
     const settings = mod.useSettingsStore.getState().newlineShortcuts;
 
     // ctrl/shift fall through; alt force-submits.
-    expect(decideNewlineShortcut(enter({ ctrlKey: true }), settings)).toBeNull();
+    expect(
+      decideNewlineShortcut(enter({ ctrlKey: true }), settings),
+    ).toBeNull();
     expect(
       decideNewlineShortcut(enter({ shiftKey: true }), settings),
     ).toBeNull();
