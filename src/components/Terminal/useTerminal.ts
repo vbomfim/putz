@@ -37,7 +37,10 @@ import {
   getSessionCwdAtLine,
   parseCwdFromTitle,
 } from "./cwdRegistry";
-import { pasteToTerminal, createPasteGuard } from "./pasteHelper";
+import {
+  pasteToTerminal,
+  createPasteGuard,
+} from "./pasteHelper";
 import { createOscParser } from "../../lib/terminal/oscParser";
 import { useCommandBlockStore } from "../../stores/commandBlockStore";
 import {
@@ -439,13 +442,43 @@ export function useTerminal({
       onBellRef.current?.();
     });
 
-    // Fix 1: Right-click paste — read clipboard and write to terminal + PTY
+    // ─── Right-click: copy selection OR paste clipboard ────────────
+    //
+    // #161: Right-click behavior depends on mouse tracking state:
+    //   • Mouse tracking OFF (plain shell): contextmenu pastes clipboard
+    //   • Mouse tracking ON (TUI like Copilot CLI): TUI handles paste
+    //     via mouse event escape sequences — we skip to avoid double.
+    //   • With text selected: right-click copies selection, clears it.
     const handleContextMenu = (e: MouseEvent) => {
       e.preventDefault();
       if (disposed) return;
+
+      // If text is selected → copy it, clear selection, don't paste.
+      const selection = terminal.getSelection();
+      if (selection) {
+        navigator.clipboard.writeText(selection).catch(() => {});
+        terminal.clearSelection();
+        return;
+      }
+
+      // When mouse tracking is active, the TUI handles right-click paste
+      // via mouse event escape sequences. Skip our paste to avoid double.
+      if (terminal.modes.mouseTrackingMode !== "none") return;
+
       pasteToTerminal(terminal, pasteGuard, e.timeStamp);
     };
     container.addEventListener("contextmenu", handleContextMenu);
+
+    // #161: Reset stuck mouse tracking on left-click. TUIs may not
+    // disable tracking on exit, breaking selection and right-click paste.
+    // If a TUI IS running, it re-enables tracking on next render (~16ms).
+    // Only fires when tracking is actually on — no-op in plain shell.
+    const handleTrackingReset = (e: MouseEvent) => {
+      if (e.button === 0 && terminal.modes.mouseTrackingMode !== "none") {
+        terminal.write("\x1b[?1000l\x1b[?1002l\x1b[?1003l\x1b[?1006l");
+      }
+    };
+    container.addEventListener("mousedown", handleTrackingReset, true);
 
     // Track focused pane — when user clicks this terminal, update store
     // so splitActivePane targets the correct pane
@@ -573,8 +606,7 @@ export function useTerminal({
       // Settings are read live from the store so toggles in the Preferences
       // pane apply without remounting the terminal.
       if (event.key === "Enter") {
-        const newlineSettings =
-          useSettingsStore.getState().newlineShortcuts;
+        const newlineSettings = useSettingsStore.getState().newlineShortcuts;
         const decision = decideNewlineShortcut(event, newlineSettings);
         if (decision) {
           const bytes = Array.from(decision.bytes);
@@ -629,6 +661,13 @@ export function useTerminal({
 
       // Cmd+V / Ctrl+V — paste from clipboard
       if (isMod && !event.shiftKey && (key === "v" || event.code === "KeyV")) {
+        event.preventDefault();
+        pasteToTerminal(terminal, pasteGuard, event.timeStamp);
+        return false;
+      }
+
+      // Shift+Insert — classic Windows paste shortcut
+      if (event.shiftKey && event.key === "Insert") {
         event.preventDefault();
         pasteToTerminal(terminal, pasteGuard, event.timeStamp);
         return false;
@@ -799,6 +838,7 @@ export function useTerminal({
       window.removeEventListener("putz-overlay-toggle", handleOverlayToggle);
       resizeObserver.disconnect();
       container.removeEventListener("contextmenu", handleContextMenu);
+      container.removeEventListener("mousedown", handleTrackingReset, true);
       container.removeEventListener("mousedown", handlePaneFocus);
 
       highlightEngine.dispose();

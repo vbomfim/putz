@@ -96,10 +96,7 @@ export function createPasteGuard(): PasteGuard {
       // eventTimestamp was provided — accepting a same-content duplicate
       // ≤50ms after the previous paste is virtually always a duplicate
       // event, not user intent.
-      if (
-        content === lastContent &&
-        now - lastTime < PASTE_GUARD_WINDOW_MS
-      ) {
+      if (content === lastContent && now - lastTime < PASTE_GUARD_WINDOW_MS) {
         return false;
       }
 
@@ -168,8 +165,8 @@ export function _resetPasteInFlight(): void {
  *  3. Fires `onData` with the (possibly wrapped) text
  *  4. The `onData` handler in useTerminal.ts writes the bytes to the PTY
  *
- * This function is the ONLY paste entry point. All paste triggers
- * (contextmenu, Ctrl+V, Ctrl+Shift+V) must call this function.
+ * This function is the ONLY clipboard paste entry point. All paste
+ * triggers (contextmenu, Ctrl+V, Ctrl+Shift+V, Shift+Insert) call this.
  *
  * @param terminal - The xterm.js Terminal instance
  * @param guard - Per-instance PasteGuard for deduplication
@@ -186,14 +183,11 @@ export async function pasteToTerminal(
   try {
     const text = await navigator.clipboard.readText();
     if (!text) return;
-
-    // Deduplication via per-instance guard with event-source identity
+    // Deduplication via per-instance guard with event-source identity.
     if (!guard.shouldAllow(text, eventTimestamp)) return;
-
-    // Security (Fix 1): strip bracketed-paste markers from clipboard content
+    // Security (Fix 1): strip bracketed-paste markers from clipboard content.
     const sanitized = text.replace(STRIP_PASTE_MARKERS_RE, "");
-
-    // Delegate to xterm.js — it handles bracketed paste wrapping
+    // Delegate to xterm.js — it handles bracketed-paste wrapping.
     terminal.paste(sanitized);
   } catch (err: unknown) {
     // Fix 7: distinguish clipboard failure modes.
