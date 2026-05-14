@@ -178,3 +178,22 @@ export function clearSessionCwd(sessionId: string): void {
   }
   historyBySession.delete(sessionId);
 }
+
+/**
+ * Snapshot of every live session's most-recent known CWD.
+ *
+ * Used by the workspace persistence layer (T2) to capture per-tab cwd
+ * at save time so terminals can be re-spawned in their last directory
+ * after restart. Returns a fresh Map — callers may mutate it.
+ *
+ * Sessions with no recorded cwd are omitted (caller should fall back to
+ * shell default / user home for those tabs).
+ */
+export function getAllSessionCwds(): Map<string, string> {
+  const out = new Map<string, string>();
+  for (const [sessionId, history] of historyBySession) {
+    if (history.length === 0) continue;
+    out.set(sessionId, history[history.length - 1].cwd);
+  }
+  return out;
+}

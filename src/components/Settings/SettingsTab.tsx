@@ -62,6 +62,10 @@ export function SettingsTab() {
   const setNewlineShortcut = useSettingsStore((s) => s.setNewlineShortcut);
   const swarmEnabled = useSettingsStore((s) => s.swarmEnabled);
   const setSwarmEnabled = useSettingsStore((s) => s.setSwarmEnabled);
+  const restoreTabsOnLaunch = useSettingsStore((s) => s.restoreTabsOnLaunch);
+  const setRestoreTabsOnLaunch = useSettingsStore(
+    (s) => s.setRestoreTabsOnLaunch,
+  );
   const swarmSidebarPosition = useSettingsStore(
     (s) => s.swarmSidebarPosition,
   );
@@ -620,6 +624,46 @@ export function SettingsTab() {
             </label>
           </div>
         </fieldset>
+
+        {/* ── Tab persistence (T1/T3) ───────────────── */}
+        <section>
+          <h3
+            style={{
+              fontSize: 13,
+              margin: "0 0 8px",
+              color: "var(--text-primary)",
+            }}
+          >
+            Tab Persistence
+          </h3>
+          <p
+            style={{
+              fontSize: 11,
+              color: "var(--text-secondary)",
+              margin: "0 0 12px",
+            }}
+          >
+            Restore your tabs and split layout the next time Putz starts.
+            Working directories and recipe commands are remembered;
+            scrollback and shell state are not.
+          </p>
+          <label
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
+              fontSize: 12,
+              cursor: "pointer",
+            }}
+          >
+            <input
+              type="checkbox"
+              checked={restoreTabsOnLaunch}
+              onChange={(e) => setRestoreTabsOnLaunch(e.target.checked)}
+            />
+            Restore tabs on launch
+          </label>
+        </section>
 
         {/* ── Copilot Swarm ─────────────────────────── */}
         <section>

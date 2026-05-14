@@ -16,11 +16,12 @@
  * Schema versions:
  *   undefined / 0 → pre-v1.0 (may contain ssh, vault, chatview, etc.)
  *   1             → v1.0 (decommissioned content types removed)
- *   2             → v1.1 (command templates + command history removed) — CURRENT
+ *   2             → v1.1 (command templates + command history removed)
+ *   3             → v1.2 (tab persistence: + cwd, + command, + restoreTabsOnLaunch) — CURRENT
  *
  * Migration registry:
- *   Add future version bumps to the MIGRATIONS record below.
- *   Example: { 0: migrateV0ToV1, 1: migrateV1ToV2 }
+ *   v1→v3 and v2→v3 are no-op for shape (additive fields default to undefined).
+ *   Existing snapshots simply gain the new optional fields on next save.
  *
  * Side effect:
  *   On every load, this module also clears any persisted
@@ -33,7 +34,7 @@
 import type { Region, RegionTab, TabContentType } from "../types";
 
 /** Current schema version for persisted layout/workspace data. */
-export const CURRENT_SCHEMA_VERSION = 2;
+export const CURRENT_SCHEMA_VERSION = 3;
 
 /**
  * localStorage keys that may have been written by the removed
@@ -87,12 +88,16 @@ const VALID_TAB_FIELDS: ReadonlySet<string> = new Set<string>([
   "diffRightPath",
   "diffLeftContent",
   "diffRightContent",
+  // v3 (tab persistence)
+  "cwd",
 ]);
+
+/** Maximum length for any persisted string path (cwd, file paths). */
+export const MAX_PATH_LENGTH = 4096;
 
 /**
  * Keys that must never appear on a tab object — defense-in-depth against
- * prototype pollution even though `JSON.parse` doesn't create polluted
- * objects in modern JS engines.
+ * prototype pollution.
  */
 const DANGEROUS_KEYS: ReadonlySet<string> = new Set([
   "__proto__",
@@ -102,10 +107,6 @@ const DANGEROUS_KEYS: ReadonlySet<string> = new Set([
 
 /**
  * Picks only valid RegionTab fields from a tab object (allowlist approach).
- *
- * Returns a null-prototype object containing only keys present in
- * VALID_TAB_FIELDS. Dangerous keys (__proto__, constructor, prototype)
- * are rejected even if they were somehow in the allowlist.
  */
 export function stripToValidFields(tab: Record<string, unknown>): RegionTab {
   const cleaned = Object.create(null) as Record<string, unknown>;
@@ -114,7 +115,26 @@ export function stripToValidFields(tab: Record<string, unknown>): RegionTab {
     if (!VALID_TAB_FIELDS.has(key)) continue;
     cleaned[key] = tab[key];
   }
+  sanitizeNewV3Fields(cleaned);
   return cleaned as unknown as RegionTab;
+}
+
+/**
+ * Sanitizes the v3-introduced `cwd` field on a partially-cleaned tab.
+ * Mutates `cleaned` in place: if `cwd` fails validation it is deleted.
+ */
+function sanitizeNewV3Fields(cleaned: Record<string, unknown>): void {
+  if ("cwd" in cleaned) {
+    const v = cleaned.cwd;
+    if (
+      typeof v !== "string" ||
+      v.length === 0 ||
+      v.length > MAX_PATH_LENGTH ||
+      v.includes("\0")
+    ) {
+      delete cleaned.cwd;
+    }
+  }
 }
 
 /**
@@ -225,11 +245,70 @@ export function migrateRegion(region: Record<string, unknown>): Region {
 }
 
 /**
+ * Maximum depth allowed in a persisted layout tree. Defends against
+ * pathological / hostile input (deeply nested splits → stack overflow
+ * during render, DoS). 10 levels = 1024 leaf regions max — far above
+ * realistic UI usage.
+ */
+export const MAX_LAYOUT_DEPTH = 10;
+
+/**
+ * Recursively validates a persisted layout tree. Enforces:
+ *   - Max depth (defends against stack overflow / DoS)
+ *   - Every leaf `regionId` exists in the regions map
+ *   - Split nodes have valid `direction`, `ratio` ∈ [0.1, 0.9],
+ *     and well-formed `first`/`second` children
+ *
+ * Returns `true` if the tree is structurally safe to render. On any
+ * failure, returns `false` and the caller should drop `layout` to null
+ * (snapshot becomes a fresh single-region workspace).
+ *
+ * Cycle detection: the depth cap implicitly prevents infinite cycles
+ * because JSON.parse cannot produce reference cycles, but a
+ * pathological depth would still exhaust the stack — hence the cap.
+ */
+export function validateLayoutTree(
+  node: unknown,
+  regions: Record<string, Region>,
+  depth = 0,
+): boolean {
+  if (depth > MAX_LAYOUT_DEPTH) return false;
+  if (node == null || typeof node !== "object") return false;
+  const n = node as Record<string, unknown>;
+  if (n.type === "region") {
+    return typeof n.regionId === "string" && n.regionId in regions;
+  }
+  if (n.type === "split") {
+    if (n.direction !== "horizontal" && n.direction !== "vertical") {
+      return false;
+    }
+    if (
+      typeof n.ratio !== "number" ||
+      !Number.isFinite(n.ratio) ||
+      n.ratio < 0.1 ||
+      n.ratio > 0.9
+    ) {
+      return false;
+    }
+    if (!Array.isArray(n.children) || n.children.length !== 2) {
+      return false;
+    }
+    return (
+      validateLayoutTree(n.children[0], regions, depth + 1) &&
+      validateLayoutTree(n.children[1], regions, depth + 1)
+    );
+  }
+  return false;
+}
+
+/**
  * Migrates a full persisted workspace-layout snapshot.
  *
  * Walks all regions in the `regions` record, migrating each one.
- * The `layout` tree (LayoutNode) is structurally safe — it only references
- * region IDs, which are preserved. Tabs inside regions are the concern.
+ * The `layout` tree is validated against the migrated regions map —
+ * a tree referencing missing regions, exceeding {@link MAX_LAYOUT_DEPTH},
+ * or carrying invalid split ratios is rejected (caller falls back to
+ * fresh state).
  *
  * If the input already has `schemaVersion === CURRENT_SCHEMA_VERSION`, the
  * migration pipeline is skipped but shape validation still runs (defense-in-depth).
@@ -261,8 +340,20 @@ export function migrateWorkspaceLayout(
     }
   }
 
+  // Validate the layout tree against the migrated regions map. A bad
+  // tree (missing regionId, exceeded depth, invalid ratio) → null
+  // layout, which the caller treats as "fresh workspace".
+  const layout = validateLayoutTree(raw.layout, migratedRegions)
+    ? raw.layout
+    : null;
+  if (layout == null) {
+    console.warn(
+      "[migrateWorkspaceLayout] dropped invalid layout tree (depth/ratio/regionId failure)",
+    );
+  }
+
   return {
-    layout: raw.layout,
+    layout,
     regions: migratedRegions,
     focusedRegionId:
       typeof raw.focusedRegionId === "string" ? raw.focusedRegionId : "",

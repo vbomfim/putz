@@ -43,6 +43,12 @@ interface PersistedSettings {
   swarmSidebarCollapsed: boolean;
   copilotCardDismissed: boolean;
   newlineShortcuts: NewlineShortcutSettings;
+  /**
+   * Whether tabs/workspaces are restored from disk on app start.
+   * Default: true. Setting this to false reverts to legacy "fresh boot"
+   * behavior (one new terminal tab in the active workspace).
+   */
+  restoreTabsOnLaunch: boolean;
 }
 
 /** Loads persisted settings from localStorage, returning defaults on failure. */
@@ -80,6 +86,10 @@ function loadPersistedSettings(): PersistedSettings {
             parsed.newlineShortcuts?.altEnter ??
             DEFAULT_NEWLINE_SHORTCUTS.altEnter,
         },
+        restoreTabsOnLaunch:
+          typeof parsed.restoreTabsOnLaunch === "boolean"
+            ? parsed.restoreTabsOnLaunch
+            : true,
       };
     }
   } catch {
@@ -100,6 +110,7 @@ function loadPersistedSettings(): PersistedSettings {
     swarmSidebarCollapsed: false,
     copilotCardDismissed: false,
     newlineShortcuts: { ...DEFAULT_NEWLINE_SHORTCUTS },
+    restoreTabsOnLaunch: true,
   };
 }
 
@@ -160,6 +171,12 @@ interface SettingsState {
   /** Per-shortcut toggles for terminal newline-insertion bindings. */
   newlineShortcuts: NewlineShortcutSettings;
 
+  /**
+   * Whether tabs/workspaces are restored from disk on app start (T3).
+   * Default: true.
+   */
+  restoreTabsOnLaunch: boolean;
+
   /** Toggles the workspace bar visibility and persists to localStorage. */
   toggleWorkspaceBar: () => void;
 
@@ -215,6 +232,9 @@ interface SettingsState {
     key: keyof NewlineShortcutSettings,
     enabled: boolean,
   ) => void;
+
+  /** Toggle restore-tabs-on-launch and persist. */
+  setRestoreTabsOnLaunch: (enabled: boolean) => void;
 }
 
 export const useSettingsStore = create<SettingsState>((set, get) => {
@@ -237,6 +257,7 @@ export const useSettingsStore = create<SettingsState>((set, get) => {
       swarmSidebarCollapsed: s.swarmSidebarCollapsed,
       copilotCardDismissed: s.copilotCardDismissed,
       newlineShortcuts: s.newlineShortcuts,
+      restoreTabsOnLaunch: s.restoreTabsOnLaunch,
     });
   };
 
@@ -255,6 +276,7 @@ export const useSettingsStore = create<SettingsState>((set, get) => {
     swarmSidebarCollapsed: persisted.swarmSidebarCollapsed,
     copilotCardDismissed: persisted.copilotCardDismissed,
     newlineShortcuts: persisted.newlineShortcuts,
+    restoreTabsOnLaunch: persisted.restoreTabsOnLaunch,
     shortcutsPanelOpen: false,
 
     toggleWorkspaceBar: () => {
@@ -344,6 +366,11 @@ export const useSettingsStore = create<SettingsState>((set, get) => {
       set({
         newlineShortcuts: { ...get().newlineShortcuts, [key]: enabled },
       });
+      persist();
+    },
+
+    setRestoreTabsOnLaunch: (enabled: boolean) => {
+      set({ restoreTabsOnLaunch: enabled });
       persist();
     },
   };
