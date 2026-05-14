@@ -41,6 +41,8 @@ import { WorkspaceBar } from "./components/Workspace";
 import { BookmarksBar } from "./components/BookmarksBar";
 import { useThemeStore } from "./stores/themeStore";
 import { useSettingsStore } from "./stores/settingsStore";
+import { useWorkspaceStore } from "./stores/workspaceStore";
+import { restoreActiveWorkspace } from "./utils/layoutPersistence";
 import {
   SwarmSidebar,
   InboxPanel,
@@ -353,12 +355,46 @@ function App() {
 
       // Spawn the first tab AFTER swarm boot completes, so PUTZ_SWARM_PATH
       // is already injectable when pty_spawn runs.
+      //
+      // T1: gate the auto-create on whether the user opted into restore
+      // AND a snapshot exists. `restoreActiveWorkspace` returns true if
+      // it actually rehydrated tabs; in that case we skip the default
+      // first-terminal spawn so we don't double-up the layout.
+      const restoreEnabled =
+        useSettingsStore.getState().restoreTabsOnLaunch !== false;
       const allEmpty = Object.values(regions).every((r) => r.tabs.length === 0);
-      if (allEmpty) {
-        void swarmReady.then(() => addTerminalTab());
-      }
+      void swarmReady.then(async () => {
+        let restored = false;
+        if (restoreEnabled && allEmpty) {
+          try {
+            restored = await restoreActiveWorkspace();
+          } catch {
+            // Restore must never block boot — fall through to fresh tab.
+            restored = false;
+          }
+        }
+        if (allEmpty && !restored) {
+          addTerminalTab();
+        }
+      });
     }
   }, [addTerminalTab, regions]);
+
+  // T1: persist on close — flush any pending debounced capture so the
+  // very last layout change is in localStorage before the window dies.
+  // `beforeunload` fires synchronously and broadly works in Tauri's
+  // WebView; intentionally no async work here.
+  useEffect(() => {
+    const handler = (): void => {
+      try {
+        useWorkspaceStore.getState().flushNow();
+      } catch {
+        // Best-effort — swallow so we don't block window close.
+      }
+    };
+    window.addEventListener("beforeunload", handler);
+    return () => window.removeEventListener("beforeunload", handler);
+  }, []);
 
   // Swarm event listeners — handle spawn-tab requests from the broker.
   // T4 / FR-019, FR-020: the wire payload (emitted by the Rust

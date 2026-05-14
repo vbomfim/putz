@@ -58,8 +58,14 @@ export function SettingsTab() {
   const setBackgroundSize = useSettingsStore((s) => s.setBackgroundSize);
   const defaultShell = useSettingsStore((s) => s.defaultShell);
   const setDefaultShell = useSettingsStore((s) => s.setDefaultShell);
+  const newlineShortcuts = useSettingsStore((s) => s.newlineShortcuts);
+  const setNewlineShortcut = useSettingsStore((s) => s.setNewlineShortcut);
   const swarmEnabled = useSettingsStore((s) => s.swarmEnabled);
   const setSwarmEnabled = useSettingsStore((s) => s.setSwarmEnabled);
+  const restoreTabsOnLaunch = useSettingsStore((s) => s.restoreTabsOnLaunch);
+  const setRestoreTabsOnLaunch = useSettingsStore(
+    (s) => s.setRestoreTabsOnLaunch,
+  );
   const swarmSidebarPosition = useSettingsStore(
     (s) => s.swarmSidebarPosition,
   );
@@ -519,6 +525,144 @@ export function SettingsTab() {
               </button>
             ))}
           </div>
+        </section>
+
+        {/* ── Terminal Input ──────────────────────────── */}
+        <fieldset
+          data-testid="terminal-input-section"
+          style={{ border: "none", margin: 0, padding: 0 }}
+        >
+          <legend
+            style={{
+              fontSize: 13,
+              margin: "0 0 8px",
+              color: "var(--text-primary)",
+              fontWeight: "bold",
+              padding: 0,
+            }}
+          >
+            Terminal Input
+          </legend>
+          <p
+            id="terminal-input-desc"
+            style={{
+              fontSize: 11,
+              color: "var(--text-secondary)",
+              margin: "0 0 8px",
+            }}
+          >
+            Insert a newline at the prompt without submitting the command.
+          </p>
+          <div
+            role="group"
+            aria-describedby="terminal-input-desc"
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              gap: 6,
+            }}
+          >
+            <label
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 8,
+                fontSize: 12,
+                color: "var(--text-primary)",
+                cursor: "pointer",
+              }}
+            >
+              <input
+                type="checkbox"
+                data-testid="newline-shortcut-ctrlEnter"
+                checked={newlineShortcuts.ctrlEnter}
+                onChange={(e) =>
+                  setNewlineShortcut("ctrlEnter", e.target.checked)
+                }
+              />
+              Ctrl+Enter (Cmd+Enter on macOS) inserts a newline
+            </label>
+            <label
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 8,
+                fontSize: 12,
+                color: "var(--text-primary)",
+                cursor: "pointer",
+              }}
+            >
+              <input
+                type="checkbox"
+                data-testid="newline-shortcut-shiftEnter"
+                checked={newlineShortcuts.shiftEnter}
+                onChange={(e) =>
+                  setNewlineShortcut("shiftEnter", e.target.checked)
+                }
+              />
+              Shift+Enter inserts a newline
+            </label>
+            <label
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 8,
+                fontSize: 12,
+                color: "var(--text-primary)",
+                cursor: "pointer",
+              }}
+            >
+              <input
+                type="checkbox"
+                data-testid="newline-shortcut-altEnter"
+                checked={newlineShortcuts.altEnter}
+                onChange={(e) =>
+                  setNewlineShortcut("altEnter", e.target.checked)
+                }
+              />
+              Alt+Enter inserts a newline
+            </label>
+          </div>
+        </fieldset>
+
+        {/* ── Tab persistence (T1/T3) ───────────────── */}
+        <section>
+          <h3
+            style={{
+              fontSize: 13,
+              margin: "0 0 8px",
+              color: "var(--text-primary)",
+            }}
+          >
+            Tab Persistence
+          </h3>
+          <p
+            style={{
+              fontSize: 11,
+              color: "var(--text-secondary)",
+              margin: "0 0 12px",
+            }}
+          >
+            Restore your tabs and split layout the next time Putz starts.
+            Working directories and recipe commands are remembered;
+            scrollback and shell state are not.
+          </p>
+          <label
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
+              fontSize: 12,
+              cursor: "pointer",
+            }}
+          >
+            <input
+              type="checkbox"
+              checked={restoreTabsOnLaunch}
+              onChange={(e) => setRestoreTabsOnLaunch(e.target.checked)}
+            />
+            Restore tabs on launch
+          </label>
         </section>
 
         {/* ── Copilot Swarm ─────────────────────────── */}

@@ -29,8 +29,8 @@ import {
 // ─── Schema Version ──────────────────────────────────────────────────
 
 describe("schema version", () => {
-  it("current schema version is 2", () => {
-    expect(CURRENT_SCHEMA_VERSION).toBe(2);
+  it("current schema version is 3", () => {
+    expect(CURRENT_SCHEMA_VERSION).toBe(3);
   });
 });
 

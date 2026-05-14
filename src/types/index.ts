@@ -79,6 +79,26 @@ export interface RegionTab {
   diffLeftContent?: string;
   /** Right content for diff tabs (if no path). */
   diffRightContent?: string;
+  /**
+   * Last known working directory for terminal tabs (T2 — schema v3).
+   * Captured from `cwdRegistry` (OSC 7 / title parsing) at snapshot time.
+   * Length-, NUL-, and type-checked at parse time. Path shape and
+   * existence are NOT validated; spawn is attempted and falls through
+   * to no-cwd on failure.
+   */
+  cwd?: string;
+  /**
+   * Restore-time placeholder marker (RUNTIME-ONLY — never persisted).
+   *
+   * Set by `restoreActiveWorkspace` on tabs rebuilt from a snapshot.
+   * When the tab first becomes active, `materializeRestoredTab` calls
+   * `pty_spawn` with the saved `cwd`, swaps in the new live sessionId,
+   * and clears this field.
+   *
+   * Stripped from the persistence allowlist (see `migratePersistence`)
+   * so it never round-trips through `localStorage`.
+   */
+  pendingRestore?: { cwd?: string };
 }
 
 /** Prefix for editor tab session IDs. */

@@ -31,7 +31,7 @@ function generateId(): string {
 /**
  * Optional spawn options for `addTerminalTab`.
  *
- * Used by the T4 swarm `swarm://spawn-tab` handler to spawn a
+ * Used by the swarm `swarm://spawn-tab` handler to spawn a
  * pre-configured colleague tab (recipe `cmd` + `args` + `env` + `cwd`)
  * with a custom title and a stable `tab_id` that the swarm coordinator
  * uses to route notify/control frames.
@@ -96,6 +96,15 @@ function closePtySession(sessionId: string): void {
 
 /** Closes a tab's session based on its type. */
 function closeTabSession(tab: RegionTab): void {
+  // Restore-placeholder tabs hold a dead sessionId from the previous
+  // process — the live PTY was never spawned for them. Skip the IPC
+  // round-trip; clearing the cwd/command-block stores keyed off that
+  // (now-stale) sessionId is still safe and idempotent.
+  if (tab.pendingRestore != null) {
+    clearSessionCwd(tab.sessionId);
+    useCommandBlockStore.getState().clearSession(tab.sessionId);
+    return;
+  }
   closePtySession(tab.sessionId);
 }
 
@@ -211,6 +220,26 @@ interface LayoutState {
     regionId?: string,
     options?: SpawnTabOptions,
   ) => Promise<void>;
+
+  /**
+   * Materializes a restore-placeholder terminal tab.
+   *
+   * Restored terminal tabs are created by `restoreActiveWorkspace`
+   * with `pendingRestore` set and a stale `sessionId` from the prior
+   * process. The real PTY is NOT spawned upfront — eager spawning
+   * loses early stdout because the xterm listener attaches later, in
+   * a `useEffect` after React mounts. Deferring the spawn until the
+   * tab first becomes active eliminates that race.
+   *
+   * Idempotent: calling on a tab that has no `pendingRestore`, an
+   * unknown id, or a non-terminal type is a no-op. Concurrent callers
+   * will both see the spawn complete because the second call sees the
+   * first's cleared `pendingRestore` and bails.
+   *
+   * On spawn failure the placeholder is dropped (the tab disappears),
+   * matching the original eager-restore behavior.
+   */
+  materializeRestoredTab: (regionId: string, tabId: string) => Promise<void>;
 
   /** Adds an editor tab to a region (defaults to focused region). */
   addEditorTab: (
@@ -358,6 +387,9 @@ export const useLayoutStore = create<LayoutState>((set, get) => ({
       type: "terminal",
       sessionId,
     };
+    if (options?.cwd) {
+      tab.cwd = options.cwd;
+    }
 
     set((state) => ({
       regions: {
@@ -379,6 +411,110 @@ export const useLayoutStore = create<LayoutState>((set, get) => ({
       ) as HTMLElement;
       el?.focus();
     }, 100);
+  },
+
+  materializeRestoredTab: async (regionId: string, tabId: string) => {
+    const region = get().regions[regionId];
+    if (!region) return;
+    const tab = region.tabs.find((t) => t.id === tabId);
+    if (!tab || tab.type !== "terminal" || tab.pendingRestore == null) return;
+
+    const restoreMeta = tab.pendingRestore;
+
+    // Build the spawn payload from the saved restore metadata.
+    // Use the same default-shell logic as spawnPtySession so restored
+    // tabs use the user's configured shell, not the system default.
+    const { defaultShell } = useSettingsStore.getState();
+    const basePayload: Record<string, unknown> = {
+      cols: TERMINAL_CONFIG.defaultCols,
+      rows: TERMINAL_CONFIG.defaultRows,
+    };
+    if (defaultShell) {
+      basePayload.shell = defaultShell;
+    }
+
+    let newSessionId: string | null = null;
+
+    // Attempt 1: with saved cwd
+    if (restoreMeta.cwd) {
+      try {
+        newSessionId = await invoke<string>("pty_spawn", {
+          ...basePayload,
+          cwd: restoreMeta.cwd,
+        });
+      } catch {
+        // Saved cwd unreadable — fall through to no-cwd fallback.
+      }
+    }
+
+    // Attempt 2: without cwd (shell falls back to its default — user home)
+    if (newSessionId == null) {
+      try {
+        newSessionId = await invoke<string>("pty_spawn", basePayload);
+      } catch {
+        // Spawn failed entirely
+      }
+    }
+
+    // All attempts failed — drop the tab
+    if (newSessionId == null) {
+      console.error(
+        "[layoutStore] failed to materialize restored tab after all fallbacks",
+      );
+      set((state) => {
+        const r = state.regions[regionId];
+        if (!r) return state;
+        const remainingTabs = r.tabs.filter((t) => t.id !== tabId);
+        const newActive =
+          r.activeTabId === tabId
+            ? (remainingTabs[0]?.id ?? "")
+            : r.activeTabId;
+        return {
+          regions: {
+            ...state.regions,
+            [regionId]: {
+              ...r,
+              tabs: remainingTabs,
+              activeTabId: newActive,
+            },
+          },
+        };
+      });
+      return;
+    }
+
+    const liveSessionId = newSessionId;
+    set((state) => {
+      const r = state.regions[regionId];
+      if (!r) return state;
+      const idx = r.tabs.findIndex((t) => t.id === tabId);
+      if (idx < 0) {
+        // Tab was closed during spawn — close the orphaned PTY to
+        // avoid leaking it. (CR HIGH #1)
+        invoke("pty_close", { sessionId: liveSessionId }).catch(() => {});
+        return state;
+      }
+      const current = r.tabs[idx];
+      // Race guard: another caller already materialized this tab.
+      if (current.pendingRestore == null) {
+        // Close the duplicate PTY we just spawned to avoid leaking it.
+        invoke("pty_close", { sessionId: liveSessionId }).catch(() => {});
+        return state;
+      }
+      const updatedTab: RegionTab = {
+        ...current,
+        sessionId: liveSessionId,
+        pendingRestore: undefined,
+      };
+      const newTabs = [...r.tabs];
+      newTabs[idx] = updatedTab;
+      return {
+        regions: {
+          ...state.regions,
+          [regionId]: { ...r, tabs: newTabs },
+        },
+      };
+    });
   },
 
   addEditorTab: (
@@ -902,7 +1038,7 @@ export const useLayoutStore = create<LayoutState>((set, get) => ({
           [regionId]: {
             ...region,
             tabs: region.tabs.map((t) =>
-              t.id === tabId ? { ...t, title: trimmed } : t,
+              t.id !== tabId ? t : { ...t, title: trimmed },
             ),
           },
         },

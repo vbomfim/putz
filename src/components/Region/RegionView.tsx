@@ -7,7 +7,7 @@
  *
  * @module RegionView
  */
-import { useCallback } from "react";
+import { useCallback, useEffect } from "react";
 import { TerminalView } from "../Terminal";
 import { EditorTab } from "../Scripting/EditorTab";
 import { DiffEditorTab } from "../Scripting/DiffEditorTab";
@@ -50,14 +50,15 @@ export function RegionView({ region, isFocused }: RegionViewProps) {
     setFocusedRegion(region.id);
   }, [region.id, setFocusedRegion]);
 
+  // Memoized title-change handler. The inline arrow at the call site
+  // still allocates per tab per render, but the underlying handler is
+  // stable across renders (CR MEDIUM #6). A full fix would require
+  // TerminalView to accept tabId as a prop.
   const handleTitleChange = useCallback(
-    (title: string) => {
-      const activeTab = region.tabs.find((t) => t.id === region.activeTabId);
-      if (activeTab) {
-        renameTab(region.id, activeTab.id, title);
-      }
+    (tabId: string, title: string) => {
+      renameTab(region.id, tabId, title);
     },
-    [region.id, region.activeTabId, region.tabs, renameTab],
+    [region.id, renameTab],
   );
 
   /** Map tab position to the CSS class that sets the correct flex-direction. */
@@ -302,13 +303,20 @@ export function RegionView({ region, isFocused }: RegionViewProps) {
                 overflow: "hidden",
               }}
             >
-              <TerminalView
-                sessionId={tab.sessionId}
-                onTitleChange={handleTitleChange}
-                isSearchOpen={isTabActive && isFocused && isSearchOpen}
-                onSearchClose={closeSearch}
-                onExit={() => closeTab(region.id, tab.id)}
-              />
+              {tab.pendingRestore != null ? (
+                <RestoredTabPlaceholder
+                  regionId={region.id}
+                  tabId={tab.id}
+                />
+              ) : (
+                <TerminalView
+                  sessionId={tab.sessionId}
+                  onTitleChange={(title) => handleTitleChange(tab.id, title)}
+                  isSearchOpen={isTabActive && isFocused && isSearchOpen}
+                  onSearchClose={closeSearch}
+                  onExit={() => closeTab(region.id, tab.id)}
+                />
+              )}
             </div>
           );
         })}
@@ -318,6 +326,50 @@ export function RegionView({ region, isFocused }: RegionViewProps) {
           </div>
         )}
       </div>
+    </div>
+  );
+}
+
+/**
+ * Renders a brief loading placeholder for a restored terminal tab and
+ * triggers lazy `materializeRestoredTab` on mount. Once materialization
+ * completes the tab no longer has `pendingRestore`, so RegionView
+ * re-renders with the real `<TerminalView>` and this component unmounts.
+ *
+ * Materialization fires unconditionally on mount (regardless of whether
+ * the tab is currently active) — every restored terminal needs a fresh
+ * PTY because the snapshot's sessionId is dead after restart.
+ */
+function RestoredTabPlaceholder({
+  regionId,
+  tabId,
+}: {
+  regionId: string;
+  tabId: string;
+}) {
+  const materialize = useLayoutStore((s) => s.materializeRestoredTab);
+
+  useEffect(() => {
+    // Trigger materialization on mount — the tab needs a PTY regardless
+    // of whether it's the currently active tab.
+    void materialize(regionId, tabId);
+  }, [materialize, regionId, tabId]);
+
+  return (
+    <div
+      className="region-view__restoring"
+      role="status"
+      aria-live="polite"
+      style={{
+        flex: 1,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        opacity: 0.6,
+        fontSize: "0.85em",
+      }}
+    >
+      Restoring terminal…
     </div>
   );
 }
