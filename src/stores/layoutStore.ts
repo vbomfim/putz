@@ -1014,6 +1014,8 @@ export const useLayoutStore = create<LayoutState>((set, get) => ({
     const tab = region.tabs.find((t) => t.id === tabId);
     if (tab && tab.type === "terminal") {
       setTimeout(() => {
+        // Guard against jsdom teardown — see eb54beb (tabStore mirror fix).
+        if (typeof document === "undefined") return;
         const el = document.querySelector(
           `[data-session-id="${tab.sessionId}"] .xterm-helper-textarea`,
         ) as HTMLElement;
@@ -1268,6 +1270,8 @@ export const useLayoutStore = create<LayoutState>((set, get) => ({
 
     // Auto-focus the new terminal
     setTimeout(() => {
+      // Guard against jsdom teardown — see eb54beb (tabStore mirror fix).
+      if (typeof document === "undefined") return;
       const el = document.querySelector(
         `[data-session-id="${sessionId}"] .xterm-helper-textarea`,
       ) as HTMLElement;
