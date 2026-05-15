@@ -43,11 +43,7 @@ import { useThemeStore } from "./stores/themeStore";
 import { useSettingsStore } from "./stores/settingsStore";
 import { useWorkspaceStore } from "./stores/workspaceStore";
 import { restoreActiveWorkspace } from "./utils/layoutPersistence";
-import {
-  SwarmSidebar,
-  InboxPanel,
-  SpawnPalette,
-} from "./components/Swarm";
+import { SwarmSidebar, InboxPanel, SpawnPalette } from "./components/Swarm";
 import { useSwarmShortcuts } from "./hooks/useSwarmShortcuts";
 import type { Colleague } from "./hooks/useSwarmRoster";
 import { useSwarmNotifyListener } from "./hooks/useSwarmNotifyListener";
@@ -75,9 +71,7 @@ function App() {
   const bookmarksBarVisible = useSettingsStore((s) => s.bookmarksBarVisible);
   const toggleBookmarksBar = useSettingsStore((s) => s.toggleBookmarksBar);
   const swarmEnabled = useSettingsStore((s) => s.swarmEnabled);
-  const swarmSidebarPosition = useSettingsStore(
-    (s) => s.swarmSidebarPosition,
-  );
+  const swarmSidebarPosition = useSettingsStore((s) => s.swarmSidebarPosition);
   const swarmSidebarCollapsed = useSettingsStore(
     (s) => s.swarmSidebarCollapsed,
   );
@@ -518,7 +512,7 @@ function App() {
             // palette still opens but loads no recipes; the built-in
             // "Spawn: copilot" entry remains available.
             const sessionId = getFocusedTerminalSessionId();
-            return sessionId ? getSessionCwd(sessionId) ?? null : null;
+            return sessionId ? (getSessionCwd(sessionId) ?? null) : null;
           })()}
           invoke={invoke}
           onSpawnError={(_, msg) => showToast(`Spawn failed: ${msg}`)}

@@ -267,7 +267,6 @@ export function ambientCountForTabSelector(tabId: string) {
   return (state: SwarmInboxState): number => state.ambientCounts[tabId] ?? 0;
 }
 
-
 export interface InboxGroup {
   readonly colleagueId: string;
   readonly entries: ReadonlyArray<NotifyEntry>;

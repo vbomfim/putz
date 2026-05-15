@@ -14,7 +14,13 @@
  *
  * @module components/Swarm/SwarmSidebar
  */
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from "react";
 import { useSwarmRoster, type Colleague } from "../../hooks/useSwarmRoster";
 import { ColleagueRow } from "./ColleagueRow";
 import { useFocusTrap } from "../../hooks/useFocusTrap";
@@ -107,9 +113,7 @@ export function SwarmSidebar({
     >
       <header className="swarm-sidebar__header">
         {!collapsed && (
-          <span className="swarm-sidebar__title">
-            Swarm ({roster.length})
-          </span>
+          <span className="swarm-sidebar__title">Swarm ({roster.length})</span>
         )}
         {onToggleCollapsed && (
           <button
@@ -215,8 +219,10 @@ function ColleagueContextMenu({
     const margin = 4;
     let x = state.x;
     let y = state.y;
-    if (x + rect.width + margin > vw) x = Math.max(margin, vw - rect.width - margin);
-    if (y + rect.height + margin > vh) y = Math.max(margin, vh - rect.height - margin);
+    if (x + rect.width + margin > vw)
+      x = Math.max(margin, vw - rect.width - margin);
+    if (y + rect.height + margin > vh)
+      y = Math.max(margin, vh - rect.height - margin);
     if (x !== pos.x || y !== pos.y) setPos({ x, y });
     // intentionally only on mount + when source coords change
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -234,7 +240,8 @@ function ColleagueContextMenu({
     };
     const onDown = (e: MouseEvent) => {
       if (!menuRef.current) return;
-      if (e.target instanceof Node && menuRef.current.contains(e.target)) return;
+      if (e.target instanceof Node && menuRef.current.contains(e.target))
+        return;
       onClose();
     };
     window.addEventListener("keydown", onKey, true);
@@ -346,8 +353,8 @@ function ColleagueContextMenu({
             id="colleague-notify-help"
             className="swarm-colleague-menu__notify-help"
           >
-            Will appear in their inbox immediately. Not persisted —
-            clears on app restart.
+            Will appear in their inbox immediately. Not persisted — clears on
+            app restart.
           </div>
           <div className="swarm-colleague-menu__notify-actions">
             <button

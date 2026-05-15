@@ -28,9 +28,7 @@ beforeEach(() => {
   _resetSwarmInboxStoreForTests();
 });
 
-function add(
-  overrides: Partial<Omit<NotifyEntry, "id" | "read">> = {},
-): void {
+function add(overrides: Partial<Omit<NotifyEntry, "id" | "read">> = {}): void {
   useSwarmInboxStore.getState().addNotification({
     colleagueId: "alice",
     tabId: "tab-1",
@@ -71,9 +69,9 @@ describe("swarmInboxStore — add + read state", () => {
     add();
     add({ tabId: "tab-2" });
     useSwarmInboxStore.getState().markAllRead();
-    expect(
-      useSwarmInboxStore.getState().entries.every((e) => e.read),
-    ).toBe(true);
+    expect(useSwarmInboxStore.getState().entries.every((e) => e.read)).toBe(
+      true,
+    );
   });
 
   it("clear empties the store", () => {
@@ -159,9 +157,9 @@ describe("swarmInboxStore — privacy (PRI-001)", () => {
       add({ message: "secret-prompt-content" });
       add({ message: "another-secret" });
       // No setItem call should ever name the inbox store.
-      expect(
-        setItemCalls.some((k) => k.toLowerCase().includes("inbox")),
-      ).toBe(false);
+      expect(setItemCalls.some((k) => k.toLowerCase().includes("inbox"))).toBe(
+        false,
+      );
     } finally {
       window.localStorage.setItem = orig;
     }

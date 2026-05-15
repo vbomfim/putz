@@ -59,9 +59,7 @@ export interface SpawnTabOptions {
  * recipe loader has already validated them — see
  * `src-tauri/src/swarm/spawn_recipe.rs::validate_for_spawn`).
  */
-async function spawnPtySession(
-  options?: SpawnTabOptions,
-): Promise<string> {
+async function spawnPtySession(options?: SpawnTabOptions): Promise<string> {
   const { defaultShell } = useSettingsStore.getState();
   // Build the IPC payload, omitting fields that are undefined/empty.
   // Empty `defaultShell` ("") must NOT be forwarded — it's a sentinel

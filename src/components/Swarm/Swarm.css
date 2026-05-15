@@ -34,11 +34,21 @@
   color: #fff;
   line-height: 1.4;
 }
-.swarm-status-badge--idle    { background: var(--swarm-status-idle, #6b7280); }
-.swarm-status-badge--running { background: var(--swarm-status-running, #1d4ed8); }
-.swarm-status-badge--done    { background: var(--swarm-status-done, #047857); }
-.swarm-status-badge--error   { background: var(--swarm-status-error, #b91c1c); }
-.swarm-status-badge--unknown { background: var(--swarm-status-unknown, #4b5563); }
+.swarm-status-badge--idle {
+  background: var(--swarm-status-idle, #6b7280);
+}
+.swarm-status-badge--running {
+  background: var(--swarm-status-running, #1d4ed8);
+}
+.swarm-status-badge--done {
+  background: var(--swarm-status-done, #047857);
+}
+.swarm-status-badge--error {
+  background: var(--swarm-status-error, #b91c1c);
+}
+.swarm-status-badge--unknown {
+  background: var(--swarm-status-unknown, #4b5563);
+}
 
 /* ─── HeartbeatIndicator ──────────────────────────────────────────── */
 .swarm-heartbeat {
@@ -51,8 +61,12 @@
   background: var(--swarm-heart-active, #10b981);
   box-shadow: 0 0 4px var(--swarm-heart-active, #10b981);
 }
-.swarm-heartbeat--stale { background: var(--swarm-heart-stale, #f59e0b); }
-.swarm-heartbeat--dead  { background: var(--swarm-heart-dead, #6b7280); }
+.swarm-heartbeat--stale {
+  background: var(--swarm-heart-stale, #f59e0b);
+}
+.swarm-heartbeat--dead {
+  background: var(--swarm-heart-dead, #6b7280);
+}
 
 /* ─── ExitCodeDots ────────────────────────────────────────────────── */
 .swarm-exit-dots {
@@ -66,9 +80,15 @@
   border-radius: 50%;
   display: inline-block;
 }
-.swarm-exit-dots__dot--success { background: var(--swarm-dot-success, #10b981); }
-.swarm-exit-dots__dot--failure { background: var(--swarm-dot-failure, #ef4444); }
-.swarm-exit-dots__dot--pending { background: var(--swarm-dot-pending, #4b5563); }
+.swarm-exit-dots__dot--success {
+  background: var(--swarm-dot-success, #10b981);
+}
+.swarm-exit-dots__dot--failure {
+  background: var(--swarm-dot-failure, #ef4444);
+}
+.swarm-exit-dots__dot--pending {
+  background: var(--swarm-dot-pending, #4b5563);
+}
 
 /* ─── TabNotificationRing ─────────────────────────────────────────── */
 .swarm-tab-ring {
@@ -85,9 +105,15 @@
   font-weight: 700;
   line-height: 1;
 }
-.swarm-tab-ring--urgent  { background: var(--swarm-ring-urgent, #b91c1c); }
-.swarm-tab-ring--normal  { background: var(--swarm-ring-normal, #1d4ed8); }
-.swarm-tab-ring--ambient { background: var(--swarm-ring-ambient, #6b7280); }
+.swarm-tab-ring--urgent {
+  background: var(--swarm-ring-urgent, #b91c1c);
+}
+.swarm-tab-ring--normal {
+  background: var(--swarm-ring-normal, #1d4ed8);
+}
+.swarm-tab-ring--ambient {
+  background: var(--swarm-ring-ambient, #6b7280);
+}
 
 /* ─── ColleagueRow ────────────────────────────────────────────────── */
 .swarm-colleague-row {
@@ -355,9 +381,15 @@
 .swarm-inbox-entry--unread {
   background: var(--bg-secondary, #15171a);
 }
-.swarm-inbox-entry--urgent  { border-left-color: var(--swarm-ring-urgent, #b91c1c); }
-.swarm-inbox-entry--normal  { border-left-color: var(--swarm-ring-normal, #1d4ed8); }
-.swarm-inbox-entry--ambient { border-left-color: var(--swarm-ring-ambient, #6b7280); }
+.swarm-inbox-entry--urgent {
+  border-left-color: var(--swarm-ring-urgent, #b91c1c);
+}
+.swarm-inbox-entry--normal {
+  border-left-color: var(--swarm-ring-normal, #1d4ed8);
+}
+.swarm-inbox-entry--ambient {
+  border-left-color: var(--swarm-ring-ambient, #6b7280);
+}
 .swarm-inbox-entry__row {
   display: flex;
   gap: 8px;
@@ -439,8 +471,12 @@
   flex-direction: column;
   gap: 2px;
 }
-.swarm-spawn-item:disabled { cursor: wait; }
-.swarm-spawn-item--active { background: var(--bg-secondary, #15171a); }
+.swarm-spawn-item:disabled {
+  cursor: wait;
+}
+.swarm-spawn-item--active {
+  background: var(--bg-secondary, #15171a);
+}
 .swarm-spawn-item__name {
   font-size: 13px;
   font-weight: 600;

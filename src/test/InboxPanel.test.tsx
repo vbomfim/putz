@@ -108,11 +108,11 @@ describe("InboxPanel", () => {
       message: "y",
       timestampMs: 2,
     });
-    render(
-      <InboxPanel open={true} onClose={vi.fn()} onFocusTab={vi.fn()} />,
-    );
+    render(<InboxPanel open={true} onClose={vi.fn()} onFocusTab={vi.fn()} />);
     fireEvent.click(screen.getByTestId("inbox-mark-all-read"));
-    expect(useSwarmInboxStore.getState().entries.every((e) => e.read)).toBe(true);
+    expect(useSwarmInboxStore.getState().entries.every((e) => e.read)).toBe(
+      true,
+    );
   });
 
   it("ESC key closes the panel", () => {

@@ -217,9 +217,7 @@ interface SettingsState {
   setSwarmEnabled: (enabled: boolean) => void;
 
   /** Sets the sidebar position. */
-  setSwarmSidebarPosition: (
-    position: "left" | "right" | "hidden",
-  ) => void;
+  setSwarmSidebarPosition: (position: "left" | "right" | "hidden") => void;
 
   /** Toggles the sidebar collapsed state. */
   toggleSwarmSidebarCollapsed: () => void;
@@ -342,9 +340,7 @@ export const useSettingsStore = create<SettingsState>((set, get) => {
       persist();
     },
 
-    setSwarmSidebarPosition: (
-      position: "left" | "right" | "hidden",
-    ) => {
+    setSwarmSidebarPosition: (position: "left" | "right" | "hidden") => {
       set({ swarmSidebarPosition: position });
       persist();
     },

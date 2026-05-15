@@ -245,10 +245,7 @@ export function SpawnPalette({
             </li>
           ))}
           {freeFormCandidate && (
-            <li
-              role="option"
-              aria-selected={activeIndex === filtered.length}
-            >
+            <li role="option" aria-selected={activeIndex === filtered.length}>
               <button
                 type="button"
                 className={`swarm-spawn-item${
@@ -257,9 +254,7 @@ export function SpawnPalette({
                     : ""
                 }`}
                 data-testid="swarm-spawn-freeform"
-                data-active={
-                  activeIndex === filtered.length ? "true" : "false"
-                }
+                data-active={activeIndex === filtered.length ? "true" : "false"}
                 onMouseEnter={() => setActiveIndex(filtered.length)}
                 onClick={() => void spawn(freeFormCandidate)}
                 disabled={spawning}

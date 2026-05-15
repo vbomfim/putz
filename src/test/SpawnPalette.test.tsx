@@ -1,5 +1,11 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
-import { render, screen, fireEvent, act, waitFor } from "@testing-library/react";
+import {
+  render,
+  screen,
+  fireEvent,
+  act,
+  waitFor,
+} from "@testing-library/react";
 import { SpawnPalette } from "../components/Swarm/SpawnPalette";
 import {
   useSwarmSpawnStore,
@@ -33,9 +39,7 @@ describe("SpawnPalette", () => {
       recipes: [],
       error: null,
     });
-    const { setSpawnStoreInvokeFn } = await import(
-      "../stores/swarmSpawnStore"
-    );
+    const { setSpawnStoreInvokeFn } = await import("../stores/swarmSpawnStore");
     setSpawnStoreInvokeFn(storeInvoke);
     render(
       <SpawnPalette

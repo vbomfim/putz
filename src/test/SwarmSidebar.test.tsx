@@ -14,7 +14,10 @@ vi.mock("../hooks/useSwarmRoster", async () => {
 import { SwarmSidebar } from "../components/Swarm/SwarmSidebar";
 import type { Colleague } from "../hooks/useSwarmRoster";
 
-function makeColleague(id: string, overrides: Partial<Colleague> = {}): Colleague {
+function makeColleague(
+  id: string,
+  overrides: Partial<Colleague> = {},
+): Colleague {
   return {
     id,
     name: id,

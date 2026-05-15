@@ -147,19 +147,25 @@ export function getColleagueStatus(
 
 // ─── Helpers (kept private) ─────────────────────────────────────────────
 
-function lastFinishedBlock(blocks: readonly CommandBlock[]): CommandBlock | null {
+function lastFinishedBlock(
+  blocks: readonly CommandBlock[],
+): CommandBlock | null {
   for (let i = blocks.length - 1; i >= 0; i--) {
     if (blocks[i].commandEnd !== null) return blocks[i];
   }
   return null;
 }
 
-function lastExitCodeFromBlocks(blocks: readonly CommandBlock[]): number | null {
+function lastExitCodeFromBlocks(
+  blocks: readonly CommandBlock[],
+): number | null {
   const last = lastFinishedBlock(blocks);
   return last?.exitCode ?? null;
 }
 
-function lastCommandStartedAtFromBlocks(blocks: readonly CommandBlock[]): number | null {
+function lastCommandStartedAtFromBlocks(
+  blocks: readonly CommandBlock[],
+): number | null {
   const last = lastFinishedBlock(blocks);
   return last ? last.startedAt : null;
 }

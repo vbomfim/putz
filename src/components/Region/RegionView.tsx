@@ -304,10 +304,7 @@ export function RegionView({ region, isFocused }: RegionViewProps) {
               }}
             >
               {tab.pendingRestore != null ? (
-                <RestoredTabPlaceholder
-                  regionId={region.id}
-                  tabId={tab.id}
-                />
+                <RestoredTabPlaceholder regionId={region.id} tabId={tab.id} />
               ) : (
                 <TerminalView
                   sessionId={tab.sessionId}

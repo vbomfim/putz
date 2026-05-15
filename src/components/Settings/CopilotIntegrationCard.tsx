@@ -55,9 +55,7 @@ export function CopilotIntegrationCard({ dismissed, onDismiss }: Props) {
 
   const refresh = useCallback(async () => {
     try {
-      const next = await invoke<CopilotIntegrationStatus>(
-        "copilot_get_status",
-      );
+      const next = await invoke<CopilotIntegrationStatus>("copilot_get_status");
       setStatus(next);
       setError(null);
     } catch (err) {
@@ -141,11 +139,10 @@ export function CopilotIntegrationCard({ dismissed, onDismiss }: Props) {
       {status.copilotAvailable ? (
         <>
           <p style={pStyle}>
-            Putz installs a small extension into your Copilot CLI
-            extensions directory. Once installed, every <code>gh
-            copilot</code> session you start inside a Putz tab
-            auto-loads the extension and appears in the swarm. No data
-            leaves your machine.
+            Putz installs a small extension into your Copilot CLI extensions
+            directory. Once installed, every <code>gh copilot</code> session you
+            start inside a Putz tab auto-loads the extension and appears in the
+            swarm. No data leaves your machine.
           </p>
           {status.installed && status.extensionDir && (
             <p style={pStyle}>
@@ -199,8 +196,8 @@ export function CopilotIntegrationCard({ dismissed, onDismiss }: Props) {
       ) : (
         <>
           <p style={pStyle}>
-            Install Copilot CLI to enable auto-registration of agent
-            tabs as colleagues in Putz.
+            Install Copilot CLI to enable auto-registration of agent tabs as
+            colleagues in Putz.
           </p>
           <div style={btnRow}>
             <a

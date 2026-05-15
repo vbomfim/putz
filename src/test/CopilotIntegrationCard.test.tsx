@@ -15,7 +15,13 @@
  * Tags: [TDD]
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { render, screen, waitFor, fireEvent, cleanup } from "@testing-library/react";
+import {
+  render,
+  screen,
+  waitFor,
+  fireEvent,
+  cleanup,
+} from "@testing-library/react";
 import { CopilotIntegrationCard } from "../components/Settings/CopilotIntegrationCard";
 import { useSettingsStore } from "../stores/settingsStore";
 
@@ -67,7 +73,9 @@ describe("CopilotIntegrationCard", () => {
     await waitFor(() =>
       expect(screen.getByText(/Copilot CLI detected/i)).toBeInTheDocument(),
     );
-    const btn = screen.getByRole("button", { name: /Install Putz integration/i });
+    const btn = screen.getByRole("button", {
+      name: /Install Putz integration/i,
+    });
     expect(btn).toBeEnabled();
     expect(
       screen.queryByRole("button", { name: /Reinstall/i }),
@@ -97,12 +105,15 @@ describe("CopilotIntegrationCard", () => {
     );
     render(<CopilotIntegrationCard dismissed={false} onDismiss={() => {}} />);
     await waitFor(() =>
-      expect(
-        screen.getByText(/Copilot CLI not detected/i),
-      ).toBeInTheDocument(),
+      expect(screen.getByText(/Copilot CLI not detected/i)).toBeInTheDocument(),
     );
-    const link = screen.getByRole("link", { name: /Installation instructions/i });
-    expect(link).toHaveAttribute("href", expect.stringContaining("docs.github.com"));
+    const link = screen.getByRole("link", {
+      name: /Installation instructions/i,
+    });
+    expect(link).toHaveAttribute(
+      "href",
+      expect.stringContaining("docs.github.com"),
+    );
     expect(
       screen.queryByRole("button", { name: /Install Putz integration/i }),
     ).not.toBeInTheDocument();
@@ -110,12 +121,16 @@ describe("CopilotIntegrationCard", () => {
 
   it("Install click invokes copilot_install_extension with overwrite: false", async () => {
     mockInvoke.mockImplementation((cmd: string) => {
-      if (cmd === "copilot_get_status") return Promise.resolve(statusOf({ installed: false }));
-      if (cmd === "copilot_install_extension") return Promise.resolve("/path/to/install");
+      if (cmd === "copilot_get_status")
+        return Promise.resolve(statusOf({ installed: false }));
+      if (cmd === "copilot_install_extension")
+        return Promise.resolve("/path/to/install");
       return Promise.resolve(undefined);
     });
     render(<CopilotIntegrationCard dismissed={false} onDismiss={() => {}} />);
-    const btn = await screen.findByRole("button", { name: /Install Putz integration/i });
+    const btn = await screen.findByRole("button", {
+      name: /Install Putz integration/i,
+    });
     fireEvent.click(btn);
     await waitFor(() =>
       expect(mockInvoke).toHaveBeenCalledWith("copilot_install_extension", {
@@ -126,8 +141,10 @@ describe("CopilotIntegrationCard", () => {
 
   it("Reinstall click invokes copilot_install_extension with overwrite: true", async () => {
     mockInvoke.mockImplementation((cmd: string) => {
-      if (cmd === "copilot_get_status") return Promise.resolve(statusOf({ installed: true }));
-      if (cmd === "copilot_install_extension") return Promise.resolve("/path/to/install");
+      if (cmd === "copilot_get_status")
+        return Promise.resolve(statusOf({ installed: true }));
+      if (cmd === "copilot_install_extension")
+        return Promise.resolve("/path/to/install");
       return Promise.resolve(undefined);
     });
     render(<CopilotIntegrationCard dismissed={false} onDismiss={() => {}} />);
@@ -142,14 +159,19 @@ describe("CopilotIntegrationCard", () => {
 
   it("renders sanitized install error in role=alert", async () => {
     mockInvoke.mockImplementation((cmd: string) => {
-      if (cmd === "copilot_get_status") return Promise.resolve(statusOf({ installed: false }));
+      if (cmd === "copilot_get_status")
+        return Promise.resolve(statusOf({ installed: false }));
       if (cmd === "copilot_install_extension") {
-        return Promise.reject("install failed: copy /Users/alice/secret/x → /Users/alice/dst");
+        return Promise.reject(
+          "install failed: copy /Users/alice/secret/x → /Users/alice/dst",
+        );
       }
       return Promise.resolve(undefined);
     });
     render(<CopilotIntegrationCard dismissed={false} onDismiss={() => {}} />);
-    const btn = await screen.findByRole("button", { name: /Install Putz integration/i });
+    const btn = await screen.findByRole("button", {
+      name: /Install Putz integration/i,
+    });
     fireEvent.click(btn);
     const alert = await screen.findByRole("alert");
     // Username path collapsed to ~
