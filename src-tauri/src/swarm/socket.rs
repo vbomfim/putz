@@ -20,8 +20,10 @@ use std::time::Duration;
 
 use interprocess::local_socket::{
     tokio::{prelude::*, Stream as LocalStream},
-    GenericFilePath, ListenerOptions, Name, ToFsName,
+    ListenerOptions, Name,
 };
+#[cfg(not(windows))]
+use interprocess::local_socket::{GenericFilePath, ToFsName};
 #[cfg(windows)]
 use interprocess::local_socket::{GenericNamespaced, ToNsName};
 #[cfg(windows)]
@@ -71,6 +73,9 @@ const MAX_INFLIGHT_PRE_REGISTER: usize = 256;
 ///   * macOS: `${TMPDIR:-/tmp}/putz-swarm-<pid>.sock`
 ///   * Windows: `\\.\pipe\putz-swarm-<pid>` (returned as just
 ///     `putz-swarm-<pid>`; the namespace prefix is added by the binder)
+// `return` is structurally required: each cfg block is the function's
+// terminal expression on its matching platform.
+#[allow(clippy::needless_return)]
 pub fn resolve_socket_path(pid: u32) -> PathBuf {
     #[cfg(target_os = "windows")]
     {
@@ -113,7 +118,7 @@ fn tmp_fallback(pid: u32) -> PathBuf {
 #[cfg(not(unix))]
 #[allow(dead_code)]
 fn tmp_fallback(pid: u32) -> PathBuf {
-    PathBuf::from(std::env::temp_dir()).join(format!("putz-swarm-{pid}.sock"))
+    std::env::temp_dir().join(format!("putz-swarm-{pid}.sock"))
 }
 
 /// A bound listener that accepts connections and dispatches each to the
@@ -280,7 +285,6 @@ fn path_to_name(path: &std::path::Path) -> io::Result<Name<'_>> {
 #[cfg(windows)]
 fn current_user_sd() -> io::Result<SecurityDescriptor> {
     use std::ffi::c_void;
-    use std::mem::MaybeUninit;
     use std::ptr;
     use widestring::U16CString;
     use windows_sys::Win32::Foundation::{CloseHandle, LocalFree, FALSE, HANDLE};
@@ -333,10 +337,7 @@ fn current_user_sd() -> io::Result<SecurityDescriptor> {
     let token_user_ptr = buf.as_ptr() as *const TOKEN_USER;
     let sid_ptr = unsafe { (*token_user_ptr).User.Sid };
     if sid_ptr.is_null() {
-        return Err(io::Error::new(
-            io::ErrorKind::Other,
-            "TokenUser returned null SID",
-        ));
+        return Err(io::Error::other("TokenUser returned null SID"));
     }
 
     // 3. Convert SID → SDDL string ("S-1-5-21-...").
