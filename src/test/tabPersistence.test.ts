@@ -699,7 +699,22 @@ describe("Bug 1 — lazy PTY spawn on restore", () => {
 });
 
 describe("Bug 2 — restoreTabsOnLaunch=false clears savedLayout at boot", () => {
-  beforeEach(() => {
+  beforeEach(async () => {
+    // workspaceStore installs a `queueMicrotask` subscription to
+    // layoutStore that schedules a SAVE_DEBOUNCE_MS (1000ms) auto-
+    // capture timer on every layout mutation. Bug 1's tests mutate
+    // layoutStore via restoreActiveWorkspace / materializeRestoredTab,
+    // leaving a pending real `setTimeout`. The timer survives
+    // `vi.resetModules()` because it lives on the global event loop,
+    // not in the module cache — and when it fires during our
+    // `localStorage.setItem` + dynamic `await import(...)` setup
+    // below it overwrites localStorage with stale Bug-1 layout state,
+    // making our 1-tab seed disappear behind a 2-tab leftover.
+    //
+    // Sleep > SAVE_DEBOUNCE_MS so any in-flight timer fires (and is
+    // discarded) BEFORE we plant the seed. Re-clear afterwards so the
+    // discarded write doesn't pollute our setup.
+    await new Promise((resolve) => setTimeout(resolve, 1100));
     localStorage.clear();
   });
 
