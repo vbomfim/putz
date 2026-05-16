@@ -522,7 +522,7 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => {
 //
 // `flushNow()` short-circuits the debounce on app close.
 
-const SAVE_DEBOUNCE_MS = 1000;
+export const SAVE_DEBOUNCE_MS = 1000;
 let saveTimer: ReturnType<typeof setTimeout> | null = null;
 
 function scheduleAutoCapture(): void {
