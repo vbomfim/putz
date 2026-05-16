@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.0] — 2026-05-16
+
+### Added
+- **Tab & workspace persistence across restarts** (#172, #167) — Open tabs, pane layouts, focused pane, and workspace selection are now persisted to disk and restored on next launch. Layout migration is versioned for future schema changes.
+- **Configurable newline shortcuts in the terminal** — Ctrl+Enter (Cmd+Enter on macOS), Shift+Enter, and Alt+Enter all insert a newline at the prompt without submitting the current command. Each binding can be toggled individually in Settings → Terminal Input. Bindings emit `\x1b\r` (Meta+Enter) which is recognized by PSReadLine, GNU readline, and most interactive REPLs as "insert newline, don't submit." Listed in Help → Keyboard Shortcuts under "Terminal Input."
+
+### Fixed
+- **CI hygiene on `main`** (#164) — Restored Prettier and `cargo fmt` baselines across 26 files of pre-existing formatting drift; added `typeof document === "undefined"` guards to three `setTimeout` autofocus callbacks in `tabStore.ts` to prevent jsdom teardown leaks during tests; updated two builtin-theme count assertions from 10 to 15 after five light-mode themes were added without test updates.
+
 ## [0.5.3] — 2026-05-05
 
 ### Fixed
