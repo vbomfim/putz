@@ -88,10 +88,7 @@ function makeFakeListen(): FakeListenContext {
     callbacks: new Map(),
     alive: 0,
     listen: async (event, cb) => {
-      ctx.callbacks.set(
-        event,
-        cb as (event: { payload: unknown }) => void,
-      );
+      ctx.callbacks.set(event, cb as (event: { payload: unknown }) => void);
       ctx.alive += 1;
       return () => {
         ctx.callbacks.delete(event);

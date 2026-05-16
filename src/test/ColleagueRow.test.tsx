@@ -78,11 +78,7 @@ describe("ColleagueRow", () => {
 
   it("renders compact form when collapsed", () => {
     render(
-      <ColleagueRow
-        colleague={makeColleague()}
-        onFocus={vi.fn()}
-        collapsed
-      />,
+      <ColleagueRow colleague={makeColleague()} onFocus={vi.fn()} collapsed />,
     );
     // Collapsed mode is a button with the first letter only.
     const row = screen.getByTestId("colleague-row");

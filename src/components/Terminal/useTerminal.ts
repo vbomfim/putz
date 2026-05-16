@@ -37,10 +37,7 @@ import {
   getSessionCwdAtLine,
   parseCwdFromTitle,
 } from "./cwdRegistry";
-import {
-  pasteToTerminal,
-  createPasteGuard,
-} from "./pasteHelper";
+import { pasteToTerminal, createPasteGuard } from "./pasteHelper";
 import { createOscParser } from "../../lib/terminal/oscParser";
 import { useCommandBlockStore } from "../../stores/commandBlockStore";
 import {

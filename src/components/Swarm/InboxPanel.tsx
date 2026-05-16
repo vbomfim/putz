@@ -124,10 +124,7 @@ export function InboxPanel({ open, onClose, onFocusTab, nowMs }: Props) {
 
         <div className="swarm-inbox-panel__body">
           {groups.length === 0 ? (
-            <div
-              className="swarm-inbox-panel__empty"
-              data-testid="inbox-empty"
-            >
+            <div className="swarm-inbox-panel__empty" data-testid="inbox-empty">
               No notifications yet. Use <code>swarm_notify</code> from a
               colleague to send one.
             </div>

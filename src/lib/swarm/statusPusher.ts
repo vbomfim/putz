@@ -192,10 +192,7 @@ function exitCodesEqual(
  * scope so unit tests can run in jsdom without the Tauri runtime
  * being initialised. Tests inject their own `invoke` via `PusherDeps`.
  */
-async function lazyInvoke<T>(
-  cmd: string,
-  args?: InvokeArgs,
-): Promise<T> {
+async function lazyInvoke<T>(cmd: string, args?: InvokeArgs): Promise<T> {
   const mod = await import("@tauri-apps/api/core");
   return mod.invoke<T>(cmd, args);
 }

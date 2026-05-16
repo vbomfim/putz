@@ -20,10 +20,7 @@
  * Any future timestamp clamps to "just now" — clock skew across hosts
  * is not a UI bug.
  */
-export function formatRelativeTime(
-  timestampMs: number,
-  nowMs: number,
-): string {
+export function formatRelativeTime(timestampMs: number, nowMs: number): string {
   const delta = Math.max(0, nowMs - timestampMs);
   const sec = Math.floor(delta / 1000);
   if (sec < 60) return sec <= 1 ? "just now" : `${sec}s ago`;
@@ -42,10 +39,7 @@ export function formatRelativeTime(
  * @privacy Tier-2 — cwd is a quasi-identifier; this truncation is for
  * UI brevity only, not for redaction.
  */
-export function truncateCwd(
-  cwd: string | null | undefined,
-  n = 2,
-): string {
+export function truncateCwd(cwd: string | null | undefined, n = 2): string {
   if (!cwd) return "";
   // Normalize Windows backslashes for splitting.
   const norm = cwd.replace(/\\/g, "/");

@@ -11,11 +11,11 @@
  */
 import { create } from "zustand";
 import { invoke } from "@tauri-apps/api/core";
-import { listen } from "@tauri-apps/api/event";
 import type { Tab, PaneNode } from "../types";
 import { MAX_SPLIT_DEPTH } from "../types";
 import { TERMINAL_CONFIG } from "../components/Terminal";
 import { useBroadcastStore } from "./broadcastStore";
+import { recordSpawnTiming } from "../utils/recordSpawnTiming";
 
 /** Maximum allowed length for tab titles. */
 export const MAX_TITLE_LENGTH = 100;
@@ -31,62 +31,6 @@ async function spawnPtySession(): Promise<string> {
     cols: TERMINAL_CONFIG.defaultCols,
     rows: TERMINAL_CONFIG.defaultRows,
   });
-}
-
-/**
- * Module-level perf flag. Set once at startup via checkPerfEnabled().
- * Avoids repeated IPC calls and test interference.
- */
-let _perfEnabled: boolean | null = null;
-
-/** Checks the backend perf_enabled flag once and caches the result. */
-async function checkPerfEnabled(): Promise<boolean> {
-  if (_perfEnabled !== null) return _perfEnabled;
-  try {
-    _perfEnabled = await invoke<boolean>("perf_enabled");
-  } catch {
-    _perfEnabled = false;
-  }
-  return _perfEnabled;
-}
-
-/**
- * Records backend-measured spawn timing when PUTZ_PERF is enabled.
- *
- * Listens for a single `pty-perf` event emitted by the Rust reader thread
- * when the first byte arrives on the PTY. This eliminates the frontend-
- * listener race condition (Fix 1, PR #118) — the backend captures the
- * timing precisely, and the frontend just logs it.
- *
- * Guarded by perf_enabled IPC check — no-op in production.
- */
-function recordSpawnTiming(sessionId: string, _t0: number): void {
-  // Fire-and-forget async — perf instrumentation must never break tab creation
-  void (async () => {
-    try {
-      if (!(await checkPerfEnabled())) return;
-
-      const unlisten = await listen<{
-        sessionId: string;
-        shell: string;
-        validationMs: number;
-        openptyMs: number;
-        spawnToReadyMs: number;
-        spawnToFirstByteMs: number;
-      }>("pty-perf", (event) => {
-        if (event.payload.sessionId !== sessionId) return;
-
-        const p = event.payload;
-        invoke("perf_log", {
-          line: `frontend_pty_perf session=${sessionId.slice(0, 8)} shell=${p.shell} spawn_to_first_byte_ms=${p.spawnToFirstByteMs.toFixed(2)} platform=${navigator.platform}`,
-        }).catch(() => {});
-        // One-shot: unlisten after matching event
-        unlisten();
-      });
-    } catch {
-      // Perf instrumentation must never break tab creation
-    }
-  })();
 }
 
 /** Closes a PTY session via Tauri IPC (fire-and-forget). */
@@ -323,6 +267,7 @@ export const useTabStore = create<TabState>((set, get) => ({
 
     // Auto-focus the new terminal
     setTimeout(() => {
+      if (typeof document === "undefined") return;
       const el = document.querySelector(
         `[data-session-id="${sessionId}"] .xterm-helper-textarea`,
       ) as HTMLElement;
@@ -376,6 +321,7 @@ export const useTabStore = create<TabState>((set, get) => ({
       set({ activeTabId: id, focusedPaneSessionId: sessionId });
       // Auto-focus the terminal element after React renders
       setTimeout(() => {
+        if (typeof document === "undefined") return;
         const el = document.querySelector(
           `[data-session-id="${sessionId}"] .xterm-helper-textarea`,
         ) as HTMLElement;
@@ -555,6 +501,7 @@ export const useTabStore = create<TabState>((set, get) => ({
 
     // Auto-focus the new pane after React re-renders
     setTimeout(() => {
+      if (typeof document === "undefined") return;
       const el = document.querySelector(
         `[data-session-id="${newSessionId}"] .xterm-helper-textarea`,
       ) as HTMLElement;

@@ -172,7 +172,7 @@ export async function restoreActiveWorkspace(): Promise<boolean> {
       regions: restoredRegions,
       focusedRegionId: focusedOk
         ? snapshot.focusedRegionId
-        : Object.keys(restoredRegions)[0] ?? "",
+        : (Object.keys(restoredRegions)[0] ?? ""),
     });
 
     return restoredCount > 0;

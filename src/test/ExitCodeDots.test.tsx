@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { render, screen } from "@testing-library/react";
-import { ExitCodeDots, EXIT_CODE_DOTS_TOTAL } from "../components/Swarm/ExitCodeDots";
+import {
+  ExitCodeDots,
+  EXIT_CODE_DOTS_TOTAL,
+} from "../components/Swarm/ExitCodeDots";
 
 describe("ExitCodeDots", () => {
   it("always renders 10 slots", () => {
@@ -54,7 +57,9 @@ describe("ExitCodeDots", () => {
 
   it("provides accessible aria-label", () => {
     render(<ExitCodeDots codes={[0, 1, 0]} />);
-    expect(screen.getByLabelText(/Last 10 command exit codes/)).toBeInTheDocument();
+    expect(
+      screen.getByLabelText(/Last 10 command exit codes/),
+    ).toBeInTheDocument();
   });
 
   it("handles null codes prop", () => {

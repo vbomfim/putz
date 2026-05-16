@@ -45,8 +45,12 @@ describe("issue #161 — mouse-tracking reset sequence", () => {
   it("[REGRESSION][AC-6] uses DECRST (lowercase l), not DECSET (h)", () => {
     // A common bug: typing `h` (set) instead of `l` (reset) re-enables
     // the modes we're trying to clear, making the bug worse.
+    // Test fixture: ESC (0x1b) is intentional here — we're matching the
+    // raw DECRST byte sequences emitted to the PTY.
+    // eslint-disable-next-line no-control-regex
     expect(EXPECTED_TRACKING_RESET).not.toMatch(/\x1b\[\?\d+h/);
     // All four sequences must end in `l`
+    // eslint-disable-next-line no-control-regex
     const matches = EXPECTED_TRACKING_RESET.match(/\x1b\[\?\d+./g) ?? [];
     expect(matches).toHaveLength(4);
     for (const seq of matches) {

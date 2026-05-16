@@ -384,10 +384,10 @@ export function migrateWorkspaceLayout(
  * @returns the keys whose presence was confirmed before removal
  */
 export function clearRemovedFeatureStorage(
-  storage: Pick<Storage, "getItem" | "removeItem"> | null = typeof localStorage !==
-    "undefined"
-    ? localStorage
-    : null,
+  storage: Pick<
+    Storage,
+    "getItem" | "removeItem"
+  > | null = typeof localStorage !== "undefined" ? localStorage : null,
 ): string[] {
   if (storage == null) return [];
   const removed: string[] = [];

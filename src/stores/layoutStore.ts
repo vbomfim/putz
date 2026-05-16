@@ -59,9 +59,7 @@ export interface SpawnTabOptions {
  * recipe loader has already validated them — see
  * `src-tauri/src/swarm/spawn_recipe.rs::validate_for_spawn`).
  */
-async function spawnPtySession(
-  options?: SpawnTabOptions,
-): Promise<string> {
+async function spawnPtySession(options?: SpawnTabOptions): Promise<string> {
   const { defaultShell } = useSettingsStore.getState();
   // Build the IPC payload, omitting fields that are undefined/empty.
   // Empty `defaultShell` ("") must NOT be forwarded — it's a sentinel
@@ -1016,6 +1014,10 @@ export const useLayoutStore = create<LayoutState>((set, get) => ({
     const tab = region.tabs.find((t) => t.id === tabId);
     if (tab && tab.type === "terminal") {
       setTimeout(() => {
+        // Guard against jsdom teardown — document may be undefined when this
+        // setTimeout fires after test cleanup. Same pattern as the auto-focus
+        // timers in tabStore.addTab / activateTab / splitPane.
+        if (typeof document === "undefined") return;
         const el = document.querySelector(
           `[data-session-id="${tab.sessionId}"] .xterm-helper-textarea`,
         ) as HTMLElement;
@@ -1270,6 +1272,10 @@ export const useLayoutStore = create<LayoutState>((set, get) => ({
 
     // Auto-focus the new terminal
     setTimeout(() => {
+      // Guard against jsdom teardown — document may be undefined when this
+      // setTimeout fires after test cleanup. Same pattern as the auto-focus
+      // timers in tabStore.addTab / activateTab / splitPane.
+      if (typeof document === "undefined") return;
       const el = document.querySelector(
         `[data-session-id="${sessionId}"] .xterm-helper-textarea`,
       ) as HTMLElement;

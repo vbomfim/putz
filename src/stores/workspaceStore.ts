@@ -130,9 +130,7 @@ function loadPersistedState(): PersistedWorkspaceState {
         const restoreEnabled = readRestoreTabsOnLaunchSetting();
         const cleaned = parsed.workspaces
           .map(sanitizeWorkspaceFromDisk)
-          .map((w) =>
-            restoreEnabled ? w : { ...w, savedLayout: null },
-          );
+          .map((w) => (restoreEnabled ? w : { ...w, savedLayout: null }));
         return {
           workspaces: cleaned,
           activeWorkspaceId:
@@ -298,9 +296,7 @@ function restoreLayoutState(snapshot: WorkspaceLayout | null): void {
       for (const [rid, region] of Object.entries(snapshot.regions)) {
         for (const tab of region.tabs) {
           if (tab.type === "terminal" && tab.pendingRestore) {
-            void useLayoutStore
-              .getState()
-              .materializeRestoredTab(rid, tab.id);
+            void useLayoutStore.getState().materializeRestoredTab(rid, tab.id);
           }
         }
       }
@@ -526,7 +522,7 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => {
 //
 // `flushNow()` short-circuits the debounce on app close.
 
-const SAVE_DEBOUNCE_MS = 1000;
+export const SAVE_DEBOUNCE_MS = 1000;
 let saveTimer: ReturnType<typeof setTimeout> | null = null;
 
 function scheduleAutoCapture(): void {
@@ -545,7 +541,9 @@ function scheduleAutoCapture(): void {
 // state shifts that don't affect the persisted shape (e.g. focus blink).
 let lastFingerprint = "";
 
-function fingerprintLayout(state: ReturnType<typeof useLayoutStore.getState>): string {
+function fingerprintLayout(
+  state: ReturnType<typeof useLayoutStore.getState>,
+): string {
   // Cheap structural signature — region IDs, tab IDs, types, file paths.
   // Excludes scrollback / sessionId regeneration churn.
   const parts: string[] = [];
@@ -587,11 +585,6 @@ queueMicrotask(() => {
     // Subscription failure must never crash the app — auto-capture is
     // a best-effort enhancement; switchWorkspace still persists on user
     // action even without it.
-    console.warn(
-      "[workspaceStore] auto-capture subscription failed:",
-      err,
-    );
+    console.warn("[workspaceStore] auto-capture subscription failed:", err);
   }
 });
-
-

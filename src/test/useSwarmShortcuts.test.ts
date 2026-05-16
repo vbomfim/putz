@@ -50,7 +50,9 @@ describe("useSwarmShortcuts", () => {
       useSwarmShortcuts({ onToggleInbox, onTogglePalette: vi.fn() }),
     );
     unmount();
-    window.dispatchEvent(new KeyboardEvent("keydown", { key: "j", metaKey: true }));
+    window.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "j", metaKey: true }),
+    );
     expect(onToggleInbox).not.toHaveBeenCalled();
   });
 });

@@ -23,11 +23,7 @@ export interface BookmarkableItem {
 // ─── Tab-type classification ─────────────────────────────────────────
 
 /** Tab types that are never bookmarkable. */
-const NON_BOOKMARKABLE_TYPES = new Set([
-  "settings",
-  "diff",
-  "search",
-]);
+const NON_BOOKMARKABLE_TYPES = new Set(["settings", "diff", "search"]);
 
 // ─── Public API ──────────────────────────────────────────────────────
 

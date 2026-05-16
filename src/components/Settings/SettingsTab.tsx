@@ -66,15 +66,11 @@ export function SettingsTab() {
   const setRestoreTabsOnLaunch = useSettingsStore(
     (s) => s.setRestoreTabsOnLaunch,
   );
-  const swarmSidebarPosition = useSettingsStore(
-    (s) => s.swarmSidebarPosition,
-  );
+  const swarmSidebarPosition = useSettingsStore((s) => s.swarmSidebarPosition);
   const setSwarmSidebarPosition = useSettingsStore(
     (s) => s.setSwarmSidebarPosition,
   );
-  const copilotCardDismissed = useSettingsStore(
-    (s) => s.copilotCardDismissed,
-  );
+  const copilotCardDismissed = useSettingsStore((s) => s.copilotCardDismissed);
   const setCopilotCardDismissed = useSettingsStore(
     (s) => s.setCopilotCardDismissed,
   );
@@ -644,8 +640,8 @@ export function SettingsTab() {
             }}
           >
             Restore your tabs and split layout the next time Putz starts.
-            Working directories and recipe commands are remembered;
-            scrollback and shell state are not.
+            Working directories and recipe commands are remembered; scrollback
+            and shell state are not.
           </p>
           <label
             style={{
@@ -683,9 +679,9 @@ export function SettingsTab() {
               margin: "0 0 12px",
             }}
           >
-            Enable a local swarm coordinator. Putz hosts a Unix domain
-            socket (macOS/Linux) or Windows named pipe; only your user
-            can connect. No external network access.
+            Enable a local swarm coordinator. Putz hosts a Unix domain socket
+            (macOS/Linux) or Windows named pipe; only your user can connect. No
+            external network access.
           </p>
           <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
             <button
@@ -725,8 +721,8 @@ export function SettingsTab() {
             }}
           >
             ⚠ Messages exchanged between swarm agents may contain prompts with
-            sensitive data. The coordinator runs locally and does not transmit data
-            externally, but exercise caution when using agent prompts that
+            sensitive data. The coordinator runs locally and does not transmit
+            data externally, but exercise caution when using agent prompts that
             reference personal or confidential information.
           </p>
 

@@ -111,10 +111,7 @@ fn probe_copilot() -> bool {
             }
         }
         if let Ok(pf) = std::env::var("ProgramFiles") {
-            for sub in [
-                "GitHub Copilot CLI\\copilot.exe",
-                "GitHub CLI\\copilot.exe",
-            ] {
+            for sub in ["GitHub Copilot CLI\\copilot.exe", "GitHub CLI\\copilot.exe"] {
                 let candidate = std::path::PathBuf::from(&pf).join(sub);
                 if candidate.exists() && try_probe(candidate.to_string_lossy().as_ref()) {
                     return true;

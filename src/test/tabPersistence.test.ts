@@ -16,6 +16,7 @@ import {
   migrateWorkspaceLayout,
   CURRENT_SCHEMA_VERSION,
 } from "../utils/migratePersistence";
+import { SAVE_DEBOUNCE_MS } from "../stores/workspaceStore";
 
 const STORAGE_KEY = "putz-workspaces";
 
@@ -32,9 +33,7 @@ describe("migratePersistence v3 — additive cwd", () => {
       regions: {
         r1: {
           id: "r1",
-          tabs: [
-            { id: "t1", type: "terminal", title: "T", sessionId: "s1" },
-          ],
+          tabs: [{ id: "t1", type: "terminal", title: "T", sessionId: "s1" }],
           activeTabId: "t1",
           tabPosition: "top",
         },
@@ -144,9 +143,7 @@ describe("migratePersistence v3 — additive cwd", () => {
     };
     const out = migrateWorkspaceLayout(raw);
     expect(out!.regions.r1.tabs).toHaveLength(1);
-    expect(
-      (out!.regions.r1.tabs[0] as { cwd?: unknown }).cwd,
-    ).toBeUndefined();
+    expect((out!.regions.r1.tabs[0] as { cwd?: unknown }).cwd).toBeUndefined();
   });
 
   it("drops cwd containing a NUL byte (trust-boundary defense)", () => {
@@ -172,9 +169,7 @@ describe("migratePersistence v3 — additive cwd", () => {
       },
     };
     const out = migrateWorkspaceLayout(raw);
-    expect(
-      (out!.regions.r1.tabs[0] as { cwd?: unknown }).cwd,
-    ).toBeUndefined();
+    expect((out!.regions.r1.tabs[0] as { cwd?: unknown }).cwd).toBeUndefined();
   });
 
   it("drops cwd that exceeds MAX_PATH_LENGTH (DoS defense)", () => {
@@ -201,9 +196,7 @@ describe("migratePersistence v3 — additive cwd", () => {
       },
     };
     const out = migrateWorkspaceLayout(raw);
-    expect(
-      (out!.regions.r1.tabs[0] as { cwd?: unknown }).cwd,
-    ).toBeUndefined();
+    expect((out!.regions.r1.tabs[0] as { cwd?: unknown }).cwd).toBeUndefined();
   });
 
   it("drops command missing exec (refuses to half-spawn)", () => {
@@ -596,9 +589,9 @@ describe("Bug 1 — lazy PTY spawn on restore", () => {
 
     // Should have called pty_spawn exactly once with cwd, and NO shell key
     // (default shell is unset in tests, so spawnPtySession omits it).
-    const ptySpawnCalls = (invoke as ReturnType<typeof vi.fn>).mock.calls.filter(
-      (c) => c[0] === "pty_spawn",
-    );
+    const ptySpawnCalls = (
+      invoke as ReturnType<typeof vi.fn>
+    ).mock.calls.filter((c) => c[0] === "pty_spawn");
     expect(ptySpawnCalls).toHaveLength(1);
     expect(ptySpawnCalls[0][1]).toMatchObject({ cwd: "/tmp/one" });
     expect(ptySpawnCalls[0][1].shell).toBeUndefined();
@@ -616,16 +609,14 @@ describe("Bug 1 — lazy PTY spawn on restore", () => {
 
     const { invoke } = await import("@tauri-apps/api/core");
     let spawnCounter = 0;
-    (invoke as ReturnType<typeof vi.fn>).mockImplementation(
-      (cmd: string) => {
-        if (cmd === "pty_spawn") {
-          spawnCounter += 1;
-          return Promise.resolve(`spawned-${spawnCounter}`);
-        }
-        if (cmd === "pty_close") return Promise.resolve();
-        return Promise.resolve();
-      },
-    );
+    (invoke as ReturnType<typeof vi.fn>).mockImplementation((cmd: string) => {
+      if (cmd === "pty_spawn") {
+        spawnCounter += 1;
+        return Promise.resolve(`spawned-${spawnCounter}`);
+      }
+      if (cmd === "pty_close") return Promise.resolve();
+      return Promise.resolve();
+    });
 
     await Promise.all([
       useLayoutStore.getState().materializeRestoredTab("rR", firstTabId),
@@ -709,7 +700,23 @@ describe("Bug 1 — lazy PTY spawn on restore", () => {
 });
 
 describe("Bug 2 — restoreTabsOnLaunch=false clears savedLayout at boot", () => {
-  beforeEach(() => {
+  beforeEach(async () => {
+    // workspaceStore installs a `queueMicrotask` subscription to
+    // layoutStore that schedules a SAVE_DEBOUNCE_MS auto-capture timer
+    // on every layout mutation. Bug 1's tests mutate layoutStore via
+    // restoreActiveWorkspace / materializeRestoredTab, leaving a pending
+    // real `setTimeout`. The timer survives `vi.resetModules()` because
+    // it lives on the global event loop, not in the module cache — and
+    // when it fires during our `localStorage.setItem` + dynamic
+    // `await import(...)` setup below it overwrites localStorage with
+    // stale Bug-1 layout state, making our 1-tab seed disappear behind
+    // a 2-tab leftover.
+    //
+    // Sleep > SAVE_DEBOUNCE_MS so any in-flight timer fires (and is
+    // discarded) BEFORE we plant the seed. Re-clear afterwards so the
+    // discarded write doesn't pollute our setup. We add 100ms of slack
+    // to absorb scheduling jitter under CI load.
+    await new Promise((resolve) => setTimeout(resolve, SAVE_DEBOUNCE_MS + 100));
     localStorage.clear();
   });
 

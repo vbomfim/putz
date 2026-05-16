@@ -1388,6 +1388,9 @@ pub enum ReleaseResult {
 /// (libuv), Python's `pywin32`, or `CreateFile` directly need the FULL
 /// path. Idempotent: if the path is already prefixed, it is returned
 /// unchanged (defends against test fixtures that pass a full path).
+// `return` is structurally required: each cfg block is the function's
+// terminal expression on its matching platform.
+#[allow(clippy::needless_return)]
 fn to_child_pipe_path(path: &str) -> String {
     #[cfg(target_os = "windows")]
     {
