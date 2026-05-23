@@ -670,6 +670,13 @@ export function useTerminal({
         return false;
       }
 
+      // Shift+Insert — classic Windows/Linux paste shortcut
+      if (event.shiftKey && event.key === "Insert") {
+        event.preventDefault();
+        pasteToTerminal(terminal, pasteGuard, event.timeStamp);
+        return false;
+      }
+
       // Cmd+A / Ctrl+A — select all terminal content
       if (isMod && !event.shiftKey && (key === "a" || event.code === "KeyA")) {
         terminal.selectAll();

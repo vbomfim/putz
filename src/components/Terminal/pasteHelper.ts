@@ -166,7 +166,7 @@ export function _resetPasteInFlight(): void {
  *  4. The `onData` handler in useTerminal.ts writes the bytes to the PTY
  *
  * This function is the ONLY clipboard paste entry point. All paste
- * triggers (contextmenu, Ctrl+V, Ctrl+Shift+V) call this.
+ * triggers (contextmenu, Ctrl+V, Ctrl+Shift+V, Shift+Insert) call this.
  *
  * @param terminal - The xterm.js Terminal instance
  * @param guard - Per-instance PasteGuard for deduplication
