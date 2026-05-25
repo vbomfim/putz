@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.1] — 2026-05-25
+
+### Fixed
+- **Wheel scroll preserved inside active TUIs** (#175, closes #174) — PR #161 added a `mousedown` listener that wrote a DECRST mouse-tracking-disable burst on every left-click while tracking was active, intending to recover from TUIs that exit without restoring tracking. The side-effect: it fired during active TUI sessions too, so xterm.js translated wheel events into ↑/↓ arrow sequences inside the alt-buffer, and Copilot CLI (and any readline-based TUI) interpreted them as command-history navigation. Removed the unconditional `mousedown` reset; moved stuck-tracking recovery into `handleContextMenu` with branching on TUI state (alt-buffer + tracking → skip paste; tracking stuck after TUI exit → reset + paste; plain shell → paste; selection present → copy). Preserves #161's double-paste fix and post-TUI recovery.
+
 ## [0.6.0] — 2026-05-16
 
 ### Added
