@@ -441,16 +441,28 @@ export function useTerminal({
 
     // ─── Right-click: copy selection OR paste clipboard ────────────
     //
-    // #161: Right-click behavior depends on mouse tracking state:
-    //   • Mouse tracking OFF (plain shell): contextmenu pastes clipboard
-    //   • Mouse tracking ON (TUI like Copilot CLI): TUI handles paste
-    //     via mouse event escape sequences — we skip to avoid double.
-    //   • With text selected: right-click copies selection, clears it.
+    // #174 supersedes #161. Right-click is the ONLY mouse handler that
+    // touches paste/tracking state. We never touch left-click or wheel,
+    // so wheel-scroll inside an active TUI (Copilot, vim, less, …) is
+    // preserved end-to-end.
+    //
+    //   1. Selection present → copy + clear (Windows Terminal parity).
+    //   2. TUI active (alt-buffer + mouse tracking) → skip; TUI handles
+    //      paste via mouse escape sequences. Prevents double paste.
+    //   3. Normal buffer + tracking still on → tracking is stuck after a
+    //      TUI exited without restoring it. Reset once, then paste.
+    //   4. Plain shell (tracking "none") → paste normally.
+    //
+    // Why no left-click reset: PR #161 reset stuck tracking on every
+    // left-click, which also fired during active TUI sessions and
+    // permanently disabled tracking → wheel events fell back to
+    // xterm.js's alt-buffer default (↑/↓ arrow injection) → Copilot CLI
+    // cycled command history instead of scrolling. See #174.
     const handleContextMenu = (e: MouseEvent) => {
       e.preventDefault();
       if (disposed) return;
 
-      // If text is selected → copy it, clear selection, don't paste.
+      // 1. Selection present → copy + clear, never paste.
       const selection = terminal.getSelection();
       if (selection) {
         navigator.clipboard.writeText(selection).catch(() => {});
@@ -458,24 +470,19 @@ export function useTerminal({
         return;
       }
 
-      // When mouse tracking is active, the TUI handles right-click paste
-      // via mouse event escape sequences. Skip our paste to avoid double.
-      if (terminal.modes.mouseTrackingMode !== "none") return;
+      if (terminal.modes.mouseTrackingMode !== "none") {
+        if (terminal.buffer.active.type === "alternate") {
+          // 2. TUI is active — let it handle paste via mouse escapes.
+          return;
+        }
+        // 3. Normal buffer + tracking on = stuck after TUI exit. Reset.
+        terminal.write("\x1b[?1000l\x1b[?1002l\x1b[?1003l\x1b[?1006l");
+      }
 
+      // 4. Paste normally.
       pasteToTerminal(terminal, pasteGuard, e.timeStamp);
     };
     container.addEventListener("contextmenu", handleContextMenu);
-
-    // #161: Reset stuck mouse tracking on left-click. TUIs may not
-    // disable tracking on exit, breaking selection and right-click paste.
-    // If a TUI IS running, it re-enables tracking on next render (~16ms).
-    // Only fires when tracking is actually on — no-op in plain shell.
-    const handleTrackingReset = (e: MouseEvent) => {
-      if (e.button === 0 && terminal.modes.mouseTrackingMode !== "none") {
-        terminal.write("\x1b[?1000l\x1b[?1002l\x1b[?1003l\x1b[?1006l");
-      }
-    };
-    container.addEventListener("mousedown", handleTrackingReset, true);
 
     // Track focused pane — when user clicks this terminal, update store
     // so splitActivePane targets the correct pane
@@ -663,7 +670,7 @@ export function useTerminal({
         return false;
       }
 
-      // Shift+Insert — classic Windows paste shortcut
+      // Shift+Insert — classic Windows/Linux paste shortcut
       if (event.shiftKey && event.key === "Insert") {
         event.preventDefault();
         pasteToTerminal(terminal, pasteGuard, event.timeStamp);
@@ -835,7 +842,6 @@ export function useTerminal({
       window.removeEventListener("putz-overlay-toggle", handleOverlayToggle);
       resizeObserver.disconnect();
       container.removeEventListener("contextmenu", handleContextMenu);
-      container.removeEventListener("mousedown", handleTrackingReset, true);
       container.removeEventListener("mousedown", handlePaneFocus);
 
       highlightEngine.dispose();
